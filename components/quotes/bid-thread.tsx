@@ -6,7 +6,7 @@
 // loads and sends and this only shows.
 
 import { useEffect, useRef, useState } from 'react'
-import { Loader2, Send } from 'lucide-react'
+import { Loader2, RefreshCw, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { messageProblem, MESSAGE_MAX, type BidMessage } from '@/lib/bid-thread'
 import { absoluteTime, timeAgo } from '@/lib/time-ago'
@@ -14,7 +14,7 @@ import { absoluteTime, timeAgo } from '@/lib/time-ago'
 export type ThreadState = 'loading' | 'ready' | 'failed'
 
 export function BidThread({
-  messages, state, mine, otherName, onSend,
+  messages, state, mine, otherName, onSend, onRefresh,
 }: {
   messages: BidMessage[]
   /** "No messages yet" is only ever said over a read that worked. */
@@ -25,7 +25,10 @@ export function BidThread({
   otherName: string
   /** Resolves to an error sentence, or null when it went. */
   onSend: (body: string) => Promise<string | null>
+  /** Re-read the thread - a reply arrives from somebody else's screen. */
+  onRefresh?: () => Promise<void>
 }) {
+  const [checking, setChecking] = useState(false)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -85,7 +88,14 @@ export function BidThread({
           className="w-full resize-none rounded-lg border border-line bg-surface px-3 py-2.5 text-base text-ink placeholder:text-faint focus:border-accent focus:outline-none"
         />
         {error && <p className="text-sm text-danger">{error}</p>}
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
+          {onRefresh ? (
+            <button type="button" disabled={checking}
+              onClick={async () => { setChecking(true); try { await onRefresh() } finally { setChecking(false) } }}
+              className="inline-flex items-center gap-1 text-xs font-medium text-muted-fg hover:text-ink disabled:opacity-60">
+              <RefreshCw className={cn('h-3.5 w-3.5', checking && 'animate-spin')} /> Check for replies
+            </button>
+          ) : <span />}
           <button
             type="button"
             onClick={send}

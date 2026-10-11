@@ -2,7 +2,7 @@ import { addDaysIso } from './inspection-status'
 import { dayWords } from './dates'
 import { TRIAL_DAYS } from './plans'
 import {
-  inviteEmail, platformInviteEmail, teamInviteEmail, vendorInviteEmail,
+  inviteEmail, platformInviteEmail, teamInviteEmail, vendorInviteEmail, subWelcomeEmail,
   passwordResetEmail, welcomeEmail, clientPortalEmail, tokenLinkEmail,
   awardEmail, scheduleShiftEmail, scheduleUnblockedEmail, scopeChangeEmail,
   deletionRequestEmail,
@@ -101,6 +101,14 @@ export const DEMO_EMAILS: DemoEmail[] = [
     when: 'A GC adds a vendor to their Directory.',
     build: () => vendorInviteEmail({
       name: PERSON, gcName: GC, inviteUrl: `${APP}/signup?invite=demo`,
+    }),
+  },
+  {
+    key: 'sub-welcome',
+    label: 'Sub account made from a quote link',
+    when: 'A sub creates a free account on their quote page to message the GC.',
+    build: () => subWelcomeEmail({
+      name: PERSON, gcName: GC, signInUrl: `${APP}/login`, askedAbout: 'Framing on Fairview Terrace Residence',
     }),
   },
   {

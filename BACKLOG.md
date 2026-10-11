@@ -549,10 +549,11 @@ and why:
 ## 💬 Quote messages - next steps
 - **No unread state.** The GC's invite row says "waiting on your reply" when the sub spoke last, which is the question that matters; there is no per-person read marker, so two people at the GC both see it until one answers.
 - **Text only.** A sub who wants to send a photo of a site condition attaches it to their quote instead. Attachments on a message would need the storage + signed-URL path the quote upload already uses.
-- **Not on My Bids.** A signed-in sub reaches the thread from the quote page (`/bid/<token>`, which My Bids links to); My Bids itself does not show a message count yet.
+- **Sub "Edit project" on an awarded job.** The My Jobs job header has an edit pencil that PATCHes the GC's project; on the vendor role it is refused. It belongs on a sub's OWN jobs only.
 
 ## ✅ Recently shipped (for reference)
 
+- Sub job view: a Schedule tab on My Jobs (whole job, theirs marked) and delay REPORTS on their own lines that the GC applies through the normal delay screen (`schedule_delay_reports`, migration 135); subs can bill against their own subcontract; free vendor accounts are made in place with a password; Files gained Job Files.
 - Quote messages: a sub can message the GC about a quote request from their link once they create a free vendor account (read_only, unmetered, cannot create jobs); one thread per invite, `bid_messages` (migration 134). Equipment repair: a needs-repair flag beside the status, a condition on check-in, send for repair / repaired / retire / bring back with `equipment_events` history, serial numbers, edit and delete.
 
 - Credit on account: a payment can hold what is not on an invoice as the client's credit (`client_payments.on_account`, migration 129), applied later from an invoice's menu; in QuickBooks it is unapplied credit on the same Payment, rewritten in place when applied.

@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { contractAmountLabel } from '@/lib/contract-amount'
 import { parseDate, formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { usePermissions } from '@/lib/use-permissions'
 
 const PROJECT_TYPES = ['residential', 'commercial', 'industrial', 'renovation', 'other']
 
@@ -30,6 +31,12 @@ interface Customer { id: string; name: string }
 export default function MyJobsPage() {
   const notify = useNotice()
   const supabase = createClient()
+  // A free vendor account (the one a sub makes from a quote link) sees the
+  // jobs it is invited to and creates none - the route refuses, and the
+  // buttons go once that answer is KNOWN, never on a permissions read that
+  // failed (which answers exactly like a refusal).
+  const perms = usePermissions()
+  const cannotCreate = !perms.loading && !perms.error && !perms.can('projects', 'create')
   const [awarded, setAwarded] = useState<AwardedJob[]>([])
   const [own, setOwn] = useState<OwnProject[]>([])
   const [loading, setLoading] = useState(true)
@@ -150,7 +157,9 @@ export default function MyJobsPage() {
           <h1 className="text-2xl font-bold text-ink">My Jobs</h1>
           <p className="text-sm text-muted-fg mt-0.5">Projects you're working on - awarded and your own.</p>
         </div>
-        <Button onClick={() => { setActiveTab('own'); setShowForm(true) }} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Project</Button>
+        {!cannotCreate && (
+          <Button onClick={() => { setActiveTab('own'); setShowForm(true) }} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Project</Button>
+        )}
       </div>
 
       {/* Tabs */}
@@ -227,10 +236,16 @@ export default function MyJobsPage() {
           <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
             <FolderOpen className="h-8 w-8 text-faint mx-auto mb-3" />
             <p className="text-sm font-medium text-muted-fg">No projects yet</p>
-            <p className="text-xs text-faint mt-1">Create and manage your own projects - permits, inspections, plans, daily logs, and more.</p>
-            <button onClick={() => setShowForm(true)} className="mt-4 text-sm text-accent-fg hover:underline font-medium">
-              + Create your first project
-            </button>
+            {cannotCreate ? (
+              <p className="text-xs text-faint mt-1">Your account shows the jobs you are invited to. It cannot create jobs of its own.</p>
+            ) : (
+              <>
+                <p className="text-xs text-faint mt-1">Create and manage your own projects - permits, inspections, plans, daily logs, and more.</p>
+                <button onClick={() => setShowForm(true)} className="mt-4 text-sm text-accent-fg hover:underline font-medium">
+                  + Create your first project
+                </button>
+              </>
+            )}
           </div>
         ) : (
           <div className="space-y-2">

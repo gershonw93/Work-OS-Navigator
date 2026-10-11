@@ -154,6 +154,18 @@ export function demoNotification(type: string, today: string): DemoNotification 
         message: `Framing on ${PROJECT} moved 3 days: was ${inDays(-1)}, now ${inDays(2)}, because Foundation ran long.`,
         link: '/my-jobs',
       }
+    case 'schedule_delay_reported':
+      return {
+        title: `${SUB} reported a delay`,
+        message: `Framing on ${PROJECT}, 3 days: "Truss delivery pushed by the yard." Due to start ${inDays(2)} - review it to see what moves.`,
+        link: '/projects',
+      }
+    case 'schedule_delay_decided':
+      return {
+        title: 'Your delay was applied',
+        message: `Framing on ${PROJECT} now starts ${inDays(5)}.`,
+        link: '/my-jobs',
+      }
     case 'schedule_unblocked':
       return {
         title: 'You are clear to start',

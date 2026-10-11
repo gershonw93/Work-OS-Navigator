@@ -12,8 +12,9 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { CheckCircle2, Loader2, MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import type { BidMessage } from '@/lib/bid-thread'
+import { accountProblem, PASSWORD_MIN, type BidMessage } from '@/lib/bid-thread'
 import { BidThread, type ThreadState } from './bid-thread'
+import { PasswordInput } from '@/components/ui/password-input'
 
 type Mode =
   | { kind: 'checking' }
@@ -43,7 +44,10 @@ export function QuoteMessages({
   const [email, setEmail] = useState('')
   const [busy, setBusy] = useState(false)
   const [formError, setFormError] = useState('')
-  const [sentTo, setSentTo] = useState<string | null>(null)
+  const [password, setPassword] = useState('')
+  // The address the new account signs in with - shown once, because with the
+  // address taken from the invite the sub never typed it.
+  const [createdAs, setCreatedAs] = useState<string | null>(null)
   const [signInInstead, setSignInInstead] = useState<string | null>(null)
 
   const bearer = useCallback(async () => {
@@ -91,21 +95,30 @@ export function QuoteMessages({
 
   async function requestAccount(e: React.FormEvent) {
     e.preventDefault()
-    if (!fullName.trim()) { setFormError('Enter your name.'); return }
+    const problem = accountProblem({ fullName, password })
+    if (problem) { setFormError(problem); return }
     if (!hasEmail && !email.trim()) { setFormError('Enter your email address.'); return }
     setBusy(true); setFormError('')
     try {
       const res = await fetch(`/api/bid/${token}/account`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ full_name: fullName.trim(), company_name: company.trim(), email: email.trim() }),
+        body: JSON.stringify({ full_name: fullName.trim(), company_name: company.trim(), email: email.trim(), password }),
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setFormError(d.error ?? 'Could not set up your account. Try again.'); return }
       if (d.signIn) { setSignInInstead(d.message); return }
-      setSentTo(d.email ?? 'your inbox')
+      // The account exists. Sign straight in and open the conversation - no
+      // trip to the inbox and back.
+      const { error: signInErr } = await createClient().auth.signInWithPassword({ email: d.email, password })
+      if (signInErr) {
+        setSignInInstead(`Your account is ready. Sign in with ${d.email} and the password you just chose.`)
+        return
+      }
+      setCreatedAs(d.email)
+      await load()
     } catch {
-      setFormError('We could not tell whether that went through. Check your inbox before trying again.')
+      setFormError('We could not tell whether that went through. Try signing in with "I already have an account" before trying again.')
     } finally {
       setBusy(false)
     }
@@ -124,20 +137,18 @@ export function QuoteMessages({
 
       {mode.kind === 'wrong-account' && <p className="text-sm text-muted-fg">{mode.message}</p>}
 
+      {mode.kind === 'thread' && createdAs && (
+        <p className="mb-3 flex items-center gap-1.5 rounded-lg border border-success/30 bg-success-tint px-3 py-2 text-xs text-ink">
+          <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-success" />
+          You are signed in as {createdAs}. Use it with your password next time.
+        </p>
+      )}
       {mode.kind === 'thread' && (
-        <BidThread messages={messages} state={state} mine="sub" otherName={gc} onSend={send} />
+        <BidThread messages={messages} state={state} mine="sub" otherName={gc} onSend={send} onRefresh={load} />
       )}
 
       {mode.kind === 'signed-out' && (
-        sentTo ? (
-          <div className="rounded-xl border border-success/30 bg-success-tint px-4 py-4 text-center">
-            <CheckCircle2 className="mx-auto mb-2 h-7 w-7 text-success" />
-            <p className="font-semibold">Check {sentTo}</p>
-            <p className="mt-1 text-sm text-muted-fg">
-              We sent a link to finish your account. Set a password and you land back here, ready to message {gc}.
-            </p>
-          </div>
-        ) : signInInstead ? (
+        signInInstead ? (
           <div className="space-y-3">
             <p className="text-sm text-muted-fg">{signInInstead}</p>
             <Link href={loginHref} className="inline-flex min-h-[44px] items-center rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:bg-accent/90">
@@ -157,19 +168,24 @@ export function QuoteMessages({
               <label htmlFor="qm-company" className="text-sm text-ink-soft">Company (optional)</label>
               <input id="qm-company" autoComplete="organization" value={company} onChange={e => setCompany(e.target.value)} className={inputCls} />
             </div>
-            {hasEmail ? (
-              <p className="text-xs text-faint">We will email the link to finish your account to the address this request was sent to.</p>
-            ) : (
+            {!hasEmail && (
               <div className="space-y-1.5">
                 <label htmlFor="qm-email" className="text-sm text-ink-soft">Email *</label>
-                <input id="qm-email" type="email" autoComplete="email" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} />
+                <input id="qm-email" type="email" autoComplete="username" inputMode="email" value={email} onChange={e => setEmail(e.target.value)} className={inputCls} />
               </div>
             )}
+            <div className="space-y-1.5">
+              <label htmlFor="qm-password" className="text-sm text-ink-soft">Choose a password *</label>
+              <PasswordInput id="qm-password" autoComplete="new-password" value={password} onChange={e => setPassword(e.target.value)} />
+              <p className="text-xs text-faint">
+                At least {PASSWORD_MIN} characters.{hasEmail ? ' Your account uses the email address this request was sent to.' : ''}
+              </p>
+            </div>
             {formError && <p className="text-sm text-danger">{formError}</p>}
             <div className="flex flex-wrap items-center gap-3">
               <button type="submit" disabled={busy}
                 className="inline-flex min-h-[44px] items-center justify-center gap-2 whitespace-nowrap rounded-lg bg-accent px-4 text-sm font-semibold text-accent-ink hover:bg-accent/90 disabled:opacity-60">
-                {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Sending…</> : 'Create free account'}
+                {busy ? <><Loader2 className="h-4 w-4 animate-spin" /> Creating…</> : 'Create free account'}
               </button>
               <Link href={loginHref} className="text-sm font-medium text-ink-soft underline-offset-2 hover:underline">
                 I already have an account

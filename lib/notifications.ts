@@ -355,6 +355,25 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
+    // TO THE GC. A sub says their trade is running late. Nothing has moved:
+    // what it asks for is a decision about the schedule, so it goes to whoever
+    // can make one - `schedule: edit`, the permission the delay screen asks.
+    // Email ON: a slipped trade discovered at the next login is a crew turning
+    // up to a site that is not ready for them.
+    key: 'schedule_delay_reported', label: 'A sub reported a delay', group: 'Work',
+    description: 'A sub on one of your jobs says their trade is running late and asks you to move their dates.',
+    audience: 'team', defaultAudience: ['schedule', 'edit'],
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
+    // TO THE SUB. The answer to their report, either way - a report nobody
+    // hears back about is a sub left guessing which dates to work to.
+    key: 'schedule_delay_decided', label: 'My delay was answered', group: 'Work',
+    description: 'The GC applied or turned down a delay you reported.',
+    audience: 'direct',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
     key: 'schedule_unblocked', label: "I'm unblocked", group: 'Work',
     description: 'The trade ahead of you reached the point you were waiting for.',
     audience: 'direct',

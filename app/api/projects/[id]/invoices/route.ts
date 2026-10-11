@@ -5,6 +5,7 @@ import { destinationsBySubcontract, rollupBudgetLines } from '@/lib/invoice-budg
 import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { getActor } from '@/lib/server-permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -179,9 +180,6 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const gate = await requirePermission(admin(), request, 'invoices', 'edit')
-  if (denied(gate)) return gate.denied
-
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -189,11 +187,37 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const body = await request.json()
   const {
-    subcontract_id, payment_schedule_item_id, company_id, company_name, amount,
+    subcontract_id, payment_schedule_item_id, amount,
     description, due_date, client_paid, escrow_paid, document_url, document_name,
     line_items, subtotal, tax, retainage, quote_check,
-  } = await request.json()
+  } = body
+  let { company_id, company_name } = body
+
+  // TWO WAYS IN, and the narrow one is checked against the record, not a role.
+  //
+  // The office enters bills with `invoices: edit`. A SUB submits their own
+  // from My Jobs, on the vendor role, which holds `invoices: N` - so this route
+  // refused every invited sub's bill with a 403, while the invite email told
+  // them they could "send in your bills". Widening the role would hand them the
+  // GC's whole Invoices screen; instead a sub may bill against a subcontract
+  // THEIR company holds on THIS job, and nothing else. And the company on the
+  // bill then comes off that subcontract, never the body - otherwise a sub
+  // could submit a bill in another company's name.
+  const gate = await requirePermission(db, request, 'invoices', 'edit')
+  if (denied(gate)) {
+    const actor = await getActor(db, token)
+    const { data: sc } = subcontract_id && actor?.companyId
+      ? await db.from('subcontracts')
+          .select('id, company_id, companies ( name )')
+          .eq('id', subcontract_id).eq('project_id', params.id).eq('company_id', actor.companyId)
+          .maybeSingle()
+      : { data: null }
+    if (!sc) return gate.denied
+    company_id = sc.company_id
+    company_name = (sc as any).companies?.name ?? company_name ?? null
+  }
 
   // Count existing invoices for this project to generate invoice number
   const { count } = await db

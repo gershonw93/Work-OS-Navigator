@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle, ChevronRight, ChevronDown, Pencil, MessageSquare } from 'lucide-react'
+import { Plus, X, FileText, Send, Link2, Copy, Trash2, Scale, Loader2, CheckCircle2, Mail, Paperclip, Upload, Trophy, AlertTriangle, ChevronRight, ChevronDown, Pencil, MessageSquare, RefreshCw } from 'lucide-react'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { cn } from '@/lib/utils'
 import { ComparisonBlock, type Comparison } from '@/components/quotes/comparison-block'
 import { BidThreadDialog } from '@/components/quotes/bid-thread-dialog'
+import { threadSummary } from '@/lib/bid-thread'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { ScopeBuilder, EMPTY_SCOPE, type ScopeValue } from '@/components/projects/scope-builder'
 import { ItemListEditor } from '@/components/projects/item-list-editor'
@@ -45,7 +46,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const guardDelete = useDeleteGuard()
   const [requests, setRequests] = useState<any[]>([])
   const [comparisons, setComparisons] = useState<Comparison[]>([])
-  const [subs, setSubs] = useState<{ id: string; name: string; email?: string; trade?: string | null }[]>([])
+  const [subs, setSubs] = useState<{ id: string; name: string; email?: string; contactName?: string | null; trade?: string | null }[]>([])
   // Who to invite, ticked before the request even exists. Keyed by company id.
   const [inviteNow, setInviteNow] = useState<Set<string>>(new Set())
   const [loading, setLoading] = useState(true)
@@ -84,6 +85,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
   const [pendingContact, setPendingContact] = useState<{ name: string; email: string } | null>(null)
   const [contactForm, setContactForm] = useState({ name: '', email: '', phone: '', trade: '', type: 'subcontractor' })
   const [contactSaving, setContactSaving] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   // The quote conversation open in the dialog, if any.
   const [thread, setThread] = useState<{ reqId: string; title: string; invite: any } | null>(null)
 
@@ -100,7 +102,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
     if (r.ok) setRequests((await r.json()).requests ?? [])
     // `trade` comes along now - it was dropped here, which is why nothing
     // downstream could group a directory by it.
-    if (d.ok) setSubs(((await d.json()).companies ?? []).filter((c: any) => c.type === 'subcontractor' || c.type === 'supplier').map((c: any) => ({ id: c.id, name: c.name, email: c.contact_email, trade: c.trade })))
+    if (d.ok) setSubs(((await d.json()).companies ?? []).filter((c: any) => c.type === 'subcontractor' || c.type === 'supplier').map((c: any) => ({ id: c.id, name: c.name, email: c.contact_email, contactName: c.contact_name ?? null, trade: c.trade })))
     if (p.ok) setSavedPlans(((await p.json()).plans ?? []).map((pl: any) => ({ id: pl.id, name: pl.name, file_url: pl.file_url })))
     if (c.ok) setComparisons((await c.json()).comparisons ?? [])
     setLoading(false)
@@ -408,7 +410,16 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         onChange={e => { if (e.target.files?.length) uploadNewSet(e.target.files); e.target.value = '' }} />
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Quotes &amp; Bids</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-ink">Quotes &amp; Bids</h1>
+            {/* Quotes and messages arrive from outside while this page sits
+                open, and on a desktop there is no pull-to-refresh. */}
+            <button type="button" onClick={async () => { setRefreshing(true); try { await load() } finally { setRefreshing(false) } }}
+              aria-label="Check for new quotes and messages" title="Check for new quotes and messages"
+              className="rounded-lg p-1.5 text-faint hover:bg-surface hover:text-ink">
+              <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} />
+            </button>
+          </div>
           <p className="text-sm text-muted-fg mt-0.5">Send plans to subs, track responses, then compare &amp; award - all in one place. Each sub gets a private link, no account needed.</p>
         </div>
         <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
@@ -569,6 +580,8 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
               ? { label: 'Responses in', cls: 'bg-info-tint text-info' }
               : { label: 'Open', cls: 'bg-muted text-muted-fg' }
         const isCollapsed = !expanded.has(req.id)
+        const waiting = invites.filter((inv: any) =>
+          threadSummary((req.bid_messages ?? []).filter((m: any) => m.bid_invite_id === inv.id), 'gc').waitingOnMe).length
         return (
           // NO overflow-hidden: it clips on both axes, and the RowMenu in this
           // header - and the invite menus further down - hang off the card. A
@@ -590,6 +603,14 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                     </span>
                   </div>
                   <p className={cn('text-xs', overdue ? 'text-danger' : 'text-faint')}>{req.trade ? `${req.trade} · ` : ''}{invites.length} invited · {submissions.length} responded{req.due_date ? ` · ${overdue ? 'was due' : 'due'} ${formatDate(req.due_date)}` : ''}</p>
+                  {/* A sub's question must show on the CLOSED card - nobody
+                      expands every request to find out whether anyone wrote. */}
+                  {waiting > 0 && (
+                    <p className="mt-0.5 flex items-center gap-1 text-xs font-medium text-accent-fg">
+                      <MessageSquare className="h-3 w-3" />
+                      {waiting === 1 ? '1 sub is waiting on your reply' : `${waiting} subs are waiting on your reply`}
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
@@ -734,24 +755,22 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                   const answered = inv.status === 'submitted' || inv.status === 'declined'
                   // The conversation's shape: how long it is and whether the
                   // sub spoke last - which is the one that wants an answer.
-                  const said = (req.bid_messages ?? [])
-                    .filter((m: any) => m.bid_invite_id === inv.id)
-                    .sort((a: any, b: any) => a.created_at.localeCompare(b.created_at))
-                  const theyWroteLast = said.length > 0 && said[said.length - 1].side === 'sub'
+                  const thread = threadSummary((req.bid_messages ?? []).filter((m: any) => m.bid_invite_id === inv.id), 'gc')
+                  const theyWroteLast = thread.waitingOnMe
                   return (
                     <div key={inv.id} className="px-3 py-2 flex flex-col sm:flex-row sm:items-center gap-x-3 gap-y-2">
                       <div className="flex-1 min-w-0">
                         <span className="text-sm font-medium text-ink-soft">{inv.vendor_name ?? inv.vendor_email ?? 'Vendor'}</span>
                         {sub && <span className="text-xs text-success ml-2">{money(sub.amount)}{sub.file_name ? ' · file' : ''}</span>}
                         {sub?.created_at && <span className="block text-[11px] text-faint mt-0.5">Submitted {new Date(sub.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</span>}
-                        {said.length > 0 && (
+                        {thread.count > 0 && (
                           <button
                             type="button"
                             onClick={() => setThread({ reqId: req.id, title: req.title, invite: inv })}
                             className={cn('mt-0.5 flex items-center gap-1 text-[11px] font-medium hover:underline', theyWroteLast ? 'text-accent-fg' : 'text-faint')}
                           >
                             <MessageSquare className="h-3 w-3" />
-                            {said.length} message{said.length === 1 ? '' : 's'}{theyWroteLast ? ' · waiting on your reply' : ''}
+                            {thread.count} message{thread.count === 1 ? '' : 's'}{theyWroteLast ? ' · waiting on your reply' : ''}
                           </button>
                         )}
                       </div>
@@ -830,7 +849,9 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                 <div className="flex-1 min-w-[160px]">
                   <SearchableSelect value={inviteSub[req.id] ?? ''} onChange={e => setInviteSub(p => ({ ...p, [req.id]: e.target.value }))}>
                     <option value="">Pick from directory…</option>
-                    {subs.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    {/* Who you would actually be emailing, under the company -
+                        two "Liberty" entries are told apart by the person. */}
+                    {subs.map(s => <option key={s.id} value={s.id} data-hint={[s.contactName, s.email].filter(Boolean).join(' | ') || undefined}>{s.name}</option>)}
                   </SearchableSelect>
                 </div>
                 {!inviteSub[req.id] && (

@@ -34,20 +34,23 @@ export function BidThreadDialog({
     return { Authorization: `Bearer ${session?.access_token ?? ''}` }
   }
 
+  async function read(quiet: boolean) {
+    const forId = invite.id
+    if (!quiet) setState('loading')
+    try {
+      const res = await fetch(url, { headers: await auth() })
+      const d = await res.json().catch(() => ({}))
+      if (waitingFor.current !== forId) return
+      if (!res.ok) { setState('failed'); return }
+      setMessages(d.messages ?? []); setState('ready')
+    } catch {
+      if (waitingFor.current === forId) setState('failed')
+    }
+  }
+
   useEffect(() => {
     waitingFor.current = invite.id
-    setState('loading')
-    ;(async () => {
-      try {
-        const res = await fetch(url, { headers: await auth() })
-        const d = await res.json().catch(() => ({}))
-        if (waitingFor.current !== invite.id) return
-        if (!res.ok) { setState('failed'); return }
-        setMessages(d.messages ?? []); setState('ready')
-      } catch {
-        if (waitingFor.current === invite.id) setState('failed')
-      }
-    })()
+    read(false)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [invite.id])
 
@@ -88,7 +91,7 @@ export function BidThreadDialog({
           </button>
         </div>
         <div className="px-5 py-4">
-          <BidThread messages={messages} state={state} mine="gc" otherName={who} onSend={send} />
+          <BidThread messages={messages} state={state} mine="gc" otherName={who} onSend={send} onRefresh={async () => { await read(true); onChanged() }} />
           <p className="mt-3 text-xs text-faint">
             {who} can read and reply once they have a free SyteNav account, which they can make from their quote link. They are told by email when you write.
           </p>
