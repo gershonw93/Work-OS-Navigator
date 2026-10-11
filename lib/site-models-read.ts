@@ -26,7 +26,7 @@ export async function siteHouses(db: SupabaseClient, siteId: string): Promise<(H
 export async function modelBundle(db: SupabaseClient, model: { id: string; budget_template_id: string | null }) {
   const [plans, items, lines] = await Promise.all([
     db.from('site_model_plans').select('id, name, plan_type, handing, storage_path').eq('model_id', model.id).order('created_at'),
-    db.from('site_model_items').select('id, kind, title, sort_order').eq('model_id', model.id).order('sort_order').order('created_at'),
+    db.from('site_model_items').select('id, kind, title, sort_order, assignee_profile_id, assignee_company_id, assignee_name').eq('model_id', model.id).order('sort_order').order('created_at'),
     model.budget_template_id
       ? db.from('budget_template_items').select('id, category, cost_code, description, default_amount, cost_type, sort_order').eq('template_id', model.budget_template_id).order('sort_order')
       : Promise.resolve({ data: [], error: null }),

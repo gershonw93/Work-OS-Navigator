@@ -40,7 +40,11 @@ export const PART_LABEL: Record<ApplyPart, string> = {
 }
 
 export interface ModelPlan { id: string; name: string; plan_type: string; handing: Handing; storage_path: string }
-export interface ModelItem { id: string; kind: 'inspection' | 'punch'; title: string; sort_order?: number | null }
+export interface ModelItem {
+  id: string; kind: 'inspection' | 'punch'; title: string; sort_order?: number | null
+  /** A punch item's assignee - see lib/model-assignee.ts. */
+  assignee_profile_id?: string | null; assignee_company_id?: string | null; assignee_name?: string | null
+}
 export interface TemplateLine {
   id: string; category: string | null; cost_code: string | null; description: string
   /** NUMERIC - a string off the wire. */

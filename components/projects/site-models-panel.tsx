@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { SearchableSelect, type SelectOption } from '@/components/ui/searchable-select'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { InspectionTypeChips } from '@/components/inspections/type-chips'
@@ -18,6 +19,8 @@ import {
   HANDINGS, HANDING_LABEL, APPLY_PARTS, PART_LABEL, applySummary, modelNameProblem,
   type Handing, type ApplyPart, type HouseApply,
 } from '@/lib/site-models'
+import { pickerValue, parsePickerValue, modelAssigneeProblem, type ModelAssignee } from '@/lib/model-assignee'
+import type { AssignablePeople } from '@/lib/model-assignee-db'
 import { Home, Plus, X, Upload, Loader2, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react'
 
 export interface HouseRow { id: string; name: string; model_id?: string | null; garage_side?: string | null; lot?: string | null }
@@ -27,7 +30,7 @@ interface ModelRow {
   name: string
   budget_template_id: string | null
   plans: { id: string; name: string; plan_type: string; handing: Handing }[]
-  items: { id: string; kind: 'inspection' | 'punch'; title: string }[]
+  items: ({ id: string; kind: 'inspection' | 'punch'; title: string } & ModelAssignee)[]
 }
 
 type Dialog =
@@ -64,6 +67,8 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [models, setModels] = useState<ModelRow[]>([])
   const [templates, setTemplates] = useState<{ id: string; name: string }[]>([])
+  // Null when the list could not be read - said in the editor, not shown as nobody.
+  const [people, setPeople] = useState<AssignablePeople | null>(null)
   const [dialog, setDialog] = useState<Dialog>(null)
   const guardDelete = useDeleteGuard()
 
@@ -73,6 +78,7 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
       if (!r.ok) { setState('failed'); return }
       setModels(r.data.models ?? [])
       setTemplates(r.data.templates ?? [])
+      setPeople(r.data.people ?? null)
       setState('ready')
     } catch { setState('failed') }
   }, [siteId])
@@ -150,7 +156,7 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
           onCreated={async id => { await load(); setDialog({ kind: 'edit', modelId: id }) }} />
       )}
       {dialog?.kind === 'edit' && current(dialog.modelId) && (
-        <ModelEditor siteId={siteId} model={current(dialog.modelId)!} templates={templates}
+        <ModelEditor siteId={siteId} model={current(dialog.modelId)!} templates={templates} people={people}
           names={models.filter(m => m.id !== dialog.modelId).map(m => m.name)}
           onReload={load} onClose={() => setDialog(null)} />
       )}
@@ -221,8 +227,8 @@ function NewModelDialog({ siteId, names, onClose, onCreated }: {
  * there is no Save button to promise otherwise. Nothing here touches a house;
  * that is Apply's job, with its own preview.
  */
-function ModelEditor({ siteId, model, templates, names, onReload, onClose }: {
-  siteId: string; model: ModelRow; templates: { id: string; name: string }[]; names: string[]
+function ModelEditor({ siteId, model, templates, people, names, onReload, onClose }: {
+  siteId: string; model: ModelRow; templates: { id: string; name: string }[]; people: AssignablePeople | null; names: string[]
   onReload: () => Promise<void>; onClose: () => void
 }) {
   const base = `/api/projects/${siteId}/models/${model.id}`
@@ -444,11 +450,15 @@ function ModelEditor({ siteId, model, templates, names, onReload, onClose }: {
         {punch.length > 0 && (
           <div className="divide-y divide-line-soft rounded-lg border border-line">
             {punch.map(i => (
-              <div key={i.id} className="flex items-center gap-2 px-3 py-1.5">
-                <p className="min-w-0 flex-1 text-sm text-ink">{i.title}</p>
-                <button type="button" aria-label={`Remove ${i.title}`} title="Remove"
-                  onClick={() => act(`p-${i.id}`, () => call(`${base}/items?item=${i.id}`, { method: 'DELETE' }))}
-                  className="flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:text-danger lg:h-8 lg:w-8"><Trash2 className="h-4 w-4" /></button>
+              <div key={i.id} className="flex flex-col gap-2 px-3 py-2 lg:flex-row lg:items-center">
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <p className="min-w-0 flex-1 text-sm text-ink">{i.title}</p>
+                  <button type="button" aria-label={`Remove ${i.title}`} title="Remove"
+                    onClick={() => act(`p-${i.id}`, () => call(`${base}/items?item=${i.id}`, { method: 'DELETE' }))}
+                    className="flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:text-danger lg:order-last lg:h-8 lg:w-8"><Trash2 className="h-4 w-4" /></button>
+                </div>
+                <PunchAssignee item={i} people={people} busy={busy === `a-${i.id}`}
+                  onSave={assignee => act(`a-${i.id}`, () => call(`${base}/items`, { method: 'PATCH', body: JSON.stringify({ item: i.id, assignee }) }))} />
               </div>
             ))}
           </div>
@@ -462,9 +472,70 @@ function ModelEditor({ siteId, model, templates, names, onReload, onClose }: {
             if (!titles.length) { setError('Write at least one punch item.'); return }
             if (await act('punch', () => call(`${base}/items`, { method: 'POST', body: JSON.stringify({ kind: 'punch', titles }) }))) setPunchText('')
           }}>Add punch items</Button>
-        <p className="text-xs text-faint">Each becomes a task marked Punch on the house, with assignees and due dates like any other task.</p>
+        <p className="text-xs text-faint">Each becomes a task marked Punch on every house the model is applied to, assigned to whoever you pick beside it - a teammate, a sub, or any name. They are told once per apply, not once per house.</p>
+        {people === null && <p className="text-xs text-warn">Could not load your team and subs, so only a typed name can be picked right now. Close and reopen to try again.</p>}
       </div>
     </Shell>
+  )
+}
+
+// ── who a punch item goes to ────────────────────────────────────────────────
+
+/**
+ * "Who does it get assigned to?" - one dropdown per punch item: nobody yet,
+ * a typed name, a teammate, or a sub from the Directory. A pick saves at once,
+ * like everything else in this dialog; a typed name has its own Save because
+ * a half-typed name is not an answer yet.
+ */
+function PunchAssignee({ item, people, busy, onSave }: {
+  item: ModelAssignee & { title: string }
+  people: AssignablePeople | null
+  busy: boolean
+  onSave: (assignee: unknown) => Promise<boolean>
+}) {
+  const saved = pickerValue(item)
+  const [choice, setChoice] = useState(saved)
+  const [typed, setTyped] = useState(saved === 'n' ? (item.assignee_name ?? '') : '')
+  const [problem, setProblem] = useState<string | null>(null)
+  useEffect(() => { setChoice(saved) }, [saved])
+
+  const options: SelectOption[] = [
+    { value: '', label: 'Nobody yet' },
+    { value: 'n', label: saved === 'n' ? `${item.assignee_name} (typed name)` : 'Type a name…' },
+    ...(people?.teammates ?? []).map(t => ({ value: `p:${t.id}`, label: t.name, hint: `Teammate${t.role ? ` | ${t.role}` : ''}` })),
+    ...(people?.companies ?? []).map(c => ({ value: `c:${c.id}`, label: c.name, hint: `Sub${c.trade ? ` | ${c.trade}` : ''}` })),
+  ]
+  // A pick whose person has since left the list still reads as who it was.
+  if (saved.startsWith('p:') || saved.startsWith('c:')) {
+    if (!options.some(o => o.value === saved)) options.push({ value: saved, label: item.assignee_name || 'Somebody no longer listed' })
+  }
+
+  async function save(input: unknown) {
+    const p = modelAssigneeProblem(input)
+    setProblem(p)
+    if (p) return
+    await onSave(input)
+  }
+
+  return (
+    <div className="space-y-1.5 lg:w-72">
+      <SearchableSelect sort={false} value={choice} disabled={busy} placeholder="Assign to…"
+        onChange={e => {
+          const v = e.target.value
+          setChoice(v); setProblem(null)
+          if (v !== 'n') save(parsePickerValue(v))
+        }}
+        options={options} />
+      {choice === 'n' && (
+        <div className="flex gap-2">
+          <Input aria-label={`Who does ${item.title}`} placeholder="Any name, e.g. Touch-up crew" value={typed}
+            onChange={e => setTyped(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); save(parsePickerValue('n', typed)) } }} />
+          <Button type="button" size="sm" variant="secondary" disabled={busy} onClick={() => save(parsePickerValue('n', typed))}>Save</Button>
+        </div>
+      )}
+      {problem && <p className="text-xs text-danger">{problem}</p>}
+    </div>
   )
 }
 

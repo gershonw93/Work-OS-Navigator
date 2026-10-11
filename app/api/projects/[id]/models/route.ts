@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { modelNameProblem } from '@/lib/site-models'
 import { MODEL_COLUMNS } from '@/lib/site-models-read'
+import { assignablePeople } from '@/lib/model-assignee-db'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -29,7 +30,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const ids = (models ?? []).map(m => m.id)
   const [plans, items, templates] = await Promise.all([
     ids.length ? db.from('site_model_plans').select('id, model_id, name, plan_type, handing, created_at').in('model_id', ids).order('created_at') : Promise.resolve({ data: [], error: null }),
-    ids.length ? db.from('site_model_items').select('id, model_id, kind, title, sort_order').in('model_id', ids).order('sort_order').order('created_at') : Promise.resolve({ data: [], error: null }),
+    ids.length ? db.from('site_model_items').select('id, model_id, kind, title, sort_order, assignee_profile_id, assignee_company_id, assignee_name').in('model_id', ids).order('sort_order').order('created_at') : Promise.resolve({ data: [], error: null }),
     gate.actor.companyId
       ? db.from('budget_templates').select('id, name').eq('company_id', gate.actor.companyId).order('name')
       : Promise.resolve({ data: [], error: null }),
@@ -38,6 +39,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
     console.error('[models] read failed', r.error.message)
     return NextResponse.json({ error: 'Could not load the models.' }, { status: 500 })
   }
+  // Who a punch item can go to. A failed read is said, not served as an empty
+  // dropdown - "nobody" and "could not ask" are different facts.
+  let people: Awaited<ReturnType<typeof assignablePeople>> | null = null
+  if (gate.actor.companyId) {
+    try { people = await assignablePeople(db, gate.actor.companyId) } catch (e: any) { console.error('[models] people read failed', e?.message) }
+  }
   return NextResponse.json({
     models: (models ?? []).map(m => ({
       ...m,
@@ -45,6 +52,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       items: (items.data ?? []).filter((i: any) => i.model_id === m.id),
     })),
     templates: templates.data ?? [],
+    people,
   })
 }
 
