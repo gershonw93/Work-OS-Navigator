@@ -260,6 +260,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'delete site', 'delete building', 'delete all units', 'units became projects',
       'list', 'lot list', 'import', 'upload', 'spreadsheet', 'csv', 'excel', 'pdf', 'scan', 'addresses',
       'scattered lots', 'lots', 'parcel', 'not on the map', 'address not found', 'wrong address', 'houses',
+      'all jobs', 'back to the group', 'no overview', 'no dashboard', 'go back',
     ],
     summary: 'Set up a whole building or street in one go, grouped under a single site.',
     blocks: [
@@ -267,7 +268,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'FROM A LIST OF REAL ADDRESSES. For houses on different streets - scattered lots, a lot schedule, a list from your land person - pick From a list. Upload the file or paste the addresses one per line. A spreadsheet (.xlsx or .csv) is read by its column headings (Address, Parcel ID, Block, Lot, size, City water, City sewer, Garage, Environmental, Model) and uses no AI scan. A PDF or a photo is read by AI and uses one scan. If the city and state are in a heading above a group of rows ("Palm Coast | Flagler") rather than on each row, they are carried onto every row under it; otherwise type the city and state beside the upload.' },
       { type: 'steps', items: [
         'Go to Projects → Bulk Add → From a list.',
-        'Choose the file (or paste the addresses), add the city and state if the list does not say, and press Read the list.',
+        'Choose the file (or paste the addresses). The box turns green and says "File selected" - add the city and state if the list does not say, and press Read the list.',
         'Every row is shown with its full address and checked on the map: "On the map" means the house was found, "Found only the street" means the map could not find that house number, and "Not found" says why. A misspelled street is the usual reason - fix it in the row and press Check changed rows.',
         'Remove any row you do not want, add any that were missed, name the group, and press Create. Each lot becomes its own job, named after its address, with its lot details filled in.',
       ] },
@@ -281,7 +282,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Set the range, project type and start date, check the preview, and create. Up to 100 jobs per batch.',
       ] },
       { type: 'text', text: 'You land on the site\'s Jobs tab: every unit listed with its status, budgeted and actual amounts, and a total across the whole building. Click any one to open it as a normal project with all its own tabs.' },
-      { type: 'tip', text: 'The site itself is a container, not a job. It holds the address, client, plans and permits; budgets, schedules and crews live on the units. That is why a site shows a shorter set of tabs and a "Site" badge.' },
+      { type: 'tip', text: 'The site itself is a container, not a job. It holds the address, client, plans and permits; budgets, schedules and crews live on the units. That is why a site shows a shorter set of tabs and a "Site" badge. Its first tab, All jobs, is the list of every job in the group - the way back from Plans, Permits or anywhere else on the site.' },
       { type: 'text', text: 'On the unit and floor batches the address is geocoded once and shared, because every unit really is the same building - so they all land on the map at the right spot. Street batches look up each house separately. If a job could not be placed you will be told how many, and fixing its address in Project Settings puts it on the map.' },
       { type: 'text', text: 'The unit or floor number is stored as its own field rather than being glued onto the address, which is what keeps the address clean enough to geocode. You can see and change it in Project Settings on any job.' },
       { type: 'tip', text: 'Searching on the Projects page looks inside sites too, so you can jump straight to "Unit 12" without opening the building first.' },

@@ -303,7 +303,11 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   // underneath an open one - it must not hang over a screen it was never about.
   useEffect(() => { setOpen(false) }, [pathname])
 
-  const onOverview = pathname.endsWith('/overview')
+  // The first slot: a job's Overview, or a site's list of jobs - its front
+  // door, since a site has no overview of its own.
+  const homeSlug = isSite ? 'units' : 'overview'
+  const homeLabel = isSite ? 'All jobs' : 'Overview'
+  const onHome = pathname.endsWith(`/${homeSlug}`)
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
   const activeGroup = filteredGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
 
@@ -321,10 +325,10 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
             onClick={() => setOpen(true)}
             className="flex items-center gap-2 flex-1 min-w-0 rounded-xl border border-line bg-surface px-3 py-2.5 text-left"
           >
-            {onOverview ? (
+            {onHome ? (
               <>
                 <LayoutDashboard className="h-4 w-4 shrink-0 text-muted-fg" />
-                <span className="flex-1 min-w-0 text-sm font-semibold text-ink-soft truncate">Overview</span>
+                <span className="flex-1 min-w-0 text-sm font-semibold text-ink-soft truncate">{homeLabel}</span>
               </>
             ) : activeTab ? (
               <>
@@ -363,22 +367,24 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
               of the job, it is the job - where it stands and what is waiting.
               Making it a fifth group would repeat the mistake this grouping
               was meant to fix: "Site" was a group containing exactly one tab. */}
-          {!isSite && (
-            <Link
-              href={`/projects/${projectId}/overview`}
-              className={cn(
-                'flex shrink-0 items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap',
-                onOverview ? 'bg-surface text-ink' : 'text-muted-fg hover:text-ink-soft',
-              )}
-            >
-              <LayoutDashboard className="h-4 w-4" />
-              Overview
-            </Link>
-          )}
+          {/* A SITE GETS THE SAME FIRST SLOT, pointing at its jobs. It had
+              none - "in a bulk project there's no dashboard tab to go back
+              to" - because a site has no Overview, and its real front door
+              (the list of houses) was buried as one item in the Field menu. */}
+          <Link
+            href={`/projects/${projectId}/${homeSlug}`}
+            className={cn(
+              'flex shrink-0 items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap',
+              onHome ? 'bg-surface text-ink' : 'text-muted-fg hover:text-ink-soft',
+            )}
+          >
+            <LayoutDashboard className="h-4 w-4" />
+            {homeLabel}
+          </Link>
           {filteredGroups.map((g) => {
             // Never highlight a section while Overview is the page - the two
             // would both look selected.
-            const isActiveGroup = !onOverview && g.label === activeGroup?.label
+            const isActiveGroup = !onHome && g.label === activeGroup?.label
             const isOpen = menu === g.label
             return (
               <div key={g.label} className="relative shrink-0"
@@ -495,21 +501,19 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
                   page again after tapping anywhere. Same rule as the desktop
                   row - it sits above the groups because it is not a section of
                   the job, it is the job. */}
-              {!isSite && (
-                <button
-                  onClick={() => navigate('overview')}
-                  className={cn(
-                    'flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left transition-colors',
-                    onOverview
-                      ? 'border-2 border-current bg-accent-tint font-semibold text-accent-fg'
-                      : 'border border-line bg-panel text-ink-soft hover:bg-surface',
-                  )}
-                >
-                  <LayoutDashboard className={cn('h-4 w-4 shrink-0', onOverview ? 'text-accent-fg' : 'text-faint')} />
-                  <span className="text-sm">Overview</span>
-                  <span className="ml-auto text-xs text-faint">Where the job stands</span>
-                </button>
-              )}
+              <button
+                onClick={() => navigate(homeSlug)}
+                className={cn(
+                  'flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left transition-colors',
+                  onHome
+                    ? 'border-2 border-current bg-accent-tint font-semibold text-accent-fg'
+                    : 'border border-line bg-panel text-ink-soft hover:bg-surface',
+                )}
+              >
+                <LayoutDashboard className={cn('h-4 w-4 shrink-0', onHome ? 'text-accent-fg' : 'text-faint')} />
+                <span className="text-sm">{homeLabel}</span>
+                <span className="ml-auto text-xs text-faint">{isSite ? 'Every job in this group' : 'Where the job stands'}</span>
+              </button>
               {filteredGroups.map(group => (
                 <div key={group.label}>
                   <p className={cn('text-xs font-bold uppercase tracking-widest mb-2 px-1', group.color)}>

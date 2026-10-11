@@ -72,7 +72,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // and crew live on the jobs underneath it, so an overview of one would be a
   // page of zeroes. Same answer as "you cannot see this": go somewhere useful.
   if ((project as any).is_site === true) {
-    return NextResponse.json({ error: 'Sites have no overview' }, { status: 404 })
+    return NextResponse.json({ error: 'Sites have no overview', site: true }, { status: 404 })
   }
 
   const [

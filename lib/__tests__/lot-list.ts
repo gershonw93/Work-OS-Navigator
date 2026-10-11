@@ -88,4 +88,9 @@ ok(/\.\.\.\(c\.lot \?\? \{\}\)/.test(bulk), 'and each job keeps the lot details 
 const modal = read('components/projects/bulk-add-modal.tsx')
 ok(!/disabled=\{saving \|\| !canSubmit\}/.test(modal), 'Create is no longer greyed out with no reason - it answers with what is missing')
 
+// A picked file must not look like an empty picker - "I thought it wasn't working".
+const builder = code('components/projects/lot-list-builder.tsx')
+ok(/file \? 'border border-accent bg-accent-tint'/.test(builder), 'THE CHOSEN FILE LOOKS CHOSEN: a solid accent border, not the empty dashed box')
+ok(/File selected\. Press Read the list/.test(builder), '...and says what happens next')
+
 done()

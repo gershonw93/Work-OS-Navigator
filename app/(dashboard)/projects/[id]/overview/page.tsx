@@ -97,8 +97,11 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
     // Subcontractors and sites have no overview. Because /projects/[id] lands
     // everyone here, this is where they get sent on - a blank page would be the
     // orphan-tab problem all over again.
+    // A SITE'S front door is its list of jobs - the houses or units it
+    // holds - not a file list. Its tabs' first slot points there too.
     if (res.status === 403 || res.status === 404) {
-      router.replace(`/projects/${params.id}/plans`)
+      const d = await res.json().catch(() => ({}))
+      router.replace(`/projects/${params.id}/${d?.site ? 'units' : 'plans'}`)
       return
     }
     if (res.ok) setData(await res.json())
