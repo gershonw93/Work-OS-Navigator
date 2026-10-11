@@ -40,7 +40,8 @@ export async function GET(request: Request) {
       id, token, status, invited_at,
       bid_requests ( id, title, trade, description, due_date, status,
         projects ( id, name, address, type ) ),
-      bid_submissions ( id, amount, created_at )
+      bid_submissions ( id, amount, created_at ),
+      bid_messages ( side, created_at )
     `)
     .eq('vendor_company_id', profile.company_id)
     .order('invited_at', { ascending: false })
@@ -79,6 +80,9 @@ export async function GET(request: Request) {
       invited_at: inv.invited_at,
       request: req,
       my_submission: latest,
+      // The conversation's shape - count and who spoke last - so the list can
+      // say "1 new reply" without opening every thread.
+      messages: inv.bid_messages ?? [],
     })),
   })
 }

@@ -11,6 +11,8 @@ import {
 import { changeWarning } from '@/lib/schedule-change-warning'
 import { progressReader } from '@/lib/schedule-progress-read'
 import { missingDelayReason, type ChangeKind } from '@/lib/schedule-delay'
+import { decideDelayReport } from '@/lib/delay-report-db'
+import { dateWords } from '@/lib/dates'
 
 export const runtime = 'nodejs'
 
@@ -345,6 +347,20 @@ export async function PUT(request: Request, { params }: { params: { id: string; 
     console.error('[schedule/cascade] history not recorded:', e?.message)
   }
 
+  // A SUB'S REPORT, CLOSED BY THE DELAY IT ASKED FOR. The GC opened this
+  // delay from a sub's report (`delay_report_id`), so recording it is the
+  // answer to that report - stamped here, on the write that did it, rather
+  // than by a second request the screen might not send. Only a delay closes
+  // one, and only on the line it was about.
+  if (kind === 'delay' && typeof body?.delay_report_id === 'string') {
+    const words = (iso: string) => dateWords(iso)?.withWeekday ?? iso
+    await decideDelayReport({
+      db, projectId: params.id, reportId: body.delay_report_id, itemId: params.itemId,
+      decision: 'applied', decidedBy: gate.actor.userId,
+      landed: { start: words(newStart), end: words(newEnd) },
+    })
+  }
+
   const project = await db.from('projects').select('name').eq('id', params.id).maybeSingle()
   const projectName = (project.data as any)?.name ?? null
 
@@ -412,7 +428,9 @@ export async function PUT(request: Request, { params }: { params: { id: string; 
         userIds: userIds.map((u: any) => u.id),
         title: 'Your dates moved',
         message: projectName ? `Your schedule on ${projectName} changed.` : 'Your schedule changed.',
-        link: `/projects/${params.id}/schedule`,
+        // The SUB's door onto this job. The GC's schedule page is not one a
+        // sub can open; My Jobs has the schedule, theirs marked.
+        link: `/my-jobs/${params.id}`,
         // The letter above IS the email. The bell is a different channel and
         // is never the duplicate; a second letter is.
         inAppOnly: true,

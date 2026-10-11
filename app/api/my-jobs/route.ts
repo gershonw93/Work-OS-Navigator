@@ -1,5 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { getActor, actorCan } from '@/lib/server-permissions'
+import { billingLock } from '@/lib/api-guard'
+import { projectSlotProblem } from '@/lib/billing-read'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -49,6 +52,21 @@ export async function POST(request: Request) {
 
   const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
   if (!profile?.company_id) return NextResponse.json({ error: 'No company found' }, { status: 400 })
+
+  // THE SAME THREE QUESTIONS AS /api/projects, because this is the same act
+  // through a second door. It asked none of them: any signed-in account could
+  // open a job here - including the free vendor account a sub makes from a
+  // quote link, whose whole definition is that it sees the jobs it is invited
+  // to and opens none of its own (`read_only` holds `projects: view` only).
+  // A rule that exists on one door has to exist on the others.
+  const actor = await getActor(db, token)
+  if (!actorCan(actor, 'projects', 'create')) {
+    return NextResponse.json({ error: 'Your account can see the jobs you are invited to, but cannot create jobs of its own.' }, { status: 403 })
+  }
+  const locked = await billingLock(db, profile.company_id)
+  if (locked) return locked
+  const slot = await projectSlotProblem(db, profile.company_id)
+  if (slot) return NextResponse.json({ error: slot, billing: 'project_limit' }, { status: 402 })
 
   const body = await request.json()
   const { name, address, type, start_date, description, customer_id } = body

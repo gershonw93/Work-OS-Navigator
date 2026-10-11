@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Package, Clock, CheckCircle2, XCircle, ChevronRight, ChevronDown, AlertCircle } from 'lucide-react'
+import { Package, Clock, CheckCircle2, XCircle, ChevronRight, ChevronDown, AlertCircle, MessageSquare } from 'lucide-react'
+import { threadSummary } from '@/lib/bid-thread'
 import { createClient } from '@/lib/supabase/client'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -42,6 +43,7 @@ interface QuoteRequest {
     projects: { id: string; name: string; address: string } | null
   } | null
   my_submission: { id: string; amount: number | null; created_at: string } | null
+  messages?: { side: 'gc' | 'sub'; created_at: string }[]
 }
 
 type Tab = 'new' | 'revisions' | 'awarded'
@@ -147,6 +149,7 @@ export default function MyBidsPage() {
           {quoteRequests.map(qr => {
             const req = qr.request
             const answered = !!qr.my_submission
+            const thread = threadSummary(qr.messages, 'sub')
             return (
               <a
                 key={qr.id}
@@ -168,6 +171,12 @@ export default function MyBidsPage() {
                     {req?.due_date && ` · due ${formatDate(req.due_date)}`}
                   </p>
                   {!answered && <p className="text-xs text-accent-fg mt-0.5 font-medium">Open to submit your quote</p>}
+                  {thread.count > 0 && (
+                    <p className={`mt-0.5 flex items-center gap-1 text-xs ${thread.waitingOnMe ? 'font-medium text-accent-fg' : 'text-faint'}`}>
+                      <MessageSquare className="h-3 w-3" />
+                      {thread.count} message{thread.count === 1 ? '' : 's'}{thread.waitingOnMe ? ' · new reply' : ''}
+                    </p>
+                  )}
                 </div>
                 <div className="shrink-0 flex items-center gap-3">
                   {qr.my_submission?.amount != null && (

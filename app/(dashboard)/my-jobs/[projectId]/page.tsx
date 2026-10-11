@@ -19,8 +19,9 @@ import { contractAmountLabel } from '@/lib/contract-amount'
 import { parseDate, formatDate } from '@/lib/dates'
 import { inspectionDate } from '@/lib/inspection-status'
 import { TodayStrip } from '@/components/projects/today-strip'
+import { JobScheduleForSub } from '@/components/my-jobs/job-schedule-for-sub'
 
-type Tab = 'overview' | 'tasks' | 'rfis' | 'inspections' | 'invoices' | 'compliance'
+type Tab = 'overview' | 'schedule' | 'tasks' | 'rfis' | 'inspections' | 'invoices' | 'compliance'
 
 interface CoItem { description: string; qty: string; unit_price: string }
 
@@ -411,6 +412,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
   const tabs: { key: Tab; label: string; badge?: number }[] = [
     { key: 'overview', label: 'Overview' },
+    { key: 'schedule', label: 'Schedule' },
     { key: 'tasks', label: 'My Tasks', badge: openTasks.length },
     { key: 'rfis', label: 'RFIs', badge: openRfis.length },
     { key: 'inspections', label: 'Inspections', badge: pendingInspections.length },
@@ -911,6 +913,32 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
           </div>
         )
       })()}
+
+      {/* Schedule tab - the whole job, theirs marked, and a delay REPORT on
+          their own lines (the GC decides what moves). */}
+      {activeTab === 'schedule' && (
+        <JobScheduleForSub
+          lines={data.schedule ?? null}
+          reports={data.delayReports ?? []}
+          onChanged={load}
+          onReport={async (lineId, days, reason) => {
+            try {
+              const token = await getToken()
+              const res = await fetch(`/api/my-jobs/${params.projectId}/schedule/${lineId}/delay`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                body: JSON.stringify({ days, reason }),
+              })
+              if (!res.ok) return (await res.json().catch(() => ({}))).error ?? 'Could not send that. Try again.'
+              return null
+            } catch {
+              // Not a verdict: it may have gone. The reload shows whether it did.
+              load()
+              return 'We could not tell whether that went. Check the line before sending it again.'
+            }
+          }}
+        />
+      )}
 
       {/* RFIs tab */}
       {activeTab === 'rfis' && (

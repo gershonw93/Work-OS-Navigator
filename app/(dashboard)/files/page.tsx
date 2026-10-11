@@ -11,7 +11,7 @@ import { cn } from '@/lib/utils'
 import {
   Plus, X, FileText, FileImage, File as FileIcon, FolderOpen, Package,
   ExternalLink, Trash2, Pencil, Upload, AlertCircle, Loader2, ShieldCheck,
-  FileBadge, FileSignature, Map, IdCard, FileCheck, Share2, Copy, Check, Ban, Inbox, PenLine,
+  FileBadge, FileSignature, Map, IdCard, FileCheck, Share2, Copy, Check, Ban, Inbox, PenLine, Briefcase,
 } from 'lucide-react'
 import { PdfFiller } from '@/components/documents/pdf-filler'
 import { uploadCompanyFile } from '@/lib/upload-company-file'
@@ -21,6 +21,8 @@ import { ACCEPT_DOCS } from '@/lib/file-accept'
 
 import { formatDate } from '@/lib/dates'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { JobFilesPanel } from '@/components/files/job-files-panel'
+import type { JobFile, JobFileKind } from '@/lib/job-files'
 const CATEGORIES = ['Insurance', 'License', 'W-9', 'Site Plans', 'ID/Legal', 'Permits', 'Other'] as const
 
 const CATEGORY_ICONS: Record<string, any> = {
@@ -87,7 +89,12 @@ export default function FilesPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const packetFileRef = useRef<HTMLInputElement>(null)
 
-  const [tab, setTab] = useState<'files' | 'packets' | 'shares'>('files')
+  const [tab, setTab] = useState<'files' | 'jobs' | 'packets' | 'shares'>('files')
+  // Files that live inside jobs - plans, photos, quotes, bills. Its own state,
+  // because a failed read of these must not blank the company's own files.
+  const [jobFiles, setJobFiles] = useState<JobFile[]>([])
+  const [jobFilesFailed, setJobFilesFailed] = useState<JobFileKind[]>([])
+  const [jobFilesState, setJobFilesState] = useState<'loading' | 'ready' | 'failed'>('loading')
   // Sending documents out to someone who will never have an account.
   const [shareOpen, setShareOpen] = useState(false)
   const [sharePreselect, setSharePreselect] = useState<string[]>([])
@@ -150,8 +157,20 @@ export default function FilesPage() {
     loadShares(token)
   }
 
+  async function loadJobFiles(token: string) {
+    try {
+      const res = await fetch('/api/files/jobs', { headers: { Authorization: `Bearer ${token}` } })
+      if (!res.ok) { setJobFilesState('failed'); return }
+      const d = await res.json()
+      setJobFiles(d.files ?? []); setJobFilesFailed(d.failed ?? []); setJobFilesState('ready')
+    } catch {
+      setJobFilesState('failed')
+    }
+  }
+
   async function fetchAll() {
     const token = await getToken()
+    loadJobFiles(token)
     const res = await fetch('/api/files', { headers: { Authorization: `Bearer ${token}` } })
     const json = await res.json().catch(() => ({}))
     if (res.ok) {
@@ -509,7 +528,7 @@ export default function FilesPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Files</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Company documents and ready-to-go submission packets.</p>
+          <p className="text-sm text-muted-fg mt-0.5">Company documents, everything on your jobs, and ready-to-go submission packets.</p>
         </div>
         <div className="row-even lg:flex lg:flex-wrap items-center gap-2 self-start sm:self-auto">
           {files.length > 0 && (
@@ -528,12 +547,12 @@ export default function FilesPage() {
           `whitespace-nowrap` wraps its label rather than overflowing. Each tab
           stays on one line and the strip SCROLLS, with the fade saying so. */}
       <div className="flex gap-1 border-b border-line overflow-x-auto scrollbar-hide scroll-fade">
-        {([['files', 'All Files', FolderOpen], ['packets', 'Packets', Package], ['shares', 'Shared', Share2]] as const).map(([key, label, Icon]) => (
+        {([['files', 'Company Files', FolderOpen], ['jobs', 'Job Files', Briefcase], ['packets', 'Packets', Package], ['shares', 'Shared', Share2]] as const).map(([key, label, Icon]) => (
           <button key={key} onClick={() => setTab(key)}
             className={cn('shrink-0 whitespace-nowrap flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors',
               tab === key ? 'border-accent text-accent-fg' : 'border-transparent text-muted-fg hover:text-ink-soft')}>
             <Icon className="h-4 w-4" />{label}
-            <span className="text-xs text-faint ml-0.5">{key === 'files' ? files.length : key === 'packets' ? packets.length : shares.length}</span>
+            <span className="text-xs text-faint ml-0.5">{key === 'files' ? files.length : key === 'jobs' ? jobFiles.length : key === 'packets' ? packets.length : shares.length}</span>
           </button>
         ))}
       </div>
@@ -547,6 +566,8 @@ export default function FilesPage() {
 
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
+      ) : tab === 'jobs' ? (
+        <JobFilesPanel files={jobFiles} failed={jobFilesFailed} state={jobFilesState} query="" />
       ) : tab === 'files' ? (
         <>
           {/* Category filter chips */}
@@ -567,8 +588,15 @@ export default function FilesPage() {
             <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
               <FolderOpen className="h-8 w-8 text-faint mx-auto mb-3" />
               <p className="text-sm font-medium text-muted-fg">
-                {files.length === 0 ? 'No files yet. Upload your first document.' : 'No files in this category.'}
+                {files.length === 0 ? 'No company documents yet. Upload your first one.' : 'No files in this category.'}
               </p>
+              {/* An empty company folder over a company full of job paperwork
+                  read as "Files is broken". Say where the rest is. */}
+              {files.length === 0 && jobFiles.length > 0 && (
+                <button type="button" onClick={() => setTab('jobs')} className="mt-3 text-sm font-medium text-accent-fg hover:underline">
+                  {jobFiles.length} file{jobFiles.length === 1 ? '' : 's'} on your jobs - see Job Files
+                </button>
+              )}
             </div>
           ) : visibleFiles.length > 0 ? (
             <div className="space-y-2">

@@ -60,7 +60,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Subs can message you about a quote request',
-        text: 'A sub can ask you about a quote request from their quote link - once they create a free account, which only shows them the jobs and requests they are invited to and cannot create jobs of its own. Their messages show on the invite row on Quotes & Bids, and your answer reaches them by email. Each sub has their own conversation, so one bidder never sees what you told another. Quoting still needs no account.',
+        text: 'A sub can ask you about a quote request from their quote link. They enter their name and a password right there, and the conversation opens - a free account that only shows the jobs and requests they are invited to and cannot create jobs of its own. A closed request card says how many subs are waiting on your reply, your answer reaches them by email, and their My Bids page shows the count too. Each sub has their own conversation, so one bidder never sees what you told another. Quoting still needs no account.',
         help: 'quote-messages',
       },
       {
@@ -68,6 +68,18 @@ const AUTHORED: Release[] = [
         title: 'Mark equipment as needing repair',
         text: 'Flag a tool as needing repair wherever it is, from the dots on its row, or as it comes back - Check in now asks whether it is good to go or needs repair. Send it away to be fixed, mark it repaired, or retire it, and every step lands in its history. A Needs repair count at the top filters the list, and items now take a serial number and can be edited or deleted.',
         help: 'equipment-repair',
+      },
+      {
+        kind: 'new',
+        title: 'Subs see the schedule and report delays',
+        text: 'On a job they were awarded, a sub now has a Schedule tab: every trade in date order, theirs marked. They can report a delay on their own work with a reason - nothing moves until you review it. It shows on your Schedule with their days and reason filled into your usual delay box, so you see what it pushes before applying it, and they hear back either way.',
+        help: 'sub-job-view',
+      },
+      {
+        kind: 'new',
+        title: 'Every file on your jobs, in Files',
+        text: 'Files has a Job Files tab with the plans, site photos, quotes, submittals, quote-request attachments and sub bills from all your jobs, grouped by job, each opening where it lives.',
+        help: 'files',
       },
     ],
   },

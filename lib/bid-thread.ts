@@ -64,3 +64,31 @@ export function bidReturnPath(next: unknown): string | null {
   if (typeof next !== 'string') return null
   return /^\/bid\/[A-Za-z0-9_-]{8,128}$/.test(next) ? next : null
 }
+
+/**
+ * A thread's shape, without its words: how long it is, and whether the OTHER
+ * side spoke last - which is the one that wants an answer from whoever is
+ * looking. One answer for both lists that show it (the GC's invite rows and
+ * the sub's My Bids), so "waiting on your reply" means the same thing on each.
+ */
+export function threadSummary(
+  messages: { side: 'gc' | 'sub'; created_at: string }[] | null | undefined,
+  mine: 'gc' | 'sub',
+): { count: number; waitingOnMe: boolean } {
+  const list = [...(messages ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  const last = list[list.length - 1]
+  return { count: list.length, waitingOnMe: !!last && last.side !== mine }
+}
+
+/** The shortest password the account form takes - the reset screen's rule. */
+export const PASSWORD_MIN = 6
+
+/**
+ * What is missing from the free-account form, or null. Asked by the form AND
+ * the route, so the box says it before a request goes anywhere.
+ */
+export function accountProblem({ fullName, password }: { fullName: string; password: string }): string | null {
+  if (!fullName.trim()) return 'Enter your name.'
+  if (password.length < PASSWORD_MIN) return `Use at least ${PASSWORD_MIN} characters for your password.`
+  return null
+}

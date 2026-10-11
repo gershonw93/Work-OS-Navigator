@@ -1,8 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { appOrigin } from '@/lib/app-url'
-import { emailConfig, sendEmail, vendorInviteEmail } from '@/lib/email'
+import { sendEmail, subWelcomeEmail } from '@/lib/email'
 import { isEmailAddress } from '@/lib/contact-email'
+import { accountProblem } from '@/lib/bid-thread'
 
 export const runtime = 'nodejs'
 
@@ -11,27 +12,31 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
+const escapeLike = (s: string) => s.replace(/[%_\\]/g, '\\$&')
+
 /**
- * A free account for a sub, asked for from their quote link, so they can
- * message the GC about the request.
+ * A free account for a sub, made ON their quote page, so they can message the
+ * GC about the request.
  *
- * WHAT KIND OF ACCOUNT. A VENDOR one - the same thing `/api/invite` makes with
- * `audience: 'vendor'`: `read_only` on the sub's own company row, which is the
- * row in this GC's Directory. It sees what it is invited to (My Bids, My Jobs)
- * and cannot open a job of its own - `read_only` holds `projects: view` and
- * nothing more, and the projects POST asks for `create`. No billing row is
- * written, which is the designed meaning of unmetered: a sub is not a tenant.
+ * IN PLACE, NOT BY EMAIL. The first version sent a set-password link: name on
+ * the quote page, then the inbox to set a password, then back to the link to
+ * write the message - "too much back and forth", and it was. The password is
+ * set here, the account exists when this returns, and the page signs straight
+ * in and opens the conversation. The welcome email is a receipt and a way back
+ * in, not a step.
  *
- * WHICH ADDRESS. The one the invite was sent to, never a different one typed
- * here - the same rule as every invite link: good only for the address it was
- * sent to. Only an invite with NO address on it (the GC copied the link by
- * hand) takes one from the body, and it is then written onto the invite so
- * the next press cannot pick another.
+ * WHY THE LINK IS ENOUGH PROOF. The quote link is a secret token that was sent
+ * to the address it is for - holding it is the same evidence the old emailed
+ * set-password link was. So the account is ALWAYS for the address on the
+ * invite, never one typed here. Only an invite with no address at all (the GC
+ * copied the link and texted it) takes one from the body, and it is written
+ * onto the invite so the link is then bound to it.
  *
- * NOTHING IS GRANTED HERE. This sends a sign-in link to that inbox; the account
- * exists once somebody who can read that inbox sets a password, and
- * /api/invite/accept links it then - the path every vendor invite already
- * takes.
+ * WHAT KIND OF ACCOUNT. A VENDOR one - what `/api/invite` makes with
+ * `audience: 'vendor'`: `read_only` on the sub's own company row in this GC's
+ * Directory. It sees what it is invited to and cannot open a job of its own
+ * (`read_only` holds `projects: view` only, and both doors that create a job
+ * ask for `create`). No billing row: a sub is not a tenant.
  */
 export async function POST(request: Request, { params }: { params: { token: string } }) {
   const db = admin()
@@ -44,7 +49,9 @@ export async function POST(request: Request, { params }: { params: { token: stri
 
   const body = await request.json().catch(() => ({} as any))
   const fullName = String(body.full_name ?? '').trim()
-  if (!fullName) return NextResponse.json({ error: 'Enter your name.' }, { status: 400 })
+  const password = String(body.password ?? '')
+  const problem = accountProblem({ fullName, password })
+  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
 
   const req = (invite as any).bid_requests
   const gcCompanyId: string | null = req?.projects?.gc_company_id ?? null
@@ -59,7 +66,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
 
   // ── The address ─────────────────────────────────────────────────────────
   const onFile = (invite.vendor_email || company?.contact_email || '').trim()
-  const email = onFile || String(body.email ?? '').trim()
+  const email = (onFile || String(body.email ?? '')).trim()
   if (!isEmailAddress(email)) {
     return NextResponse.json({ error: onFile ? 'The address on this request is not a real email address. Ask the contractor to fix it.' : 'Enter your email address.' }, { status: 400 })
   }
@@ -70,27 +77,50 @@ export async function POST(request: Request, { params }: { params: { token: stri
     const { count } = await db.from('profiles').select('id', { count: 'exact', head: true }).eq('company_id', company.id)
     if ((count ?? 0) > 0) {
       return NextResponse.json({
-        signIn: true,
-        email,
+        signIn: true, email,
         message: `${company.name} already has a SyteNav account. Sign in, or ask whoever set it up to add you.`,
       })
     }
   }
 
+  // ── The login first, so nothing else is written for an address that has one ──
+  const { data: made, error: authErr } = await db.auth.admin.createUser({
+    email,
+    password,
+    // The link was the proof - see the header.
+    email_confirm: true,
+    user_metadata: { full_name: fullName },
+  })
+  if (authErr || !made?.user) {
+    if (/already|registered|exists/i.test(authErr?.message ?? '')) {
+      return NextResponse.json({ signIn: true, email, message: `${email} already has a SyteNav account. Sign in to message them.` })
+    }
+    console.error('[bid/account] createUser failed', { invite: invite.id, error: authErr?.message })
+    return NextResponse.json({ error: 'Could not create your account. Try again.' }, { status: 500 })
+  }
+  const userId = made.user.id
+
+  // From here a failure leaves a login with nothing behind it, so it is taken
+  // back out rather than left to confuse the next attempt.
+  const undo = async (why: string, detail?: string) => {
+    console.error(`[bid/account] ${why}`, { invite: invite.id, detail })
+    await db.auth.admin.deleteUser(userId).catch(() => {})
+    return NextResponse.json({ error: 'Could not set up your account. Try again.' }, { status: 500 })
+  }
+
   // No company on the invite yet: the one already in this GC's Directory under
-  // that address, or a new Directory entry - which is what the GC would have
-  // been asked to add anyway.
+  // that address, or a new Directory entry.
   if (!company) {
     const { data: known } = await db
       .from('companies')
       .select('id, name, contact_email')
       .eq('added_by_company_id', gcCompanyId)
-      .ilike('contact_email', email.replace(/[%_\\]/g, '\\$&'))
+      .ilike('contact_email', escapeLike(email))
       .limit(1)
       .maybeSingle()
     company = known
     if (!company) {
-      const { data: made, error: makeErr } = await db
+      const { data: created, error: makeErr } = await db
         .from('companies')
         .insert({
           name: String(body.company_name ?? '').trim() || invite.vendor_name || fullName,
@@ -101,18 +131,19 @@ export async function POST(request: Request, { params }: { params: { token: stri
         })
         .select('id, name, contact_email')
         .single()
-      if (makeErr || !made) {
-        console.error('[bid/account] company insert failed', { invite: invite.id, error: makeErr?.message })
-        return NextResponse.json({ error: 'Could not set up your account. Try again.' }, { status: 500 })
-      }
-      company = made
+      if (makeErr || !created) return undo('company insert failed', makeErr?.message)
+      company = created
     }
   }
 
-  // Remember who this invite is for, so the thread can find them. A unique
-  // clash (that company or address is already invited to this request on
-  // another row) is left alone: the address match in `canUseThread` still
-  // lets them in.
+  const { error: profileErr } = await db.from('profiles').upsert({
+    id: userId, email, full_name: fullName, company_id: company.id, role: 'read_only',
+  })
+  if (profileErr) return undo('profile insert failed', profileErr.message)
+
+  // Remember who this invite is for. A unique clash (that company or address
+  // already on this request on another row) is left alone: the address match
+  // in `canUseThread` still lets them in.
   const patch: Record<string, string> = {}
   if (!invite.vendor_company_id) patch.vendor_company_id = company.id
   if (!invite.vendor_email) patch.vendor_email = email
@@ -121,88 +152,17 @@ export async function POST(request: Request, { params }: { params: { token: stri
     if (linkErr) console.error('[bid/account] could not link invite', { invite: invite.id, error: linkErr.message })
   }
 
-  // Pressed twice: one letter, not two.
-  const { data: recent } = await db
-    .from('company_invites')
-    .select('created_at')
-    .eq('company_id', company.id)
-    .eq('status', 'pending')
-    .ilike('email', email.replace(/[%_\\]/g, '\\$&'))
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  if (recent && Date.now() - new Date(recent.created_at).getTime() < 2 * 60_000) {
-    return NextResponse.json({ sent: true, email })
-  }
-
-  const siteUrl = appOrigin(request.headers.get('origin'))
-  const userData = {
-    company_id: company.id,
-    role: 'read_only',
-    full_name: fullName,
-    // Where to land once the password is set - checked by `bidReturnPath`
-    // when it is read, because the person can rewrite their own metadata.
-    next: `/bid/${invite.token}`,
-  }
-
-  let { data: linkData, error: linkError } = await db.auth.admin.generateLink({
-    type: 'invite',
-    email,
-    options: { redirectTo: `${siteUrl}/auth/callback`, data: userData },
-  })
-  const exists = !!linkError && /already|registered|exists/i.test(linkError.message ?? '')
-  // Pressed before and never finished: the auth user exists (the first press
-  // made it) with no password, so "sign in" would be a dead end. A pending
-  // invite row for this company says that is what happened - send a
-  // set-password link instead, which lands on the same screen and is accepted
-  // the same way.
-  if (exists && recent) {
-    ;({ data: linkData, error: linkError } = await db.auth.admin.generateLink({
-      type: 'recovery',
-      email,
-      options: { redirectTo: `${siteUrl}/auth/callback` },
-    }))
-  } else if (exists) {
-    return NextResponse.json({
-      signIn: true,
-      email,
-      message: `${email} already has a SyteNav account. Sign in to message them.`,
-    })
-  }
-
+  // The receipt. Never fails the account - it exists, and the page is about
+  // to sign them in.
   const gcName = (await db.from('companies').select('name').eq('id', gcCompanyId).maybeSingle()).data?.name ?? null
   const askedAbout = [req?.title || req?.trade, req?.projects?.name].filter(Boolean).join(' on ') || null
-  const actionLink = (linkData as any)?.properties?.action_link
-
-  await db.from('company_invites').delete().eq('company_id', company.id).eq('email', email)
-  const { error: rowErr } = await db.from('company_invites').insert({
-    company_id: company.id, email, invited_by: null, role: 'read_only', status: 'pending',
+  const sent = await sendEmail({
+    to: email,
+    ...subWelcomeEmail({ name: fullName, gcName, signInUrl: `${appOrigin(request.headers.get('origin'))}/login`, askedAbout }),
   })
-  // Without this row /api/invite/accept has nothing to link them to, so the
-  // password would be set on an account with no company behind it.
-  if (rowErr) {
-    console.error('[bid/account] invite row failed', { to: email, error: rowErr.message })
-    return NextResponse.json({ error: 'Could not set up your account. Try again.' }, { status: 500 })
-  }
+  if (!sent.sent) console.error('[bid/account] welcome did not send', { to: email, reason: sent.reason })
 
-  let sent = false
-  let reason: string | undefined
-  if (!linkError && actionLink && emailConfig().configured) {
-    const letter = vendorInviteEmail({ name: fullName, gcName, inviteUrl: actionLink, askedAbout })
-    const result = await sendEmail({ to: email, ...letter })
-    sent = result.sent
-    if (!result.sent) reason = result.detail ?? result.reason
-  } else {
-    const { error: inviteError } = await db.auth.admin.inviteUserByEmail(email, { data: userData, redirectTo: `${siteUrl}/auth/callback` })
-    sent = !inviteError
-    reason = inviteError?.message ?? linkError?.message
-  }
-  if (!sent) {
-    // Undone, so "pressed twice" above does not swallow the retry.
-    await db.from('company_invites').delete().eq('company_id', company.id).eq('email', email).eq('status', 'pending')
-    console.error('[bid/account] invite did not send', { to: email, reason })
-    return NextResponse.json({ error: 'We could not send the email to finish your account. Try again in a minute.' }, { status: 502 })
-  }
-
-  return NextResponse.json({ sent: true, email })
+  // The address goes back so the page can sign in with it. The holder of the
+  // link already reached that address's quote; this tells them nothing new.
+  return NextResponse.json({ created: true, email })
 }

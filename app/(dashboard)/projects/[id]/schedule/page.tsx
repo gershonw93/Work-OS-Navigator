@@ -14,6 +14,7 @@ import { ProgressField } from '@/components/schedule/progress-field'
 import { daysBetween, type Progress } from '@/lib/schedule-dependencies'
 import { missingDelay, delayedDates, delayDays } from '@/lib/schedule-delay'
 import { LineHistory } from '@/components/schedule/line-history'
+import { DelayReportBanner, type PendingDelayReport } from '@/components/schedule/delay-report-banner'
 import { slipBadge, type DateChange } from '@/lib/schedule-history'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
@@ -34,6 +35,7 @@ import { useViewerContext } from '@/lib/use-viewer-context'
 import { SubSchedule } from '@/components/projects/sub-schedule'
 import { DayDetailSheet } from '@/components/calendar/day-detail-sheet'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { useNotice } from '@/components/ui/notice'
 
 import { formatDate, formatDateShort, todayDateInput } from '@/lib/dates'
 const MILESTONE_COLORS = [
@@ -147,6 +149,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const canEditSchedule = can('schedule', 'create') || can('schedule', 'edit')
   const supabase = createClient()
   const vc = useViewerContext(params.id)
+  const notify = useNotice()
   const [items, setItems] = useState<ScheduleItem[]>([])
   // WHO IS HELD BY A PERCENT GATE, AND WHO HAS JUST COME FREE. Off the
   // schedule payload, computed by the same `readGatePicture` the send uses.
@@ -245,6 +248,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   // impossible to close, which is the guard the Directory's `?contact=` deep
   // link already carries.
   const openedFromUrl = useRef<string | null>(null)
+  // Delays subs have REPORTED, waiting on a decision here. `fromReport` is the
+  // one the open delay dialog came from: recording that delay is what answers
+  // it, so the apply carries its id.
+  const [delayReports, setDelayReports] = useState<PendingDelayReport[]>([])
+  const [fromReport, setFromReport] = useState<string | null>(null)
+  const [reportBusy, setReportBusy] = useState<string | null>(null)
+  const openedReportFromUrl = useRef<string | null>(null)
   // NOTHING in the dependency picker saves on its own. Links built there are
   // staged here and written by Save Changes, and a saved link somebody removes
   // is staged too - one dialog, one save, and Cancel really cancels.
@@ -324,6 +334,45 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     }
     setLoading(false)
     return fresh
+  }
+
+  async function loadDelayReports() {
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/schedule/delay-reports`, { headers: { Authorization: `Bearer ${token}` } })
+      if (res.ok) setDelayReports((await res.json()).reports ?? [])
+    } catch { /* the banner is a convenience; the schedule still works */ }
+  }
+
+  /** Open the GC's own delay dialog on the reported line, with what the sub said. */
+  function reviewReport(r: PendingDelayReport) {
+    const item = items.find(i => i.id === r.schedule_item_id)
+    if (!item) return
+    openEdit(item, 'delay')
+    // AFTER openEdit, which clears both. The DAYS are the sub's stated number
+    // - unlike a daily log's hand-off, which never says how late the job is -
+    // and the GC can change either before anything moves.
+    setDelayDaysInput(String(r.days))
+    setDelayReason(r.reason)
+    setFromReport(r.id)
+  }
+
+  async function dismissReport(r: PendingDelayReport) {
+    setReportBusy(r.id)
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/schedule/delay-reports/${r.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: 'dismiss' }),
+      })
+      if (!res.ok) notify((await res.json().catch(() => ({}))).error ?? 'Could not dismiss that.')
+    } catch {
+      notify('We could not tell whether that went through. Reload to check.')
+    } finally {
+      setReportBusy(null)
+      loadDelayReports()
+    }
   }
 
   async function loadUnscheduled() {
@@ -537,7 +586,19 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     if (created) openEdit(created)
   }
 
-  useEffect(() => { load(); loadUnscheduled() }, [params.id])
+  useEffect(() => { load(); loadUnscheduled(); loadDelayReports() }, [params.id])
+
+  // The notification's link: `?delay_report=<id>` opens that report's review.
+  // A REF so it opens once and can still be closed.
+  useEffect(() => {
+    const wanted = urlParams?.get('delay_report')
+    if (!wanted || openedReportFromUrl.current === wanted || !items.length) return
+    const r = delayReports.find(x => x.id === wanted)
+    if (!r) return
+    openedReportFromUrl.current = wanted
+    reviewReport(r)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlParams, items, delayReports])
 
   /**
    * Where the calendar lands the first time data arrives.
@@ -952,11 +1013,13 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
         // record nobody made.
         kind: editMode === 'delay' ? 'delay' : 'replan',
         reason: editMode === 'delay' ? delayReason.trim() : null,
+        // Recording this delay answers the sub's report it came from.
+        ...(editMode === 'delay' && fromReport ? { delay_report_id: fromReport } : {}),
       }),
     })
     if (!r.ok) { setEditError(r.error); setPending(null); return }
-    setPending(null); setEditItem(null)
-    load(); loadUnscheduled()
+    setPending(null); setEditItem(null); setFromReport(null)
+    load(); loadUnscheduled(); loadDelayReports()
   }
 
   async function deleteItem(itemId: string) {
@@ -1066,6 +1129,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   function openEdit(item: ScheduleItem, mode: 'edit' | 'delay' = 'edit') {
     setEditItem(item)
     setEditMode(mode)
+    setFromReport(null)
     setDelayDaysInput('')
     setDelayReason('')
     setDeps([]); setDepsState('loading')
@@ -1469,6 +1533,15 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
           to the schedule afterwards to work out who that released. Gated on
           the same permission the route asks for, so it is never a button that
           answers 403. */}
+      {canEditSchedule && (
+        <DelayReportBanner
+          reports={delayReports}
+          lineName={id => { const it = items.find(i => i.id === id); return it ? (it.trade?.trim() || it.label?.trim() || 'a line') : null }}
+          onReview={reviewReport}
+          onDismiss={dismissReport}
+          busyId={reportBusy}
+        />
+      )}
       {canEditSchedule && (
         <UnblockedBanner count={toTell.length} onOpen={() => { setTellError(null); setTellOpen(true) }} />
       )}

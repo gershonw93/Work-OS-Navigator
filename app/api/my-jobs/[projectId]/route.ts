@@ -53,6 +53,35 @@ export async function GET(request: Request, { params }: { params: { projectId: s
     db.from('daily_logs').select('id, log_date, created_by_name, has_issues, weather, created_at').eq('project_id', params.projectId).order('log_date', { ascending: false }).limit(5),
   ])
 
+  // THE WHOLE JOB'S SCHEDULE, theirs marked. A sub needs to see when the
+  // trade before them finishes, not only their own bar. Served HERE rather
+  // than through /api/projects/<id>/schedule, because this route has already
+  // asked the question that matters for a sub - do they hold a subcontract on
+  // this job - and the GC's schedule route asks only a permission. Read-only:
+  // the one thing a sub may do to a line is report it late, through
+  // ./schedule/<itemId>/delay, and only on their own.
+  const mySubIds = new Set((subcontracts ?? []).map((s: any) => s.id))
+  const [{ data: lines, error: linesErr }, { data: reports }] = await Promise.all([
+    db.from('schedule_items')
+      .select('id, trade, label, start_date, end_date, subcontract_id, subcontracts ( companies ( name ) )')
+      .eq('project_id', params.projectId)
+      .order('start_date', { ascending: true }),
+    db.from('schedule_delay_reports')
+      .select('id, schedule_item_id, days, reason, status, created_at, decided_at')
+      .eq('project_id', params.projectId)
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false }),
+  ])
+  if (linesErr) console.error('[my-jobs] schedule read failed', { project: params.projectId, error: linesErr.message })
+  const schedule = linesErr ? null : (lines ?? []).map((l: any) => ({
+    id: l.id,
+    name: l.trade?.trim() || l.label?.trim() || 'Unnamed',
+    company: l.subcontracts?.companies?.name ?? null,
+    start_date: l.start_date,
+    end_date: l.end_date,
+    mine: !!l.subcontract_id && mySubIds.has(l.subcontract_id),
+  }))
+
   // Fetch payment schedule items for all subcontracts
   const subcontractsWithSchedule = await Promise.all(
     (subcontracts ?? []).map(async (sub) => {
@@ -69,5 +98,8 @@ export async function GET(request: Request, { params }: { params: { projectId: s
     inspections: inspections ?? [],
     invoices: invoices ?? [],
     recentLogs: dailyLogs ?? [],
+    // null when the read FAILED - not [], which would say "no schedule yet".
+    schedule,
+    delayReports: reports ?? [],
   })
 }

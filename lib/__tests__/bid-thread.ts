@@ -6,7 +6,7 @@
 // create a free account, but their free account, they can't create their own
 // jobs, only whatever they're invited to".
 
-import { canUseThread, messageProblem, bidReturnPath, MESSAGE_MAX } from '../bid-thread'
+import { canUseThread, messageProblem, bidReturnPath, MESSAGE_MAX, threadSummary, accountProblem, PASSWORD_MIN } from '../bid-thread'
 import { getRoleDefaults } from '../permissions'
 import { NOTIFICATION_TYPES } from '../notifications'
 import { ok, done, code } from './_helpers'
@@ -65,5 +65,27 @@ ok(fromSub?.status === 'live' && fromSub.audience === 'team', 'a message to the 
 ok(toSub?.status === 'live' && toSub.audience === 'direct' && toSub.defaults.email, 'a reply to the sub is direct and emails by default - a sub lives in their inbox')
 const db = code('lib/bid-thread-db.ts')
 ok(/type: 'bid_message_from_sub'/.test(db) && /type: 'bid_message_to_sub'/.test(db), 'and the writer sends under both, one per direction')
+
+// ── the free account is made IN PLACE, and cannot make a job by either door ──
+ok(accountProblem({ fullName: 'Mike', password: 'x'.repeat(PASSWORD_MIN) }) === null, 'THE ONE-STOP ACCOUNT: a name and a password are enough')
+ok(accountProblem({ fullName: ' ', password: 'longenough' }) !== null && accountProblem({ fullName: 'Mike', password: 'x'.repeat(PASSWORD_MIN - 1) }) !== null,
+  '...and either missing is said at the field')
+ok(/createUser\(/.test(account) && /email_confirm: true/.test(account) && !/generateLink/.test(account),
+  'the route creates the login with the password - no set-password email, no round trip')
+ok(/signInWithPassword/.test(code('components/quotes/quote-messages.tsx')), '...and the page signs straight in and opens the thread')
+ok(/deleteUser\(userId\)/.test(account), 'a login left with no company behind it is taken back out')
+const myJobsRoute = code('app/api/my-jobs/route.ts')
+ok(/actorCan\(actor, 'projects', 'create'\)/.test(myJobsRoute), 'THE SECOND DOOR: My Jobs asks the same `create` the projects route does - it asked nothing')
+ok(/projectSlotProblem/.test(myJobsRoute) && /billingLock/.test(myJobsRoute), '...and the same meter, because it opens a slot too')
+
+// ── what a list says about a thread ─────────────────────────────────────────
+const t = (side: 'gc' | 'sub', at: string) => ({ side, created_at: at })
+ok(threadSummary([t('sub', '2026-10-01'), t('gc', '2026-10-02')], 'sub').waitingOnMe, 'the GC wrote last, so the sub has a new reply')
+ok(!threadSummary([t('sub', '2026-10-01'), t('gc', '2026-10-02')], 'gc').waitingOnMe, '...and the GC is not waiting on themselves')
+ok(threadSummary([t('gc', '2026-10-03'), t('sub', '2026-10-01')], 'gc').waitingOnMe === false, 'order is by time, not by array position')
+ok(threadSummary(null, 'gc').count === 0 && !threadSummary([], 'sub').waitingOnMe, 'no thread is nothing to say')
+ok(/threadSummary\(qr\.messages, 'sub'\)/.test(code('app/(dashboard)/my-bids/page.tsx')), 'My Bids shows the count, from the same function')
+ok(/bid_messages \( side, created_at \)/.test(code('app/api/my-bids/route.ts')), '...read on its own route')
+ok(/waiting > 0/.test(code('app/(dashboard)/projects/[id]/request-quotes/page.tsx')), 'a closed request card says a sub is waiting on a reply')
 
 done()

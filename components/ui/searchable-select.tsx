@@ -19,6 +19,12 @@ export interface SelectOption {
   value: string
   label: string
   disabled?: boolean
+  /**
+   * A quieter second line under the label - "Dana Ruiz | dana@acme.com" under
+   * a company - so two similar names can be told apart before picking. Also
+   * searched. On an `<option>` child, pass it as `data-hint`.
+   */
+  hint?: string
 }
 
 interface SearchableSelectProps {
@@ -56,7 +62,7 @@ function optionsFromChildren(children: ReactNode): SelectOption[] {
           : String(p.children ?? '')).trim()
       // Native <option> uses its text as the value when value is omitted.
       const value = p.value !== undefined && p.value !== null ? String(p.value) : label
-      out.push({ value, label, disabled: p.disabled })
+      out.push({ value, label, disabled: p.disabled, hint: p['data-hint'] || undefined })
     } else if (child.props && (child.props as any).children) {
       out.push(...optionsFromChildren((child.props as any).children))
     }
@@ -138,7 +144,7 @@ export function SearchableSelect({
     const q = query.trim().toLowerCase()
     const list = ordered.filter(o => o.value !== '' || !q) // hide empty placeholder while searching
     if (!q) return list
-    return list.filter(o => o.label.toLowerCase().includes(q))
+    return list.filter(o => o.label.toLowerCase().includes(q) || !!o.hint?.toLowerCase().includes(q))
   }, [ordered, query])
 
   // When the last pick happened, so the trigger can tell a fresh tap from the
@@ -311,7 +317,10 @@ export function SearchableSelect({
                     i === activeIdx ? 'bg-muted text-ink' : 'text-ink-soft'
                   )}
                 >
-                  <span className="truncate">{opt.label}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate">{opt.label}</span>
+                    {opt.hint && <span className="block truncate text-xs text-faint">{opt.hint}</span>}
+                  </span>
                   {opt.value === current && <Check className="h-4 w-4 shrink-0 text-accent-fg" />}
                 </button>
               ))
