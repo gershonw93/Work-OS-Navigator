@@ -1,4 +1,3 @@
-<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1"><style>:root{color-scheme:light}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
 <title>SyteNav Field Guide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -408,7 +407,7 @@
       ones where the answer is "not yet".
     </p>
     <div class="stamp">
-      <span><b>Updated</b> 24 Sep 2026</span>
+      <span><b>Updated</b> 11 Oct 2026</span>
       <span><b>Audience</b> prospects &amp; customers</span>
       <span><b>Status</b> live, in daily use</span>
     </div>
@@ -464,6 +463,13 @@
             document rather than a status somebody remembered to set: a live certificate is current, one
             inside thirty days flags amber, and a lapsed one goes red the day it starts to matter.
           </p>
+          <p>
+            A sub with a question about the scope can message you from the same link, once they make a
+            free account - a vendor account that sees only the jobs and requests they are invited to and
+            cannot create jobs of its own. Each sub has their own conversation with you, so one bidder
+            never sees what you told another, and your answer reaches them by email. Quoting itself still
+            needs no account.
+          </p>
           <p class="tabs">Quotes &amp; Bids · Subs &amp; Team · Compliance</p>
         </div>
       </li>
@@ -477,6 +483,9 @@
             phone with one hand and a glove on the other.
           </p>
           <p>
+            Every job can carry the list of inspections it will need, decided up front - footing to
+            final, plus your own types - and each line says where it stands until it passes. A lot
+            with no city sewer or water suggests the septic and well inspections that go with it.
             Inspections keep two dates apart on purpose: the date the field <em>needs</em> it, and
             the date the jurisdiction actually <em>gave</em> you. Only the second one reaches the
             calendar, so nothing sits in your team's Outlook as a confirmed appointment that nobody
@@ -590,13 +599,19 @@
       Reaching the limit means moving up a plan or closing out a job that is done, and neither
       deletes anything. Settings &rarr; Billing shows the count as it stands.
     </p>
+    <p>
+      In a group of houses or units, every house is a job and counts; the group holding them is a
+      folder and does not. A batch that would go past your plan is refused as a whole, never half
+      created.
+    </p>
 
     <h3>Your team, your subs and your clients are all free</h3>
     <p>
       Team members are unlimited on every plan. Subs and clients work through links rather than
       logins, so there is no seat to buy for them - which matters more than it sounds: where the
       field is charged per seat, seats get rationed, and rationed seats mean the people on site
-      are not in the system.
+      are not in the system. A sub who wants to message you about a quote makes a free account
+      for it; that is never charged either.
     </p>
 
     <h3>Paying annually</h3>
@@ -666,7 +681,7 @@
                 <tr><td>Bills from subs</td><td>Bill</td><td>The moment you approve it</td></tr>
                 <tr><td>Paying a sub's bill</td><td>Bill Payment, applied to that bill</td><td>The moment you mark it paid</td></tr>
                 <tr><td>Invoices to your client</td><td>Invoice (A/R)</td><td>The moment you send it</td></tr>
-                <tr><td>Money received</td><td>Payment, applied to the invoice it settles</td><td>As you record it</td></tr>
+                <tr><td>Money received</td><td>Payment, applied to the invoices it settles - part or whole</td><td>As you record it</td></tr>
                 <tr><td>Voiding a sent invoice</td><td>The invoice is voided there too</td><td>As you void it</td></tr>
               </tbody>
             </table>
@@ -684,10 +699,20 @@
       <div>
         <dt>Which invoice does a payment settle?</dt>
         <dd>
-          The one you recorded it against - not "the oldest one still open". Two invoices raised on
-          the same day cannot be mixed up, because the payment carries the invoice you pressed Mark
-          paid on. Only money that settles nothing in particular - a deposit taken before there is
-          an invoice - books as a sales receipt instead.
+          The ones you recorded it against, by the amounts you gave - not "the oldest one still
+          open". A part payment leaves the invoice part paid, with the balance still owed on both
+          sides. One cheque covering several invoices goes across as ONE QuickBooks payment applied
+          to each of them, so it matches the single deposit on the bank statement. Only money that
+          settles nothing in particular - a deposit taken before there is an invoice - books as a
+          sales receipt instead.
+        </dd>
+      </div>
+      <div>
+        <dt>What about overpayments?</dt>
+        <dd>
+          Held as credit on account if you say so when you record the payment. In QuickBooks it is
+          unapplied credit on the customer, on the same payment; applying it to a later invoice
+          updates that payment rather than adding a second one, so the money is never counted twice.
         </dd>
       </div>
       <div>
@@ -736,6 +761,17 @@
     <div class="limits">
       <ul>
         <li>
+          <span class="tag">Booking appointments</span>
+          SyteNav does not book anything with anybody on your behalf - it does not call, text or
+          email an inspector, a township or a client to set a time. It records the time once a
+          person has arranged it, and confirmed dates appear on the calendar and in the feed you can
+          add to Google, Apple or Outlook.
+        </li>
+        <li>
+          <span class="tag">Text messages</span>
+          SyteNav sends email and in-app notifications. It does not send SMS.
+        </li>
+        <li>
           <span class="tag">Booking an inspection</span>
           SyteNav does not contact the inspector or the township. It tells the right person at your
           company that an inspection is needed, hands them the numbers already on the job - the
@@ -747,9 +783,11 @@
           <span class="tag">Placing a job on the map</span>
           A job's map point comes from its address, and an address a map service cannot resolve -
           a street with no town or ZIP, or a placeholder typed in a hurry - leaves the job unplaced
-          rather than guessed at. SyteNav says which jobs those are and lets you set the point by
-          hand, but it will not invent one, and it cannot tell a placeholder that happens to name a
-          real town from a genuine address.
+          rather than guessed at. A list of addresses is checked on the map before any job is made,
+          and a house the map could only find the street for is created without a pin rather than
+          given the middle of the street. SyteNav says which jobs those are and lets you set the
+          point by hand, but it will not invent one, and it cannot tell a placeholder that happens to
+          name a real town from a genuine address.
         </li>
         <li>
           <span class="tag">QuickBooks · one direction</span>
@@ -757,9 +795,10 @@
           there and the two will disagree until it is fixed here.
         </li>
         <li>
-          <span class="tag">Split payments</span>
-          A client payment applies whole, to the invoice you recorded it against. Splitting one
-          cheque across several invoices is not modelled.
+          <span class="tag">Credit is per job</span>
+          An overpayment, or a payment made ahead, can be held as the client's credit on account and
+          applied to a later invoice. That credit belongs to the job it was paid on - it cannot be
+          spent on the same client's other job - and there is no refund button for it yet.
         </li>
         <li>
           <span class="tag">Editing a sent invoice</span>
@@ -775,9 +814,15 @@
           rather than offering a button that opens something else.
         </li>
         <li>
+          <span class="tag">House models · applied, not linked</span>
+          A model's plans, budget, inspections and punch items are copied onto each house when you
+          apply it. Changing the model changes no house until you apply again (which adds only what
+          is new), and taking something off the model does not take it off houses that already have it.
+        </li>
+        <li>
           <span class="tag">Sub-side experience</span>
-          Subcontractors can quote, submit bills and see their own jobs, but their side is thinner
-          than the GC's. It is built for the contractor first.
+          Subcontractors can quote, message you about a quote request, submit bills and see their
+          own jobs, but their side is thinner than the GC's. It is built for the contractor first.
         </li>
       </ul>
     </div>
@@ -804,11 +849,33 @@
       which roles or people hear about an inspection, a change order, a bill waiting for approval.
     </p>
 
-    <h3>Multi-unit work</h3>
+    <h3>Equipment, including what is broken</h3>
+    <p>
+      Every tool and machine, who has it and which job it is on, checked out and back in from a
+      phone. Anybody can mark something as needing repair wherever it is, or as it comes back, and
+      the problem shows on the list for the next person who reaches for it. Send it away to be
+      fixed, mark it repaired or retire it, and each step lands in its history with who did it.
+    </p>
+
+    <h3>Multi-unit work and groups of houses</h3>
     <p>
       A building or a street can be a site holding a job per unit, with budget and progress rolling
       up across all of them - so twelve townhouses are twelve jobs you can actually run, not one
       job with twelve of everything in it.
+    </p>
+    <p>
+      Scattered lots come in from a list: a spreadsheet, a PDF or a photo of your lot schedule,
+      read into rows you check before anything is created - each address looked up on the map,
+      with its lot and block, parcel, lot size, city water and sewer, garage side and any
+      environmental note carried onto the job. Every job can hold those lot details, not only
+      the ones made from a list.
+    </p>
+    <p>
+      Houses built to the same design share a <strong>model</strong>: its plans (with separate
+      left- and right-garage sets where they differ), its budget, its required inspections and its
+      punch list are set up once and applied to the houses you pick, after a preview of what each
+      one will get. The group keeps its own main budget for land, roads and sitework, added to the
+      houses' budgets in the roll-up.
     </p>
   </section>
 
@@ -822,8 +889,11 @@
       If a question falls outside what is written here, the honest answer is that it needs
       checking, not a guess. Updated whenever something a customer would notice ships.
     </p>
+    <p>
+      The same "does not do yet" list is public as a Help Center article,
+      <a href="https://help.sytenav.com/articles/what-sytenav-does-not-do">What SyteNav does not do (yet)</a>,
+      and the Help Center's answer box reads it with every question. Change one, change both.
+    </p>
   </footer>
 
 </div>
-
-</body></html>
