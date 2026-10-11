@@ -546,7 +546,14 @@ and why:
 - **Was this helpful? on each article**, written beside `help_answers`, so the articles that fail people are found from data rather than from a support email.
 - **Read the unanswered questions.** `select question from help_answers where answered = false` is the to-write list; nothing surfaces it on a screen yet.
 
+## 💬 Quote messages - next steps
+- **No unread state.** The GC's invite row says "waiting on your reply" when the sub spoke last, which is the question that matters; there is no per-person read marker, so two people at the GC both see it until one answers.
+- **Text only.** A sub who wants to send a photo of a site condition attaches it to their quote instead. Attachments on a message would need the storage + signed-URL path the quote upload already uses.
+- **Not on My Bids.** A signed-in sub reaches the thread from the quote page (`/bid/<token>`, which My Bids links to); My Bids itself does not show a message count yet.
+
 ## ✅ Recently shipped (for reference)
+
+- Quote messages: a sub can message the GC about a quote request from their link once they create a free vendor account (read_only, unmetered, cannot create jobs); one thread per invite, `bid_messages` (migration 134). Equipment repair: a needs-repair flag beside the status, a condition on check-in, send for repair / repaired / retire / bring back with `equipment_events` history, serial numbers, edit and delete.
 
 - Credit on account: a payment can hold what is not on an invoice as the client's credit (`client_payments.on_account`, migration 129), applied later from an invoice's menu; in QuickBooks it is unapplied credit on the same Payment, rewritten in place when applied.
 

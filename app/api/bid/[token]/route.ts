@@ -27,7 +27,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   }
 
   const SCOPE_COLS = 'package_type, material_by, included, excluded, ask_for, item_list, '
-  const CORE = 'id, title, trade, description, due_date, status, project_id, projects(name, address), bid_request_attachments(file_url, file_name)'
+  const CORE = 'id, title, trade, description, due_date, status, project_id, projects(name, address, gc_company_id), bid_request_attachments(file_url, file_name)'
   let req: any = (await db.from('bid_requests').select(SCOPE_COLS + CORE).eq('id', invite.bid_request_id).single()).data
   // Pre-migration fallback: scope columns may not exist yet - the bid link
   // must keep working either way.
@@ -36,7 +36,11 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   }
   if (!req) return NextResponse.json({ error: 'Request not found' }, { status: 404 })
 
-  const { data: mySubmission } = await db.from('bid_submissions').select('*').eq('bid_invite_id', invite.id).order('created_at', { ascending: false }).limit(1).maybeSingle()
+  const gcId = (req as any).projects?.gc_company_id
+  const [{ data: mySubmission }, { data: gc }] = await Promise.all([
+    db.from('bid_submissions').select('*').eq('bid_invite_id', invite.id).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    gcId ? db.from('companies').select('name').eq('id', gcId).maybeSingle() : Promise.resolve({ data: null }),
+  ])
 
   return NextResponse.json({
     request: {
@@ -50,7 +54,16 @@ export async function GET(_request: Request, { params }: { params: { token: stri
       ask_for: (req as any).ask_for ?? [],
       item_list: coerceLines((req as any).item_list),
     },
-    invite: { vendor_name: invite.vendor_name, status: invite.status },
+    // Who is asking, so the page can say who a message will reach.
+    gc_name: (gc as any)?.name ?? null,
+    invite: {
+      vendor_name: invite.vendor_name,
+      status: invite.status,
+      // Whether the free-account form has to ask for an address. The address
+      // itself is not handed to whoever holds the link; the sign-in email goes
+      // to it, which is the proof that matters.
+      has_email: !!(invite.vendor_email || invite.vendor_company_id),
+    },
     submission: mySubmission ?? null,
   })
 }

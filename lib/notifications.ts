@@ -292,6 +292,27 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
+    // TO THE GC. Two keys for one conversation because it travels both ways -
+    // the same reason `new_bid` and `bid_invited` were split: a GC muting
+    // questions from subs must not stop their own answers reaching the sub.
+    // Routed to whoever can work the quote request, because the thing it asks
+    // for is a reply from somebody who can answer for the scope.
+    key: 'bid_message_from_sub', label: 'Message from a sub', group: 'Bids',
+    description: 'A sub you asked for a quote sends you a message about it.',
+    audience: 'team', defaultAudience: ['request-quotes', 'edit'],
+    alsoTold: 'Whoever created the quote request.',
+    defaults: { inApp: true, email: false }, push: true, status: 'live',
+  },
+  {
+    // TO THE SUB. Email ON for the reason `bid_invited` is: a sub lives in
+    // their inbox, not in our bell, and an answer to their question that sits
+    // unread is a quote priced on a guess.
+    key: 'bid_message_to_sub', label: 'Reply about a quote', group: 'Bids',
+    description: 'A GC answers a message you sent about a quote request.',
+    audience: 'direct',
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
     key: 'bid_revision', label: 'Bid revision requested', group: 'Bids',
     description: 'A GC asks you to revise a bid you submitted.',
     audience: 'direct',

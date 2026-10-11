@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
+import { bidReturnPath } from '@/lib/bid-thread'
 
 function ResetPasswordForm() {
   const router = useRouter()
@@ -79,8 +80,12 @@ function ResetPasswordForm() {
 
     // Link the account to the inviting company and clear the pending invite.
     // Best-effort: the password is already set, so never block on this.
+    // A sub who asked for an account from their quote link goes back to that
+    // quote, where the conversation they asked for is waiting.
+    let landing = '/dashboard'
     try {
       const { data: { session } } = await supabase.auth.getSession()
+      landing = bidReturnPath(session?.user?.user_metadata?.next) ?? '/dashboard'
       if (session?.access_token) {
         await fetch('/api/invite/accept', {
           method: 'POST',
@@ -93,7 +98,7 @@ function ResetPasswordForm() {
 
     setSuccess(true)
     setTimeout(() => {
-      router.push('/dashboard')
+      router.push(landing)
     }, 2000)
   }
 

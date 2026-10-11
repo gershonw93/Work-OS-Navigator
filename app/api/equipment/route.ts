@@ -70,12 +70,12 @@ export async function POST(request: Request) {
   if (!profile?.company_id) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
   const body = await request.json()
-  const { name, category, asset_tag, notes } = body
+  const { name, category, asset_tag, serial_number, notes } = body
   if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 })
 
   const { data, error } = await db
     .from('equipment')
-    .insert({ company_id: profile.company_id, name, category, asset_tag, notes, status: 'available' })
+    .insert({ company_id: profile.company_id, name, category, asset_tag, serial_number: serial_number || null, notes, status: 'available' })
     .select('*')
     .single()
 
@@ -92,15 +92,20 @@ export async function PATCH(request: Request) {
   if (!profile?.company_id) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
   const body = await request.json()
-  const { id, name, category, asset_tag, notes, status } = body
+  const { id, name, category, asset_tag, serial_number, notes } = body
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+  if (name !== undefined && !String(name).trim()) return NextResponse.json({ error: 'Name is required.' }, { status: 400 })
 
+  // The details only. `status` used to be accepted here too, from no caller -
+  // it moves through check-out/in and /repair now, which are the doors that
+  // write the history. A status set here would leave a tool "In for repair"
+  // with no record of who sent it.
   const updates: Record<string, unknown> = {}
-  if (name !== undefined) updates.name = name
+  if (name !== undefined) updates.name = String(name).trim()
   if (category !== undefined) updates.category = category
   if (asset_tag !== undefined) updates.asset_tag = asset_tag
+  if (serial_number !== undefined) updates.serial_number = serial_number
   if (notes !== undefined) updates.notes = notes
-  if (status !== undefined) updates.status = status
 
   const { data, error } = await db
     .from('equipment')
