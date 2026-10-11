@@ -143,6 +143,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'is it possible', 'missing', 'feature request', 'suggest a feature', 'coming soon', 'roadmap',
       'book', 'booking', 'appointment', 'appointments', 'schedule an appointment', 'call', 'phone',
       'text message', 'sms', 'two way', 'two-way sync', 'import from quickbooks', 'edit sent invoice', 'free trial', 'sign up', 'demo',
+      'map', 'not on the map', 'pin', 'address not found', 'model', 'house model', 'update all houses', 'linked',
     ],
     summary: 'The places where a person still does the last step - so you know before you look for a button that is not there.',
     blocks: [
@@ -153,6 +154,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'CREDIT IS PER JOB. An overpayment held as credit on account belongs to the job it was paid on, so it cannot be applied to the same client\'s other job, and there is no button to refund it - both are done by hand today.' },
       { type: 'text', text: 'EDITING A SENT INVOICE. Deliberately not possible - editing a document your client is already holding leaves your copy and theirs disagreeing. Void it and raise a corrected one; the void goes to QuickBooks too and the costs are released to be billed again.' },
       { type: 'text', text: `SIGNING UP ON YOUR OWN. There is no button that starts an account straight away and no public demo. Access is by invitation: request access, and once you are approved you get the whole product for ${TRIAL_DAYS} days with no card taken.` },
+      { type: 'text', text: 'PLACING A JOB ON THE MAP. A job\'s map point comes from its address, and an address no map service can place - no town or ZIP, a placeholder, a misspelled street - leaves the job unplaced rather than guessed at. A list of addresses is checked on the map before anything is created, and a house the map could only find the street for is created without a pin rather than given the middle of the street. Set the point by hand in Project Settings.' },
+      { type: 'text', text: 'HOUSE MODELS ARE APPLIED, NOT LINKED. A model\'s plans, budget, inspections and punch items are copied onto each house when you apply it. Changing the model changes no house until you apply again (which adds only what is new), and taking something off the model does not take it off houses that already have it.' },
       { type: 'text', text: 'THE SUBCONTRACTOR SIDE. Subs can quote, submit bills and see their own jobs, but their side is thinner than the general contractor\'s. SyteNav is built for the contractor first.' },
       { type: 'tip', text: `Need one of these, or something else that is not here? Email ${SUPPORT_EMAIL} with "Feature request" in the subject and say what you would use it for. Requests are read, and they decide what gets built next.` },
     ],
