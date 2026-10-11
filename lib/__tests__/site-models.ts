@@ -89,4 +89,11 @@ ok(/updates\.kind = body\.kind/.test(read('app/api/projects/[id]/tasks/[taskId]/
 ok(/filterMode === 'punch'/.test(read('app/(dashboard)/projects/[id]/tasks/page.tsx')), 'and the Tasks tab can show the punch list on its own')
 ok(/distinctModelNames/.test(code('app/api/projects/bulk/route.ts')), 'a lot list naming models creates them and assigns the houses')
 
+// "can I upload a budget right here?" - in the model, not a trip to Budget Templates.
+const panel = code('components/projects/site-models-panel.tsx')
+ok(/fetch\('\/api\/budget-templates\/import'/.test(panel), 'THE MODEL TAKES A SPREADSHEET: read by the same importer the Budget Templates page uses')
+ok(/call\('\/api\/budget-templates', \{ method: 'POST'/.test(panel) && /budget_template_id: made\.data\.template\.id/.test(panel),
+  '...saved as a template and selected on the model - one home for a budget, not a second')
+ok(/amounts === 0/.test(panel), '...and a sheet read with no amounts says so')
+
 done()

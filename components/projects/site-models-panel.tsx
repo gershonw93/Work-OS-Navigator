@@ -233,6 +233,10 @@ function ModelEditor({ siteId, model, templates, names, onReload, onClose }: {
   const [punchText, setPunchText] = useState('')
   const [pickTypes, setPickTypes] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement | null>(null)
+  const budgetRef = useRef<HTMLInputElement | null>(null)
+  // What the last budget upload read - said, because a sheet that imports at
+  // zero looks exactly like one that worked until somebody opens a house.
+  const [budgetNote, setBudgetNote] = useState<string | null>(null)
   const [choices, setChoices] = useState<string[]>(() => typeOptions())
 
   useEffect(() => {
@@ -281,6 +285,51 @@ function ModelEditor({ siteId, model, templates, names, onReload, onClose }: {
     }
   }
 
+  /**
+   * A budget straight from a spreadsheet, in this dialog - "can I upload a
+   * budget right here?". It was a trip to the Budget Templates page and back.
+   *
+   * THE SAME TWO STEPS that page takes, through the same routes: the importer
+   * reads the sheet (`parseBudgetRows`, the one reader), and the result is
+   * saved as a template - named after the model - which this model then
+   * points at. A template, not a second place to keep a budget, so it shows on
+   * the Budget Templates page and can be edited there like any other.
+   */
+  async function uploadBudget(file: File | null) {
+    if (!file) return
+    setBusy('budget'); setError(null); setBudgetNote(null)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const read = await fetch('/api/budget-templates/import', {
+        method: 'POST', headers: { Authorization: `Bearer ${await token()}` }, body: form,
+      })
+      const d = await read.json().catch(() => ({}))
+      if (!read.ok) { setError(d.error ?? 'Could not read that spreadsheet.'); return }
+      const items: unknown[] = d.items ?? []
+      if (!items.length) { setError('No budget lines were found in that sheet. Check it has a description column and an amount column.'); return }
+
+      const tplName = `${model.name} budget`
+      const made = await call('/api/budget-templates', { method: 'POST', body: JSON.stringify({ name: tplName, source: 'excel', items }) })
+      if (!made.ok) { setError(made.data.error ?? 'Could not save the budget.'); return }
+      const ok = await act('tpl', () => call(base, { method: 'PATCH', body: JSON.stringify({ budget_template_id: made.data.template.id }) }))
+      if (!ok) return
+      const amounts = Number(d.with_amounts ?? 0)
+      setBudgetNote(
+        `Read ${items.length} line${items.length === 1 ? '' : 's'} from ${file.name}` +
+        (amounts === 0
+          ? ' - but no amounts. Check the sheet has a number column, or fill the amounts in on the Budget Templates page.'
+          : amounts < items.length ? `, ${amounts} with amounts.` : ', all with amounts.') +
+        ` Saved as "${tplName}".`,
+      )
+    } catch (e) {
+      setError(fetchProblem(e, 'uploading the budget'))
+    } finally {
+      setBusy(null)
+      if (budgetRef.current) budgetRef.current.value = ''
+    }
+  }
+
   const inspections = model.items.filter(i => i.kind === 'inspection')
   const punch = model.items.filter(i => i.kind === 'punch')
   const offered = choices.filter(c => !inspections.some(i => i.title.toLowerCase() === c.toLowerCase()))
@@ -309,9 +358,19 @@ function ModelEditor({ siteId, model, templates, names, onReload, onClose }: {
           <option value="">-- No budget --</option>
           {templates.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
         </Select>
+        {/* A LABEL WRAPPING AN sr-only INPUT, like every other upload here. */}
+        <label className={cn('inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-lg border border-line px-3 text-sm font-medium text-ink-soft hover:bg-surface',
+          busy && 'pointer-events-none opacity-60')}>
+          {busy === 'budget' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+          {busy === 'budget' ? 'Reading the budget…' : 'Upload a budget (Excel or CSV)'}
+          <input ref={budgetRef} type="file" className="sr-only"
+            accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+            onChange={e => uploadBudget(e.target.files?.[0] ?? null)} />
+        </label>
+        {budgetNote && <p className="text-xs text-success">{budgetNote}</p>}
         <p className="text-xs text-faint">
-          The per-house budget, amounts included. Templates are made on the Budget Templates page - from scratch, from an
-          existing job, or from an Excel sheet.
+          The per-house budget, amounts included. Upload a sheet here, or pick a template made on the Budget Templates
+          page - from scratch, from an existing job, or from Excel.
         </p>
       </div>
 
