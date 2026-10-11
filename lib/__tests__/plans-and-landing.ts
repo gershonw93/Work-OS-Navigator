@@ -37,8 +37,11 @@ ok(/redirect\(`\/projects\/\$\{params\.id\}\/overview`\)/.test(index), 'that red
 // The overview sends a subcontractor or a site on to Plans itself, which is why
 // the list can link to /projects/<id> without knowing who is looking.
 const overview = code('app/(dashboard)/projects/[id]/overview/page.tsx')
-ok(/router\.replace\(`\/projects\/\$\{params\.id\}\/plans`\)/.test(overview),
-  'and anyone without an overview is still sent on to Plans')
+ok(/router\.replace\(`\/projects\/\$\{params\.id\}\/\$\{d\?\.site \? 'units' : 'plans'\}`\)/.test(overview),
+  'and anyone without an overview is still sent on to Plans - except a site, whose front door is its list of jobs')
+const tabs = code('components/layout/project-tabs.tsx')
+ok(/const homeSlug = isSite \? 'units' : 'overview'/.test(tabs) && !/\{!isSite && \(\s*<Link\s+href=\{`\/projects\/\$\{projectId\}\/overview`\}/.test(tabs),
+  'A SITE HAS A WAY HOME: the first tab slot is never hidden for a site, it points at its jobs ("no dashboard tab to go back to")')
 
 const created = code('app/(dashboard)/projects/new/page.tsx')
 ok(/router\.push\(`\/projects\/\$\{project\.id\}`\)/.test(created), 'a job you just created opens there too')

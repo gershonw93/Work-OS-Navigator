@@ -151,14 +151,30 @@ export function LotListBuilder({
               app - not a display:none input clicked from script, which was the
               one upload here built the other way and the one reported as
               "doesn't load up the file". The tap lands on the input itself. */}
-          <label className="flex w-full cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed border-line px-4 py-4 text-left hover:bg-surface">
-            <Upload className="h-5 w-5 shrink-0 text-muted-fg" />
-            <span className="min-w-0">
+          {/* CHOSEN LOOKS CHOSEN. With a file picked, the box used to look
+              exactly like the empty one - same dashed border, same upload
+              icon, same "A spreadsheet is read by..." line - with only the
+              name changed, and "Read the list" below read like it was still
+              asking for one. Reported as "I thought it wasn't working". So a
+              picked file gets a solid border, a tick, and the next step in
+              words. Nothing is read yet on purpose: City and State below go
+              WITH the read. */}
+          <label className={cn(
+            'flex w-full cursor-pointer items-center gap-3 rounded-lg px-4 py-4 text-left',
+            file ? 'border border-accent bg-accent-tint' : 'border-2 border-dashed border-line hover:bg-surface',
+          )}>
+            {file
+              ? <CheckCircle2 className="h-5 w-5 shrink-0 text-accent-fg" />
+              : <Upload className="h-5 w-5 shrink-0 text-muted-fg" />}
+            <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold text-ink">{file ? file.name : 'Choose a file'}</span>
               <span className="block text-xs text-muted-fg">
-                A spreadsheet (.xlsx, .csv) is read by its column headings. A PDF or a photo is read by AI and uses one scan.
+                {file
+                  ? 'File selected. Press Read the list to see every row before anything is made.'
+                  : 'A spreadsheet (.xlsx, .csv) is read by its column headings. A PDF or a photo is read by AI and uses one scan.'}
               </span>
             </span>
+            {file && <span className="shrink-0 text-xs font-medium text-accent-fg underline-offset-2 hover:underline">Change</span>}
             <input ref={fileRef} type="file" className="sr-only"
               accept={`${ACCEPT_SCAN},.xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv`}
               onChange={e => { setFile(e.target.files?.[0] ?? null); setError(null) }} />
