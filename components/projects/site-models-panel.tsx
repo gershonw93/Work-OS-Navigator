@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -63,11 +64,15 @@ async function call(url: string, init: RequestInit = {}) {
  * template, plan sets, required inspections and punch items, and is APPLIED to
  * the houses you pick - after a preview of what each house would get.
  */
-export function SiteModelsPanel({ siteId, houses, onChanged }: {
+export function SiteModelsPanel({ siteId, houses, onChanged, bare, onDialogChange }: {
   siteId: string
   houses: HouseRow[]
   /** Houses changed model - the Jobs list re-reads. */
   onChanged: () => void
+  /** Inside a drawer: no card of its own, and the drawer has the title. */
+  bare?: boolean
+  /** A dialog opened or closed - the drawer holding this stops taking swipes. */
+  onDialogChange?: (open: boolean) => void
 }) {
   const [state, setState] = useState<'loading' | 'ready' | 'failed'>('loading')
   const [models, setModels] = useState<ModelRow[]>([])
@@ -88,6 +93,7 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
     } catch { setState('failed') }
   }, [siteId])
   useEffect(() => { load() }, [load])
+  useEffect(() => { onDialogChange?.(dialog !== null) }, [dialog, onDialogChange])
 
   const current = (id: string) => models.find(m => m.id === id) ?? null
   const housesOn = (id: string) => houses.filter(h => h.model_id === id).length
@@ -106,10 +112,10 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
   }
 
   return (
-    <div className="rounded-2xl border border-line bg-panel lg:rounded-xl">
+    <div className={bare ? '' : 'rounded-2xl border border-line bg-panel lg:rounded-xl'}>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
-          <h2 className="text-sm font-bold text-ink">House models</h2>
+          {!bare && <h2 className="text-sm font-bold text-ink">House models</h2>}
           {/* The explanation is for an empty panel; once there are models the rows say it. */}
           {state === 'ready' && models.length === 0 ? (
             <p className="text-xs text-muted-fg">Set up a model once - plans, budget, inspections, punch list - and apply it to the houses built to it.</p>
@@ -165,6 +171,8 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
         </div>
       )}
 
+      {/* To <body>: inside a drawer, a fixed dialog would be penned in by its transform. */}
+      {dialog && typeof document !== 'undefined' && createPortal(<>
       {dialog?.kind === 'new' && (
         <NewModelDialog siteId={siteId} names={models.map(m => m.name)} onClose={() => setDialog(null)}
           onCreated={async id => { await load(); setDialog({ kind: 'edit', modelId: id }) }} />
@@ -182,6 +190,7 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
       {dialog?.kind === 'apply' && current(dialog.modelId) && (
         <ApplyDialog siteId={siteId} model={current(dialog.modelId)!} onClose={() => setDialog(null)} onApplied={onChanged} />
       )}
+      </>, document.body)}
     </div>
   )
 }
