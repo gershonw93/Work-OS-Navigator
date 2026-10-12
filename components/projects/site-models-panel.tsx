@@ -19,6 +19,7 @@ import {
   HANDINGS, HANDING_LABEL, APPLY_PARTS, PART_LABEL, applySummary, modelNameProblem,
   type Handing, type ApplyPart, type HouseApply,
 } from '@/lib/site-models'
+import { KEPT_WHY } from '@/lib/budget-template-line'
 import { pickerValue, parsePickerValue, modelAssigneeProblem, type ModelAssignee } from '@/lib/model-assignee'
 import type { AssignablePeople } from '@/lib/model-assignee-db'
 import { Home, Plus, X, Upload, Loader2, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -39,6 +40,8 @@ type Dialog =
   | { kind: 'assign'; modelId: string }
   | { kind: 'apply'; modelId: string }
   | null
+
+const dollars = (n: number) => `$${n.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
 
 async function token() {
   const { data: { session } } = await createClient().auth.getSession()
@@ -324,7 +327,7 @@ function ModelEditor({ siteId, model, templates, people, names, onReload, onClos
       setBudgetNote(
         `Read ${items.length} line${items.length === 1 ? '' : 's'} from ${file.name}` +
         (amounts === 0
-          ? ' - but no amounts. Check the sheet has a number column, or fill the amounts in on the Budget Templates page.'
+          ? ' - but no amounts. Check the sheet has a number column, or fill the amounts in with the link below.'
           : amounts < items.length ? `, ${amounts} with amounts.` : ', all with amounts.') +
         ` Saved as "${tplName}".`,
       )
@@ -374,9 +377,17 @@ function ModelEditor({ siteId, model, templates, people, names, onReload, onClos
             onChange={e => uploadBudget(e.target.files?.[0] ?? null)} />
         </label>
         {budgetNote && <p className="text-xs text-success">{budgetNote}</p>}
+        {/* The template is edited where it lives - one home for a budget - and
+            the link opens THAT template, not the top of a list. */}
+        {model.budget_template_id && (
+          <a href={`/budget-templates?t=${model.budget_template_id}`} className="block text-xs font-semibold text-accent-fg hover:underline">
+            Add or change lines in this template →
+          </a>
+        )}
         <p className="text-xs text-faint">
           The per-house budget, amounts included. Upload a sheet here, or pick a template made on the Budget Templates
-          page - from scratch, from an existing job, or from Excel.
+          page - from scratch, from an existing job, or from Excel. After changing the template, Apply puts new lines and
+          changed amounts on the houses.
         </p>
       </div>
 
@@ -693,6 +704,7 @@ function ApplyDialog({ siteId, model, onClose, onApplied }: {
           <p className="text-xs text-muted-fg">
             Only what a house does not already have from this model is added - a plan, line, inspection or punch item it
             already holds is never doubled, so applying again after you change the model adds just the new ones.
+            {parts.has('amounts') && ' A changed template amount updates only houses still on the old figure - a line somebody changed on a house is left alone and listed.'}
           </p>
           <div className="divide-y divide-line-soft rounded-lg border border-line">
             {visible.map(h => {
@@ -704,8 +716,18 @@ function ApplyDialog({ siteId, model, onClose, onApplied }: {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm text-ink">{h.houseName}{!h.onModel && <span className="text-xs text-warn"> · not on this model</span>}</span>
                     <span className={cn('block text-xs', sum ? 'text-muted-fg' : 'text-faint')}>
-                      {sum ? <><CheckCircle2 className="mr-1 inline h-3 w-3 text-success" />Adds {sum}</> : 'Nothing new to add'}
+                      {sum ? <><CheckCircle2 className="mr-1 inline h-3 w-3 text-success" />{sum}</> : 'Nothing to add or update'}
                     </span>
+                    {parts.has('amounts') && h.amountUpdates.map(u => (
+                      <span key={u.lineId} className="block text-xs text-ink-soft">
+                        {u.description}: <s className="text-faint">{dollars(u.from)}</s> <strong className="font-semibold">{dollars(u.to)}</strong>
+                      </span>
+                    ))}
+                    {parts.has('amounts') && h.amountsKept.map((k, i) => (
+                      <span key={`kept-${i}`} className="block text-xs text-warn">
+                        <AlertTriangle className="mr-1 inline h-3 w-3" />{k.description}: left at {dollars(k.house)} - {KEPT_WHY[k.why]} (template says {dollars(k.template)}).
+                      </span>
+                    ))}
                     {parts.has('plans') && h.plansSkipped.map(s => (
                       <span key={s.plan.id} className="block text-xs text-warn"><AlertTriangle className="mr-1 inline h-3 w-3" />{s.plan.name}: {s.why}.</span>
                     ))}

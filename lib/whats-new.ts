@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-12',
+    title: 'Edit budget templates',
+    items: [
+      {
+        kind: 'new',
+        title: 'Add, change and remove template lines',
+        text: 'Open a template on Settings → Budget Templates to add a line, tap one to change its amount or remove it, or rename the template. New template starts one from scratch. On a development, a house model links straight to its template, and Apply then adds the new lines to the houses you tick and updates changed amounts on houses still on the old figure - a line somebody changed on one house is left alone and listed.',
+        help: 'budget-templates',
+      },
+    ],
+  },
+  {
+    date: '2026-10-12',
     title: 'Step-by-step walkthroughs in Help',
     items: [
       {

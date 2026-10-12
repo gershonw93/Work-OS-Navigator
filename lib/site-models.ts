@@ -21,6 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { foldType } from './inspection-types'
+import { amountChanges, type HouseBudgetLine, type AmountUpdate, type AmountKept } from './budget-template-line'
 
 export type Handing = 'any' | 'left' | 'right'
 export const HANDINGS: Handing[] = ['any', 'left', 'right']
@@ -30,11 +31,14 @@ export const HANDING_LABEL: Record<Handing, string> = {
   right: 'Garage right',
 }
 
-export type ApplyPart = 'plans' | 'budget' | 'inspections' | 'punch'
-export const APPLY_PARTS: ApplyPart[] = ['plans', 'budget', 'inspections', 'punch']
+export type ApplyPart = 'plans' | 'budget' | 'amounts' | 'inspections' | 'punch'
+export const APPLY_PARTS: ApplyPart[] = ['plans', 'budget', 'amounts', 'inspections', 'punch']
 export const PART_LABEL: Record<ApplyPart, string> = {
   plans: 'Plans',
   budget: 'Budget lines',
+  // NEW LINES and CHANGED AMOUNTS are separate choices: adding a line nobody
+  // has is harmless, rewriting a figure on thirty houses is a decision.
+  amounts: 'Budget amount changes',
   inspections: 'Required inspections',
   punch: 'Punch items',
 }
@@ -59,6 +63,11 @@ export interface HouseHas {
   taskSources: string[]
   inspectionTypes: string[]
   budgetDescriptions: string[]
+  /**
+   * The house's budget lines with where they came from. Optional so a caller
+   * that only adds lines need not read them; without it no amount changes.
+   */
+  budgetLines?: HouseBudgetLine[]
 }
 
 export interface HouseApply {
@@ -70,6 +79,10 @@ export interface HouseApply {
   /** Plans this house cannot take, with why - never dropped silently. */
   plansSkipped: { plan: ModelPlan; why: string }[]
   budget: TemplateLine[]
+  /** Lines copied from this template whose amount the template has since changed. */
+  amountUpdates: AmountUpdate[]
+  /** Lines the template disagrees with that are left alone, and why. */
+  amountsKept: AmountKept[]
   inspections: string[]
   punch: ModelItem[]
 }
@@ -108,7 +121,11 @@ export function planApply(args: {
     const { fit, skipped } = plansFor(h, args.plans)
     const heldTypes = new Set(has.inspectionTypes.map(foldType))
     const heldLines = new Set(has.budgetDescriptions.map(foldLine))
+    // A line copied from this template is held even if somebody has since
+    // renamed it on the house - by its source, not its wording.
+    const heldSources = new Set((has.budgetLines ?? []).map(l => l.source_template_item_id).filter(Boolean))
     const seenLines = new Set<string>()
+    const amounts = amountChanges(has.budgetLines ?? [], args.templateLines)
     return {
       houseId: h.id,
       houseName: h.name,
@@ -117,10 +134,12 @@ export function planApply(args: {
       plansSkipped: skipped,
       budget: args.templateLines.filter(l => {
         const k = foldLine(l.description)
-        if (!k || heldLines.has(k) || seenLines.has(k)) return false
+        if (!k || heldSources.has(l.id) || heldLines.has(k) || seenLines.has(k)) return false
         seenLines.add(k)
         return true
       }),
+      amountUpdates: amounts.updates,
+      amountsKept: amounts.kept,
       inspections: inspectionItems.map(i => i.title).filter(t => {
         const k = foldType(t)
         if (heldTypes.has(k)) return false
@@ -132,12 +151,13 @@ export function planApply(args: {
   })
 }
 
-/** "2 plans · 14 budget lines · 9 inspections", or null when there is nothing new. */
+/** "2 plans · 14 budget lines · 3 amount changes", or null when there is nothing to do. */
 export function applySummary(a: HouseApply, parts: readonly ApplyPart[] = APPLY_PARTS): string | null {
   const bits: string[] = []
   const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`
   if (parts.includes('plans') && a.plans.length) bits.push(n(a.plans.length, 'plan', 'plans'))
   if (parts.includes('budget') && a.budget.length) bits.push(n(a.budget.length, 'budget line', 'budget lines'))
+  if (parts.includes('amounts') && a.amountUpdates.length) bits.push(n(a.amountUpdates.length, 'amount change', 'amount changes'))
   if (parts.includes('inspections') && a.inspections.length) bits.push(n(a.inspections.length, 'inspection', 'inspections'))
   if (parts.includes('punch') && a.punch.length) bits.push(n(a.punch.length, 'punch item', 'punch items'))
   return bits.length ? bits.join(' · ') : null
