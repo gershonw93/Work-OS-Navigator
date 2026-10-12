@@ -14,7 +14,7 @@ export default function PrivacyPage() {
   return (
     <LegalDoc
       title="Privacy Policy"
-      updated="September 24, 2026"
+      updated="October 12, 2026"
       intro="This Privacy Policy explains how SyteNav ('SyteNav', 'we', 'us') collects, uses, and protects information when you use our website and construction management software (the 'Service'). By using the Service you agree to this policy."
       sections={[
         { h: 'Information we collect', body: ['We collect information you provide directly, such as your name, email, company details, and the project data you enter (quotes, budgets, invoices, logs, documents, photos, and similar).', 'We also collect limited technical information automatically, such as device, browser, IP address, and usage events, to keep the Service secure and reliable.'] },
@@ -43,6 +43,7 @@ export default function PrivacyPage() {
         { h: 'Data storage and security', body: ['Your data is stored with reputable cloud infrastructure providers. We use industry-standard safeguards including encryption in transit and access controls. No method of transmission or storage is 100% secure, but we work to protect your information.'] },
         { h: 'Data retention', body: ['We retain your information for as long as your account is active or as needed to provide the Service, comply with legal obligations, resolve disputes, and enforce agreements. You may request deletion as described below.'] },
         { h: 'Your rights', body: ['Depending on your location, you may have rights to access, correct, export, or delete your personal information, and to object to or restrict certain processing. To exercise these rights, contact us at the email below.'] },
+        { h: 'Analytics', body: ['We use Google Analytics, through Google Tag Manager, on sytenav.com and the SyteNav web app to understand how the site and the Service are used: which pages are visited, how people arrive, and whether a visit led to an account or a trial. Google receives page addresses reduced to a template (never a record id or query string), your browser and device type, an approximate location derived from your IP address, and a random identifier stored in a cookie. We do not send names, email addresses, or any project, customer or document data, Google signals and advertising features are off, and the data is not used for advertising. Analytics does not run in our mobile apps or on client portal, bid, bill or shared links.', 'Analytics is on by default. You can turn it off on our Cookie Policy page, and a browser sending a Global Privacy Control signal is not measured.'] },
         { h: 'Cookies', body: ['We use cookies and similar technologies as described in our Cookie Policy.'] },
         { h: 'Children', body: ['The Service is not directed to children under 16, and we do not knowingly collect their personal information.'] },
         { h: 'Changes to this policy', body: ['We may update this policy from time to time. Material changes will be posted here with an updated date.'] },

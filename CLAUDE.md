@@ -800,6 +800,27 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   and cannot see a sentence typed into a browser. Every future rule a pin
   enforces over source has to be re-stated there too.
 
+## Google Analytics (IMPORTANT)
+- **GTM `GTM-MXB4F2W3` OWNS THE CONFIG; `lib/analytics.ts` OWNS EVERYTHING
+  ELSE.** The container carries the GA4 tag `G-LXC64H4W7J` with
+  `send_page_view=false`, so the app never loads gtag.js or sends a `config` -
+  either doubles every event. One page view per committed route, by hand
+  (`components/analytics/analytics.tsx`, mounted once from the root layout).
+- **A TEMPLATE GOES TO GOOGLE, NEVER THE URL.** `/projects/[id]/tasks`, query
+  and hash dropped (reset links carry tokens there), UTMs kept by allowlist,
+  title derived from the template - `document.title` can carry a project name.
+- **NOT MEASURED:** the native shell (the App Store label says no tracking),
+  non-production hosts, token links (`/portal`, `/share`, `/bid`, `/bill`,
+  `/rfi`, `/compliance` - the path is the secret and those people are not our
+  visitors), `/admin`, Global Privacy Control, and the opt-out cookie.
+- **ON BY DEFAULT, NO BANNER** - the owner's decision for a US B2B audience,
+  disclosed in the Cookie and Privacy policies with an off switch on
+  `/cookies`. Ad signals are denied before the tag loads. Change what is
+  collected, change both policies in the SAME change.
+- **AN OUTCOME IS WHAT THE ROUTE SAYS HAPPENED.** `sign_up` and `trial_start`
+  fire off `complete-signup`'s `created` / `trialStarted`, never a button
+  press, and ride sessionStorage across the redirect. Pinned in `analytics.ts`.
+
 ## Two registries, and why a new thing goes IN them (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).
 - **A NEW NOTIFICATION BELONGS IN THE CATALOG, OR ITS AUDIENCE IS NOT A

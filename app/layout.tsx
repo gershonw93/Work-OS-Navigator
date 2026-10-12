@@ -4,6 +4,7 @@ import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import { NoticeProvider } from '@/components/ui/notice'
 import { DeleteGuardProvider } from '@/components/ui/delete-guard'
 import { sidebarCollapseScript } from '@/lib/sidebar-collapse'
+import { Analytics } from '@/components/analytics/analytics'
 import './globals.css'
 
 const archivo = Archivo({
@@ -147,6 +148,8 @@ export default function RootLayout({
             native dialog, and a screen that falls outside the provider would
             quietly get the native one back. */}
         <NoticeProvider><DeleteGuardProvider>{children}</DeleteGuardProvider></NoticeProvider>
+        {/* Google Analytics via GTM. Who is and is not measured: lib/analytics.ts. */}
+        <Analytics />
       </body>
     </html>
   )
