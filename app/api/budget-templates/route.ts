@@ -1,43 +1,38 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
+import { templateNameProblem } from '@/lib/budget-template-line'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function companyId(db: any, userId: string) {
-  const { data } = await db.from('profiles').select('company_id').eq('id', userId).single()
-  return data?.company_id ?? null
-}
-
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const cid = await companyId(db, user.id)
+  const gate = await requirePermission(db, request, 'budget', 'view')
+  if (denied(gate)) return gate.denied
+  const cid = gate.actor.companyId
+  if (!cid) return NextResponse.json({ templates: [] })
   const { data, error } = await db
     .from('budget_templates')
     .select('*, budget_template_items(*)')
     .eq('company_id', cid)
     .order('created_at', { ascending: false })
+    .order('sort_order', { referencedTable: 'budget_template_items', ascending: true })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ templates: data ?? [] })
 }
 
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const cid = await companyId(db, user.id)
+  const gate = await requirePermission(db, request, 'budget', 'edit')
+  if (denied(gate)) return gate.denied
+  const cid = gate.actor.companyId
+  const user = { id: gate.actor.userId }
   const { name, description, contractor_fee_percent, source, items } = await request.json()
-  if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
+  const nameProblem = templateNameProblem(name)
+  if (nameProblem) return NextResponse.json({ error: nameProblem }, { status: 400 })
 
   const { data: tpl, error } = await db
     .from('budget_templates')

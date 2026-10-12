@@ -24,6 +24,7 @@ type Ctx = { params: { id: string; modelId: string } }
 const PART_PERMISSION: Record<ApplyPart, [string, 'create' | 'edit']> = {
   plans: ['plans', 'create'],
   budget: ['budget', 'edit'],
+  amounts: ['budget', 'edit'],
   inspections: ['inspections', 'edit'],
   punch: ['tasks', 'create'],
 }
@@ -119,7 +120,7 @@ interface ApplyCtx { who: string | null; userId: string; mayStaff: boolean; told
 
 async function applyToHouse(db: ReturnType<typeof admin>, h: HouseApply, parts: ApplyPart[], ctx: ApplyCtx) {
   const { who, userId } = ctx
-  const added: Record<ApplyPart, number> = { plans: 0, budget: 0, inspections: 0, punch: 0 }
+  const added: Record<ApplyPart, number> = { plans: 0, budget: 0, amounts: 0, inspections: 0, punch: 0 }
   const errors: string[] = []
 
   if (parts.includes('plans')) {
@@ -153,10 +154,30 @@ async function applyToHouse(db: ReturnType<typeof admin>, h: HouseApply, parts: 
       actual_amount: 0,
       cost_type: l.cost_type || 'hard',
       sort_order: (count ?? 0) + i,
+      // Where it came from and what it was copied at, so a later change to the
+      // template can tell this line apart from one somebody edited here.
+      source_template_item_id: l.id,
+      source_amount: toAmount(l.default_amount) ?? 0,
     }))
     const { error } = await db.from('budget_line_items').insert(rows)
     if (error) { errors.push('the budget lines could not be saved'); console.error('[models/apply] budget insert failed', error.message) }
     else added.budget = rows.length
+  }
+
+  if (parts.includes('amounts')) {
+    for (const u of h.amountUpdates) {
+      // CONDITIONAL on the line still holding the amount it was copied at: an
+      // edit made on the house between the preview and this press wins, and
+      // is not overwritten by a figure computed before it.
+      const { data, error } = await db.from('budget_line_items')
+        .update({ budgeted_amount: u.to, source_amount: u.to })
+        .eq('id', u.lineId).eq('project_id', h.houseId).eq('source_template_item_id', u.itemId)
+        .eq('budgeted_amount', u.from).eq('source_amount', u.from)
+        .select('id')
+      if (error) { errors.push(`${u.description}: the amount could not be updated`); console.error('[models/apply] amount update failed', error.message); continue }
+      if (data?.length) added.amounts++
+      else errors.push(`${u.description}: changed on the house since the preview, so it was left alone`)
+    }
   }
 
   if (parts.includes('inspections') && h.inspections.length) {

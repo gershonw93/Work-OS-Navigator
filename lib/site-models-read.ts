@@ -42,13 +42,13 @@ export async function modelBundle(db: SupabaseClient, model: { id: string; budge
 /** What each house already holds, by source, in four reads for any number of houses. */
 export async function housesHave(db: SupabaseClient, houseIds: string[]): Promise<Record<string, HouseHas>> {
   const out: Record<string, HouseHas> = {}
-  for (const id of houseIds) out[id] = { planSources: [], taskSources: [], inspectionTypes: [], budgetDescriptions: [] }
+  for (const id of houseIds) out[id] = { planSources: [], taskSources: [], inspectionTypes: [], budgetDescriptions: [], budgetLines: [] }
   if (!houseIds.length) return out
   const [plans, tasks, insp, lines] = await Promise.all([
     db.from('project_plans').select('project_id, source_model_plan_id').in('project_id', houseIds).not('source_model_plan_id', 'is', null),
     db.from('project_tasks').select('project_id, source_model_item_id').in('project_id', houseIds).not('source_model_item_id', 'is', null),
     db.from('project_required_inspections').select('project_id, type').in('project_id', houseIds),
-    db.from('budget_line_items').select('project_id, description').in('project_id', houseIds),
+    db.from('budget_line_items').select('id, project_id, description, budgeted_amount, source_template_item_id, source_amount').in('project_id', houseIds),
   ])
   // A failed read here would make every house look empty and the apply would
   // write a second copy of everything. Refuse instead.
@@ -56,6 +56,12 @@ export async function housesHave(db: SupabaseClient, houseIds: string[]): Promis
   for (const r of (plans.data ?? []) as any[]) out[r.project_id]?.planSources.push(r.source_model_plan_id)
   for (const r of (tasks.data ?? []) as any[]) out[r.project_id]?.taskSources.push(r.source_model_item_id)
   for (const r of (insp.data ?? []) as any[]) out[r.project_id]?.inspectionTypes.push(r.type)
-  for (const r of (lines.data ?? []) as any[]) out[r.project_id]?.budgetDescriptions.push(r.description)
+  for (const r of (lines.data ?? []) as any[]) {
+    out[r.project_id]?.budgetDescriptions.push(r.description)
+    out[r.project_id]?.budgetLines?.push({
+      id: r.id, description: r.description, budgeted_amount: r.budgeted_amount,
+      source_template_item_id: r.source_template_item_id, source_amount: r.source_amount,
+    })
+  }
   return out
 }

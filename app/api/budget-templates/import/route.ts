@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { parseBudgetRows } from '@/lib/budget-import'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -14,11 +15,10 @@ const admin = () => createClient(
 // Heuristic: per row, take the first non-empty text cell as the line-item label
 // and the first numeric cell as its amount. Skips totals/headers.
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Reading a sheet writes nothing, but it is only ever the first half of
+  // making a template or a budget, so it asks the permission the second half will.
+  const gate = await requirePermission(admin(), request, 'budget', 'edit')
+  if (denied(gate)) return gate.denied
 
   const form = await request.formData()
   const file = form.get('file') as File | null
