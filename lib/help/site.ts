@@ -17,7 +17,9 @@ import {
   HELP_CATEGORIES, PUBLIC_HELP_ARTICLES, getArticle, isPublicArticle, searchArticles,
   type HelpArticle, type HelpCategory,
 } from '@/lib/help/articles'
-import { helpCanonical } from '@/lib/help-host'
+import { helpCanonical, helpHostLive } from '@/lib/help-host'
+import { CANONICAL_ORIGIN } from '@/lib/canonical'
+import { walkthroughLinks } from '@/lib/help/walkthroughs'
 
 export const articlePath = (slug: string) => `/articles/${slug}`
 export const topicPath = (key: string) => `/topics/${key}`
@@ -45,6 +47,15 @@ export function publicArticle(slug: string): HelpArticle | undefined {
 /** The related links that survive the public gate. */
 export function publicRelated(article: HelpArticle): HelpArticle[] {
   return (article.related ?? []).map(getArticle).filter(isPublicArticle)
+}
+
+/**
+ * An article's walkthroughs as the public site links them. Absolute once the
+ * help host is live: the files are served by the main site, and on the help
+ * host a relative path is rewritten into the help-center tree.
+ */
+export function publicWalkthroughs(article: HelpArticle) {
+  return walkthroughLinks(article.slug, helpHostLive ? CANONICAL_ORIGIN : '')
 }
 
 /** The in-app ranking, behind the public gate. */

@@ -14,6 +14,8 @@ import {
   HELP_CATEGORIES, HELP_ARTICLES, searchArticles, getArticle, articlesByCategory, helpArticleAllowed,
   type HelpArticle, type HelpBlock,
 } from '@/lib/help/articles'
+import { walkthroughLinks } from '@/lib/help/walkthroughs'
+import { Walkthroughs } from '@/components/help/walkthroughs'
 
 function categoryLabel(key: string) {
   return HELP_CATEGORIES.find((c) => c.key === key)?.label ?? key
@@ -76,6 +78,7 @@ function ArticleView({ article, onOpen, onBack, pricingAllowed }: {
       <div className="mt-6 space-y-4">
         {article.blocks.map((b, i) => <Block key={i} block={b} />)}
       </div>
+      <Walkthroughs items={walkthroughLinks(article.slug)} />
       {related.length > 0 && (
         <div className="mt-8 border-t border-line pt-5">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-faint">Related articles</p>
