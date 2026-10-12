@@ -1062,29 +1062,16 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
         <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" className="sr-only"
           onChange={e => { const file = e.target.files?.[0]; if (file) { setImportOnly(true); setShowTemplate(true); setImportItems(null); importExcel(file) } e.target.value = '' }} />
-        {/* Desktop: the toolbar as it was. */}
-        <div className="hidden lg:flex lg:flex-wrap items-center gap-2">
-          <Button variant="outline" onClick={() => importInputRef.current?.click()} className="gap-1.5">
-            <FileSpreadsheet className="h-4 w-4" /> Import Estimate
-          </Button>
-          <Button variant="outline" onClick={openTemplatePicker} className="gap-1.5"><LayoutTemplate className="h-4 w-4" /> Use Template</Button>
-          {items.length > 0 && <Button variant="outline" onClick={() => setShowSave(true)} className="gap-1.5"><Save className="h-4 w-4" /> Save as Template</Button>}
-          {items.length > 0 && (
-            <Button variant={selectMode ? 'default' : 'outline'} onClick={() => { setSelectMode(v => !v); setSelected(new Set()) }} className="gap-1.5">
-              <Pencil className="h-4 w-4" /> {selectMode ? 'Done' : 'Select'}
-            </Button>
-          )}
-          <Button onClick={() => setAdding(true)} className="gap-1.5"><Plus className="h-4 w-4" /> Add Line</Button>
-        </div>
-        {/* Phone: ONE action, and the rest behind More. Five buttons of equal
-            weight wrapped into three rows above a list nobody had reached yet;
-            adding a line is the thing done daily, the other four are set-up. */}
-        <div className="flex w-full items-center gap-2 lg:hidden">
-          <Button onClick={() => setAdding(true)} className="flex-1 gap-1.5"><Plus className="h-4 w-4" /> Add Line</Button>
+        {/* ONE action, and the rest behind More - on every width. Five buttons
+            of equal weight wrapped into three rows on a phone, and on a desktop
+            they were still five boxes shouting at once. Adding a line is the
+            thing done daily; importing, templates and Select are set-up. */}
+        <div className="flex w-full items-center gap-2 lg:w-auto" data-budget-toolbar>
+          <Button onClick={() => setAdding(true)} className="flex-1 gap-1.5 lg:flex-none"><Plus className="h-4 w-4" /> Add Line</Button>
           {selectMode && (
             <Button variant="default" onClick={() => { setSelectMode(false); setSelected(new Set()) }}>Done</Button>
           )}
-          <RowMenu label="More budget actions">
+          <RowMenu label="More budget actions" triggerClassName="bg-panel lg:h-9 lg:w-9 lg:p-0">
             {close => (
               <>
                 <MenuItem onClick={() => { close(); importInputRef.current?.click() }}>

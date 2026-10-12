@@ -48,10 +48,15 @@ ok(/onClick=\{\(\) => remove\(item\.id\)\}/.test(openedRow), '...delete is insid
 ok(/guardDelete\(async \(\) => \{[\s\S]{0,300}method: 'DELETE'/.test(page),
   '...and remove() still goes through the delete guard')
 
-// Toolbar: Add Line and a More menu on the phone.
-const phoneBar = page.slice(page.indexOf('flex w-full items-center gap-2 lg:hidden'), page.indexOf('</RowMenu>'))
-ok(/Add Line/.test(phoneBar) && /<RowMenu label="More budget actions">/.test(phoneBar),
-  'the phone toolbar is Add Line plus a More menu')
+// Toolbar: Add Line and a More menu - on the phone AND the desktop. The
+// desktop kept a row of five equal buttons until it was reported as too much.
+const phoneBar = page.slice(page.indexOf('data-budget-toolbar'), page.indexOf('</RowMenu>'))
+ok(phoneBar.length > 0 && /Add Line/.test(phoneBar) && /<RowMenu label="More budget actions"/.test(phoneBar),
+  'the toolbar is Add Line plus a More menu')
+ok(!/flex w-full items-center gap-2 lg:hidden"[^>]*data-budget-toolbar|className="[^"]*lg:hidden[^"]*" data-budget-toolbar/.test(page),
+  '...and it is not phone-only')
+ok((page.match(/\/> Import Estimate/g) ?? []).length === 1 && (page.match(/\/> Use Template/g) ?? []).length === 1,
+  '...with no second, desktop-only row of the same buttons beside it')
 for (const a of ['Import Estimate', 'Use Template', 'Save as Template', 'Select lines']) {
   ok(new RegExp(a).test(phoneBar), `...with ${a} inside it`)
 }
