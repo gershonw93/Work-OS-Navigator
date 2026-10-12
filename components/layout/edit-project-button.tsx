@@ -129,7 +129,12 @@ export function EditProjectButton({ projectId, project }: Props) {
     e.preventDefault()
     setSaving(true); setError('')
     const { data: { session } } = await supabase.auth.getSession()
-    const client = customers.find(c => c.id === customerId)?.name ?? project.client ?? null
+    // The name follows the link. It used to fall back to the old text whatever
+    // was picked, so choosing "No customer" left the header still naming one -
+    // the header and this select disagreeing about the same job. Only when the
+    // list could not be read (a picked id we cannot name) is the old text kept.
+    const client = !customerId ? null
+      : customers.find(c => c.id === customerId)?.name ?? project.client ?? null
     const res = await fetch(`/api/projects/${projectId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },

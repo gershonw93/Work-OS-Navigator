@@ -1911,7 +1911,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     blocks: [
       { type: 'steps', items: [
         'Open the project and go to the RFIs tab.',
-        'Create an RFI with your question and any supporting detail.',
+        'Click "New RFI", give it a subject and write the question. Your subs can also send RFIs from their own job page - those land here too.',
         'To get the answer from your architect or designer, click the link icon on the RFI card - it copies a secure one-time link. Send it to them; they see the question and attachments and submit the answer (with drawings if needed), no account required.',
         'When a response comes in, review it and mark it answered.',
       ] },

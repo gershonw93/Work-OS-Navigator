@@ -49,6 +49,19 @@ export async function POST(request: Request, { params }: { params: { id: string 
     attachments,
   } = body
 
+  // Same rule as the form, on the route - the sub's job page posts here too.
+  if (typeof subject !== 'string' || !subject.trim()) {
+    return NextResponse.json({ error: 'Give the RFI a subject.' }, { status: 400 })
+  }
+
+  // Who asked. A sub's job page sends its company; the GC's own RFI page sends
+  // nothing, so the name comes off the signed-in profile - never "Someone".
+  let askedBy = submitted_by_name ?? null
+  if (!askedBy && !company_name) {
+    const { data: me } = await db.from('profiles').select('full_name').eq('id', user.id).maybeSingle()
+    askedBy = me?.full_name ?? null
+  }
+
   // Auto-assign rfi_number by counting existing RFIs for this project
   const { count } = await db
     .from('rfis')
@@ -69,7 +82,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
       change_order_items: change_order_items ?? null,
       change_order_amount: change_order_amount ?? null,
       change_order_status: is_change_order ? 'pending' : null,
-      submitted_by_name: submitted_by_name ?? null,
+      submitted_by_name: askedBy,
       company_name: company_name ?? null,
       company_id: company_id ?? null,
       attachments: attachments ?? null,
@@ -80,7 +93,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  const actorName = company_name ?? submitted_by_name ?? 'Someone'
+  const actorName = company_name ?? askedBy ?? 'Someone'
   await logActivity(
     db,
     params.id,

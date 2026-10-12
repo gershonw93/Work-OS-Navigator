@@ -54,6 +54,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-12',
+    title: 'Ask your own RFIs',
+    items: [
+      {
+        kind: 'new',
+        title: 'New RFI on the RFIs tab',
+        text: 'The RFIs tab used to hold only questions your subs sent. Now New RFI lets you write one yourself - a subject and the question - and the link icon on its card copies an answer link for the architect or engineer, who answers without an account.',
+        help: 'rfis',
+      },
+    ],
+  },
+  {
     date: '2026-10-11',
     title: 'Developments',
     items: [

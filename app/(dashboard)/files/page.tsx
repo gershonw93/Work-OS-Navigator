@@ -713,7 +713,10 @@ export default function FilesPage() {
             </div>
           )}
         </>
-      ) : (
+      ) : tab === 'packets' ? (
+        // NAMED, not the `else`. It was the else, so the Shared tab - which
+        // renders below this chain - got "No packets yet" stacked on top of
+        // its own empty state.
         <>
           {packets.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
@@ -777,7 +780,7 @@ export default function FilesPage() {
             </div>
           )}
         </>
-      )}
+      ) : null}
 
       {/* Shared - what went out, who opened it, what came back */}
       {!loading && tab === 'shares' && (

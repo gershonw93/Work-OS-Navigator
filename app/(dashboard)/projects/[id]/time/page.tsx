@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 import { CameraCapture } from '@/components/ui/camera-capture'
 import { usePermissions } from '@/lib/use-permissions'
 import { Button } from '@/components/ui/button'
-import { formatDateShort } from '@/lib/dates'
+import { formatDateShort, toDateInput } from '@/lib/dates'
 import { punchFixLabel, punchMessage, type PunchFix, type PunchLocation } from '@/lib/punch-location'
 import { projectSite, siteLabel, siteAdvice, type ProjectSite } from '@/lib/project-site'
 import { getPosition, geoFailureMessage } from '@/lib/geo-position'
@@ -155,7 +155,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
     const blob = await res.blob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = `timesheet-${weekCursor.toISOString().slice(0, 10)}.csv`; a.click()
+    a.href = url; a.download = `timesheet-${toDateInput(weekCursor)}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
 

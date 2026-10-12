@@ -16,7 +16,7 @@ import { cn } from '@/lib/utils'
 import { toAmountInput } from '@/lib/validate'
 import { usePermissions } from '@/lib/use-permissions'
 
-import { formatDate } from '@/lib/dates'
+import { formatDate, todayDateInput } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
@@ -159,7 +159,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     setSettling({ kind: 'request', ...r })
     setForm({
       ...blank,
-      paid_date: new Date().toISOString().split('T')[0],
+      paid_date: todayDateInput(),
       amount: toAmountInput(r.amount),
       memo: r.label,
       // A deposit is a retainer by definition - it is money held against work
@@ -187,7 +187,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     // on a partly paid invoice starts from the balance.
     setForm({
       ...blank,
-      paid_date: new Date().toISOString().split('T')[0],
+      paid_date: todayDateInput(),
       amount: toAmountInput(b.amount),
       memo: b.label,
       retainer: false,

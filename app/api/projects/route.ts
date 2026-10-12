@@ -6,6 +6,8 @@ import { asContractType } from '@/lib/contract-type'
 import { billingLock } from '@/lib/api-guard'
 import { projectSlotProblem } from '@/lib/billing-read'
 import { cleanLotDetails } from '@/lib/lot-details'
+import { customerForNewProject } from '@/lib/project-customer'
+import { pushCustomer } from '@/lib/quickbooks-push'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -179,11 +181,18 @@ export async function POST(request: Request) {
   const body = await request.json()
   const { name, address, client, type, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, contract_type } = body
 
+  // A client named by typing becomes a customer card, so the Customers list
+  // and Project Settings see the same client the header prints. See
+  // lib/project-customer.ts.
+  const linked = customer_id ? null : await customerForNewProject(admin, profile.company_id, client)
+  if (linked?.created) await pushCustomer(admin, linked.id)
+
   const base = {
-    name, address, client, type, start_date,
+    name, address, type, start_date,
+    client: linked ? linked.name : client,
     end_date: end_date || null,
     status: 'planning',
-    customer_id: customer_id || null,
+    customer_id: customer_id || linked?.id || null,
     gc_company_id: profile.company_id,
     created_by_company_id: profile.company_id,
   }

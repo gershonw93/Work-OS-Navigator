@@ -1,5 +1,6 @@
 'use client'
 
+import { todayDateInput } from '@/lib/dates'
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Camera, Loader2, X, MapPin, Check } from 'lucide-react'
@@ -57,7 +58,7 @@ export default function FieldLog() {
     setSaving(true)
     try {
       const fd = new FormData()
-      fd.append('log_date', new Date().toISOString().slice(0, 10))
+      fd.append('log_date', todayDateInput())
       fd.append('notes', note)
       // Marks this as a field observation for the site manager to review.
       fd.append('source', 'field')

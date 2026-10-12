@@ -29,6 +29,19 @@ export interface MoneyRow {
   escrow: number
 }
 
+/**
+ * What "Outstanding" means, on every screen that prints the word.
+ *
+ * The job's Financial Summary added bills still WAITING FOR APPROVAL into its
+ * Outstanding card while this rollup counted approved bills only - so a job
+ * with one $9,000 bill in the approval queue read $9,000 there and $0 here,
+ * under the same label. Approval is when a bill becomes money owed (the same
+ * line `ACTUAL_STATUSES` draws for the budget), so Outstanding is approved and
+ * unpaid everywhere, and the queue is named separately where it is shown.
+ */
+export const OUTSTANDING_EXPLAINED =
+  'Bills you have approved and not yet paid. A bill still waiting for your approval is not counted until you approve it.'
+
 export const ESCROW_EXPLAINED =
   'Escrow here is the client money you are holding: what the client has paid you, '
   + 'minus what you have paid vendors out of escrow, minus your fee on vendor bills '
