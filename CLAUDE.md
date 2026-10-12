@@ -828,6 +828,19 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
 - **AN OUTCOME IS WHAT THE ROUTE SAYS HAPPENED.** `sign_up` and `trial_start`
   fire off `complete-signup`'s `created` / `trialStarted`, never a button
   press, and ride sessionStorage across the redirect. Pinned in `analytics.ts`.
+- **AN EVENT IS A SCHEMA ENTRY, AND THE SCHEMA IS THE PRIVACY RULE.**
+  `EVENT_PARAMS` lists every parameter with its only allowed values (an enum, a
+  count, a route template - there is no free-text type), and `cleanParams`
+  drops anything else, so an id or a filename cannot leave through a key
+  nobody declared. `track()` is the one way out, called after the SERVER
+  answered; `trackAfterNavigation` for an outcome followed by a full reload.
+  The proposed names were matched to what the app really does before wiring:
+  email is the only login method, a new trial has no plan, and copying a link
+  is a `ui_click`, never a send nobody can confirm. **EVERY SEND RE-CHECKS AT
+  THE MOMENT IT GOES** - `permitted()` in `send()` and again per queued item,
+  because an event queued while GTM loaded must not leave from the token link
+  the visitor opened since. Setup and the DebugView checklist:
+  `docs/analytics-events.md`.
 
 ## Two registries, and why a new thing goes IN them (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).

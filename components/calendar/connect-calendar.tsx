@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { CalendarPlus, X, Copy, Check, RefreshCw, ChevronRight } from 'lucide-react'
 import { clientAppOrigin } from '@/lib/app-url'
+import { trackClick } from '@/lib/analytics-client'
 
 // Reusable "Connect to Calendar" button + provider popup. Fetches the user's
 // private iCal feed on demand and deep-links into Google / Apple / Outlook.
@@ -26,16 +27,16 @@ export function ConnectCalendarButton({ className, label = 'Connect to Calendar'
     const res = await fetch('/api/settings/calendar', { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token}` } })
     if (res.ok) setFeedUrl(`${clientAppOrigin()}/api/calendar/${(await res.json()).calendar_token}`)
   }
-  function copyFeed() { navigator.clipboard?.writeText(feedUrl); setCopied(true); setTimeout(() => setCopied(false), 1500) }
+  function copyFeed() { navigator.clipboard?.writeText(feedUrl); trackClick('copy_calendar_feed', 'calendar_feed'); setCopied(true); setTimeout(() => setCopied(false), 1500) }
 
   const webcal = feedUrl.replace(/^https?:\/\//, 'webcal://')
   const google = `https://calendar.google.com/calendar/r?cid=${encodeURIComponent(webcal)}`
   const outlook = `https://outlook.live.com/calendar/0/addfromweb?url=${encodeURIComponent(feedUrl)}&name=${encodeURIComponent('SyteNav')}`
   const go = (url: string) => { if (feedUrl) window.open(url, '_blank') }
   const providers = [
-    { key: 'google', label: 'Google Calendar', sub: 'Opens Google to add it', bg: 'bg-[#4285F4]', url: google },
-    { key: 'apple', label: 'Apple Calendar', sub: 'iPhone, iPad & Mac', bg: 'bg-ink', url: webcal },
-    { key: 'outlook', label: 'Outlook', sub: 'Outlook.com / Microsoft 365', bg: 'bg-[#0072C6]', url: outlook },
+    { key: 'google' as const, label: 'Google Calendar', sub: 'Opens Google to add it', bg: 'bg-[#4285F4]', url: google },
+    { key: 'apple' as const, label: 'Apple Calendar', sub: 'iPhone, iPad & Mac', bg: 'bg-ink', url: webcal },
+    { key: 'outlook' as const, label: 'Outlook', sub: 'Outlook.com / Microsoft 365', bg: 'bg-[#0072C6]', url: outlook },
   ]
 
   return (
@@ -55,7 +56,7 @@ export function ConnectCalendarButton({ className, label = 'Connect to Calendar'
               <p className="text-sm text-muted-fg">Pick your calendar. Your schedules, task due dates, and inspections will show up there automatically. It's read-only, so this never changes anything in SyteNav.</p>
               <div className="space-y-2">
                 {providers.map(p => (
-                  <button key={p.key} onClick={() => go(p.url)} disabled={!feedUrl}
+                  <button key={p.key} onClick={() => { if (feedUrl) trackClick('connect_calendar', `calendar_${p.key}`); go(p.url) }} disabled={!feedUrl}
                     className="flex w-full items-center gap-3 rounded-xl border border-line bg-panel px-4 py-3 text-left hover:border-accent hover:bg-surface disabled:opacity-50 transition-colors">
                     <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-white', p.bg)}><CalendarPlus className="h-5 w-5" /></span>
                     <span className="min-w-0 flex-1">

@@ -1,8 +1,8 @@
 'use client'
 
 import {
-  ANALYTICS_HOSTS, GA_ID, GTM_ID, OPT_OUT_COOKIE, type Outcome,
-  isTrackedPath, pageTemplate, pageTitle, safeLocation, safeReferrer,
+  ANALYTICS_HOSTS, GA_ID, GTM_ID, OPT_OUT_COOKIE, type EventName, type EventParams,
+  cleanParams, isTrackedPath, pageTemplate, pageTitle, safeLocation, safeReferrer,
 } from '@/lib/analytics'
 
 // The browser half of lib/analytics.ts. ONE entry point, `routeChanged`, called
@@ -61,7 +61,18 @@ function measured(): boolean {
   return !optedOut()
 }
 
+/**
+ * May anything be sent RIGHT NOW? Asked at every send and again for every
+ * queued item as it is flushed - an event queued on a measured page must not
+ * leave from a token link the visitor has since navigated to, or after they
+ * pressed the opt-out, just because it was queued before either happened.
+ */
+function permitted(): boolean {
+  return started && !suspended && measured() && isTrackedPath(location.pathname)
+}
+
 function send(name: string, params: Record<string, unknown>) {
+  if (!permitted()) return
   if (!ready) { queue.push([name, params]); return }
   win().gtag?.('event', name, { send_to: GA_ID, ...params })
 }
@@ -76,7 +87,7 @@ function waitForTag() {
   const tick = () => {
     if (win().google_tag_manager?.[GA_ID]) {
       ready = true
-      for (const [n, p] of queue.splice(0)) win().gtag?.('event', n, { send_to: GA_ID, ...p })
+      for (const [n, p] of queue.splice(0)) if (permitted()) win().gtag?.('event', n, { send_to: GA_ID, ...p })
       return
     }
     if (Date.now() - t0 < 10_000) setTimeout(tick, 100)
@@ -124,8 +135,15 @@ function suspend() {
   lastSent = ''
 }
 
-function resume() {
+/**
+ * Wake a silenced tag for a measured page. The page's SAFE location, title and
+ * referrer are set while the tag is still disabled, so the first hit after
+ * waking - automatic or not - can never carry the excluded route it came from.
+ */
+function resume(pathname: string, search: string) {
   if (!suspended) return
+  const loc = safeLocation(location.origin, pathname, search)
+  if (loc) win().gtag?.('set', { page_location: loc, page_title: pageTitle(pageTemplate(pathname)), page_referrer: lastLocation })
   // An opt-out pressed meanwhile keeps it off.
   win()[`ga-disable-${GA_ID}`] = optedOut()
   suspended = false
@@ -139,9 +157,9 @@ function resume() {
 export function routeChanged(pathname: string, search: string) {
   if (typeof window === 'undefined') return
   if (!isTrackedPath(pathname)) { suspend(); return }
-  if (!started) { if (!start(pathname, search)) return } else resume()
+  if (!started) { if (!start(pathname, search)) return } else resume(pathname, search)
   pageView(pathname, search)
-  flushOutcomes()
+  flushParked()
 }
 
 /** Once per measured route. Repeats of the same template are dropped. */
@@ -159,31 +177,51 @@ function pageView(pathname: string, search: string) {
   lastTitle = title
 }
 
-function sendOutcome(event: Outcome, method?: string) {
-  send(event, { ...(method ? { method } : {}), page_location: lastLocation, page_title: lastTitle })
+/**
+ * THE ONE WAY AN EVENT LEAVES. Call it after the server has confirmed the
+ * outcome, never from a click handler before the response. Parameters are
+ * filtered through the schema in lib/analytics.ts, and the send re-checks
+ * host, native shell, GPC, opt-out and excluded path at the moment it goes.
+ */
+export function track<E extends EventName>(event: E, params: EventParams<E> = {}) {
+  if (typeof window === 'undefined') return
+  const clean = cleanParams(event, params as Record<string, unknown>)
+  if (!clean) return
+  send(event, clean)
+}
+
+/** A click worth counting: fixed action and component, plus where it happened. */
+export function trackClick(action: EventParams<'ui_click'>['action'], component: EventParams<'ui_click'>['component']) {
+  if (typeof window === 'undefined') return
+  track('ui_click', { action, component, page_template: location.pathname })
 }
 
 /**
- * A backend-confirmed outcome, carried across the redirect that follows it.
- * Signup ends in `location.href = '/dashboard'`, which would unload the page
- * before a request left it, so the outcome is parked in sessionStorage and
- * sent by the next page once its tag is running. The ROUTE decides whether it
- * happened; this only carries the answer.
+ * A confirmed outcome followed by a FULL-PAGE navigation - signup and login
+ * both end in `location.href = ...`, which unloads the page before a request
+ * leaves it. Parked in sessionStorage (cleaned first, so nothing unsafe is
+ * even stored) and sent by the next measured page through `track`, which
+ * checks everything again there. The ROUTE decided it happened; this only
+ * carries the answer. Removed as it is read, so one outcome is one event.
  */
-export function queueOutcome(event: Outcome, method?: string) {
+export function trackAfterNavigation<E extends EventName>(event: E, params: EventParams<E> = {}) {
   if (!started) return
+  const clean = cleanParams(event, params as Record<string, unknown>)
+  if (!clean) return
   try {
-    const list = JSON.parse(sessionStorage.getItem(PENDING_KEY) ?? '[]') as [Outcome, string?][]
-    list.push([event, method])
+    const list = JSON.parse(sessionStorage.getItem(PENDING_KEY) ?? '[]') as [string, Record<string, unknown>][]
+    list.push([event, clean])
     sessionStorage.setItem(PENDING_KEY, JSON.stringify(list))
   } catch { /* storage blocked: the outcome is lost, nothing else is */ }
 }
 
-function flushOutcomes() {
-  if (!started || suspended) return
+function flushParked() {
+  if (!permitted()) return
   try {
-    const list = JSON.parse(sessionStorage.getItem(PENDING_KEY) ?? '[]') as [Outcome, string?][]
+    const list = JSON.parse(sessionStorage.getItem(PENDING_KEY) ?? '[]') as [string, Record<string, unknown>][]
     sessionStorage.removeItem(PENDING_KEY)
-    for (const [e, m] of list) if (e === 'sign_up' || e === 'trial_start') sendOutcome(e, m)
+    for (const [e, p] of list) {
+      if (typeof e === 'string' && p && typeof p === 'object') track(e as EventName, p as EventParams<EventName>)
+    }
   } catch { /* nothing parked, or storage blocked */ }
 }

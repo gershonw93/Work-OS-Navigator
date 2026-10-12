@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { track } from '@/lib/analytics-client'
 import { createClient } from '@/lib/supabase/client'
 import { Clock, MapPin, AlertTriangle, Camera, LogIn, LogOut, CheckCircle2, ChevronLeft, ChevronRight, Download, Check, X as XIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -157,6 +158,7 @@ export default function TimeClockPage({ params }: { params: { id: string } }) {
     const a = document.createElement('a')
     a.href = url; a.download = `timesheet-${toDateInput(weekCursor)}.csv`; a.click()
     URL.revokeObjectURL(url)
+    track('file_download', { file_type: 'csv', document_category: 'timesheet' })
   }
 
   const flaggedCount = entries.filter(e => e.clock_in_flagged || e.clock_out_flagged).length

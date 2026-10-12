@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
+import { track } from '@/lib/analytics-client'
+import { projectType } from '@/lib/analytics'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -87,6 +89,7 @@ export default function MyJobsPage() {
     })
     setCreating(false)
     if (!res.ok) { notify((await res.json().catch(() => ({}))).error ?? 'Could not create project'); return }
+    track('project_created', { entry_point: 'my_jobs', project_type: projectType(type), project_count: 1 })
     setName(''); setAddress(''); setType('residential'); setStartDate(''); setDescription(''); setCustomerId('')
     setShowForm(false)
     load()

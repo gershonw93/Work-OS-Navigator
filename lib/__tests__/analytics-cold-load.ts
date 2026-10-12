@@ -70,8 +70,12 @@ Object.defineProperty(HTMLImageElement.prototype, 'src', { set(v) { rec(v); _s.s
 
 const SCENARIO = `
 const DISABLE = 'ga-disable-G-LXC64H4W7J';
-const events = () => (window.dataLayer || []).map(e => e && e[0] === 'event' ? e[1] : e && (e.event || e[0]));
+// Event hits only - consent/set/gtm.js are the tag's setup, not things sent.
+const events = () => (window.dataLayer || []).filter(e => e && e[0] === 'event').map(e => e[1]);
 const out = {};
+const go = p => { history.pushState(null, '', p); SN.routeChanged(p, '') };
+if (location.hash === '#queue') delete window.google_tag_manager;   // tag NOT ready yet
+if (location.hash === '#parked') sessionStorage.setItem('sn_analytics_pending', JSON.stringify([['login', { method: 'email' }]]));
 SN.routeChanged(location.pathname, location.search);
 out.cold = { hits: __hits.slice(), dataLayer: !!window.dataLayer, gtag: !!window.gtag, events: events() };
 if (location.hash === '#nav') {
@@ -80,10 +84,24 @@ if (location.hash === '#nav') {
   SN.routeChanged('/pricing', '');
   out.back = { disabled: window[DISABLE] === true, events: events() };
 }
+if (location.hash === '#queue') {
+  // Queued on a measured page while GTM was still loading...
+  SN.track('quote_sent', { channel: 'email', quote_type: 'invite', invitee_count: 1 });
+  SN.trackAfterNavigation('login', { method: 'email' });
+  // ...then the visitor opens a token link before the tag is ready.
+  go('/portal/abc123token');
+  SN.track('sub_invited', { invitation_method: 'email', role: 'vendor', invite_count: 1 });
+  window.google_tag_manager = { 'G-LXC64H4W7J': {} };   // the tag registers NOW, mid-portal
+  setTimeout(() => {
+    out.inPortal = { events: events(), parked: sessionStorage.getItem('sn_analytics_pending') };
+    go('/pricing');
+    out.back = { events: events(), parked: sessionStorage.getItem('sn_analytics_pending') };
+  }, 300);
+}
 setTimeout(() => {
   out.hits = __hits.slice();
   document.body.insertAdjacentHTML('beforeend', '<pre id=probe>' + JSON.stringify(out).replace(/</g, '&lt;') + '</pre>');
-}, 300);
+}, 800);
 `
 
 const server = createServer((req, res) => {
@@ -134,6 +152,19 @@ try {
   ok(nav.back.events.filter((e: string) => e === 'page_view').length === 2,
     '...and the page after it is counted, even though it is the same page as before')
   ok(!JSON.stringify(nav).includes('abc123token'), 'the token appears nowhere the tag could read')
+  // ── 4: an event queued before the tag was ready must not leave from /portal ─
+  const q = await visit('/pricing#queue')
+  ok(q.inPortal.events.length === 0,
+    `nothing queued on /pricing is flushed once the visitor is on /portal (saw ${JSON.stringify(q.inPortal.events)})`)
+  ok(!q.inPortal.events.includes('sub_invited'), 'a track() called on /portal sends nothing')
+  ok(!!q.inPortal.parked, 'the parked login waits - it is not spent on a token link')
+  ok(q.back.events.filter((e: string) => e === 'login').length === 1, 'and goes exactly once on the next measured page')
+  ok(q.back.parked === null, '...which empties the parking spot, so it cannot go twice')
+  ok(!q.back.events.includes('quote_sent'), 'the event dropped on /portal is gone for good, not replayed later')
+
+  // ── 5: a parked outcome does not start the tag on a cold token link ────────
+  const parked = await visit('/portal/abc123token#parked')
+  ok(parked.hits.length === 0 && !parked.cold.dataLayer, 'a token link holding a parked outcome still makes zero requests')
 } finally {
   server.close()
 }

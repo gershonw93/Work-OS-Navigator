@@ -3,6 +3,7 @@
 import { SUPPORT_EMAIL, supportMailto } from '@/lib/support-email'
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
+import { useSearchUsed } from '@/components/analytics/use-search-used'
 import { useSearchParams } from 'next/navigation'
 import { useCanShowPricing } from '@/lib/use-native'
 import { cn } from '@/lib/utils'
@@ -140,6 +141,7 @@ function HelpPageInner() {
   // Doors 2 and 3: a search result, and the article actually on screen - the
   // second matters on its own, because `openSlug` can outlive a change of gate.
   const results = useMemo(() => searchArticles(query).filter(allowed), [query, allowed])
+  useSearchUsed('help', query, results.length, true)
   const open_ = openSlug ? getArticle(openSlug) : null
   const article = allowed(open_) ? open_ : null
 

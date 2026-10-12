@@ -18,6 +18,8 @@ import { Select } from '@/components/ui/select'
 import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 import { LotDetailsFields } from '@/components/projects/lot-details-fields'
 import { lotFormBody, lotFormFrom, type LotForm } from '@/lib/lot-details'
+import { track } from '@/lib/analytics-client'
+import { projectType } from '@/lib/analytics'
 import { newJobProblem, newDevelopmentProblem, DEVELOPMENT_LOWER } from '@/lib/development'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 
@@ -100,6 +102,7 @@ export function AddJobDialog({ developmentId, developmentName, models, onClose, 
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setErr(d.error ?? 'Could not create the job.'); return }
       const id: string = d.project.id
+      track('project_created', { entry_point: 'development', project_type: projectType(d.project?.type), project_count: 1 })
 
       // THE MODEL, applied through the ONE route that applies models, for this
       // one house. Only the parts this person may write - the preview says

@@ -25,6 +25,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { usePermissions } from '@/lib/use-permissions'
 import { invitable, inviteBatchSummary, type InviteOutcome } from '@/lib/directory-invite'
+import { track } from '@/lib/analytics-client'
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
@@ -437,6 +438,8 @@ export default function DirectoryPage() {
     const chosen = toInvite.filter(c => bulkSelected.includes(c.id))
     setBulkSending(true)
     const outcomes: InviteOutcome[] = []
+    // Only an email the route says went out - a recorded invite is not one.
+    let emailed = 0
     try {
       for (const c of chosen) {
         try {
@@ -446,6 +449,7 @@ export default function DirectoryPage() {
           } else if (body.emailSent === false) {
             outcomes.push({ id: c.id, name: c.name, status: 'recorded', reason: body.note ?? 'The invite was recorded, but the email did not send.' })
           } else {
+            if (body.emailSent === true) emailed++
             outcomes.push({ id: c.id, name: c.name, status: 'sent' })
           }
         } catch (err) {
@@ -455,6 +459,7 @@ export default function DirectoryPage() {
       }
     } finally {
       setBulkSending(false)
+      if (emailed) track('sub_invited', { invitation_method: 'email', role: 'vendor', invite_count: emailed })
       // Anything written - sent or only recorded - is an invite that exists,
       // so it leaves the "not invited yet" list either way.
       const written = outcomes.filter(o => o.status !== 'failed').map(o => o.id)
@@ -498,6 +503,7 @@ export default function DirectoryPage() {
       return
     }
 
+    if (body.emailSent === true) track('sub_invited', { invitation_method: 'email', role: 'vendor', invite_count: 1 })
     setInvitedIds(prev => [...prev, inviteCompany.id])
     setInviteCompany(null)
     notify(`Invite sent to ${inviteEmail}.`, { tone: 'success' })
