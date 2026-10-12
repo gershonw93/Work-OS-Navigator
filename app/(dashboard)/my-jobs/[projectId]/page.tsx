@@ -291,8 +291,8 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
         change_order_items: rfiIsChangeOrder ? items : null,
         change_order_amount: total,
         attachments: attachments.length > 0 ? attachments : null,
-        company_id: companyId,
-        company_name: companyName,
+        // No company here: the route reads it off the signed-in account, so
+        // an RFI cannot be filed under somebody else's name.
       }),
     })
 

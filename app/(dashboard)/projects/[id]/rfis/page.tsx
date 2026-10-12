@@ -119,24 +119,30 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
     e.preventDefault()
     if (!editingRfi) return
     setEditSubmitting(true)
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/rfis/${editingRfi.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ subject: editSubject, description: editDescription }),
-    })
-    setEditingRfi(null)
-    setEditSubmitting(false)
-    fetchRfis()
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/rfis/${editingRfi.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subject: editSubject, description: editDescription }),
+      })
+      // The route's reason, not a dialog that closes as if it had saved.
+      if (!res.ok) { notify((await res.json().catch(() => ({}))).error ?? 'Could not save the RFI.'); return }
+      setEditingRfi(null)
+      fetchRfis()
+    } finally {
+      setEditSubmitting(false)
+    }
   }
 
   function handleDeleteRfi(rfiId: string) {
     guardDelete(async () => {
       const token = await getToken()
-      await fetch(`/api/projects/${params.id}/rfis/${rfiId}`, {
+      const res = await fetch(`/api/projects/${params.id}/rfis/${rfiId}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (!res.ok) notify((await res.json().catch(() => ({}))).error ?? 'Could not delete the RFI.')
       fetchRfis()
     }, { label: 'this RFI' })
   }
@@ -168,19 +174,27 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
     e.preventDefault()
     if (!respondingTo) return
     setResponding(true)
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/rfis/${respondingTo.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({
-        response: responseText || null,
-        status: responseStatus,
-        ...(respondingTo.is_change_order && coDecision ? { change_order_status: coDecision } : {}),
-      }),
-    })
-    setRespondingTo(null); setResponseText(''); setResponding(false)
-    fetchRfis()
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/rfis/${respondingTo.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          response: responseText || null,
+          status: responseStatus,
+          ...(respondingTo.is_change_order && coDecision ? { change_order_status: coDecision } : {}),
+        }),
+      })
+      // A refused answer keeps the dialog open with the reason, rather than
+      // closing as if the answer had gone through.
+      if (!res.ok) { notify((await res.json().catch(() => ({}))).error ?? 'Could not save your answer.'); return }
+      setRespondingTo(null); setResponseText('')
+      fetchRfis()
+    } finally {
+      setResponding(false)
+    }
   }
+
 
   const open = rfis.filter(r => r.status === 'open')
   const answered = rfis.filter(r => r.status !== 'open')

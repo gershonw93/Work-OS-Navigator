@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { rfiGcGate } from '@/lib/rfi-access'
 
 export const runtime = 'nodejs'
 
@@ -11,11 +12,11 @@ const admin = () => createClient(
 // POST - create (or reuse) the one-time answer link for this RFI, so the GC
 // can send it to the architect/designer. Reusing keeps one live link per RFI.
 export async function POST(request: Request, { params }: { params: { id: string; rfiId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // The link lets a stranger write the answer onto this RFI, so minting one is
+  // the GC answering it - the same gate as PATCH. It was open to any account.
+  const gate = await rfiGcGate(db, request, params.id, 'edit')
+  if ('denied' in gate) return gate.denied
 
   const body = await request.json().catch(() => ({}))
   const { data: rfi, error } = await db.from('rfis')
