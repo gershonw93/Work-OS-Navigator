@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-12',
+    title: 'Step-by-step walkthroughs in Help',
+    items: [
+      {
+        kind: 'new',
+        title: 'Screenshot walkthroughs for 52 tasks',
+        text: 'Help articles now carry step-by-step walkthroughs: each step has a screenshot with the button you need ringed, and you can zoom in on it. Creating a project, logging a sub bill, change orders, the time clock, inviting your team and more. Open a Help article and look under its steps.',
+        help: 'create-first-project',
+      },
+    ],
+  },
+  {
+    date: '2026-10-12',
     title: 'Ask your own RFIs',
     items: [
       {
