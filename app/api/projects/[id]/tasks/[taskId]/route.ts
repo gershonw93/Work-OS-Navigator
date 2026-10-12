@@ -4,6 +4,7 @@ import { notify } from '@/lib/notify'
 import { audienceFor } from '@/lib/notification-audience'
 import { logActivity } from '@/lib/log-activity'
 import { normalizeAssignees } from '@/lib/task-assignees'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -223,6 +224,11 @@ export async function DELETE(
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // THIS ASKED NOTHING. Any signed-in account could delete any task on any job
+  // by its id. Deleting is its own permission (`tasks: delete`), which the
+  // field roles do not hold by default.
+  const gate = await requirePermission(db, request, 'tasks', 'delete')
+  if (denied(gate)) return gate.denied
 
   const { data: task } = await db.from('project_tasks').select('title').eq('id', params.taskId).single()
 
@@ -232,7 +238,10 @@ export async function DELETE(
     .eq('id', params.taskId)
     .eq('project_id', params.id)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    console.error('[tasks DELETE]', error.message)
+    return NextResponse.json({ error: 'Could not delete that task. Try again.' }, { status: 500 })
+  }
 
   const { data: profile } = await db.from('profiles').select('full_name, email').eq('id', user.id).single()
   const actorName = (profile as any)?.full_name ?? (profile as any)?.email ?? user.email ?? 'Someone'

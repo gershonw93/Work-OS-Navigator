@@ -15,7 +15,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
+import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { useNotice } from '@/components/ui/notice'
 import { cn } from '@/lib/utils'
+import { fetchProblem } from '@/lib/fetch-error'
 
 import { formatDate } from '@/lib/dates'
 import { dueLabel } from '@/lib/task-due'
@@ -586,8 +589,14 @@ function taskCompanyName(t: { assignees?: TaskAssignee[] }): string | null {
 }
 
 export default function TasksPage({ params }: { params: { id: string } }) {
-  const { can } = usePermissions()
+  const perms = usePermissions()
+  const { can } = perms
   const canCreateTask = can('tasks', 'create')
+  // Hidden only when we KNOW the answer is no - a failed or pending check
+  // leaves it on screen and the route still refuses.
+  const hideDelete = !perms.loading && !perms.error && !can('tasks', 'delete')
+  const guardDelete = useDeleteGuard()
+  const notice = useNotice()
   const supabase = createClient()
   const [tasks, setTasks]     = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
@@ -839,14 +848,38 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setTasks(prev => prev.map(t => t.id === taskId ? { ...t, status } : t))
   }
 
-  async function deleteTask(taskId: string) {
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/tasks/${taskId}`, {
-      method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+  /**
+   * ASKS FIRST. The trash can sat beside Edit on every card and row and
+   * deleted on one tap - "way too easy" - with its notes and plan pins
+   * going with it. And it only leaves the list once the server says it is
+   * gone: it used to vanish whatever the answer, so a refused delete looked
+   * like a done one until the next reload put it back.
+   */
+  function deleteTask(taskId: string) {
+    const task = tasks.find(t => t.id === taskId)
+    guardDelete(async () => {
+      try {
+        const token = await getToken()
+        const res = await fetch(`/api/projects/${params.id}/tasks/${taskId}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}))
+          notice(d.error ?? 'Could not delete that task.')
+          return
+        }
+        setTasks(prev => prev.filter(t => t.id !== taskId))
+        if (openTaskId === taskId) setOpenTaskId(null)
+      } catch (e) {
+        notice(fetchProblem(e, 'deleting that task'))
+      }
+    }, {
+      title: 'Delete this task?',
+      label: task ? `"${task.title}"` : 'this task',
+      body: <>{task ? <>&ldquo;{task.title}&rdquo;</> : 'This task'} and its notes and plan pins will be deleted. This cannot be undone.</>,
+      confirmLabel: 'Delete task',
     })
-    setTasks(prev => prev.filter(t => t.id !== taskId))
-    if (openTaskId === taskId) setOpenTaskId(null)
   }
 
   function openInvoiceModal(task: Task) {
@@ -1029,12 +1062,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               <Receipt className="h-3 w-3" />
             </button>
           )}
+          {!hideDelete && (
           <button
             onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
             aria-label={`Delete "${task.title}"`} title="Delete task"
             className="p-1 rounded text-faint hover:text-danger hover:bg-danger-tint transition-colors">
             <Trash2 className="h-3 w-3" />
           </button>
+          )}
         </div>
       </div>
     )
@@ -1101,12 +1136,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             className="p-1.5 text-faint hover:text-accent-fg rounded transition-colors">
             <Pencil className="h-3.5 w-3.5" />
           </button>
+          {!hideDelete && (
           <button
             onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
             aria-label={`Delete "${task.title}"`} title="Delete task"
             className="p-1.5 text-faint hover:text-danger rounded transition-colors">
             <Trash2 className="h-3.5 w-3.5" />
           </button>
+          )}
         </div>
       </div>
     )
