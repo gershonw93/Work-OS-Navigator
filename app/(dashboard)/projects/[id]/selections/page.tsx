@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,8 +11,13 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import {
   Palette, Plus, Trash2, Link2, CheckCircle2, AlertTriangle, Clock, X,
   ChevronDown, ChevronRight, ExternalLink, Sparkles, GitPullRequest, Loader2,
-  ClipboardPaste, Truck, MessageSquareWarning, Wallet, ImagePlus,
+  ClipboardPaste, Truck, MessageSquareWarning, ImagePlus, Search, ArrowRight,
+  LayoutGrid, Home, Building2, PaintRoller, Warehouse, Droplets, Archive, Square, Refrigerator,
+  ShowerHead, Lightbulb, Plug, DoorClosed, Ruler, Layers, Grid3x3, Paintbrush, Shirt, Fan, Trees,
+  type LucideIcon,
 } from 'lucide-react'
+import { RowMenu, MenuItem } from '@/components/ui/row-menu'
+import { StatStrip } from '@/components/ui/stat-strip'
 import {
   SELECTION_CATEGORIES, SELECTION_STATUSES, STATUS_TINT, PROJECT_TYPE_LABEL, ACCEPTED_STATUSES,
   categoryDef, daysUntil, isOutstanding, urgency, variance,
@@ -21,7 +26,7 @@ import {
 } from '@/lib/selections'
 import { clientAppOrigin } from '@/lib/app-url'
 
-import { formatDate } from '@/lib/dates'
+import { formatDate, formatDateShort } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 import { Field } from '@/components/ui/field'
 // The SAME rule the route applies, run at the field. Aliased because `money`
@@ -73,7 +78,13 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   // A bad allowance, said at the field that holds it. `add` is the new-selection
   // form; anything else is the id of the row whose inline Allowance is wrong.
   const [allowanceError, setAllowanceError] = useState<{ id: string; msg: string } | null>(null)
-  const [filter, setFilter] = useState<'outstanding' | 'all'>('outstanding')
+  const [filter, setFilter] = useState<'outstanding' | 'decided' | 'all'>('outstanding')
+  const [query, setQuery] = useState('')
+  // Rows whose "add an option" card is open. OPENS, never toggles - Cancel or
+  // a different row is how it closes.
+  const [addingOpt, setAddingOpt] = useState<Set<string>>(new Set())
+  // Rows where somebody pressed "Record a choice" and the name field is showing.
+  const [recording, setRecording] = useState<Set<string>>(new Set())
   const [needsMigration, setNeedsMigration] = useState(false)
 
   // add form
@@ -468,10 +479,40 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   }
 
   const toggle = (id: string) => setExpanded(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
+  const addTo = (set: typeof setAddingOpt, id: string) => set(p => new Set(p).add(id))
+  const dropFrom = (set: typeof setAddingOpt, id: string) => set(p => { const n = new Set(p); n.delete(id); return n })
 
-  const shown = useMemo(
-    () => filter === 'all' ? rows : rows.filter(r => isOutstanding(r.status)),
-    [rows, filter])
+  /** Opens the Add dialog, already set to the category it was opened from. */
+  function openAdd(category?: string) {
+    if (category) setForm(p => ({ ...p, category }))
+    setAddError(null); setShowAdd(true)
+  }
+
+  // The status dropdown. An accepted status needs TWO things, and the route
+  // refuses on either. Both are asked for here, at the field that is missing,
+  // rather than sent and refused into a dialog - which is what the server's
+  // own message could only ever be.
+  function changeStatus(sel: Selection, next: SelectionStatus) {
+    const why = missingFor(sel, next)
+    if (why) {
+      setExpanded(p => new Set(p).add(sel.id))
+      setBlocked({ id: sel.id, why })
+      return
+    }
+    setBlocked(null)
+    patch(sel.id, { status: next })
+  }
+
+  const lineName = (id: string | null) => budgetLines.find(l => l.id === id)?.description ?? 'Budget line'
+
+  const shown = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return rows
+      .filter(r => filter === 'all' ? true : filter === 'outstanding' ? isOutstanding(r.status) : !isOutstanding(r.status))
+      .filter(r => !q || [r.item, r.location, r.category, r.selected_name,
+        ...r.selection_options.flatMap(o => [o.name, o.brand])]
+        .some(t => t?.toLowerCase().includes(q)))
+  }, [rows, filter, query])
 
   const byCategory = useMemo(() => {
     const m = new Map<string, Selection[]>()
@@ -482,16 +523,31 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     return Array.from(m.entries())
   }, [shown])
 
-  // The three numbers worth knowing at a glance: what's still owed, what's
-  // already late, and how far the picks have run past the allowances.
+  // The four things worth knowing at a glance: how much is decided, what the
+  // allowances add up to, what is due next, and what cannot be accepted yet
+  // because it has nowhere on the budget to land.
   const stats = useMemo(() => {
     const outstanding = rows.filter(r => isOutstanding(r.status))
     const late = outstanding.filter(r => urgency(r) === 'late')
     const over = rows.reduce((sum, r) => sum + Math.max(0, variance(r) ?? 0), 0)
     const under = rows.reduce((sum, r) => sum + Math.min(0, variance(r) ?? 0), 0)
     const linked = rows.filter(r => r.budget_line_item_id).length
-    return { outstanding: outstanding.length, late: late.length, net: over + under, total: rows.length, linked }
+    const withAllowance = rows.filter(r => r.allowance_amount != null)
+    const allowances = withAllowance.reduce((sum, r) => sum + Number(r.allowance_amount ?? 0), 0)
+    const next = outstanding
+      .filter(r => r.needed_by)
+      .sort((a, b) => a.needed_by!.localeCompare(b.needed_by!))[0] ?? null
+    return {
+      outstanding: outstanding.length, late: late.length, net: over + under, total: rows.length, linked,
+      decided: rows.length - outstanding.length, allowances, withAllowance: withAllowance.length, next,
+    }
   }, [rows])
+
+  const unlinked = stats.total - stats.linked
+  const nextDays = daysUntil(stats.next?.needed_by)
+  const nextNote = stats.next
+    ? `${stats.next.item}, ${nextDays! < 0 ? `${Math.abs(nextDays!)} days late` : nextDays === 0 ? 'today' : `in ${nextDays} days`}`
+    : 'Nothing dated is still owed'
 
   const portalLink = portalToken ? `${origin}/portal/${portalToken}/selections` : null
 
@@ -500,26 +556,21 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-ink">Selections</h1>
-          <p className="text-sm text-muted-fg mt-0.5">
-            The choices that aren&apos;t yours to make. Each one has an allowance and a date driven by
-            lead time - so nobody finds out the windows weren&apos;t ordered the week they were due on site.
-          </p>
+          <p className="text-sm text-muted-fg mt-0.5">What the client still has to pick, what it costs, and when you need it.</p>
         </div>
         <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
-          <Button variant="outline" className="gap-1.5" onClick={copyClientLink} disabled={linking}>
+          {rows.length > 0 && (
+            <Button variant="outline" className="gap-1.5" onClick={openSeed}>
+              <Plus className="h-4 w-4" /> Add a category
+            </Button>
+          )}
+          <Button className="gap-1.5" onClick={copyClientLink} disabled={linking}>
             {linking ? <Loader2 className="h-4 w-4 animate-spin" />
-              : copied ? <CheckCircle2 className="h-4 w-4 text-success" /> : <Link2 className="h-4 w-4" />}
+              : copied ? <CheckCircle2 className="h-4 w-4" /> : <Link2 className="h-4 w-4" />}
             {linking ? 'Creating link…' : copied ? 'Copied' : 'Copy client link'}
           </Button>
-          {/* OPEN, NEVER TOGGLE. This was `v => !v` over an inline panel that
-              rendered below the stats, so pressing it while the panel was already
-              open CLOSED it - and after a failed save the panel stays open, which
-              is exactly when somebody presses this again. A button whose effect is
-              immediately reversed by the next press is indistinguishable from a
-              dead one, which is how it was reported. */}
-          <Button onClick={() => { setAddError(null); setShowAdd(true) }} className="gap-1.5"><Plus className="h-4 w-4" /> Add selection</Button>
         </div>
       </div>
 
@@ -531,27 +582,55 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
         </p>
       )}
 
-      {suggestions.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-accent/40 bg-accent-tint px-4 py-3">
-          <p className="text-sm text-accent-fg">
-            <span className="font-semibold">{suggestions.length}</span> selection{suggestions.length === 1 ? '' : 's'} look
-            like {suggestions.length === 1 ? 'it belongs' : 'they belong'} on a budget line. Want to connect
-            {suggestions.length === 1 ? ' it' : ' them'}? You can change any of the suggestions first.
-          </p>
-          <Button size="sm" onClick={openLinkReview} className="gap-1.5 shrink-0">
-            <Wallet className="h-3.5 w-3.5" /> Review &amp; connect
-          </Button>
-        </div>
-      )}
-
       {rows.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
-          <Stat label="Still owed" value={String(stats.outstanding)} tone={stats.outstanding ? 'warn' : 'ok'} />
-          <Stat label="Past due" value={String(stats.late)} tone={stats.late ? 'danger' : 'ok'} />
-          <Stat label="Decided" value={`${stats.total - stats.outstanding} of ${stats.total}`} tone="ok" />
-          <Stat label="Over allowance" value={stats.net === 0 ? '-' : money(stats.net)} tone={stats.net > 0 ? 'danger' : 'ok'} />
-          <Stat label="On the budget" value={`${stats.linked} of ${stats.total}`} tone={stats.linked < stats.total ? 'warn' : 'ok'} />
-        </div>
+        <>
+          <StatStrip className="lg:hidden" items={[
+            { label: 'Decided', value: stats.decided, note: `of ${stats.total}` },
+            { label: 'Allowances set', value: money(stats.allowances), note: `${stats.withAllowance} of ${stats.total} items` },
+            { label: 'Next deadline', value: stats.next ? formatDateShort(stats.next.needed_by) : '-', note: stats.next ? nextNote : undefined,
+              tone: nextDays != null && nextDays < 0 ? 'danger' : undefined },
+            { label: 'Needs a budget line', value: unlinked, tone: unlinked ? 'warn' : undefined,
+              note: suggestions.length ? 'Tap to connect' : undefined,
+              onClick: suggestions.length ? openLinkReview : undefined },
+          ]} />
+
+          <div className="hidden lg:grid grid-cols-4 gap-3">
+            <SummaryCard label="Decided">
+              <p className="text-2xl font-bold text-ink tabular-nums">{stats.decided} <span className="text-sm font-medium text-faint">of {stats.total}</span></p>
+              <div className="mt-2 h-1.5 rounded-full bg-muted">
+                <div className="h-full rounded-full bg-success" style={{ width: `${stats.total ? (stats.decided / stats.total) * 100 : 0}%` }} />
+              </div>
+            </SummaryCard>
+            <SummaryCard label="Allowances set">
+              <p className="text-2xl font-bold text-ink tabular-nums">{money(stats.allowances)}</p>
+              <p className={cn('text-xs mt-1', stats.withAllowance < stats.total ? 'text-warn' : 'text-faint')}>
+                {stats.withAllowance} of {stats.total} item{stats.total === 1 ? ' has' : 's have'} one
+              </p>
+              {stats.net > 0 && <p className="text-xs text-danger">Picks run {money(stats.net)} over</p>}
+            </SummaryCard>
+            <SummaryCard label="Next deadline">
+              <p className={cn('text-2xl font-bold tabular-nums', nextDays != null && nextDays < 0 ? 'text-danger' : 'text-ink')}>
+                {stats.next ? formatDateShort(stats.next.needed_by) : '-'}
+              </p>
+              <p className="text-xs text-faint mt-1 truncate">{nextNote}</p>
+              {stats.late > 1 && <p className="text-xs text-danger">{stats.late} selections past due</p>}
+            </SummaryCard>
+            <SummaryCard label="Needs a budget line" tone={unlinked ? 'warn' : undefined}>
+              <p className={cn('text-2xl font-bold tabular-nums', unlinked ? 'text-warn' : 'text-ink')}>
+                {unlinked} <span className="text-sm font-medium">item{unlinked === 1 ? '' : 's'}</span>
+              </p>
+              <p className="text-xs text-muted-fg mt-1">
+                {unlinked ? 'Can\'t be accepted or ordered until linked' : 'Every selection lands on the budget'}
+              </p>
+              {suggestions.length > 0 && (
+                <button type="button" onClick={openLinkReview}
+                  className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-ink hover:underline whitespace-nowrap">
+                  Review {suggestions.length} suggested link{suggestions.length === 1 ? '' : 's'} <ArrowRight className="h-3 w-3" />
+                </button>
+              )}
+            </SummaryCard>
+          </div>
+        </>
       )}
 
       {/* A DIALOG, like the seed one below it. It was an inline block dropped
@@ -837,7 +916,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
       )}
 
       {rows.length === 0 ? (
-        <div className="bg-panel rounded-xl border border-line p-10 text-center">
+        <div className="bg-panel rounded-2xl border border-line p-10 text-center">
           <Palette className="h-8 w-8 text-faint mx-auto mb-3" />
           <p className="text-sm text-muted-fg max-w-md mx-auto">
             No selections yet. Pick the categories this job actually has - windows, cabinets, fixtures,
@@ -845,150 +924,496 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
             We&apos;ll tick the ones that suit a {PROJECT_TYPE_LABEL[projectType ?? ''] ?? 'job'} like this
             one to start with.
           </p>
-          <Button onClick={openSeed} className="mt-4 gap-1.5">
-            <Sparkles className="h-4 w-4" /> Start the standard board
-          </Button>
+          <div className="row-even lg:flex justify-center gap-2 mt-4">
+            <Button onClick={openSeed} className="gap-1.5">
+              <Sparkles className="h-4 w-4" /> Start the standard board
+            </Button>
+            <Button variant="outline" onClick={() => openAdd()} className="gap-1.5">
+              <Plus className="h-4 w-4" /> Add one selection
+            </Button>
+          </div>
         </div>
       ) : (
         <>
-          <div className="flex items-center gap-2">
-            {(['outstanding', 'all'] as const).map(f => (
-              <button key={f} onClick={() => setFilter(f)}
-                className={cn('rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
-                  filter === f ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:bg-muted')}>
-                {f === 'outstanding' ? `Still owed (${stats.outstanding})` : `Everything (${stats.total})`}
-              </button>
-            ))}
-            <button onClick={openSeed}
-              className="ml-auto inline-flex items-center gap-1.5 text-sm font-medium text-muted-fg hover:text-ink">
-              <Sparkles className="h-3.5 w-3.5" /> Add a category
-            </button>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex w-full rounded-xl bg-muted p-1 lg:w-auto" role="tablist">
+              {([
+                ['outstanding', 'Still owed', stats.outstanding],
+                ['decided', 'Decided', stats.decided],
+                ['all', 'Everything', stats.total],
+              ] as const).map(([key, label, n]) => (
+                <button key={key} type="button" role="tab" aria-selected={filter === key} onClick={() => setFilter(key)}
+                  className={cn('flex flex-1 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors lg:flex-none lg:py-1.5',
+                    filter === key ? 'bg-panel text-ink shadow-sm' : 'text-muted-fg hover:text-ink')}>
+                  {label}
+                  <span className={cn('rounded-full px-1.5 text-[11px] font-semibold tabular-nums',
+                    filter === key ? 'bg-accent text-accent-ink' : 'bg-panel text-muted-fg')}>{n}</span>
+                </button>
+              ))}
+            </div>
+            <div className="relative w-full lg:w-72">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+              <Input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search selections"
+                aria-label="Search selections" className="pl-9" />
+            </div>
           </div>
 
           {byCategory.length === 0 ? (
-            <div className="bg-panel rounded-xl border border-line p-10 text-center">
-              <CheckCircle2 className="h-8 w-8 text-success mx-auto mb-3" />
-              <p className="text-sm text-muted-fg">Every selection is decided. Nothing is waiting on the client.</p>
+            <div className="bg-panel rounded-2xl border border-line p-10 text-center">
+              <CheckCircle2 className="h-8 w-8 text-faint mx-auto mb-3" />
+              <p className="text-sm text-muted-fg">
+                {query.trim() ? `Nothing matches "${query.trim()}".`
+                  : filter === 'outstanding' ? 'Every selection is decided. Nothing is waiting on the client.'
+                    : 'Nothing decided yet.'}
+              </p>
             </div>
           ) : byCategory.map(([category, items]) => {
             const def = categoryDef(category)
+            const inCategory = rows.filter(r => r.category === category)
+            const decidedHere = inCategory.filter(r => !isOutstanding(r.status)).length
+            const Icon = CATEGORY_ICON[category] ?? LayoutGrid
             return (
-              <div key={category} className="bg-panel rounded-xl border border-line overflow-hidden">
-                <div className="px-4 py-2.5 border-b border-line-soft flex flex-wrap items-baseline justify-between gap-2">
-                  <h2 className="text-sm font-semibold text-ink">{category}</h2>
-                  {def && <p className="text-xs text-faint">~{def.lead_time_days} day lead · blocks {def.blocks.toLowerCase()}</p>}
+              // NO overflow-hidden: the RowMenu in the last row hangs off it.
+              <section key={category} className="bg-panel rounded-2xl border border-line">
+                <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-4 lg:px-5">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-line bg-surface text-ink-soft">
+                      <Icon className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2 className="text-base font-semibold text-ink truncate">{category}</h2>
+                      <p className="text-xs text-faint">
+                        {inCategory.length} item{inCategory.length === 1 ? '' : 's'} · {decidedHere} decided
+                      </p>
+                    </div>
+                  </div>
+                  {def && (
+                    <div className="flex flex-wrap gap-1.5">
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-muted-fg">
+                        <Clock className="h-3 w-3" /> ~{def.lead_time_days} day lead time
+                      </span>
+                      <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-line bg-surface px-2.5 py-1 text-xs text-muted-fg">
+                        <ArrowRight className="h-3 w-3" /> Blocks {def.blocks.toLowerCase()}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <div className="divide-y divide-line-soft">
+
+                <div className={cn('hidden border-y border-line-soft px-5 py-2 text-[11px] font-semibold uppercase tracking-wider text-faint', ROW_GRID)}>
+                  <span className="pl-6">Item</span>
+                  <span>Allowance</span>
+                  <span>Decide by</span>
+                  <span>Client&apos;s pick</span>
+                  <span>Budget line</span>
+                  <span>Status</span>
+                  <span />
+                </div>
+
+                <div className="divide-y divide-line-soft border-t border-line-soft lg:border-t-0">
                   {items.map(sel => {
                     const v = variance(sel)
                     const u = urgency(sel)
                     const days = daysUntil(sel.needed_by)
                     const isOpen = expanded.has(sel.id)
+                    const nOpts = sel.selection_options?.length ?? 0
+                    const when = days == null ? null : days < 0 ? `${Math.abs(days)}d late` : days === 0 ? 'today' : `in ${days} days`
+                    const whenTone = u === 'late' ? 'text-danger' : u === 'soon' ? 'text-warn' : 'text-faint'
+                    const menu = (
+                      <RowMenu label={`More for ${sel.item}`}>
+                        {close => (
+                          <>
+                            <MenuItem onClick={() => { close(); if (!isOpen) toggle(sel.id) }}>
+                              {isOpen ? 'Editing below' : 'Edit'}
+                            </MenuItem>
+                            {sel.status === 'chosen' && (
+                              <MenuItem onClick={() => { close(); openOrder(sel) }}><Truck className="h-3.5 w-3.5" /> Order it</MenuItem>
+                            )}
+                            {v != null && v > 0 && !sel.change_order_id && (
+                              <MenuItem onClick={() => { close(); patch(sel.id, { create_change_order: true }) }}>
+                                <GitPullRequest className="h-3.5 w-3.5" /> Raise a {money(v)} change order
+                              </MenuItem>
+                            )}
+                            <MenuItem danger onClick={() => { close(); remove(sel) }}><Trash2 className="h-3.5 w-3.5" /> Delete</MenuItem>
+                          </>
+                        )}
+                      </RowMenu>
+                    )
                     return (
                       <div key={sel.id}>
-                        <div className="px-4 py-3 flex flex-col sm:flex-row sm:items-center gap-x-4 gap-y-2">
-                          <button onClick={() => toggle(sel.id)} className="flex items-start gap-2 flex-1 min-w-0 text-left">
-                            <span className="mt-0.5 text-faint shrink-0">{isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</span>
-                            <span className="min-w-0">
-                              <span className="block text-sm font-medium text-ink-soft">
-                                {sel.item}
-                                {sel.location && <span className="text-faint font-normal"> · {sel.location}</span>}
+                        <div className={cn('flex flex-col gap-2 px-4 py-3 lg:px-5', ROW_GRID)}>
+                          <div className="flex items-start gap-2 min-w-0">
+                            <button onClick={() => toggle(sel.id)} aria-expanded={isOpen}
+                              className="flex items-start gap-2 flex-1 min-w-0 text-left">
+                              <span className="mt-0.5 text-faint shrink-0">{isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}</span>
+                              <span className="min-w-0">
+                                <span className="block text-sm font-semibold text-ink">
+                                  {sel.item}
+                                  {sel.location && <span className="text-faint font-normal"> · {sel.location}</span>}
+                                </span>
+                                <span className="block text-xs text-faint mt-0.5">
+                                  {nOpts ? `${nOpts} option${nOpts === 1 ? '' : 's'} for the client` : 'No options yet'}
+                                  {sel.change_requested_at && <span className="text-warn"> · change requested</span>}
+                                </span>
                               </span>
-                              <span className="block text-xs text-faint mt-0.5">
-                                {sel.allowance_amount != null ? `Allowance ${money(sel.allowance_amount)}` : 'No allowance set'}
-                                {sel.selected_name ? ` · chose ${sel.selected_name}` : ''}
-                                {sel.selected_price != null ? ` at ${money(sel.selected_price)}` : ''}
-                                {/* Where it lands in the budget - the answer to
-                                    "so which line does this show up on?" */}
-                                {sel.budget_line_item_id
-                                  ? <span className="text-muted-fg"> · {budgetLines.find(l => l.id === sel.budget_line_item_id)?.description ?? 'budget line'}</span>
-                                  : <span className="text-warn"> · no budget line</span>}
-                              </span>
-                            </span>
-                          </button>
+                            </button>
+                            <div className="lg:hidden">{menu}</div>
+                          </div>
 
-                          <div className="flex flex-wrap items-center gap-2 shrink-0">
-                            {v != null && v !== 0 && (
-                              <span className={cn('whitespace-nowrap text-xs font-semibold rounded-full px-2 py-0.5',
-                                v > 0 ? 'bg-danger-tint text-danger' : 'bg-success-tint text-success')}>
-                                {v > 0 ? `+${money(v)} over` : `${money(Math.abs(v))} under`}
+                          {/* Desktop columns */}
+                          <div className="hidden lg:block text-sm tabular-nums">
+                            {sel.allowance_amount != null ? <span className="font-semibold text-ink">{money(sel.allowance_amount)}</span>
+                              : <span className="font-mono text-xs text-faint">Not set</span>}
+                          </div>
+                          <div className="hidden lg:block min-w-0">
+                            {sel.needed_by ? (
+                              <>
+                                <p className="text-sm text-ink">{formatDateShort(sel.needed_by)}</p>
+                                {when && isOutstanding(sel.status) && <p className={cn('text-xs', whenTone)}>{when}</p>}
+                              </>
+                            ) : <span className="text-sm text-faint">No date</span>}
+                          </div>
+                          <div className="hidden lg:block min-w-0">
+                            {sel.selected_name ? (
+                              <>
+                                <p className="text-sm text-ink truncate">{sel.selected_name}</p>
+                                {v != null && v !== 0 && (
+                                  <p className={cn('text-xs tabular-nums', v > 0 ? 'text-danger' : 'text-success')}>
+                                    {v > 0 ? `+${money(v)} over` : `${money(Math.abs(v))} under`}
+                                  </p>
+                                )}
+                              </>
+                            ) : <span className="text-sm text-faint">Not yet</span>}
+                          </div>
+                          <div className="hidden lg:block min-w-0">
+                            <BudgetDot linked={!!sel.budget_line_item_id} name={lineName(sel.budget_line_item_id)} />
+                          </div>
+                          <div className="hidden lg:block">
+                            <StatusPill status={sel.status} onChange={next => changeStatus(sel, next)} />
+                          </div>
+                          <div className="hidden lg:flex justify-end">{menu}</div>
+
+                          {/* Phone: the same facts on one quiet line under the name */}
+                          <div className="lg:hidden flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-6 text-xs text-muted-fg">
+                            <StatusPill status={sel.status} onChange={next => changeStatus(sel, next)} />
+                            <span className="tabular-nums">{sel.allowance_amount != null ? money(sel.allowance_amount) : 'No allowance'}</span>
+                            {sel.needed_by && (
+                              <span className={cn(isOutstanding(sel.status) ? whenTone : 'text-faint')}>
+                                {formatDateShort(sel.needed_by)}{when && isOutstanding(sel.status) ? ` · ${when}` : ''}
                               </span>
                             )}
-                            {sel.needed_by && u !== 'none' && (
-                              <span className={cn('whitespace-nowrap inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5',
-                                u === 'late' ? 'bg-danger-tint text-danger' : u === 'soon' ? 'bg-warn-tint text-warn' : 'text-muted-fg')}>
-                                {u === 'late' ? <AlertTriangle className="h-3 w-3" /> : <Clock className="h-3 w-3" />}
-                                {days! < 0 ? `${Math.abs(days!)}d late` : `${days}d left`}
-                              </span>
-                            )}
-                            <select value={sel.status} onChange={e => {
-                              const next = e.target.value as SelectionStatus
-                              // An accepted status needs TWO things, and the
-                              // route refuses on either. Both are asked for
-                              // here, at the field that is missing, rather than
-                              // sent and refused into a dialog - which is what
-                              // the server's own message could only ever be.
-                              const why = missingFor(sel, next)
-                              if (why) {
-                                setExpanded(p => new Set(p).add(sel.id))
-                                setBlocked({ id: sel.id, why })
-                                return
-                              }
-                              setBlocked(null)
-                              patch(sel.id, { status: next })
-                            }}
-                              className={cn('whitespace-nowrap rounded-full border-0 px-2.5 py-1 text-xs font-semibold focus:outline-none focus:ring-1 focus:ring-accent', STATUS_TINT[sel.status])}>
-                              {SELECTION_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-                            </select>
-                            <button onClick={() => remove(sel)} className="text-faint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
+                            <BudgetDot linked={!!sel.budget_line_item_id} name={lineName(sel.budget_line_item_id)} />
                           </div>
                         </div>
 
                         {isOpen && (
-                          <div className="px-4 pb-4 space-y-3 bg-surface/50 lg:pl-10">
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                              <div className="space-y-1">
-                                <Label className="lg:text-xs">Allowance ($)</Label>
-                                <Input type="number" defaultValue={sel.allowance_amount ?? ''} className="h-8 text-sm"
-                                  aria-invalid={allowanceError?.id === sel.id}
-                                  onBlur={e => {
-                                    // Same rule as the Add form and as the
-                                    // route. A negative here used to make the
-                                    // round trip and come back as a dialog.
-                                    if (e.target.value.trim() !== '') {
-                                      const checked = checkMoney(e.target.value, { allowZero: true, label: 'allowance' })
-                                      if (!checked.ok) { setAllowanceError({ id: sel.id, msg: checked.error! }); return }
-                                    }
-                                    setAllowanceError(null)
-                                    const val = e.target.value === '' ? null : Number(e.target.value)
-                                    if (val !== sel.allowance_amount) patch(sel.id, { allowance_amount: val })
-                                  }} />
-                                {allowanceError?.id === sel.id && (
-                                  <p className="text-[11px] text-danger">{allowanceError.msg}</p>
-                                )}
-                                {/* How much room is actually left on the line this
-                                    hangs off, once its other selections are counted. */}
-                                {(() => {
-                                  const b = lineBudget(sel.budget_line_item_id, sel.id)
-                                  if (!b) return null
-                                  if (b.budgeted === 0) return <p className="text-[11px] text-warn">That budget line has nothing on it yet.</p>
-                                  const over = b.remaining < 0
-                                  return (
-                                    <p className={cn('text-[11px]', over ? 'text-danger' : 'text-faint')}>
-                                      {over
-                                        ? `${money(Math.abs(b.remaining))} over the line's ${money(b.budgeted)}`
-                                        : `${money(b.remaining)} left of ${money(b.budgeted)} on this line`}
+                          <div className="border-t border-line-soft bg-surface/50 px-4 py-5 lg:px-5 lg:pl-11">
+                            <div className="grid gap-6 lg:grid-cols-[16rem_minmax(0,1fr)]">
+                              {/* ── Setup ───────────────────────────────────── */}
+                              <div className="space-y-4">
+                                <p className="text-[11px] font-semibold uppercase tracking-wider text-faint">Setup</p>
+                                <div className="space-y-1.5">
+                                  <Label>Allowance</Label>
+                                  <div className="relative">
+                                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-faint">$</span>
+                                    <Input type="number" defaultValue={sel.allowance_amount ?? ''} className="pl-7"
+                                      aria-invalid={allowanceError?.id === sel.id}
+                                      onBlur={e => {
+                                        // Same rule as the Add form and as the
+                                        // route. A negative here used to make the
+                                        // round trip and come back as a dialog.
+                                        if (e.target.value.trim() !== '') {
+                                          const checked = checkMoney(e.target.value, { allowZero: true, label: 'allowance' })
+                                          if (!checked.ok) { setAllowanceError({ id: sel.id, msg: checked.error! }); return }
+                                        }
+                                        setAllowanceError(null)
+                                        const val = e.target.value === '' ? null : Number(e.target.value)
+                                        if (val !== sel.allowance_amount) patch(sel.id, { allowance_amount: val })
+                                      }} />
+                                  </div>
+                                  {allowanceError?.id === sel.id && (
+                                    <p className="text-xs text-danger">{allowanceError.msg}</p>
+                                  )}
+                                  {/* How much room is actually left on the line this
+                                      hangs off, once its other selections are counted. */}
+                                  {(() => {
+                                    const b = lineBudget(sel.budget_line_item_id, sel.id)
+                                    if (!b) return null
+                                    if (b.budgeted === 0) return <p className="text-xs text-warn">That budget line has nothing on it yet.</p>
+                                    const over = b.remaining < 0
+                                    return (
+                                      <p className={cn('text-xs', over ? 'text-danger' : 'text-faint')}>
+                                        {over
+                                          ? `${money(Math.abs(b.remaining))} over the line's ${money(b.budgeted)}`
+                                          : `${money(b.remaining)} left of ${money(b.budgeted)} on this line`}
+                                      </p>
+                                    )
+                                  })()}
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  <Label>Decide by</Label>
+                                  <Input type="date" defaultValue={sel.needed_by ?? ''}
+                                    onBlur={e => { if (e.target.value !== (sel.needed_by ?? '')) patch(sel.id, { needed_by: e.target.value || null }) }} />
+                                  {def && (
+                                    <p className="text-xs text-faint">
+                                      With a ~{def.lead_time_days} day lead, later than this pushes {def.blocks.toLowerCase()}.
                                     </p>
+                                  )}
+                                </div>
+
+                                {/* Which budget line this comes out of. Without it the
+                                    allowance is a number in a vacuum and the order
+                                    lands nowhere. */}
+                                <div className="space-y-1.5">
+                                  <Label>Budget line</Label>
+                                  <div className="flex gap-2">
+                                    <Select value={sel.budget_line_item_id ?? ''} className="min-w-0 flex-1"
+                                      onChange={e => linkToBudget(sel, e.target.value)}>
+                                      <option value="">Not linked</option>
+                                      {budgetLines.map(l => <option key={l.id} value={l.id}>{l.category} - {l.description}</option>)}
+                                    </Select>
+                                    {!sel.budget_line_item_id && (
+                                      <Button type="button" variant="outline" className="shrink-0" onClick={() => createBudgetLine(sel)}>
+                                        New line
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {!sel.budget_line_item_id && (
+                                    <p className="flex items-start gap-1.5 text-xs text-warn">
+                                      <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                                      Required before you can accept or order. The cost has to land on the budget.
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* A client asking to change something already ordered */}
+                                {sel.change_requested_at && (
+                                  <div className="rounded-xl border border-warn/40 bg-warn-tint px-3 py-2">
+                                    <p className="text-xs font-semibold text-warn inline-flex items-center gap-1.5">
+                                      <MessageSquareWarning className="h-3.5 w-3.5" /> Client asked to change this
+                                    </p>
+                                    {sel.change_request_note && <p className="text-xs text-warn mt-1">{sel.change_request_note}</p>}
+                                    <button onClick={() => patch(sel.id, { change_requested_at: null, change_request_note: null })}
+                                      className="text-xs text-warn underline mt-1">Mark handled</button>
+                                  </div>
+                                )}
+
+                                {sel.status === 'chosen' && (
+                                  <Button variant="outline" className="w-full gap-1.5" onClick={() => openOrder(sel)}>
+                                    <Truck className="h-4 w-4" /> Order it
+                                  </Button>
+                                )}
+                                {sel.ordered_at && (
+                                  <p className="text-xs text-success inline-flex items-center gap-1.5">
+                                    <Truck className="h-3.5 w-3.5" />
+                                    Ordered {formatDate(sel.ordered_at)}
+                                    {sel.expected_delivery ? ` · due ${formatDate(sel.expected_delivery)}` : ''}
+                                  </p>
+                                )}
+
+                                {/* The overage, made real */}
+                                {v != null && v > 0 && (
+                                  sel.change_order_id ? (
+                                    <p className="inline-flex items-center gap-1.5 text-xs text-success">
+                                      <CheckCircle2 className="h-3.5 w-3.5" /> Change order raised for {money(v)}
+                                    </p>
+                                  ) : (
+                                    <Button variant="outline" className="w-full gap-1.5"
+                                      onClick={() => patch(sel.id, { create_change_order: true })}>
+                                      <GitPullRequest className="h-4 w-4" /> Raise a {money(v)} change order
+                                    </Button>
                                   )
-                                })()}
+                                )}
                               </div>
-                              <div className="space-y-1">
-                                <Label className="lg:text-xs">Decide by</Label>
-                                <Input type="date" defaultValue={sel.needed_by ?? ''} className="h-8 text-sm"
-                                  onBlur={e => { if (e.target.value !== (sel.needed_by ?? '')) patch(sel.id, { needed_by: e.target.value || null }) }} />
-                              </div>
-                              <div className="space-y-1">
-                                <Label className="lg:text-xs">What they chose</Label>
+
+                              {/* ── Options the client sees ─────────────────── */}
+                              <div className="space-y-3 min-w-0">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wider text-faint">Options the client sees</p>
+                                  <div className="row-even lg:flex gap-2">
+                                    <Button size="sm" variant="outline" className="gap-1.5"
+                                      onClick={() => { setPasteFor(sel.id); setPasteText('') }}>
+                                      <ClipboardPaste className="h-3.5 w-3.5" /> Paste a list
+                                    </Button>
+                                    <Button size="sm" className="gap-1.5" onClick={() => addTo(setAddingOpt, sel.id)}>
+                                      <Plus className="h-3.5 w-3.5" /> Add option
+                                    </Button>
+                                  </div>
+                                </div>
+
+                                {/* One link for the whole selection, not one per
+                                    option. "Here's the color chart, go look" is a
+                                    single fact about the category. It shows at the
+                                    top of this selection on the client's link. */}
+                                <div className="relative">
+                                  <Link2 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+                                  <Input className="pl-9" defaultValue={sel.reference_url ?? ''}
+                                    aria-label="Link to the full range"
+                                    placeholder="Link to the full range, like the maker's color chart (optional)"
+                                    onBlur={e => { if (e.target.value !== (sel.reference_url ?? '')) patch(sel.id, { reference_url: e.target.value || null }) }} />
+                                </div>
+
+                                {pasteFor === sel.id && (
+                                  <div className="space-y-2 rounded-xl border border-accent/40 bg-panel p-3">
+                                    <p className="text-xs text-muted-fg">
+                                      One per line. It works out which bit is which - a <span className="font-mono">#hex</span> is a
+                                      swatch, a link is a link, a number is the price, the rest is the name.
+                                    </p>
+                                    <textarea rows={4} value={pasteText} onChange={e => setPasteText(e.target.value)}
+                                      aria-label="Options, one per line"
+                                      placeholder={'Sherwin Williams | Alabaster | #edeae3 | 62\nSherwin Williams | Repose Gray | #cbc7c0 | 62\nBenjamin Moore | Chantilly Lace | #f4f4ef | 78'}
+                                      className="w-full rounded-md border border-muted2 bg-panel px-2.5 py-2 font-mono text-xs text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
+                                    <div className="row-even lg:flex lg:justify-end gap-2">
+                                      <Button size="sm" variant="secondary" onClick={() => { setPasteFor(null); setPasteText('') }}>Cancel</Button>
+                                      <Button size="sm" onClick={() => pasteOptions(sel.id)} disabled={!pasteText.trim()}>Add them</Button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                                  {sel.selection_options.map(o => {
+                                    const diff = o.price != null && sel.allowance_amount != null && Number(sel.allowance_amount) > 0
+                                      ? Math.round((Number(o.price) - Number(sel.allowance_amount)) * 100) / 100 : null
+                                    return (
+                                      <div key={o.id} className="relative flex flex-col rounded-xl border border-line bg-panel">
+                                        {/* What the client will actually look at. Drop a
+                                            photo straight onto it, or click. */}
+                                        <label
+                                          onDragOver={e => { e.preventDefault(); setDragOver(o.id) }}
+                                          onDragLeave={() => setDragOver(null)}
+                                          onDrop={e => {
+                                            e.preventDefault(); setDragOver(null)
+                                            const f = e.dataTransfer.files?.[0]
+                                            if (f) uploadPhoto(sel.id, f, o.id)
+                                          }}
+                                          title="Drop or click to add a photo"
+                                          className={cn('flex h-28 cursor-pointer flex-col items-center justify-center gap-1 overflow-hidden rounded-t-xl text-xs text-faint',
+                                            dragOver === o.id ? 'bg-accent-tint text-accent-fg' : 'bg-muted hover:bg-muted2')}>
+                                          <input type="file" accept="image/*" className="sr-only"
+                                            onChange={e => { const f = e.target.files?.[0]; if (f) uploadPhoto(sel.id, f, o.id); e.target.value = '' }} />
+                                          {uploading === o.id ? <Loader2 className="h-4 w-4 animate-spin" />
+                                            : o.image_url ? (
+                                              // eslint-disable-next-line @next/next/no-img-element
+                                              <img src={o.image_url} alt={o.name} className="h-full w-full object-cover" />
+                                            ) : o.color_hex ? (
+                                              <span className="h-full w-full" style={{ backgroundColor: o.color_hex }} />
+                                            ) : <><ImagePlus className="h-4 w-4" /> Add photo</>}
+                                        </label>
+                                        <button type="button" onClick={() => removeOption(sel.id, o.id)}
+                                          aria-label={`Remove ${o.name}`} title="Remove option"
+                                          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-panel/90 text-faint hover:text-danger">
+                                          <X className="h-3.5 w-3.5" />
+                                        </button>
+                                        <div className="flex flex-1 flex-col gap-1 p-3">
+                                          {o.brand && <p className="text-[11px] font-semibold uppercase tracking-wider text-faint truncate">{o.brand}</p>}
+                                          <p className="text-sm font-semibold text-ink">{o.name}</p>
+                                          <p className="flex flex-wrap items-baseline gap-x-2 text-sm tabular-nums">
+                                            <span className="text-ink">{money(o.price)}</span>
+                                            {diff != null && diff !== 0 && (
+                                              <span className={cn('text-xs', diff > 0 ? 'text-danger' : 'text-success')}>
+                                                {diff > 0 ? `+${money(diff)}` : `-${money(Math.abs(diff))}`} vs allowance
+                                              </span>
+                                            )}
+                                          </p>
+                                          {o.link_url && (
+                                            <a href={o.link_url} target="_blank" rel="noreferrer"
+                                              className="mt-auto inline-flex items-center gap-1 text-xs font-medium text-ink-soft underline hover:text-ink">
+                                              Product page <ExternalLink className="h-3 w-3" />
+                                            </a>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )
+                                  })}
+
+                                  {addingOpt.has(sel.id) ? (
+                                    <div className="space-y-2 rounded-xl border border-accent/50 bg-panel p-3 sm:col-span-2 xl:col-span-3">
+                                      <p className="text-sm font-semibold text-ink">New option</p>
+                                      <div className="grid gap-2 sm:grid-cols-2">
+                                        <div className="relative">
+                                          <Input placeholder="Brand (optional)" aria-label="Brand"
+                                            value={optDraft[sel.id]?.brand ?? ''}
+                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
+                                            onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), brand: e.target.value } }))} />
+                                          {/* Cleared it and want it back - one click rather than retyping. */}
+                                          {!optDraft[sel.id]?.brand && lastBrand(sel) && (
+                                            <button type="button"
+                                              onClick={() => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), brand: lastBrand(sel)! } }))}
+                                              className="absolute inset-y-0 right-1.5 my-auto h-6 max-w-[8rem] truncate whitespace-nowrap rounded bg-muted px-2 text-[11px] font-medium text-muted-fg hover:bg-accent-tint hover:text-accent-fg"
+                                              title={`Use ${lastBrand(sel)}`}>
+                                              {lastBrand(sel)}
+                                            </button>
+                                          )}
+                                        </div>
+                                        <Input placeholder="Option name *" aria-label="Option name"
+                                          value={optDraft[sel.id]?.name ?? ''}
+                                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
+                                          onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), name: e.target.value } }))} />
+                                        <div className="relative">
+                                          <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-faint">$</span>
+                                          <Input type="number" placeholder="Price (optional)" aria-label="Price" className="pl-7"
+                                            value={optDraft[sel.id]?.price ?? ''}
+                                            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
+                                            onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), price: e.target.value } }))} />
+                                        </div>
+                                        <Input placeholder="Link to product (optional)" aria-label="Link to product"
+                                          value={optDraft[sel.id]?.link_url ?? ''}
+                                          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
+                                          onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), link_url: e.target.value } }))} />
+                                      </div>
+                                      <div className="flex flex-wrap items-center justify-between gap-2">
+                                        {/* A photo of the real thing, not a color wheel. */}
+                                        <label
+                                          onDragOver={e => { e.preventDefault(); setDragOver(sel.id) }}
+                                          onDragLeave={() => setDragOver(null)}
+                                          onDrop={async e => {
+                                            e.preventDefault(); setDragOver(null)
+                                            const f = e.dataTransfer.files?.[0]
+                                            if (!f) return
+                                            const url = await uploadPhoto(sel.id, f)
+                                            if (url) setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), image_url: url } }))
+                                          }}
+                                          title="Drop a photo here, or click to pick one"
+                                          className={cn('inline-flex h-9 shrink-0 cursor-pointer items-center gap-1.5 whitespace-nowrap rounded-md border px-3 text-sm font-medium',
+                                            dragOver === sel.id ? 'border-accent bg-accent-tint text-accent-fg'
+                                              : optDraft[sel.id]?.image_url ? 'border-success text-success' : 'border-line text-muted-fg hover:bg-muted')}>
+                                          <input type="file" accept="image/*" className="sr-only"
+                                            onChange={async e => {
+                                              const f = e.target.files?.[0]; e.target.value = ''
+                                              if (!f) return
+                                              const url = await uploadPhoto(sel.id, f)
+                                              if (url) setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), image_url: url } }))
+                                            }} />
+                                          {uploading === sel.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <ImagePlus className="h-4 w-4" />}
+                                          {optDraft[sel.id]?.image_url ? 'Photo added' : 'Add photo'}
+                                        </label>
+                                        <div className="row-even lg:flex gap-2">
+                                          <Button size="sm" variant="secondary" onClick={() => dropFrom(setAddingOpt, sel.id)}>Done</Button>
+                                          {/* Enter does the same from any field. In flight
+                                              only - an empty name is answered in words. */}
+                                          <Button size="sm" className="gap-1.5" disabled={savingOpt === sel.id}
+                                            onClick={() => optDraft[sel.id]?.name?.trim()
+                                              ? addOption(sel.id)
+                                              : notify('Give the option a name - it is what the client reads.')}>
+                                            {savingOpt === sel.id
+                                              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                              : <><Plus className="h-3.5 w-3.5" /> Add</>}
+                                          </Button>
+                                        </div>
+                                      </div>
+                                      {optDraft[sel.id]?.name?.trim() && (
+                                        <p className="text-xs text-warn">Not added yet - press Enter or click Add.</p>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <button type="button" onClick={() => addTo(setAddingOpt, sel.id)}
+                                      className="flex min-h-[10rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed border-line text-sm font-medium text-muted-fg hover:border-accent hover:text-ink">
+                                      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-muted"><Plus className="h-4 w-4" /></span>
+                                      {nOpts ? 'Add another option' : 'Add the first option'}
+                                    </button>
+                                  )}
+                                </div>
+
                                 {/* THE NAME SAVES ON ITS OWN.
                                     It used to travel with `status: 'chosen'` in
                                     ONE request, and the route refuses an
@@ -1001,259 +1426,60 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                     the budget line is a condition on the
                                     STATUS. The status rides along only when the
                                     row can actually take it. */}
-                                <Input defaultValue={sel.selected_name ?? ''} className="h-8 text-sm" placeholder="e.g. SW Alabaster"
-                                  aria-invalid={blocked?.id === sel.id}
-                                  onBlur={e => {
-                                    const name = e.target.value.trim()
-                                    if (name && blocked?.id === sel.id && blocked.why === 'choice') setBlocked(null)
-                                    if (e.target.value === (sel.selected_name ?? '')) return
-                                    const body: Record<string, unknown> = { selected_name: name || null }
-                                    if (name && !missingFor({ ...sel, selected_name: name }, 'chosen')) body.status = 'chosen'
-                                    else if (name && !sel.budget_line_item_id) setBlocked({ id: sel.id, why: 'line' })
-                                    patch(sel.id, body)
-                                  }} />
-                                {blocked?.id === sel.id && (
-                                  <p className="text-[11px] text-danger">
-                                    {blocked.why === 'choice'
-                                      ? 'Name what they chose and this moves to Chosen on its own.'
-                                      : 'Saved. Link this to a budget line below and it moves to Chosen - an accepted selection is money, and it needs somewhere on the budget to land.'}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-
-                            {sel.selected_at && (
-                              <p className="text-[11px] text-faint">
-                                Decided {formatDate(sel.selected_at)}
-                                {sel.selected_by_name ? ` by ${sel.selected_by_name}` : ''}
-                              </p>
-                            )}
-
-                            {/* Options the client picks from */}
-                            <div className="space-y-1.5">
-                              {/* One link for the whole selection, not one per
-                                  option. "Here's the color chart, go look" is a
-                                  single fact about the category - repeating it on
-                                  every row would be noise. */}
-                              <div className="space-y-1">
-                                <Label className="lg:text-xs">Where they can browse the range <span className="text-faint font-normal">- optional</span></Label>
-                                <Input className="h-8 text-sm" defaultValue={sel.reference_url ?? ''}
-                                  placeholder="e.g. the manufacturer's color chart or product page"
-                                  onBlur={e => { if (e.target.value !== (sel.reference_url ?? '')) patch(sel.id, { reference_url: e.target.value || null }) }} />
-                                <p className="text-[11px] text-faint">
-                                  Shown at the top of this selection on the client&apos;s link, so they can see the full
-                                  range and then tell you what they picked.
-                                </p>
-                              </div>
-
-                              <div className="flex items-center justify-between gap-2">
-                                <Label className="lg:text-xs">Options the client picks from</Label>
-                                <button type="button" onClick={() => { setPasteFor(pasteFor === sel.id ? null : sel.id); setPasteText('') }}
-                                  className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-fg hover:underline">
-                                  <ClipboardPaste className="h-3 w-3" /> Paste a list
-                                </button>
-                              </div>
-
-                              {sel.selection_options?.length > 0 && (
-                                <div className="rounded-lg border border-line divide-y divide-line-soft">
-                                  {sel.selection_options.map(o => (
-                                    <div key={o.id} className="flex items-center gap-2.5 px-3 py-2">
-                                      {/* What the client will actually look at */}
-                                      {/* Drop a photo straight onto it, or click. */}
-                                      <label
-                                        onDragOver={e => { e.preventDefault(); setDragOver(o.id) }}
-                                        onDragLeave={() => setDragOver(null)}
-                                        onDrop={e => {
-                                          e.preventDefault(); setDragOver(null)
-                                          const f = e.dataTransfer.files?.[0]
-                                          if (f) uploadPhoto(sel.id, f, o.id)
-                                        }}
-                                        title="Drop or click to add a photo"
-                                        className={cn('h-8 w-8 shrink-0 rounded border overflow-hidden cursor-pointer flex items-center justify-center',
-                                          dragOver === o.id ? 'border-accent bg-accent-tint' : 'border-line')}>
-                                        <input type="file" accept="image/*" className="sr-only"
-                                          onChange={e => { const f = e.target.files?.[0]; if (f) uploadPhoto(sel.id, f, o.id); e.target.value = '' }} />
-                                        {uploading === o.id ? <Loader2 className="h-3.5 w-3.5 animate-spin text-faint" />
-                                          : o.image_url ? (
-                                            // eslint-disable-next-line @next/next/no-img-element
-                                            <img src={o.image_url} alt="" className="h-full w-full object-cover" />
-                                          ) : o.color_hex ? (
-                                            <span className="h-full w-full" style={{ backgroundColor: o.color_hex }} />
-                                          ) : <ImagePlus className="h-3.5 w-3.5 text-faint" />}
-                                      </label>
-                                      <span className="flex-1 min-w-0 text-sm text-ink-soft truncate">
-                                        {o.brand && <span className="text-faint">{o.brand} </span>}{o.name}
-                                      </span>
-                                      {o.link_url && <a href={o.link_url} target="_blank" rel="noreferrer" title="Product page" className="text-faint hover:text-accent-fg"><ExternalLink className="h-3.5 w-3.5" /></a>}
-                                      <span className="text-sm tabular-nums text-ink shrink-0">{money(o.price)}</span>
-                                      <button onClick={() => removeOption(sel.id, o.id)} className="text-faint hover:text-danger"><X className="h-3.5 w-3.5" /></button>
+                                <div className="rounded-xl border border-line bg-panel px-4 py-3">
+                                  {sel.selected_name || recording.has(sel.id) || blocked?.id === sel.id ? (
+                                    <div className="space-y-1.5">
+                                      <Label>What they chose</Label>
+                                      <Input defaultValue={sel.selected_name ?? ''} placeholder="e.g. SW Alabaster"
+                                        aria-invalid={blocked?.id === sel.id}
+                                        onBlur={e => {
+                                          const name = e.target.value.trim()
+                                          if (name && blocked?.id === sel.id && blocked.why === 'choice') setBlocked(null)
+                                          if (e.target.value === (sel.selected_name ?? '')) return
+                                          const body: Record<string, unknown> = { selected_name: name || null }
+                                          if (name && !missingFor({ ...sel, selected_name: name }, 'chosen')) body.status = 'chosen'
+                                          else if (name && !sel.budget_line_item_id) setBlocked({ id: sel.id, why: 'line' })
+                                          patch(sel.id, body)
+                                        }} />
+                                      {blocked?.id === sel.id && (
+                                        <p className="text-xs text-danger">
+                                          {blocked.why === 'choice'
+                                            ? 'Name what they chose and this moves to Chosen on its own.'
+                                            : 'Saved. Link this to a budget line below and it moves to Chosen - an accepted selection is money, and it needs somewhere on the budget to land.'}
+                                        </p>
+                                      )}
+                                      {sel.selected_at && (
+                                        <p className="text-xs text-faint">
+                                          Decided {formatDate(sel.selected_at)}
+                                          {sel.selected_by_name ? ` by ${sel.selected_by_name}` : ''}
+                                        </p>
+                                      )}
                                     </div>
-                                  ))}
+                                  ) : (
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                      <p className="text-sm text-muted-fg">
+                                        <span className="font-semibold text-ink">Client&apos;s pick:</span> nothing yet. You can also record a choice they told you in person.
+                                      </p>
+                                      <Button size="sm" variant="outline" className="w-full lg:w-auto" onClick={() => addTo(setRecording, sel.id)}>
+                                        Record a choice
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-
-                              {pasteFor === sel.id ? (
-                                <div className="space-y-1.5 rounded-lg border border-accent/40 bg-surface p-2.5">
-                                  <p className="text-[11px] text-muted-fg">
-                                    One per line. It works out which bit is which - a <span className="font-mono">#hex</span> is a
-                                    swatch, a link is a link, a number is the price, the rest is the name.
-                                  </p>
-                                  <textarea rows={4} value={pasteText} onChange={e => setPasteText(e.target.value)}
-                                    placeholder={'Sherwin Williams | Alabaster | #edeae3 | 62\nSherwin Williams | Repose Gray | #cbc7c0 | 62\nBenjamin Moore | Chantilly Lace | #f4f4ef | 78'}
-                                    className="w-full rounded-md border border-muted2 bg-panel px-2.5 py-2 font-mono text-[11px] text-ink placeholder:text-faint focus:border-accent focus:outline-none resize-none" />
-                                  <div className="row-even lg:flex gap-1.5">
-                                    <Button size="sm" onClick={() => pasteOptions(sel.id)} disabled={!pasteText.trim()}>Add them</Button>
-                                    <Button size="sm" variant="secondary" onClick={() => { setPasteFor(null); setPasteText('') }}>Cancel</Button>
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="row-even lg:flex lg:flex-wrap gap-1.5 items-center">
-                                  <div className="relative">
-                                    <Input className="h-8 text-sm w-28" placeholder="Brand"
-                                      value={optDraft[sel.id]?.brand ?? ''}
-                                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
-                                      onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), brand: e.target.value } }))} />
-                                    {/* Cleared it and want it back - one click rather than retyping. */}
-                                    {!optDraft[sel.id]?.brand && lastBrand(sel) && (
-                                      <button type="button"
-                                        onClick={() => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), brand: lastBrand(sel)! } }))}
-                                        className="absolute inset-y-0 right-1 my-auto h-5 max-w-[6rem] truncate rounded bg-muted px-1.5 text-[10px] font-medium text-muted-fg hover:bg-accent-tint hover:text-accent-fg"
-                                        title={`Use ${lastBrand(sel)}`}>
-                                        {lastBrand(sel)}
-                                      </button>
-                                    )}
-                                  </div>
-                                  <Input className="h-8 text-sm flex-1 min-w-[9rem]" placeholder="Option name"
-                                    value={optDraft[sel.id]?.name ?? ''}
-                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
-                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), name: e.target.value } }))} />
-                                  <Input className="h-8 text-sm w-20" type="number" placeholder="Price"
-                                    value={optDraft[sel.id]?.price ?? ''}
-                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
-                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), price: e.target.value } }))} />
-                                  <Input className="h-8 text-sm w-36" placeholder="Link to product"
-                                    value={optDraft[sel.id]?.link_url ?? ''}
-                                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addOption(sel.id) } }}
-                                    onChange={e => setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), link_url: e.target.value } }))} />
-                                  {/* A photo of the real thing, not a color wheel. */}
-                                  <label
-                                    onDragOver={e => { e.preventDefault(); setDragOver(sel.id) }}
-                                    onDragLeave={() => setDragOver(null)}
-                                    onDrop={async e => {
-                                      e.preventDefault(); setDragOver(null)
-                                      const f = e.dataTransfer.files?.[0]
-                                      if (!f) return
-                                      const url = await uploadPhoto(sel.id, f)
-                                      if (url) setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), image_url: url } }))
-                                    }}
-                                    title="Drop a photo here, or click to pick one"
-                                    className={cn('h-8 shrink-0 inline-flex items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium cursor-pointer',
-                                      dragOver === sel.id ? 'border-accent bg-accent-tint text-accent-fg'
-                                        : optDraft[sel.id]?.image_url ? 'border-success text-success' : 'border-line text-muted-fg hover:bg-muted')}>
-                                    <input type="file" accept="image/*" className="sr-only"
-                                      onChange={async e => {
-                                        const f = e.target.files?.[0]; e.target.value = ''
-                                        if (!f) return
-                                        const url = await uploadPhoto(sel.id, f)
-                                        if (url) setOptDraft(p => ({ ...p, [sel.id]: { ...(p[sel.id] ?? BLANK_OPT), image_url: url } }))
-                                      }} />
-                                    {uploading === sel.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
-                                    {optDraft[sel.id]?.image_url ? 'Photo added' : 'Photo'}
-                                  </label>
-                                  {/* Said "+" and was the ONLY way to save the
-                                      row - so a typed option that was never
-                                      followed by another one just sat there
-                                      looking saved. Now it says Add, Enter does
-                                      the same from any field, and it greys out
-                                      until there is something to add. */}
-                                  <Button size="sm" variant="outline"
-                                    disabled={!optDraft[sel.id]?.name?.trim() || savingOpt === sel.id}
-                                    onClick={() => addOption(sel.id)}>
-                                    {savingOpt === sel.id
-                                      ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                      : <><Plus className="h-3.5 w-3.5" /> Add</>}
-                                  </Button>
-                                </div>
-                              )}
-                              {optDraft[sel.id]?.name?.trim() && (
-                                <p className="text-[11px] text-warn mt-1">
-                                  Not added yet - press Enter or click Add.
-                                </p>
-                              )}
+                              </div>
                             </div>
-
-                            {/* Which budget line this comes out of. Without it the
-                                allowance is a number in a vacuum and the order
-                                lands nowhere. */}
-                            {budgetLines.length > 0 && (
-                              <div className="space-y-1">
-                                <Label className="lg:text-xs">Budget line</Label>
-                                <Select value={sel.budget_line_item_id ?? ''} className="h-8 text-sm"
-                                  onChange={e => linkToBudget(sel, e.target.value)}>
-                                  <option value="">Not linked to the budget</option>
-                                  {budgetLines.map(l => <option key={l.id} value={l.id}>{l.category} - {l.description}</option>)}
-                                </Select>
-                                {!sel.budget_line_item_id && (
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <p className="text-[11px] text-warn flex-1 min-w-[12rem]">
-                                      Needed before you can accept or order this - an accepted selection is money, and it
-                                      has to land somewhere the budget can see.
-                                    </p>
-                                    <button type="button" onClick={() => createBudgetLine(sel)}
-                                      className="shrink-0 inline-flex items-center gap-1 rounded-lg border border-line px-2 py-1 text-[11px] font-medium text-ink-soft hover:border-accent hover:text-accent-fg">
-                                      <Plus className="h-3 w-3" /> Add a line for this
-                                    </button>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* A client asking to change something already ordered */}
-                            {sel.change_requested_at && (
-                              <div className="rounded-lg border border-warn/40 bg-warn-tint px-3 py-2">
-                                <p className="text-xs font-semibold text-warn inline-flex items-center gap-1.5">
-                                  <MessageSquareWarning className="h-3.5 w-3.5" /> Client asked to change this
-                                </p>
-                                {sel.change_request_note && <p className="text-xs text-warn mt-1">{sel.change_request_note}</p>}
-                                <button onClick={() => patch(sel.id, { change_requested_at: null, change_request_note: null })}
-                                  className="text-[11px] text-warn underline mt-1">Mark handled</button>
-                              </div>
-                            )}
-
-                            {/* Ordering it */}
-                            {sel.status === 'chosen' && (
-                              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => openOrder(sel)}>
-                                <Truck className="h-3.5 w-3.5" /> Order it
-                              </Button>
-                            )}
-                            {sel.ordered_at && (
-                              <p className="text-xs text-success inline-flex items-center gap-1.5">
-                                <Truck className="h-3.5 w-3.5" />
-                                Ordered {formatDate(sel.ordered_at)}
-                                {sel.expected_delivery ? ` · due ${formatDate(sel.expected_delivery)}` : ''}
-                              </p>
-                            )}
-
-                            {/* The overage, made real */}
-                            {v != null && v > 0 && (
-                              sel.change_order_id ? (
-                                <p className="inline-flex items-center gap-1.5 text-xs text-success">
-                                  <CheckCircle2 className="h-3.5 w-3.5" /> Change order raised for {money(v)}
-                                </p>
-                              ) : (
-                                <Button size="sm" variant="outline" className="gap-1.5"
-                                  onClick={() => patch(sel.id, { create_change_order: true })}>
-                                  <GitPullRequest className="h-3.5 w-3.5" /> Raise a {money(v)} change order
-                                </Button>
-                              )
-                            )}
                           </div>
                         )}
                       </div>
                     )
                   })}
                 </div>
-              </div>
+
+                <button type="button" onClick={() => openAdd(category)}
+                  className="flex w-full items-center gap-2 border-t border-line-soft px-4 py-3 text-left text-sm font-medium text-muted-fg hover:bg-surface hover:text-ink rounded-b-2xl lg:px-5">
+                  <Plus className="h-4 w-4" /> Add a selection to {category}
+                </button>
+              </section>
             )
           })}
 
@@ -1273,12 +1499,68 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   )
 }
 
-function Stat({ label, value, tone }: { label: string; value: string; tone: 'ok' | 'warn' | 'danger' }) {
+/** The desktop row: item, allowance, decide by, pick, budget line, status, menu. */
+const ROW_GRID = 'lg:grid lg:grid-cols-[minmax(0,2.4fr)_minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1.3fr)_10rem_2.5rem] lg:items-center lg:gap-4'
+
+/** A face for each standard category, so a long board can be scanned by shape. */
+const CATEGORY_ICON: Record<string, LucideIcon> = {
+  'Windows & Exterior Doors': LayoutGrid,
+  'Roofing': Home,
+  'Siding & Exterior': Building2,
+  'Exterior Paint': PaintRoller,
+  'Garage Doors': Warehouse,
+  'Gutters': Droplets,
+  'Cabinets': Archive,
+  'Countertops': Square,
+  'Appliances': Refrigerator,
+  'Plumbing Fixtures': ShowerHead,
+  'Light Fixtures': Lightbulb,
+  'Electrical Devices': Plug,
+  'Interior Doors & Hardware': DoorClosed,
+  'Trim & Molding': Ruler,
+  'Flooring': Layers,
+  'Tile': Grid3x3,
+  'Interior Paint': Paintbrush,
+  'Mirrors & Shower Glass': Square,
+  'Closets & Shelving': Shirt,
+  'HVAC & Comfort': Fan,
+  'Landscaping': Trees,
+}
+
+function SummaryCard({ label, tone, children }: { label: string; tone?: 'warn'; children: ReactNode }) {
   return (
-    <div className="bg-panel rounded-xl border border-line px-3 py-2.5">
-      <p className="text-[11px] uppercase tracking-wide text-faint font-semibold">{label}</p>
-      <p className={cn('text-lg font-bold mt-0.5',
-        tone === 'danger' ? 'text-danger' : tone === 'warn' ? 'text-warn' : 'text-ink')}>{value}</p>
+    <div className={cn('rounded-2xl border px-4 py-3.5',
+      tone === 'warn' ? 'border-warn/40 bg-warn-tint' : 'border-line bg-panel')}>
+      <p className={cn('flex items-center gap-1.5 text-xs font-medium mb-1.5', tone === 'warn' ? 'text-warn' : 'text-muted-fg')}>
+        {tone === 'warn' && <AlertTriangle className="h-3.5 w-3.5" />}{label}
+      </p>
+      {children}
     </div>
+  )
+}
+
+/**
+ * The status, as a pill you can change. Still a native select underneath - on
+ * a phone that is the system picker, which is the right control for five words.
+ */
+function StatusPill({ status, onChange }: { status: SelectionStatus; onChange: (next: SelectionStatus) => void }) {
+  return (
+    <span className={cn('relative inline-flex items-center rounded-full', STATUS_TINT[status])}>
+      <span className="pointer-events-none absolute left-2.5 h-1.5 w-1.5 rounded-full bg-current" />
+      <select value={status} aria-label="Status" onChange={e => onChange(e.target.value as SelectionStatus)}
+        className="appearance-none whitespace-nowrap rounded-full border-0 bg-transparent py-1 pl-6 pr-7 text-xs font-semibold text-current focus:outline-none focus:ring-1 focus:ring-accent">
+        {SELECTION_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2 h-3 w-3" />
+    </span>
+  )
+}
+
+function BudgetDot({ linked, name }: { linked: boolean; name: string }) {
+  return (
+    <span className={cn('inline-flex max-w-full items-center gap-1.5 text-sm lg:text-sm', linked ? 'text-ink-soft' : 'text-warn')}>
+      <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', linked ? 'bg-success' : 'bg-warn')} />
+      <span className="truncate">{linked ? name : 'Not linked'}</span>
+    </span>
   )
 }
