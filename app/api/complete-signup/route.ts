@@ -80,8 +80,10 @@ export async function POST(request: Request) {
     .eq('id', targetId)
     .single()
 
+  // `created` / `trialStarted` are what the signup screen reports to analytics.
+  // A returning account is success, but it is not a sign_up.
   if (existing) {
-    return NextResponse.json({ success: true })
+    return NextResponse.json({ success: true, created: false, trialStarted: false })
   }
 
   // Check if a company already exists with this email (manually added to directory)
@@ -155,8 +157,12 @@ export async function POST(request: Request) {
   // billing row. Refusing to let somebody into the product because a trial
   // record would not write is the wrong way round.
   const now = new Date()
+  let trialStarted = false
   if (meters) {
-    const { error: billingError } = await admin
+    // `.select()` returns the row only when it was INSERTED - an ignored
+    // duplicate comes back empty - so this is the database saying a trial
+    // began, not the route assuming it.
+    const { data: trialRows, error: billingError } = await admin
       .from('company_billing')
       .upsert({
         company_id: company.id,
@@ -164,6 +170,8 @@ export async function POST(request: Request) {
         trial_started_at: now.toISOString(),
         trial_ends_at: trialEnd(now).toISOString(),
       }, { onConflict: 'company_id', ignoreDuplicates: true })
+      .select('company_id')
+    trialStarted = !billingError && (trialRows?.length ?? 0) > 0
     if (billingError) console.error('[billing] could not start a trial', { company: company.id, error: billingError.message })
   }
 
@@ -218,5 +226,5 @@ export async function POST(request: Request) {
     })
     if (!result.sent) console.error('[signup] welcome email did not send', { to: email, reason: result.reason })
   }
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true, created: true, trialStarted })
 }
