@@ -55,6 +55,7 @@ interface ProjectStat {
   contracted: number
   paid: number
   outstanding: number
+  awaitingApproval?: number
   taskTotal: number
   taskDone: number
 }
@@ -745,7 +746,7 @@ export default function ProjectsPage() {
                   {/* Financial mini-info */}
                   {(() => {
                     const st = projectStats[project.id]
-                    if (!st || (st.contracted === 0 && st.paid === 0 && st.outstanding === 0)) return null
+                    if (!st || (st.contracted === 0 && st.paid === 0 && st.outstanding === 0 && !st.awaitingApproval)) return null
                     return (
                       <div className="mt-3 grid grid-cols-3 gap-2 text-center">
                         <div className="rounded-lg bg-surface py-1.5">
@@ -760,6 +761,11 @@ export default function ProjectsPage() {
                           <p className="text-xs text-warn/70">Outstanding</p>
                           <p className="text-sm font-semibold text-warn">{fmtMoney(st.outstanding)}</p>
                         </div>
+                        {/* The approval queue, named under the numbers and never
+                            added into Outstanding - the Overview's sentence. */}
+                        {!!st.awaitingApproval && (
+                          <p className="col-span-3 text-xs text-faint">{fmtMoney(st.awaitingApproval)} more awaiting your approval</p>
+                        )}
                       </div>
                     )
                   })()}

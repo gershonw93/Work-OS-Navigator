@@ -120,3 +120,34 @@ export function awaitingApproval(invoices: { amount: unknown; status: string | n
     .reduce((s, i) => s + amt(i.amount), 0)
 }
 
+/**
+ * A set of vendor bills as the four numbers a card prints: billed (accepted),
+ * paid, outstanding (accepted and not yet paid) and awaiting approval.
+ *
+ * The ONE answer for any screen that shows "Outstanding" over vendor bills.
+ * After #586 fixed the Financial Summary and #588 the Overview, the Projects
+ * list still read "Outstanding $9K" for a job whose only bill was waiting for
+ * approval - it summed approved + pending and skipped sent - and the job
+ * Reports page and the sub's own job page each had a third and fourth rule of
+ * their own. Same word, four meanings. Every one of them calls this now, so
+ * the meaning can only change in one place.
+ *
+ * Pure and amount-safe (toAmount), so a browser page can call it directly.
+ */
+export interface VendorPosition { billed: number; paid: number; outstanding: number; awaitingApproval: number }
+
+export function vendorPosition(
+  invoices: { amount: unknown; status: string | null; client_paid?: unknown; escrow_paid?: unknown }[],
+): VendorPosition {
+  const e = projectEscrow({
+    feePct: 0, payments: [], budgetLines: [], allocations: [],
+    invoices: invoices.map((i, n) => ({ id: String(n), ...i })),
+  })
+  return {
+    billed: e.vendorBilled,
+    paid: e.vendorPaid,
+    outstanding: e.outstandingToVendors,
+    awaitingApproval: awaitingApproval(invoices),
+  }
+}
+
