@@ -312,9 +312,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     ],
     summary: 'Upload each model\'s plans, budget, inspections and punch list once, then apply them to the houses built to it.',
     blocks: [
-      { type: 'text', text: 'When a development (made with Bulk Add) is built from a few designs, set each design up once as a MODEL on the development\'s All jobs tab and apply it to its houses, instead of uploading the same plans and budget into thirty jobs.' },
+      { type: 'text', text: 'When a development (made with Bulk Add) is built from a few designs, set each design up once as a MODEL (House models, at the top of the development\'s All jobs tab) and apply it to its houses, instead of uploading the same plans and budget into thirty jobs.' },
       { type: 'steps', items: [
-        'Open the development - it opens on All jobs. Under House models, press Model and name it - "The Aspen".',
+        'Open the development - it opens on All jobs. Press House models at the top - they slide out from the side - then press Model and name it - "The Aspen".',
         'In the model, give it a budget: press Upload a budget and pick an Excel or CSV sheet - it is read and saved as a template for you - or pick a template you already made on the Budget Templates page. Its lines show right there: tap one to change it, or Add line. Then upload its plans, tick its required inspections, and type its punch items one per line. Beside each punch item, pick who does it - a teammate, a sub from your Directory, or Type a name for anybody else. These save as you make them.',
         'For plans that differ by garage side, choose Garage left or Garage right before uploading. Either garage side goes to every house.',
         'Tap the model to open it. In the ... menu beside it, Choose houses ticks which houses are built as this model.',

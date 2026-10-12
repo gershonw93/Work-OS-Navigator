@@ -4,11 +4,11 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
-import { Building2, MapPin, Search, Plus, FolderInput, ArrowRightLeft, LogOut } from 'lucide-react'
+import { Building2, MapPin, Search, Plus, FolderInput, ArrowRightLeft, LogOut, Home } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { lotTag } from '@/lib/lot-details'
-import { SiteModelsPanel } from '@/components/projects/site-models-panel'
+import { HouseModelsDrawer } from '@/components/projects/house-models-drawer'
 import { Button } from '@/components/ui/button'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { useNotice } from '@/components/ui/notice'
@@ -49,6 +49,7 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
   const [siteBudget, setSiteBudget] = useState<{ budgeted: number; actual: number; lines: number } | null>(null)
   const [modelNames, setModelNames] = useState<Record<string, string>>({})
   const [models, setModels] = useState<{ id: string; name: string }[]>([])
+  const [modelsOpen, setModelsOpen] = useState(false)
   const [reloadKey, setReloadKey] = useState(0)
   const reload = () => setReloadKey(k => k + 1)
   const notify = useNotice()
@@ -145,8 +146,11 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
         </div>
         {/* ADDING HAPPENS HERE, not only from Bulk Add on another page - "I
             don't see anywhere once I am in [one] where I can add another". */}
-        {(canAdd || canMove) && (
-          <div className="row-even lg:flex lg:flex-wrap gap-2">
+        <div className="row-even lg:flex lg:flex-wrap gap-2">
+          {/* Set-up work, not daily work: behind a button, out from the side. */}
+          <Button variant="outline" onClick={() => setModelsOpen(true)}>
+            <Home className="h-4 w-4" /> House models{models.length ? ` · ${models.length}` : ''}
+          </Button>
             {canMove && (
               <Button variant="outline" onClick={() => setAddingExisting(true)}>
                 <FolderInput className="h-4 w-4" /> Add jobs you have
@@ -157,8 +161,7 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
                 <Plus className="h-4 w-4" /> Add a job
               </Button>
             )}
-          </div>
-        )}
+        </div>
       </div>
 
       {children.length === 0 ? (
@@ -201,7 +204,6 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
             </div>
           )}
 
-          <SiteModelsPanel siteId={params.id} houses={children} onChanged={() => setReloadKey(k => k + 1)} />
 
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
             <div className="rounded-xl border border-line bg-panel p-4">
@@ -312,6 +314,12 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
         </>
       )}
 
+      {modelsOpen && (
+        <HouseModelsDrawer siteId={params.id} houses={children}
+          // Closing re-reads, so a model made in the drawer counts on the button.
+          onClose={() => { setModelsOpen(false); setReloadKey(k => k + 1) }}
+          onChanged={() => setReloadKey(k => k + 1)} />
+      )}
       {adding && (
         <AddJobDialog
           developmentId={params.id}

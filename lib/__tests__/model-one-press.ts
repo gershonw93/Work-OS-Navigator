@@ -45,4 +45,13 @@ const row = panel.slice(panel.indexOf('const bits = ['), panel.indexOf("{dialog?
 ok((row.match(/<Button /g) ?? []).length === 1 && /Apply<\/Button>/.test(row), 'a model row carries ONE button, Apply')
 ok(/Choose houses/.test(row) && /Delete model/.test(row) && /<RowMenu/.test(row), '...Houses and Delete are in its menu')
 ok(/onClick=\{\(\) => setDialog\(\{ kind: 'edit'/.test(row), '...and tapping the row opens the model')
+// "the whole model lines should come out from the side with a button - i dont
+// need them everyday": the panel is not on the development page any more.
+const units = code('app/(dashboard)/projects/[id]/units/page.tsx')
+ok(!/<SiteModelsPanel/.test(units) && /<HouseModelsDrawer/.test(units) && /setModelsOpen\(true\)/.test(units),
+  'house models open from a button, not stacked above the houses')
+const drawer = code('components/projects/house-models-drawer.tsx')
+ok(/className="overlay-drawer[^"]*" data-overlay/.test(drawer), '...in a real side drawer')
+ok(/dialogOpen \? \{\} : swipe\.handlers/.test(drawer), '...that stops taking swipes while one of its dialogs is open')
+ok(/createPortal\(/.test(panel), '...whose dialogs go to <body>, so the drawer cannot pen them in')
 done()
