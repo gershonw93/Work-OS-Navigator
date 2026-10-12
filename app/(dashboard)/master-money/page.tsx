@@ -8,7 +8,7 @@ import { DollarSign, TrendingUp, CheckCircle2, Clock, ChevronRight, ChevronDown 
 import { cn } from '@/lib/utils'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { InfoHint } from '@/components/ui/info-hint'
-import { ESCROW_EXPLAINED, escrowSentence, hasNoMoney } from '@/lib/master-money'
+import { ESCROW_EXPLAINED, OUTSTANDING_EXPLAINED, escrowSentence, hasNoMoney } from '@/lib/master-money'
 
 interface Row {
   project_id: string; project_name: string; status: string
@@ -131,7 +131,7 @@ export default function MasterMoneyPage() {
         </div>
         <div className="hidden lg:block bg-panel rounded-2xl border border-line overflow-hidden lg:rounded-xl">
           <div className="hidden md:grid grid-cols-[1fr_repeat(6,minmax(0,6.5rem))_2rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
-            <span>Project</span><span className="text-right">Received</span><span className="text-right">Budgeted</span><span className="text-right">Committed</span><span className="text-right">Paid Out</span><span className="text-right">Outstanding</span><span className="text-right">Escrow <InfoHint className="align-middle normal-case" text={ESCROW_EXPLAINED} /></span><span />
+            <span>Project</span><span className="text-right">Received</span><span className="text-right">Budgeted</span><span className="text-right">Committed</span><span className="text-right">Paid Out</span><span className="text-right">Outstanding <InfoHint className="align-middle normal-case" text={OUTSTANDING_EXPLAINED} /></span><span className="text-right">Escrow <InfoHint className="align-middle normal-case" text={ESCROW_EXPLAINED} /></span><span />
           </div>
           <div className="divide-y divide-line-soft">
             {rows.map(r => (

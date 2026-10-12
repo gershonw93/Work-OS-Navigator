@@ -24,7 +24,7 @@ import { WEATHER_OPTIONS, weatherIcon as weatherIconFor } from '@/lib/weather'
 import { DELAY_TYPES, logDelayProblem, logSaysSomething, delayReasonFromLog, EMPTY_LOG_PROBLEM, type LogDelay } from '@/lib/daily-log-delays'
 import { ACCEPT_DOCS } from '@/lib/file-accept'
 import { usePreviewUrls } from '@/lib/use-preview-urls'
-import { parseDate, formatDate } from '@/lib/dates'
+import { parseDate, formatDate, todayDateInput } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 
@@ -106,7 +106,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   const [subcontracts, setSubcontracts] = useState<SubContract[]>([])
 
   // Form state
-  const [logDate, setLogDate] = useState(new Date().toISOString().split('T')[0])
+  const [logDate, setLogDate] = useState(todayDateInput())
   const [weatherCondition, setWeatherCondition] = useState('')
   const [temperature, setTemperature] = useState('')
   const [notes, setNotes] = useState('')
@@ -410,7 +410,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
   }
 
   function resetForm() {
-    setLogDate(new Date().toISOString().split('T')[0])
+    setLogDate(todayDateInput())
     setWeatherCondition(''); setTemperature(''); setNotes('')
     setHasIssues(false); setIssueDescription('')
     setDelays([]); setSubsOnSite([]); setWorkersOnSite([])

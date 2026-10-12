@@ -37,7 +37,7 @@ import { DayDetailSheet } from '@/components/calendar/day-detail-sheet'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { useNotice } from '@/components/ui/notice'
 
-import { formatDate, formatDateShort, todayDateInput } from '@/lib/dates'
+import { formatDate, formatDateShort, todayDateInput, toDateInput } from '@/lib/dates'
 const MILESTONE_COLORS = [
   { label: 'Blue',   value: 'blue',   bg: 'bg-info-solid',   light: 'bg-info-tint text-info border-info/30' },
   { label: 'Green',  value: 'green',  bg: 'bg-success-solid',  light: 'bg-success-tint text-success border-success/30' },
@@ -99,7 +99,7 @@ function eventSubtitle(e: CalendarEvent): string {
 function addDays(date: string, days: number) {
   const d = new Date(date + 'T00:00:00')
   d.setDate(d.getDate() + days)
-  return d.toISOString().split('T')[0]
+  return toDateInput(d)
 }
 
 
@@ -1151,7 +1151,7 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
   const sorted = [...items].sort((a, b) => a.start_date.localeCompare(b.start_date))
   // Everything dated on this job, derived once. The calendar filters it per day.
   const events = calendarEvents({ projectId: params.id, items, inspections, tasks: dueTasks })
-  const minDate = sorted.length > 0 ? sorted[0].start_date : new Date().toISOString().split('T')[0]
+  const minDate = sorted.length > 0 ? sorted[0].start_date : todayDateInput()
   const maxDate = sorted.length > 0
     ? sorted.reduce((max, i) => i.end_date > max ? i.end_date : max, sorted[0].end_date)
     : addDays(minDate, 30)
@@ -1165,8 +1165,8 @@ export default function SchedulePage({ params }: { params: { id: string } }) {
     const monthEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0)
     const clampedStart = cursor > monthStart ? cursor : monthStart
     const clampedEnd = monthEnd < endCursor ? monthEnd : endCursor
-    const startDay = daysBetween(minDate, clampedStart.toISOString().split('T')[0])
-    const days = spanDays(clampedStart.toISOString().split('T')[0], clampedEnd.toISOString().split('T')[0])
+    const startDay = daysBetween(minDate, toDateInput(clampedStart))
+    const days = spanDays(toDateInput(clampedStart), toDateInput(clampedEnd))
     months.push({ label: formatDate(cursor, { month: 'short', year: 'numeric' }), startDay, days })
     cursor = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1)
   }

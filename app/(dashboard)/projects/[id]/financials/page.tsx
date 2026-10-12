@@ -73,7 +73,9 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
   // Revised contract = subcontracts + approved change orders. All progress is
   // measured against it so approved COs immediately widen the "whole".
   const revised = data.revised_contract ?? data.total_contracted
-  const totalOutstanding = data.total_approved + data.total_pending
+  // Approved and unpaid - the same meaning as Master Money (OUTSTANDING_EXPLAINED).
+  // Bills still in the approval queue are named beside it, not added into it.
+  const totalOutstanding = data.total_approved
   const remaining = revised - data.total_paid - data.total_approved - data.total_pending
   const paidPct = revised > 0 ? (data.total_paid / revised) * 100 : 0
   const approvedPct = revised > 0 ? (data.total_approved / revised) * 100 : 0
@@ -86,7 +88,9 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
     { label: 'Total Contracted', value: data.total_contracted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign, desc: 'Sum of all subcontracts' },
     { label: 'Approved Change Orders', value: data.approved_change_orders, color: 'text-special', bg: 'bg-special-tint', icon: TrendingUp, desc: 'Approved on the Change Orders tab' },
     { label: 'Total Paid', value: data.total_paid, color: 'text-success', bg: 'bg-success-tint', icon: CheckCircle2, desc: 'Invoices marked as paid' },
-    { label: 'Outstanding', value: totalOutstanding, color: 'text-warn', bg: 'bg-warn-tint', icon: Clock, desc: 'Approved + pending invoices' },
+    { label: 'Outstanding', value: totalOutstanding, color: 'text-warn', bg: 'bg-warn-tint', icon: Clock, desc: data.total_pending > 0
+      ? `Approved, not yet paid. $${Number(data.total_pending).toLocaleString()} more awaiting your approval`
+      : 'Approved, not yet paid' },
   ]
 
   return (

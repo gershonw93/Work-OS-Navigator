@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { contractAmountLabel } from '@/lib/contract-amount'
-import { parseDate, formatDate } from '@/lib/dates'
+import { parseDate, formatDate, todayDateInput, toDateInput } from '@/lib/dates'
 import { inspectionDate } from '@/lib/inspection-status'
 import { TodayStrip } from '@/components/projects/today-strip'
 import { JobScheduleForSub } from '@/components/my-jobs/job-schedule-for-sub'
@@ -214,7 +214,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
     const token = await getToken()
     const body: any = { billing_type: billingType }
     if (billingType === 'percent') body.progress_percent = parseFloat(billingProgress[sub.id] ?? '0')
-    if (billingType === 'weekly') body.week_start = new Date().toISOString().split('T')[0]
+    if (billingType === 'weekly') body.week_start = todayDateInput()
 
     const res = await fetch(`/api/projects/${params.projectId}/subcontracts/${sub.id}/billing`, {
       method: 'POST',
@@ -238,7 +238,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
     const token = await getToken()
     const weekStart = new Date()
     weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-    const weekStartStr = weekStart.toISOString().split('T')[0]
+    const weekStartStr = toDateInput(weekStart)
     // Check if invoice already exists for this week
     const existing = (data?.invoices ?? []).find((inv: any) =>
       inv.subcontract_id === sub.id &&

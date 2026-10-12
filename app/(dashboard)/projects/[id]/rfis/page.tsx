@@ -5,8 +5,10 @@ import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { Input } from '@/components/ui/input'
+import { usePermissions } from '@/lib/use-permissions'
 import { cn } from '@/lib/utils'
-import { X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw, Paperclip, Trash2, Pencil, Link2 } from 'lucide-react'
+import { Plus, X, ChevronDown, ChevronUp, MessageSquare, DollarSign, CheckCircle2, Clock, AlertCircle, Check, XCircle, RefreshCw, Paperclip, Trash2, Pencil, Link2 } from 'lucide-react'
 import { clientAppOrigin } from '@/lib/app-url'
 
 import { formatDate } from '@/lib/dates'
@@ -47,6 +49,16 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
   const [editDescription, setEditDescription] = useState('')
   const [editSubmitting, setEditSubmitting] = useState(false)
 
+  // A GC asks questions too - of the architect, the engineer, the owner. This
+  // page used to be answer-only: an empty list with nothing to press, because
+  // the only way an RFI was ever written was a sub on their job page.
+  const { can, loading: permsLoading, error: permsError } = usePermissions()
+  const [showNew, setShowNew] = useState(false)
+  const [newSubject, setNewSubject] = useState('')
+  const [newQuestion, setNewQuestion] = useState('')
+  const [newError, setNewError] = useState<string | null>(null)
+  const [creating, setCreating] = useState(false)
+
   async function getToken() {
     const { data: { session } } = await supabase.auth.getSession()
     return session?.access_token ?? ''
@@ -60,6 +72,42 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { fetchRfis() }, [params.id])
+
+  /** What a new RFI is still missing, in words, or null when it can be sent. */
+  function missingRfi(f: { subject: string; question: string }): string | null {
+    if (!f.subject.trim()) return 'Give it a subject - it is the line everybody scans the list by.'
+    if (!f.question.trim()) return 'Write the question - it is what the architect has to answer.'
+    return null
+  }
+
+  function openNew() {
+    setNewSubject(''); setNewQuestion(''); setNewError(null); setShowNew(true)
+  }
+
+  async function createRfi(e: React.FormEvent) {
+    e.preventDefault()
+    const missing = missingRfi({ subject: newSubject, question: newQuestion })
+    if (missing) { setNewError(missing); return }
+    setCreating(true)
+    setNewError(null)
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/rfis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subject: newSubject.trim(), description: newQuestion.trim() }),
+      })
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}))
+        setNewError(d.error ?? 'Could not create the RFI.')
+        return
+      }
+      setShowNew(false)
+      fetchRfis()
+    } finally {
+      setCreating(false)
+    }
+  }
 
   function openEditRfi(rfi: RFI) {
     setEditingRfi(rfi)
@@ -271,6 +319,43 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {showNew && (
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => setShowNew(false)}>
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-md overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
+              <h2 className="font-semibold text-ink">New RFI</h2>
+              <button onClick={() => setShowNew(false)} aria-label="Close" title="Close" className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
+            </div>
+            <form onSubmit={createRfi}>
+              <div className="px-4 sm:px-6 py-5 space-y-4">
+                {newError && (
+                  <p className="rounded-lg border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-danger">{newError}</p>
+                )}
+                <div className="space-y-1.5">
+                  <Label>Subject <span className="text-danger">*</span></Label>
+                  <Input value={newSubject} onChange={e => setNewSubject(e.target.value)} autoFocus={autoFocusOnDesktop()}
+                    placeholder="e.g. Header size at the kitchen opening" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Question <span className="text-danger">*</span></Label>
+                  <textarea rows={4} value={newQuestion} onChange={e => setNewQuestion(e.target.value)}
+                    placeholder="What do you need answered, and where on the plans?"
+                    className="w-full rounded-md border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none resize-none" />
+                </div>
+                <p className="text-xs text-faint">
+                  Once it is created, the link icon on its card copies an answer link - send that to the
+                  architect or engineer and they answer without an account.
+                </p>
+              </div>
+              <div className="row-even px-4 sm:px-6 py-4 border-t border-line-soft lg:flex lg:flex-wrap gap-2 justify-end">
+                <Button type="button" variant="secondary" onClick={() => setShowNew(false)}>Cancel</Button>
+                <Button type="submit" disabled={creating}>{creating ? 'Creating...' : 'Create RFI'}</Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Edit RFI modal */}
       {editingRfi && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
@@ -304,13 +389,20 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">RFIs</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Requests for information from subcontractors.</p>
+          <p className="text-sm text-muted-fg mt-0.5">Questions on the job - from your subs, or yours to the architect.</p>
         </div>
-        {open.length > 0 && (
-          <span className="flex items-center gap-1.5 text-sm text-accent-fg font-medium">
-            <AlertCircle className="h-4 w-4" />{open.length} awaiting response
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-3">
+          {open.length > 0 && (
+            <span className="flex items-center gap-1.5 whitespace-nowrap text-sm text-accent-fg font-medium">
+              <AlertCircle className="h-4 w-4" />{open.length} awaiting response
+            </span>
+          )}
+          {/* Hidden only when the answer is KNOWN to be no - a permissions
+              read that failed looks exactly like a denial. */}
+          {!(!permsLoading && !permsError && !can('rfis', 'create')) && (
+            <Button onClick={openNew} className="w-full gap-1.5 sm:w-auto"><Plus className="h-4 w-4" /> New RFI</Button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -319,7 +411,7 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
         <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
           <MessageSquare className="h-8 w-8 text-faint mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-fg">No RFIs yet</p>
-          <p className="text-xs text-faint mt-1">Subcontractors can submit questions from their job page.</p>
+          <p className="text-xs text-faint mt-1">Ask one with New RFI, or your subs can send questions from their job page.</p>
         </div>
       ) : (
         <div className="space-y-5">

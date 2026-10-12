@@ -1046,8 +1046,15 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             only `lg:relative` - so on the phone board they were invisible AND
             in the wrong place. Edit and delete were reported as missing
             entirely, which is what invisible means. The desktop keeps exactly
-            what it had. Each is icon-only, so each says what it is. */}
-        <div className="mt-2 flex items-center justify-end gap-1 lg:absolute lg:bottom-2 lg:right-2 lg:mt-0 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100">
+            what it had. Each is icon-only, so each says what it is.
+
+            AND IN THE FLOW, NEVER `absolute` OVER THE CARD. On the desktop
+            they were `lg:absolute lg:bottom-2 lg:right-2`, and on a one-line
+            card the bottom-right corner IS where the status icon sits - the
+            invisible Delete lay on top of it, so pressing the status opened a
+            delete confirmation. opacity-0 hides a button; it does not stop it
+            taking the click. */}
+        <div data-card-actions className="mt-2 flex items-center justify-end gap-1 lg:mt-1 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
           <button
             onClick={e => { e.stopPropagation(); openEditForm(task) }}
             aria-label={`Edit "${task.title}"`} title="Edit task"

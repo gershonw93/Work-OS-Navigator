@@ -1,5 +1,6 @@
 'use client'
 
+import { todayDateInput } from '@/lib/dates'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -41,7 +42,7 @@ export function BulkAddModal({
   onClose: () => void
   onSuccess: (result: { count: number; located: number; siteId?: string | null }) => void
 }) {
-  const today = new Date().toISOString().split('T')[0]
+  const today = todayDateInput()
 
   const [mode, setMode] = useState<Mode>('list')
   const [namePrefix, setNamePrefix] = useState('')
