@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { contractAmountLabel } from '@/lib/contract-amount'
+import { vendorPosition } from '@/lib/escrow'
 import { parseDate, formatDate, todayDateInput, toDateInput } from '@/lib/dates'
 import { inspectionDate } from '@/lib/inspection-status'
 import { TodayStrip } from '@/components/projects/today-strip'
@@ -1248,13 +1249,14 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
 
       {/* Invoices tab */}
       {activeTab === 'invoices' && (() => {
-        const totalInvoiced = invoices
-          .filter((inv: any) => inv.status !== 'rejected')
-          .reduce((s: number, inv: any) => s + Number(inv.amount ?? 0), 0)
-        const totalPaid = invoices
-          .filter((inv: any) => inv.status === 'paid')
-          .reduce((s: number, inv: any) => s + Number(inv.amount ?? 0), 0)
-        const outstanding = totalInvoiced - totalPaid
+        // The same meaning the GC's screens use (lib/escrow.ts): a bill is
+        // owed once it is APPROVED, and a bill still waiting for approval is
+        // named separately rather than counted as owed. This counted every bill
+        // that was not rejected - drafts and unapproved ones included.
+        const position = vendorPosition(invoices)
+        const totalInvoiced = position.billed
+        const totalPaid = position.paid
+        const outstanding = position.outstanding
         const paidPct = totalContractValue > 0 ? Math.min(100, Math.round(totalPaid / totalContractValue * 100)) : 0
 
         const totalRetainage = (subcontracts ?? []).reduce((sum: number, s: any) => {
@@ -1396,7 +1398,7 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
                     { label: 'Contract Value', value: `$${totalContractValue.toLocaleString()}`, color: 'text-ink' },
-                    { label: 'Total Invoiced', value: `$${totalInvoiced.toLocaleString()}`, color: 'text-ink' },
+                    { label: 'Approved', value: `$${totalInvoiced.toLocaleString()}`, color: 'text-ink' },
                     { label: 'Total Paid', value: `$${totalPaid.toLocaleString()}`, color: 'text-success' },
                     { label: 'Outstanding', value: `$${outstanding.toLocaleString()}`, color: outstanding > 0 ? 'text-warn' : 'text-success' },
                   ].map(s => (
@@ -1406,6 +1408,9 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
                     </div>
                   ))}
                 </div>
+                {position.awaitingApproval > 0 && (
+                  <p className="text-xs text-faint">${position.awaitingApproval.toLocaleString()} more waiting for the contractor to approve</p>
+                )}
                 {totalRetainage > 0 && (
                   <div className="rounded-lg bg-warn-tint border border-warn/30 px-4 py-3 flex flex-wrap gap-4">
                     <div>

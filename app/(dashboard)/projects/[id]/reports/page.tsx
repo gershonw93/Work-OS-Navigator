@@ -9,11 +9,14 @@ import { clientLabel } from '@/lib/project-access'
 import { formatDate } from '@/lib/dates'
 import { expiryLabel } from '@/lib/expiry'
 import { complianceReport, type ReportGroup } from '@/lib/compliance-report'
+import { vendorPosition } from '@/lib/escrow'
 interface Invoice {
   id: string
   invoice_number: string | null
-  amount: number
+  amount: number | string
   status: string
+  client_paid?: number | string | null
+  escrow_paid?: number | string | null
   subcontractor_name: string | null
   company_name: string | null
   created_at: string
@@ -182,9 +185,14 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
   const inspPassed = inspections.filter(i => i.status === 'passed').length
   const inspFailed = inspections.filter(i => i.status === 'failed').length
 
-  const totalInvoiced = invoices.reduce((s, i) => s + (i.amount ?? 0), 0)
-  const totalPaid = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + (i.amount ?? 0), 0)
-  const totalOutstanding = totalInvoiced - totalPaid
+  // The same four numbers every other screen prints (lib/escrow.ts). This
+  // totalled EVERY bill on record - drafts, rejected and unapproved included -
+  // as "invoiced", so Outstanding here read a bill nobody had accepted as
+  // money owed, and added quoted `numeric` amounts as strings.
+  const position = vendorPosition(invoices)
+  const totalInvoiced = position.billed
+  const totalPaid = position.paid
+  const totalOutstanding = position.outstanding
 
   return (
     <>
@@ -286,7 +294,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
                 <div className="rounded-lg bg-surface border border-line-soft p-3">
-                  <p className="text-xs text-faint mb-1">Total Invoiced</p>
+                  <p className="text-xs text-faint mb-1">Billed (approved)</p>
                   <p className="text-lg font-bold text-ink-soft">{fmt(totalInvoiced)}</p>
                 </div>
                 <div className="rounded-lg bg-success-tint border border-green-100 p-3">
@@ -296,6 +304,9 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
                 <div className={cn('rounded-lg border p-3', totalOutstanding > 0 ? 'bg-accent-tint border-accent/20' : 'bg-surface border-line-soft')}>
                   <p className="text-xs text-faint mb-1">Outstanding</p>
                   <p className={cn('text-lg font-bold', totalOutstanding > 0 ? 'text-accent-fg' : 'text-faint')}>{fmt(totalOutstanding)}</p>
+                  {position.awaitingApproval > 0 && (
+                    <p className="text-xs text-faint mt-0.5">{fmt(position.awaitingApproval)} more awaiting your approval</p>
+                  )}
                 </div>
               </div>
 
@@ -304,15 +315,16 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
               ) : (
                 <div className="space-y-4">
                   {Object.entries(invoicesBySub).map(([sub, invs]) => {
-                    const subTotal = invs.reduce((s, i) => s + (i.amount ?? 0), 0)
-                    const subPaid = invs.filter(i => i.status === 'paid').reduce((s, i) => s + (i.amount ?? 0), 0)
-                    const subOut = subTotal - subPaid
+                    const subPos = vendorPosition(invs)
+                    const subTotal = subPos.billed
+                    const subPaid = subPos.paid
+                    const subOut = subPos.outstanding
                     return (
                       <div key={sub} className="border border-line-soft rounded-lg overflow-hidden">
                         <div className="bg-surface px-4 py-2.5 flex flex-wrap items-center justify-between gap-2">
                           <span className="text-sm font-semibold text-ink-soft">{sub}</span>
                           <div className="flex gap-4 text-xs text-muted-fg">
-                            <span>Total: <span className="font-semibold text-ink-soft">{fmt(subTotal)}</span></span>
+                            <span>Billed: <span className="font-semibold text-ink-soft">{fmt(subTotal)}</span></span>
                             <span>Paid: <span className="font-semibold text-success">{fmt(subPaid)}</span></span>
                             {subOut > 0 && <span>Outstanding: <span className="font-semibold text-accent-fg">{fmt(subOut)}</span></span>}
                           </div>
@@ -327,7 +339,7 @@ export default function ReportsPage({ params }: { params: { id: string } }) {
                                 </span>
                               </span>
                               <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium text-ink-soft">{fmt(inv.amount ?? 0)}</span>
+                                <span className="text-sm font-medium text-ink-soft">{fmt(Number(inv.amount ?? 0))}</span>
                                 <StatusBadge status={inv.status} />
                               </div>
                             </div>

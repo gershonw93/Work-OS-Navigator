@@ -1101,7 +1101,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
                   {(() => {
                     const amt = parseFloat(editAmount) || 0
                     const out = amt - (parseFloat(editEscrowPaid) || 0) - (parseFloat(editClientPaid) || 0)
-                    return <p className="text-xs text-muted-fg">Outstanding to vendor: <span className={out > 0 ? 'font-semibold text-warn' : 'font-semibold text-success'}>${Math.max(out, 0).toLocaleString()}</span></p>
+                    return <p className="text-xs text-muted-fg">Left to pay on this bill: <span className={out > 0 ? 'font-semibold text-warn' : 'font-semibold text-success'}>${Math.max(out, 0).toLocaleString()}</span></p>
                   })()}
                 </div>
               </div>
