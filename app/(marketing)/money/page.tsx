@@ -15,7 +15,7 @@ import { MoneyMock } from '@/components/marketing/money-mock'
 import { SHOW_TRACTION_STATS } from '@/lib/traction'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Construction budgets, invoices & payments · SyteNav',
+  title: 'Budgets & Payments · SyteNav',
   description:
     'Preconstruction and soft costs, hard cost budgets, sellout and projected profit, buy-out and line-by-line bid comparison, client selections and allowances, invoices, AIA pay applications, client payments and escrow - one system where every number carries from the estimate to the bank.',
   path: '/money',

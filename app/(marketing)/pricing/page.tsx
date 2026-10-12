@@ -9,7 +9,7 @@ import { Eyebrow, SectionHead } from '@/components/marketing/section'
 import { PricingPlans } from '@/components/marketing/pricing-plans'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'SyteNav Pricing | Pay by Active Project',
+  title: 'Pricing · SyteNav',
   description:
     `Run every part of the job in SyteNav. Plans start at $99 a month and include unlimited team members, subs and clients. SyteNav is invite-only and your first ${TRIAL_DAYS} days are free.`,
   path: '/pricing',

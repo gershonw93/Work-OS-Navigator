@@ -21,7 +21,7 @@ import { DELETION_DAYS } from '@/lib/account-deletion'
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Delete your SyteNav account · SyteNav',
+  title: 'Delete Your Account · SyteNav',
   description:
     'How to ask SyteNav to delete your account and your data, what is deleted, what is kept, and for how long.',
   path: '/delete-account',

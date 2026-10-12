@@ -10,7 +10,7 @@ import { cardLabel } from '@/lib/guides/schema'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Construction Management Guides for Small Contractors | SyteNav',
+  title: 'Guides · SyteNav',
   description:
     'Practical construction management guides for small contractors and GCs: choosing software, change orders, invoice approval, job costing, and daily logs.',
   path: '/guides',

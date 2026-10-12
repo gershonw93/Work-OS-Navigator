@@ -9,7 +9,7 @@ import { Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'About SyteNav · Construction software built by builders',
+  title: 'About · SyteNav',
   description:
     'SyteNav is built by builders and engineers who got tired of running jobs out of spreadsheets and group texts. Headquartered in New Jersey.',
   path: '/about',

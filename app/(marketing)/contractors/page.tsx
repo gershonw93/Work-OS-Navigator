@@ -16,7 +16,7 @@ import { appHref } from '@/lib/hosts'
 import { SHOW_TESTIMONIALS } from '@/lib/traction'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'SyteNav for general contractors',
+  title: 'General Contractors · SyteNav',
   description:
     'Run every job, sub, and dollar from one place. RFQs out, bids compared with AI, invoices in, escrow tracked, and master calendar and money views across all your projects.',
   path: '/contractors',
