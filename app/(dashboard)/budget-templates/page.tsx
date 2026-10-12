@@ -5,15 +5,15 @@ import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Select } from '@/components/ui/select'
-import { LayoutTemplate, FileSpreadsheet, Trash2, ChevronDown, ChevronRight, Loader2, Check, ArrowLeft, Plus, X } from 'lucide-react'
+import { LayoutTemplate, FileSpreadsheet, Trash2, ChevronDown, ChevronRight, Loader2, Check, ArrowLeft, Plus } from 'lucide-react'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { fetchProblem } from '@/lib/fetch-error'
 import { toAmount } from '@/lib/schedule-dependencies'
-import { cleanTemplateLine, templateNameProblem, type CostType } from '@/lib/budget-template-line'
+import { templateNameProblem } from '@/lib/budget-template-line'
 import Link from 'next/link'
+import { TemplateLineDialog, SmallDialog } from '@/components/budget/template-line-dialog'
 
 interface TemplateItem {
   id?: string; description: string
@@ -184,7 +184,7 @@ export default function BudgetTemplatesPage() {
 
       {creating && <NewTemplateDialog onClose={() => setCreating(false)} onCreated={id => { setCreating(false); setExpanded(id); load() }} />}
       {lineDialog && (
-        <LineEditor templateId={lineDialog.templateId} item={lineDialog.item}
+        <TemplateLineDialog templateId={lineDialog.templateId} item={lineDialog.item}
           onClose={() => setLineDialog(null)} onSaved={() => { setLineDialog(null); load() }} />
       )}
     </div>
@@ -255,23 +255,6 @@ function TemplateCard({ t, open, onToggle, onDelete, onReload, onLine }: {
   )
 }
 
-function Dialog({ title, onClose, busy, children, footer }: {
-  title: string; onClose: () => void; busy?: boolean; children: React.ReactNode; footer: React.ReactNode
-}) {
-  return (
-    <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !busy && onClose()}>
-      <div className="flex w-full max-w-lg flex-col rounded-xl bg-panel shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between gap-3 border-b border-line-soft px-5 py-4">
-          <h2 className="min-w-0 truncate text-base font-semibold text-ink">{title}</h2>
-          <button onClick={onClose} aria-label="Close" title="Close" className="text-faint hover:text-ink"><X className="h-5 w-5" /></button>
-        </div>
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">{children}</div>
-        <div className="row-even lg:flex justify-end gap-2 border-t border-line-soft px-5 py-3">{footer}</div>
-      </div>
-    </div>
-  )
-}
-
 function NewTemplateDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (id: string) => void }) {
   const [name, setName] = useState('')
   const [busy, setBusy] = useState(false)
@@ -287,7 +270,7 @@ function NewTemplateDialog({ onClose, onCreated }: { onClose: () => void; onCrea
     } catch (e) { setError(fetchProblem(e, 'creating the template')) } finally { setBusy(false) }
   }
   return (
-    <Dialog title="New budget template" onClose={onClose} busy={busy}
+    <SmallDialog title="New budget template" onClose={onClose} busy={busy}
       footer={<><Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button><Button onClick={save} disabled={busy}>{busy ? 'Creating…' : 'Create'}</Button></>}>
       <div className="space-y-1.5">
         <Label htmlFor="new-tpl-name">Name *</Label>
@@ -296,80 +279,6 @@ function NewTemplateDialog({ onClose, onCreated }: { onClose: () => void; onCrea
       </div>
       <p className="text-xs text-faint">You add the lines next.</p>
       {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-    </Dialog>
-  )
-}
-
-/** Add a line, or change or remove one. One dialog, one save. */
-function LineEditor({ templateId, item, onClose, onSaved }: {
-  templateId: string; item: TemplateItem | null; onClose: () => void; onSaved: () => void
-}) {
-  const guardDelete = useDeleteGuard()
-  const [description, setDescription] = useState(item?.description ?? '')
-  const [category, setCategory] = useState(item?.category && item.category !== 'General' ? item.category : '')
-  const [amount, setAmount] = useState(() => { const a = toAmount(item?.default_amount); return a == null ? '' : String(a) })
-  const [costType, setCostType] = useState<CostType>(item?.cost_type === 'soft' ? 'soft' : 'hard')
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const base = `/api/budget-templates/${templateId}/items`
-
-  async function save() {
-    const body = { description, category, cost_code: item?.cost_code ?? null, default_amount: amount.replace(/[$,\s]/g, ''), cost_type: costType }
-    const checked = cleanTemplateLine(body)
-    if (!checked.ok) { setError(checked.error); return }
-    setBusy(true); setError(null)
-    try {
-      const r = item?.id
-        ? await call(`${base}/${item.id}`, { method: 'PATCH', body: JSON.stringify(body) })
-        : await call(base, { method: 'POST', body: JSON.stringify(body) })
-      if (!r.ok) { setError(r.data.error ?? 'Could not save the line.'); return }
-      onSaved()
-    } catch (e) { setError(fetchProblem(e, 'saving the line')) } finally { setBusy(false) }
-  }
-
-  function removeLine() {
-    if (!item?.id) return
-    guardDelete(async () => {
-      const r = await call(`${base}/${item.id}`, { method: 'DELETE' })
-      if (!r.ok) { setError(r.data.error ?? 'Could not remove the line.'); return }
-      onSaved()
-    }, { label: `"${item.description}"`, body: 'Houses already given this line keep it.' })
-  }
-
-  return (
-    <Dialog title={item ? 'Edit line' : 'Add line'} onClose={onClose} busy={busy}
-      footer={<><Button variant="secondary" onClick={onClose} disabled={busy}>Cancel</Button><Button onClick={save} disabled={busy}>{busy ? 'Saving…' : item ? 'Save Changes' : 'Add Line'}</Button></>}>
-      <div className="space-y-1.5">
-        <Label htmlFor="line-desc">Description *</Label>
-        <Input id="line-desc" value={description} onChange={e => setDescription(e.target.value)} placeholder="e.g. Framing labor" autoFocus={autoFocusOnDesktop()} />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="line-amount">Amount <span className="text-faint font-normal">(optional)</span></Label>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-fg">$</span>
-          <Input id="line-amount" inputMode="decimal" value={amount} onChange={e => setAmount(e.target.value)} placeholder="0" className="min-w-0 flex-1" />
-        </div>
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="line-cat">Category <span className="text-faint font-normal">(optional)</span></Label>
-        <Input id="line-cat" value={category} onChange={e => setCategory(e.target.value)} placeholder="e.g. Framing" />
-      </div>
-      <div className="space-y-1.5">
-        <Label htmlFor="line-type">Cost type *</Label>
-        <Select id="line-type" value={costType} onChange={e => setCostType(e.target.value === 'soft' ? 'soft' : 'hard')}>
-          <option value="hard">Hard cost - the build itself</option>
-          <option value="soft">Soft cost - permits, plans, fees, insurance</option>
-        </Select>
-      </div>
-      {item && (
-        <p className="text-xs text-faint">
-          This changes the template. Houses already given this line change when you Apply the model and tick the amount changes.
-        </p>
-      )}
-      {item?.id && (
-        <button type="button" onClick={removeLine} disabled={busy} className="text-sm font-semibold text-danger hover:underline">Remove this line</button>
-      )}
-      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
-    </Dialog>
+    </SmallDialog>
   )
 }

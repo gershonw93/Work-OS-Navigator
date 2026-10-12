@@ -86,9 +86,10 @@ ok(/requirePermission\(db, request, 'budget', 'view'\)/.test(list) && /requirePe
 ok(/requirePermission\(admin\(\), request, 'budget', 'edit'\)/.test(code(T + 'import/route.ts')), 'the importer is gated too')
 
 const page = code('app/(dashboard)/budget-templates/page.tsx')
-ok(/call\(base, \{ method: 'POST'/.test(page) && /method: 'PATCH'/.test(page) && /method: 'DELETE'/.test(page),
-  'THE PAGE EDITS: add a line, change one, remove one')
-ok(/cleanTemplateLine\(body\)/.test(page), '...asking the same rule the route asks before sending')
+const lineDialog = code('components/budget/template-line-dialog.tsx')
+ok(/call\(base, \{ method: 'POST'/.test(lineDialog) && /method: 'PATCH'/.test(lineDialog) && /method: 'DELETE'/.test(lineDialog)
+  && /<TemplateLineDialog/.test(page), 'THE PAGE EDITS: add a line, change one, remove one')
+ok(/cleanTemplateLine\(body\)/.test(lineDialog), '...asking the same rule the route asks before sending')
 ok(/New template/.test(page), 'a template can be started from scratch, as the model editor has always claimed')
 ok(/get\('t'\)/.test(page) && /deepLinked\.current = true/.test(page), '/budget-templates?t=<id> opens that template, once')
 ok(!/fileRef\.current\?\.click\(\)/.test(page), 'Upload Excel is a label over the input, not a programmatic click')

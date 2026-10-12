@@ -184,3 +184,24 @@ export function distinctModelNames(names: readonly (string | null | undefined)[]
   }
   return out
 }
+
+/**
+ * What a one-press "save and put on the houses" did, in one sentence - from
+ * the apply route's per-house results. Names the houses that kept their own
+ * figure, because "updated" over a house that was not is a claim the screen
+ * cannot take back.
+ */
+export function followSummary(results: readonly { houseName: string; added: Partial<Record<ApplyPart, number>>; errors: string[]; kept?: string[] }[]): string {
+  const n = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`
+  const addedOn = results.filter(r => (r.added.budget ?? 0) > 0).length
+  const updatedOn = results.filter(r => (r.added.amounts ?? 0) > 0).length
+  const kept = results.filter(r => r.kept?.length).map(r => r.houseName)
+  const failed = results.filter(r => r.errors.length).map(r => r.houseName)
+  const bits: string[] = []
+  if (addedOn) bits.push(`Added to ${n(addedOn, 'house', 'houses')}`)
+  if (updatedOn) bits.push(`${addedOn ? 'updated' : 'Updated'} on ${n(updatedOn, 'house', 'houses')}`)
+  let s = bits.length ? `Saved. ${bits.join(', ')}.` : 'Saved. Every house already had it.'
+  if (kept.length) s += ` Left alone on ${kept.length > 3 ? n(kept.length, 'house', 'houses') : kept.join(', ')} - changed there by hand.`
+  if (failed.length) s += ` Could not update ${failed.length > 3 ? n(failed.length, 'house', 'houses') : failed.join(', ')} - press Apply on the model to retry.`
+  return s
+}

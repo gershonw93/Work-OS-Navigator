@@ -307,6 +307,12 @@ export default function ProjectsPage() {
     return sorted
   }, [items, query, statusFilter, typeFilter, sort])
 
+  // A listed development's houses: pins on the map, never rows in its list.
+  const mapHouses = useMemo(() => {
+    const listed = new Set(filtered.map(f => f.id))
+    return items.filter(p => p.parent_project_id && listed.has(p.parent_project_id))
+  }, [items, filtered])
+
   // Stats
   const stats = useMemo(() => {
     const by = (s: string) => items.filter(p => p.status === s).length
@@ -669,7 +675,8 @@ export default function ProjectsPage() {
           <button onClick={clearFilters} className="mt-2 text-sm font-medium text-accent-fg hover:text-accent-fg">Clear filters</button>
         </div>
       ) : view === 'map' ? (
-        <ProjectsMap projects={filtered as any} />
+        <ProjectsMap projects={filtered as any} childCount={childCount} onRefresh={fetchProjects}
+          houses={mapHouses as any} />
       ) : view === 'grid' ? (
         /* ───── GRID VIEW ───── */
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">

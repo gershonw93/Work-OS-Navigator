@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import 'leaflet/dist/leaflet.css'
@@ -11,6 +11,7 @@ interface MapProject {
   id: string; name: string; status: string; address: string | null
   client?: string | null; lat?: number | null; lng?: number | null
   geocoded_address?: string | null
+  is_site?: boolean | null; parent_project_id?: string | null
 }
 
 const STATUS_COLOR: Record<string, string> = {
@@ -19,15 +20,31 @@ const STATUS_COLOR: Record<string, string> = {
 
 // Free map view: Leaflet + OpenStreetMap tiles (no API key). Coordinates are
 // geocoded once server-side and cached on the project.
-export function ProjectsMap({ projects }: { projects: MapProject[] }) {
+//
+// THE LIST IS THE PAGE'S LIST. It used to keep its own copy and, after looking
+// up addresses, replace it with EVERY project the account has - so a
+// development's thirty houses, which the Projects list deliberately folds into
+// one row, came back as thirty rows across the top of the list, and the status
+// and type filters stopped applying. The page owns the list and re-reads it;
+// a development's houses are PINS (`houses`), not rows, and choosing the
+// development flies to them.
+export function ProjectsMap({ projects, houses = [], childCount = {}, onRefresh }: {
+  projects: MapProject[]
+  /** The houses of the developments listed - drawn on the map, never listed. */
+  houses?: MapProject[]
+  childCount?: Record<string, number>
+  /** Re-read the page's list after addresses were looked up. */
+  onRefresh?: () => Promise<void> | void
+}) {
   const router = useRouter()
   const supabase = createClient()
   const divRef = useRef<HTMLDivElement>(null)
   const mapRef = useRef<any>(null)
   const markersRef = useRef<Record<string, any>>({})
   const [activeId, setActiveId] = useState<string | null>(null)
-  const [items, setItems] = useState(projects)
   const [note, setNote] = useState('')
+  const items = projects
+  const pins = useMemo(() => [...projects, ...houses], [projects, houses])
 
   // Kick off geocoding for projects that are not on the map, then refresh.
   //
@@ -37,15 +54,15 @@ export function ProjectsMap({ projects }: { projects: MapProject[] }) {
   // replace them. Fourteen of a hundred jobs were drawn at an address they no
   // longer have, one of them two hundred miles out, and nothing ever asked.
   useEffect(() => {
-    const missing = projects.filter(p => p.address && projectSite(p).state !== 'mapped').length
+    const missing = pins.filter(p => p.address && projectSite(p).state !== 'mapped').length
     if (!missing) return
     setNote(`Locating ${missing} project${missing !== 1 ? 's' : ''}…`)
     ;(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      await fetch('/api/projects/geocode', { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token}` } })
-      const res = await fetch('/api/projects', { headers: { Authorization: `Bearer ${session?.access_token}` } })
-      if (res.ok) setItems(((await res.json()).projects ?? []))
-      setNote('')
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        await fetch('/api/projects/geocode', { method: 'POST', headers: { Authorization: `Bearer ${session?.access_token}` } })
+        await onRefresh?.()
+      } finally { setNote('') }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -66,7 +83,7 @@ export function ProjectsMap({ projects }: { projects: MapProject[] }) {
       map.eachLayer((l: any) => { if (l.options?.pane === 'markerPane' || l instanceof L.CircleMarker) map.removeLayer(l) })
       markersRef.current = {}
 
-      const located = items.filter(p => p.lat != null && p.lng != null)
+      const located = pins.filter(p => p.lat != null && p.lng != null)
       const bounds: [number, number][] = []
       for (const p of located) {
         const color = STATUS_COLOR[p.status] ?? '#2563EB'
@@ -88,19 +105,25 @@ export function ProjectsMap({ projects }: { projects: MapProject[] }) {
       else map.setView([39.8, -98.6], 4) // continental US default
     })()
     return () => { cancelled = true }
-  }, [items, router])
+  }, [pins, router])
 
   useEffect(() => () => { if (mapRef.current) { mapRef.current.remove(); mapRef.current = null } }, [])
 
   function focus(p: MapProject) {
     setActiveId(p.id)
+    // A development is its houses on the map: fly to all of them.
+    const its = houses.filter(h => h.parent_project_id === p.id && h.lat != null && h.lng != null)
+    if (its.length && mapRef.current) {
+      mapRef.current.flyToBounds(its.map(h => [h.lat!, h.lng!]), { padding: [40, 40], maxZoom: 15, duration: 0.6 })
+      return
+    }
     if (p.lat != null && p.lng != null && mapRef.current) {
       mapRef.current.flyTo([p.lat, p.lng], 14, { duration: 0.6 })
       markersRef.current[p.id]?.openPopup()
     }
   }
 
-  const unlocated = items.filter(p => p.address && p.lat == null).length
+  const unlocated = pins.filter(p => p.address && p.lat == null).length
 
   return (
     <div className="flex flex-col-reverse gap-3 lg:flex-row">
@@ -111,7 +134,7 @@ export function ProjectsMap({ projects }: { projects: MapProject[] }) {
         </div>
         <div className="max-h-[62vh] overflow-y-auto divide-y divide-line-soft">
           {items.map(p => {
-            const locatable = p.lat != null && p.lng != null
+            const locatable = (p.lat != null && p.lng != null) || houses.some(h => h.parent_project_id === p.id && h.lat != null)
             return (
               <button key={p.id}
                 onClick={() => focus(p)}
@@ -120,7 +143,11 @@ export function ProjectsMap({ projects }: { projects: MapProject[] }) {
                 <span className="mt-1 h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: STATUS_COLOR[p.status] ?? '#2563EB' }} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-ink">{p.name}</span>
-                  <span className="block truncate text-xs text-muted-fg">{p.address || 'No address'}{!locatable && p.address ? ' · not located' : ''}</span>
+                  <span className="block truncate text-xs text-muted-fg">
+                    {p.is_site
+                      ? `Development · ${childCount[p.id] ?? 0} job${(childCount[p.id] ?? 0) !== 1 ? 's' : ''}`
+                      : <>{p.address || 'No address'}{!locatable && p.address ? ' · not located' : ''}</>}
+                  </span>
                 </span>
               </button>
             )
