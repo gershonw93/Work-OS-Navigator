@@ -813,6 +813,14 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   non-production hosts, token links (`/portal`, `/share`, `/bid`, `/bill`,
   `/rfi`, `/compliance` - the path is the secret and those people are not our
   visitors), `/admin`, Global Privacy Control, and the opt-out cookie.
+  **"NOT MEASURED" MEANS THE TAG IS NOT RUNNING, NOT THAT ONE EVENT IS
+  SKIPPED.** The first version refused the manual page_view on a token link
+  and loaded GTM anyway, so scroll and engagement hits went out with the raw
+  URL - the secret - in them. `routeChanged` is the one entry point: a cold
+  load of an excluded route never starts the tag, navigating into one sets
+  `ga-disable-<id>` (checked on every hit, automatic ones included), and the
+  safe location is `set` BEFORE gtm.js is pushed. Pinned in a real browser by
+  `analytics-cold-load.ts`: zero requests to Google on a cold token link.
 - **ON BY DEFAULT, NO BANNER** - the owner's decision for a US B2B audience,
   disclosed in the Cookie and Privacy policies with an off switch on
   `/cookies`. Ad signals are denied before the tag loads. Change what is
