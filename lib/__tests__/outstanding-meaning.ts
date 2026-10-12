@@ -10,7 +10,7 @@ import { ok, done, code } from './_helpers'
 import { masterMoneyRows } from '../master-money'
 
 const fin = code('app/(dashboard)/projects/[id]/financials/page.tsx')
-ok(/const totalOutstanding = data\.total_approved\s*\n/.test(fin),
+ok(/const totalOutstanding = data\.total_outstanding \?\? data\.total_approved\s*\n/.test(fin) && !/total_approved \+ data\.total_pending\s*\n\s*const remaining/.test(fin),
   'THE BUG: the Financial Summary Outstanding card is approved-and-unpaid, not approved + pending')
 ok(/more awaiting your approval/.test(fin), '...and names the approval queue beside it rather than hiding it')
 

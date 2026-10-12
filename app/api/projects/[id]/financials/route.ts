@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { projectEscrow, awaitingApproval } from '@/lib/escrow'
+import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
+import { toAmount } from '@/lib/schedule-dependencies'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -82,21 +85,30 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   // Aggregate subcontracts
   const total_contracted = (subcontracts ?? []).reduce(
-    (sum: number, s: any) => sum + (s.contract_amount ?? 0),
+    (sum: number, s: any) => sum + (toAmount(s.contract_amount) ?? 0),
     0,
   )
 
-  // Aggregate invoices by status
+  // Aggregate invoices by status.
+  //
+  // THROUGH toAmount: PostgREST sends `numeric` QUOTED, so `sum + inv.amount`
+  // was string concatenation - "0" + "9000.00" read right for one bill and
+  // became "09000.005000.00", or NaN, the moment there were two.
+  //
+  // `approved` here means ACCEPTED AND NOT YET PAID - 'approved' and 'sent'
+  // alike (lib/invoice-budget ACTUAL_STATUSES minus paid). It counted
+  // 'approved' alone, so a job's sent bills ($459,860 of them across the
+  // product) were missing from this screen's Outstanding while Master Money
+  // counted them. Outstanding itself comes from lib/escrow.ts, the derivation
+  // every other screen reads, and the approval queue is its own number.
   const invoiceList = invoices ?? []
-  const total_paid = invoiceList
-    .filter((inv: any) => inv.status === 'paid')
-    .reduce((sum: number, inv: any) => sum + (inv.amount ?? 0), 0)
-  const total_approved = invoiceList
-    .filter((inv: any) => inv.status === 'approved')
-    .reduce((sum: number, inv: any) => sum + (inv.amount ?? 0), 0)
-  const total_pending = invoiceList
-    .filter((inv: any) => inv.status === 'pending_approval')
-    .reduce((sum: number, inv: any) => sum + (inv.amount ?? 0), 0)
+  const sumOf = (rows: any[]) => rows.reduce((sum: number, inv: any) => sum + (toAmount(inv.amount) ?? 0), 0)
+  const total_paid = sumOf(invoiceList.filter((inv: any) => inv.status === 'paid'))
+  const total_approved = sumOf(invoiceList.filter((inv: any) => ACTUAL_STATUSES.has(String(inv.status)) && inv.status !== 'paid'))
+  const total_pending = awaitingApproval(invoiceList)
+  const total_outstanding = projectEscrow({
+    feePct: 0, payments: [], invoices: invoiceList, budgetLines: [], allocations: [],
+  }).outstandingToVendors
 
   // Approved change orders: change_orders rows with status='approved'
   const approvedCOs = (changeOrders ?? []).filter((co: any) => co.status === 'approved')
@@ -131,6 +143,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     total_paid,
     total_approved,
     total_pending,
+    total_outstanding,
     approved_change_orders,
     materials_total,
     materials: materials ?? [],

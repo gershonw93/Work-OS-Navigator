@@ -100,3 +100,23 @@ export function projectEscrow(input: EscrowInput): EscrowSummary {
     budgetTotal: input.budgetLines.reduce((s, b) => s + amt(b.budgeted_amount), 0),
   }
 }
+
+/**
+ * Bills a vendor has sent that nobody has approved yet.
+ *
+ * NOT outstanding: approval is the moment a bill becomes money owed (the same
+ * line ACTUAL_STATUSES draws), so `outstandingToVendors` above leaves these
+ * out. But a screen that printed only that would show $0 over a $9,000 bill
+ * sitting in the queue, so the queue is its own number, shown BESIDE
+ * outstanding - "$9,000 more awaiting your approval" - and never added into it.
+ * One home, because the Overview route and the Financial Summary each summed
+ * their own, and both disagreed with Master Money under the same word.
+ */
+export const AWAITING_APPROVAL_STATUS = 'pending_approval'
+
+export function awaitingApproval(invoices: { amount: unknown; status: string | null }[]): number {
+  return invoices
+    .filter(i => i.status === AWAITING_APPROVAL_STATUS)
+    .reduce((s, i) => s + amt(i.amount), 0)
+}
+

@@ -29,7 +29,7 @@ interface Overview {
   project: { id: string; name: string; status: string }
   money: {
     received: number; committed: number; vendorBilled: number
-    vendorPaid: number; outstandingToVendors: number; feePct: number
+    vendorPaid: number; outstandingToVendors: number; pendingApproval?: number; feePct: number
   }
   waitingOnYou: Item[]
   waitingOnOthers: Item[]
@@ -119,6 +119,12 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
 
   // Same tile treatment as Billing the client, so money looks like money
   // everywhere in the app.
+  // Outstanding is approved-and-unpaid (lib/escrow.ts). The approval queue is
+  // named under it, the same sentence the Financial Summary card uses, so a
+  // $9,000 bill nobody has approved is visible without being called owed.
+  const pending = m.pendingApproval ?? 0
+  const pendingNote = pending > 0 ? `${money(pending)} more awaiting your approval` : undefined
+
   const tiles = [
     { label: 'Received from client', value: m.received, icon: Banknote, color: 'text-success', bg: 'bg-success-tint' },
     { label: 'Committed to vendors', value: m.committed, icon: HardHat, color: 'text-special', bg: 'bg-special-tint', hint: `${data.subcontracts} subcontract${data.subcontracts === 1 ? '' : 's'}` },
@@ -127,6 +133,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
       label: 'Outstanding to vendors', value: m.outstandingToVendors, icon: TrendingDown,
       color: m.outstandingToVendors > 0 ? 'text-warn' : 'text-ink',
       bg: m.outstandingToVendors > 0 ? 'bg-warn-tint' : 'bg-panel',
+      hint: pendingNote,
     },
   ]
 
@@ -189,7 +196,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
         { label: 'Received from client', value: money(m.received) },
         { label: 'Committed to vendors', value: money(m.committed), note: `${data.subcontracts} subcontract${data.subcontracts === 1 ? '' : 's'}` },
         { label: 'Billed by vendors', value: money(m.vendorBilled), note: `${money(m.vendorPaid)} paid` },
-        { label: 'Outstanding to vendors', value: money(m.outstandingToVendors), tone: m.outstandingToVendors > 0 ? 'warn' : undefined },
+        { label: 'Outstanding to vendors', value: money(m.outstandingToVendors), tone: m.outstandingToVendors > 0 ? 'warn' : undefined, note: pendingNote },
       ]} />
       <div className="hidden lg:grid gap-3 lg:grid-cols-4">
         {tiles.map(t => {

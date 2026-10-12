@@ -12,7 +12,7 @@ import { formatDate } from '@/lib/dates'
 interface FinancialsData {
   budget: number
   total_contracted: number; revised_contract: number; change_orders_on_top: number; total_paid: number; total_approved: number
-  total_pending: number; approved_change_orders: number
+  total_pending: number; total_outstanding?: number; approved_change_orders: number
   materials_total: number; materials: any[]
   subcontracts: any[]; invoices: any[]; change_orders: any[]
   payment_schedule_items: any[]
@@ -75,7 +75,7 @@ export default function FinancialsPage({ params }: { params: { id: string } }) {
   const revised = data.revised_contract ?? data.total_contracted
   // Approved and unpaid - the same meaning as Master Money (OUTSTANDING_EXPLAINED).
   // Bills still in the approval queue are named beside it, not added into it.
-  const totalOutstanding = data.total_approved
+  const totalOutstanding = data.total_outstanding ?? data.total_approved
   const remaining = revised - data.total_paid - data.total_approved - data.total_pending
   const paidPct = revised > 0 ? (data.total_paid / revised) * 100 : 0
   const approvedPct = revised > 0 ? (data.total_approved / revised) * 100 : 0

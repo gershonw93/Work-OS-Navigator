@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { LOT_COLUMNS, lotFacts } from '@/lib/lot-details'
 import { committedTotal } from '@/lib/committed'
-import { ACTUAL_STATUSES } from '@/lib/invoice-budget'
+import { projectEscrow, awaitingApproval as billsAwaitingApproval, AWAITING_APPROVAL_STATUS } from '@/lib/escrow'
 import { TO_BOOK } from '@/lib/inspection-status'
 
 export const runtime = 'nodejs'
@@ -16,7 +16,6 @@ const admin = () => createClient(
 // checked against what is actually in the column - a status invented here reads
 // as "nothing outstanding", which is the most dangerous possible way to be
 // wrong on a screen whose whole job is to say what is outstanding.
-const INVOICE_AWAITING = 'pending_approval'
 const RFI_OPEN = 'open'
 // #8 - "1 inspection to book" with two pending. This counted 'requested' and
 // nothing else, but the request form saves an inspection with nobody assigned
@@ -112,20 +111,30 @@ export async function GET(request: Request, { params }: { params: { id: string }
     (subs.find((s: any) => s.company_id === companyId) as any)?.companies?.name ?? 'A vendor'
 
   // ── Money ────────────────────────────────────────────────────────────────
-  const received = (payments ?? []).reduce((s: number, p: any) => s + Number(p.amount || 0), 0)
-  const vendorBilled = inv
-    .filter((i: any) => i.status !== 'draft' && i.status !== 'rejected')
-    .reduce((s: number, i: any) => s + Number(i.amount || 0), 0)
-  const vendorPaid = inv
-    .filter((i: any) => ACTUAL_STATUSES.has(String(i.status)) && i.status === 'paid')
-    .reduce((s: number, i: any) => s + Number(i.amount || 0), 0)
+  // Received, billed, paid and outstanding come from ONE derivation, shared
+  // with Master Money and the Financial Summary (lib/escrow.ts). This route
+  // used to add them up itself, counting a bill as "billed" - and so as
+  // outstanding - from the moment it was SUBMITTED: a job with one $9,000 bill
+  // awaiting approval read "Outstanding to vendors $9,000" here and $0 on both
+  // other screens. Outstanding means approved and not yet paid, everywhere; the
+  // approval queue is its own number, shown beside it.
+  // Only the money position is read off it - the fee needs the budget lines'
+  // rates and the allocations, which this screen does not show.
+  const { received, vendorBilled, vendorPaid, outstandingToVendors } = projectEscrow({
+    feePct: 0,
+    payments: payments ?? [],
+    invoices: inv as any,
+    budgetLines: [],
+    allocations: [],
+  })
+  const pendingApproval = billsAwaitingApproval(inv as any)
   // ONE derivation, shared with the Budget tab and Master Money. Summing the
   // contracts alone lost every commitment that never became one, which is how
   // this screen and Budget came to disagree by a quarter of a million.
   const committed = committedTotal({ subcontracts: subs, lines: budgetLines ?? [] }).total
 
   // ── Waiting on you ───────────────────────────────────────────────────────
-  const awaitingApproval = inv.filter((i: any) => i.status === INVOICE_AWAITING)
+  const awaitingApproval = inv.filter((i: any) => i.status === AWAITING_APPROVAL_STATUS)
   const openRfis = (rfis ?? []).filter((r: any) => r.status === RFI_OPEN)
   const toBook = (inspections ?? []).filter((i: any) => (INSPECTION_TO_BOOK as readonly string[]).includes(i.status))
   const signoffs = (tasks ?? []).filter((t: any) => t.signoff_requested_at && !t.signoff_signed_at)
@@ -135,7 +144,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     awaitingApproval.length && {
       key: 'invoices', count: awaitingApproval.length, href: 'invoices',
       label: `${awaitingApproval.length} bill${awaitingApproval.length === 1 ? '' : 's'} waiting for your approval`,
-      detail: `$${awaitingApproval.reduce((s: number, i: any) => s + Number(i.amount || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} from ${new Set(awaitingApproval.map((i: any) => i.company_name)).size} vendor(s)`,
+      detail: `$${pendingApproval.toLocaleString(undefined, { maximumFractionDigits: 0 })} from ${new Set(awaitingApproval.map((i: any) => i.company_name)).size} vendor(s)`,
     },
     openRfis.length && {
       key: 'rfis', count: openRfis.length, href: 'rfis',
@@ -246,7 +255,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
       committed,
       vendorBilled,
       vendorPaid,
-      outstandingToVendors: Math.max(vendorBilled - vendorPaid, 0),
+      outstandingToVendors,
+      pendingApproval,
       feePct: Number((project as any).contractor_fee_pct ?? 0),
     },
     waitingOnYou,
