@@ -5,10 +5,11 @@ import { ChevronRight, Mail } from 'lucide-react'
 import { ArticleBlock } from '@/components/help-center/article-body'
 import { HelpBreadcrumbs } from '@/components/help-center/breadcrumbs'
 import { HelpSearch } from '@/components/help-center/help-search'
+import { Walkthroughs } from '@/components/help/walkthroughs'
 import { helpMeta } from '@/components/help-center/meta'
 import { helpCanonical, helpHref } from '@/lib/help-host'
 import { PUBLIC_HELP_ARTICLES } from '@/lib/help/articles'
-import { articlePath, publicArticle, publicRelated, publicTopic, topicPath } from '@/lib/help/site'
+import { articlePath, publicArticle, publicRelated, publicTopic, publicWalkthroughs, topicPath } from '@/lib/help/site'
 import { SUPPORT_EMAIL, supportMailto } from '@/lib/support-email'
 
 // Static, one page per PUBLIC article. `dynamicParams = false` makes an
@@ -55,6 +56,7 @@ export default function ArticlePage({ params }: { params: { slug: string } }) {
         <div className="mt-8 space-y-5">
           {article.blocks.map((b, i) => <ArticleBlock key={i} block={b} />)}
         </div>
+        <Walkthroughs items={publicWalkthroughs(article)} size="base" />
 
         {related.length > 0 && (
           <section className="mt-12 border-t border-line pt-6" aria-labelledby="related">
