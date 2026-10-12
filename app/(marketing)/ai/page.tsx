@@ -16,7 +16,7 @@ import { appHref } from '@/lib/hosts'
 import { SHOW_TRACTION_STATS } from '@/lib/traction'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'AI document scanning & bid comparison · SyteNav',
+  title: 'AI Document Scanning · SyteNav',
   description:
     'SyteNav AI reads quotes, invoices, permits, and plans into structured jobs: line items, quantities, and payment terms. Compare bids with gap analysis and get smart recommendations.',
   path: '/ai',

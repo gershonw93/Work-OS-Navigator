@@ -14,7 +14,7 @@ import { appHref } from '@/lib/hosts'
 import { SHOW_TESTIMONIALS } from '@/lib/traction'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Construction app for the jobsite · SyteNav',
+  title: 'Mobile App · SyteNav',
   description:
     'SyteNav runs where the work is: daily logs with photos, one-tap time clock with location, tasks, schedules, and camera document scanning, all from the phone already in your pocket.',
   path: '/mobile',

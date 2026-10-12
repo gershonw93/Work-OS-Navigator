@@ -12,7 +12,7 @@ import { BlueprintGrid } from '@/components/marketing/blueprint'
 import { appHref } from '@/lib/hosts'
 
 export const metadata: Metadata = marketingMeta({
-  title: 'Why SyteNav · Replace the spreadsheet stack',
+  title: 'Why SyteNav',
   description:
     'Why contractors replace spreadsheets, group texts, generic PM tools, and standalone invoicing apps with SyteNav: one system where the quote, the money, the schedule, and the field share the same data.',
   path: '/why',
