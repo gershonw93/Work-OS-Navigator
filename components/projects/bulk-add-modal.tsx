@@ -10,6 +10,8 @@ import { AddressFields } from '@/components/ui/address-fields'
 import { cn } from '@/lib/utils'
 import { X, Building2, Layers, Milestone, FileSpreadsheet, FolderInput } from 'lucide-react'
 import { LotListBuilder } from '@/components/projects/lot-list-builder'
+import { track } from '@/lib/analytics-client'
+import { projectType } from '@/lib/analytics'
 import { GroupExistingForm } from '@/components/projects/development-actions'
 import { tooVagueToPin } from '@/lib/geocode-match'
 
@@ -158,6 +160,7 @@ export function BulkAddModal({
       return
     }
     const d = await res.json()
+    if (d.count > 0) track('project_created', { entry_point: 'bulk_add', project_type: projectType(type), project_count: d.count })
     onSuccess({ count: d.count ?? 0, located: d.located ?? 0, siteId: d.site?.id ?? null })
   }
 

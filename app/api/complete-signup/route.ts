@@ -226,5 +226,7 @@ export async function POST(request: Request) {
     })
     if (!result.sent) console.error('[signup] welcome email did not send', { to: email, reason: result.reason })
   }
-  return NextResponse.json({ success: true, created: true, trialStarted })
+  // trialDays travels with the answer so analytics reports the length the
+  // trial was actually given, not a second copy of the constant.
+  return NextResponse.json({ success: true, created: true, trialStarted, ...(trialStarted ? { trialDays: TRIAL_DAYS } : {}) })
 }

@@ -28,6 +28,7 @@ import { clientAppOrigin } from '@/lib/app-url'
 
 import { formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { track, trackClick } from '@/lib/analytics-client'
 const money = (n: number | null) => n == null ? '-' : `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const STATUS: Record<string, string> = {
   // Quiet, not an alarm: not having told somebody yet is a normal state to be
@@ -164,9 +165,14 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
         body: JSON.stringify({ invitees: picked.map(v => ({ company_id: v.id, name: v.name, email: v.email })) }),
       })
+      const invited = await inviteRes.json().catch(() => ({} as any))
       if (!inviteRes.ok) {
-        const why = (await inviteRes.json().catch(() => ({}))).error
-        notify(`The request was created, but the invites did not go out: ${why ?? 'try inviting them from the request below.'}`)
+        notify(`The request was created, but the invites did not go out: ${invited.error ?? 'try inviting them from the request below.'}`)
+      } else {
+        // Counted off the route's per-sub results: an invite row with no
+        // email behind it is not a quote request anybody received.
+        const sentCount = (invited.results ?? []).filter((r: any) => r.sent).length
+        if (sentCount) track('quote_sent', { channel: 'email', quote_type: 'new_request', invitee_count: sentCount })
       }
     }
 
@@ -197,6 +203,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
       const sent = (d.results ?? []).filter((r: any) => r.sent)
       const failed = (d.results ?? []).filter((r: any) => !r.sent)
       if (sent.length) {
+        track('quote_sent', { channel: 'email', quote_type: 'added_invitee', invitee_count: sent.length })
         notify(`Quote request sent to ${sent.map((r: any) => r.email).join(', ')}.`, { tone: 'success' })
       }
       for (const f of failed) {
@@ -384,7 +391,11 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
         body: JSON.stringify({ to: inv.vendor_email }),
       })
       const d = await res.json().catch(() => ({} as any))
-      if (d.sent) notify(`Sent to ${inv.vendor_email}.`, { tone: 'success' })
+      if (d.sent) {
+        // The same test the send route uses to word the email as a reminder.
+        track('quote_sent', { channel: 'email', quote_type: inv.status === 'invited' || inv.status === 'viewed' ? 'reminder' : 'invite', invitee_count: 1 })
+        notify(`Sent to ${inv.vendor_email}.`, { tone: 'success' })
+      }
       else notify(d.error ?? 'Could not send that email. Use Copy link to send it yourself.')
       load()
     } catch {
@@ -792,7 +803,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                         ) : (
                           // No address, so Copy link is the only thing that can
                           // happen - and a disabled Send would explain nothing.
-                          <Button size="sm" variant="outline" onClick={() => copy(linkFor(inv.token), `l${inv.id}`)}>
+                          <Button size="sm" variant="outline" onClick={() => { copy(linkFor(inv.token), `l${inv.id}`); trackClick('copy_link', 'bid_invite') }}>
                             {copied === `l${inv.id}`
                               ? <><CheckCircle2 className="h-3.5 w-3.5 text-success" /> Copied</>
                               : <><Link2 className="h-3.5 w-3.5" /> Copy link</>}
@@ -804,14 +815,14 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                               <MenuItem onClick={() => { setThread({ reqId: req.id, title: req.title, invite: inv }); close() }}>
                                 <MessageSquare className="h-3.5 w-3.5" /> Messages
                               </MenuItem>
-                              <MenuItem onClick={() => { copy(linkFor(inv.token), `l${inv.id}`); close() }}>
+                              <MenuItem onClick={() => { copy(linkFor(inv.token), `l${inv.id}`); trackClick('copy_link', 'bid_invite'); close() }}>
                                 <Link2 className="h-3.5 w-3.5" /> Copy link
                               </MenuItem>
-                              <MenuItem onClick={() => { copy(`${em.subject}\n\n${em.body}`, `e${inv.id}`); close() }}>
+                              <MenuItem onClick={() => { copy(`${em.subject}\n\n${em.body}`, `e${inv.id}`); trackClick('copy_email_text', 'bid_invite'); close() }}>
                                 <Copy className="h-3.5 w-3.5" /> Copy email text
                               </MenuItem>
                               {inv.vendor_email && (
-                                <MenuItem href={em.mailto} onClick={close}>
+                                <MenuItem href={em.mailto} onClick={() => { trackClick('open_mailto', 'bid_invite'); close() }}>
                                   <Mail className="h-3.5 w-3.5" /> Send by hand
                                 </MenuItem>
                               )}
@@ -835,7 +846,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
                             defaultTo={inv.vendor_email ?? ''}
                             label={`Add a line for ${inv.vendor_name ?? 'this sub'}, or send to a different address`}
                             placeholder="sub@example.com"
-                            onSent={() => { setSendingInvite(''); load() }}
+                            onSent={() => { track('quote_sent', { channel: 'email', quote_type: told ? 'reminder' : 'invite', invitee_count: 1 }); setSendingInvite(''); load() }}
                           />
                         </div>
                       )}

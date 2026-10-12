@@ -9,6 +9,8 @@ import { ACCEPT_SCAN } from '@/lib/file-accept'
 import { fetchProblem } from '@/lib/fetch-error'
 import { fullAddress, lotRowProblem, lotJobName, MAX_LOTS, type LotRow } from '@/lib/lot-list'
 import { lotFacts } from '@/lib/lot-details'
+import { track } from '@/lib/analytics-client'
+import { projectType } from '@/lib/analytics'
 import { CheckCircle2, AlertTriangle, XCircle, Loader2, Upload, Trash2, Plus, MapPin } from 'lucide-react'
 
 /** What the map said about one row. `null` is "not checked yet". */
@@ -131,6 +133,7 @@ export function LotListBuilder({
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) { setError(d.error ?? 'Could not create the jobs.'); return }
+      if (d.count > 0) track('project_created', { entry_point: 'lot_list', project_type: projectType(shared.type), project_count: d.count })
       onSuccess({ count: d.count ?? 0, located: d.located ?? 0, siteId: d.site?.id ?? null })
     } catch (e) {
       // We do not know whether they were made - say so rather than inviting a

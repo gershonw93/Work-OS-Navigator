@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { track } from '@/lib/analytics-client'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -379,6 +380,7 @@ export default function DailyLogsPage({ params }: { params: { id: string } }) {
     const a = document.createElement('a')
     a.href = url; a.download = `daily-log.pdf`; a.click()
     URL.revokeObjectURL(url)
+    track('file_download', { file_type: 'pdf', document_category: 'daily_log' })
   }
 
   function toggleSubOnSite(sub: SubContract) {

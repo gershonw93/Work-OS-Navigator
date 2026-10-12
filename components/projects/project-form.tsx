@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
+import { track } from '@/lib/analytics-client'
+import { projectType } from '@/lib/analytics'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -193,6 +195,12 @@ export function ProjectForm({
     }
 
     const { project } = await res.json()
+    // After the route answered with the job - never on the press.
+    track('project_created', {
+      entry_point: lockedCustomer ? 'customer' : 'new_project',
+      project_type: projectType(project?.type ?? type),
+      project_count: 1,
+    })
     onCreated(project)
   }
 

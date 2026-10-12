@@ -10,6 +10,7 @@ import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { useCanSignUp } from '@/lib/use-native'
 import { bidReturnPath } from '@/lib/bid-thread'
+import { trackAfterNavigation } from '@/lib/analytics-client'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -37,6 +38,10 @@ export default function LoginPage() {
       setLoading(false)
       return
     }
+
+    // Supabase said yes. Email + password is the only way in this app has, and
+    // the next line unloads the page, so the event rides to the next one.
+    trackAfterNavigation('login', { method: 'email' })
 
     // Back to the quote they came from, when they came from one - the only
     // `next` this page follows (`bidReturnPath`).

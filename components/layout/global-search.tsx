@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { Search, Loader2, X, CornerDownLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
+import { useSearchUsed } from '@/components/analytics/use-search-used'
 
 type Hit = { id: string; title: string; subtitle?: string | null; href: string }
 type Group = { key: string; label: string; items: Hit[] }
@@ -24,6 +25,7 @@ export function GlobalSearch() {
 
   // Flat list of hits, in render order, for keyboard navigation.
   const flat: Hit[] = groups.flatMap(g => g.items)
+  useSearchUsed('global', q, flat.length, !loading)
 
   const runSearch = useCallback(async (query: string) => {
     const term = query.trim()

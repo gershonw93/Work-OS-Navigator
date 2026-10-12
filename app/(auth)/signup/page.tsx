@@ -9,7 +9,7 @@ import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
 import { useCanSignUp } from '@/lib/use-native'
-import { queueOutcome } from '@/lib/analytics-client'
+import { trackAfterNavigation } from '@/lib/analytics-client'
 
 const inputCls = 'bg-panel border-muted2 text-ink placeholder:text-muted-fg focus:border-accent'
 
@@ -213,9 +213,9 @@ function CreateAccountForm({ inviteToken, prefill }: { inviteToken: string; pref
 
     // Reported only off the route's answer, never off the button press: a
     // returning account is not a sign_up, and a sub gets no trial.
-    const done = await res.json().catch(() => ({})) as { created?: boolean; trialStarted?: boolean }
-    if (done.created) queueOutcome('sign_up', 'email')
-    if (done.trialStarted) queueOutcome('trial_start')
+    const done = await res.json().catch(() => ({})) as { created?: boolean; trialStarted?: boolean; trialDays?: number }
+    if (done.created) trackAfterNavigation('sign_up', { method: 'email' })
+    if (done.trialStarted) trackAfterNavigation('trial_start', { trial_days: done.trialDays })
 
     window.location.href = '/dashboard'
   }

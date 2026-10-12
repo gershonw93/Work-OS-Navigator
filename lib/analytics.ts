@@ -116,4 +116,89 @@ export function safeReferrer(referrer: string): string {
   }
 }
 
-export type Outcome = 'sign_up' | 'trial_start'
+// ── Events ───────────────────────────────────────────────────────────────────
+//
+// THE SCHEMA IS THE PRIVACY RULE. Every parameter an event may carry is listed
+// here with the only values it may take: a closed set of words, a count, or a
+// route template. `cleanParams` drops anything else - an unknown key, a value
+// outside its set, a string where a count belongs - so an id, a name, an
+// email, a filename or a search term cannot reach Google through a parameter
+// nobody declared. There is no free-text parameter type, on purpose.
+//
+// EACH EVENT FIRES ON A SERVER-CONFIRMED OUTCOME, never a button press. The
+// names were proposed against a product they had not been checked against;
+// what they are attached to here is what the app actually does:
+//   login           /login's signInWithPassword succeeded. Email is the only
+//                   method the app has - there is no Google or magic-link door.
+//   sign_up         complete-signup answered created:true (once per account).
+//   trial_start     complete-signup answered trialStarted:true - the billing
+//                   row was INSERTED, so once per trial. A new trial has no
+//                   plan (plan_key is set by Stripe later), so no plan param:
+//                   a fixed placeholder would be a value present and wrong.
+//   project_created the projects routes answered with the new job(s).
+//   quote_sent      a bid/RFQ invite EMAIL to a sub was sent by the server.
+//                   Copying a bid link never reaches the server, so it is a
+//                   ui_click, not a dispatch nobody can confirm.
+//   sub_invited     /api/invite (vendor) answered emailSent:true. A recorded
+//                   invite with no email is not an invitation sent.
+// sign_up and trial_start are the GA4 key events; nothing else here is.
+
+export const PROJECT_TYPES = ['residential', 'commercial', 'industrial', 'civil', 'renovation', 'mixed_use', 'other'] as const
+export const PROJECT_ENTRY_POINTS = ['new_project', 'customer', 'bulk_add', 'lot_list', 'development', 'my_jobs'] as const
+export const QUOTE_TYPES = ['new_request', 'added_invitee', 'invite', 'reminder'] as const
+export const UI_ACTIONS = ['copy_link', 'copy_email_text', 'open_mailto', 'connect_calendar', 'copy_calendar_feed'] as const
+export const UI_COMPONENTS = ['bid_invite', 'calendar_google', 'calendar_apple', 'calendar_outlook', 'calendar_feed'] as const
+export const DOCUMENT_CATEGORIES = ['timesheet', 'daily_log'] as const
+export const SEARCH_AREAS = ['global', 'help'] as const
+
+type Spec = readonly string[] | 'count' | 'template'
+
+export const EVENT_PARAMS = {
+  login: { method: ['email'] },
+  sign_up: { method: ['email'] },
+  trial_start: { trial_days: 'count' },
+  project_created: { entry_point: PROJECT_ENTRY_POINTS, project_type: PROJECT_TYPES, project_count: 'count' },
+  quote_sent: { channel: ['email'], quote_type: QUOTE_TYPES, invitee_count: 'count' },
+  sub_invited: { invitation_method: ['email'], role: ['vendor'], invite_count: 'count' },
+  ui_click: { action: UI_ACTIONS, component: UI_COMPONENTS, page_template: 'template' },
+  file_download: { file_type: ['csv', 'pdf'], document_category: DOCUMENT_CATEGORIES },
+  search_used: { search_area: SEARCH_AREAS, results_count: 'count' },
+} as const satisfies Record<string, Record<string, Spec>>
+
+export type EventName = keyof typeof EVENT_PARAMS
+type Value<S> = S extends readonly (infer V)[] ? V : S extends 'count' ? number : string
+export type EventParams<E extends EventName> = {
+  [K in keyof (typeof EVENT_PARAMS)[E]]?: Value<(typeof EVENT_PARAMS)[E][K]>
+}
+
+/** The parameters that should be GA4 custom dimensions (event scope). */
+export const CUSTOM_DIMENSIONS = Array.from(new Set(
+  Object.values(EVENT_PARAMS).flatMap(p => Object.entries(p)
+    .filter(([, spec]) => spec !== 'count').map(([k]) => k)),
+)).sort()
+
+/** Only declared keys, only declared values. Null for an unknown event. */
+export function cleanParams(event: string, raw: Record<string, unknown>): Record<string, string | number> | null {
+  const spec = (EVENT_PARAMS as Record<string, Record<string, Spec>>)[event]
+  if (!spec) return null
+  const out: Record<string, string | number> = {}
+  for (const [k, rule] of Object.entries(spec)) {
+    const v = raw[k]
+    if (v === undefined || v === null) continue
+    if (rule === 'count') {
+      if (typeof v === 'number' && Number.isInteger(v) && v >= 0 && v < 100_000) out[k] = v
+    } else if (rule === 'template') {
+      // Re-templated here, so a raw path handed in by mistake still leaves as
+      // a template - and only if it is one of ours to measure at all.
+      if (typeof v === 'string' && v.startsWith('/') && isTrackedPath(v)) out[k] = pageTemplate(v.split(/[?#]/)[0])
+    } else if (typeof v === 'string' && (rule as readonly string[]).includes(v)) {
+      out[k] = v
+    }
+  }
+  return out
+}
+
+/** A stored project type is only sent when it is one the database allows. */
+export function projectType(v: unknown): (typeof PROJECT_TYPES)[number] | undefined {
+  return (PROJECT_TYPES as readonly unknown[]).includes(v) ? v as (typeof PROJECT_TYPES)[number] : undefined
+}
