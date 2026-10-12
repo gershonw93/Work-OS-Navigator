@@ -1915,6 +1915,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'To get the answer from your architect or designer, click the link icon on the RFI card - it copies a secure one-time link. Send it to them; they see the question and attachments and submit the answer (with drawings if needed), no account required.',
         'When a response comes in, review it and mark it answered.',
       ] },
+      { type: 'text', text: 'WHO CAN DO WHAT. Answering an RFI, approving or denying the change order on it, sending the answer link and deleting it follow the RFIs permission in Settings -> Permissions - on by default for admins, managers and project managers. A sub on the job can send RFIs and sees only the ones their own company asked; they cannot answer or approve them.' },
       { type: 'tip', text: 'RFIs keep a clear record of who asked what and when it was resolved. Answers submitted through the link land on the RFI automatically and show in the activity feed.' },
     ],
     related: ['approvals-inbox'],
