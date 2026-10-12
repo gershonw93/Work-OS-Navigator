@@ -110,10 +110,12 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
           <h2 className="text-sm font-bold text-ink">House models</h2>
-          <p className="text-xs text-muted-fg">
-            Set up a model once - plans, budget, inspections, punch list - and apply it to the houses built to it.
-            {state === 'ready' && models.length > 0 && unassigned > 0 ? ` ${unassigned} ${unassigned === 1 ? 'house has' : 'houses have'} no model yet.` : ''}
-          </p>
+          {/* The explanation is for an empty panel; once there are models the rows say it. */}
+          {state === 'ready' && models.length === 0 ? (
+            <p className="text-xs text-muted-fg">Set up a model once - plans, budget, inspections, punch list - and apply it to the houses built to it.</p>
+          ) : state === 'ready' && unassigned > 0 ? (
+            <p className="text-xs text-muted-fg">{unassigned} {unassigned === 1 ? 'house has' : 'houses have'} no model yet.</p>
+          ) : null}
         </div>
         {state === 'ready' && (
           <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: 'new' })}><Plus className="h-4 w-4" /> Model</Button>
@@ -130,26 +132,33 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
             const insp = m.items.filter(i => i.kind === 'inspection').length
             const punch = m.items.filter(i => i.kind === 'punch').length
             const tpl = templates.find(t => t.id === m.budget_template_id)?.name
+            // ONE ROW, ONE BUTTON. Edit, Houses, Apply and Delete each had a
+            // button, so on a phone one model filled the screen. The row opens
+            // the model; Apply is the action; the rest are in the menu.
+            const bits = [
+              `${housesOn(m.id)} ${housesOn(m.id) === 1 ? 'house' : 'houses'}`,
+              `${m.plans.length} ${m.plans.length === 1 ? 'plan' : 'plans'}`,
+              tpl ? 'budget' : 'no budget',
+              ...(insp ? [`${insp} inspections`] : []),
+              ...(punch ? [`${punch} punch`] : []),
+            ]
             return (
-              <div key={m.id} className="flex flex-col gap-2 px-4 py-3 lg:flex-row lg:items-center">
-                <div className="min-w-0 flex-1">
-                  <p className="flex items-center gap-1.5 text-sm font-semibold text-ink"><Home className="h-4 w-4 text-muted-fg" />{m.name}</p>
-                  <p className="text-xs text-muted-fg">
-                    {housesOn(m.id)} {housesOn(m.id) === 1 ? 'house' : 'houses'} · {m.plans.length} {m.plans.length === 1 ? 'plan' : 'plans'}
-                    {' · '}{tpl ? `budget: ${tpl}` : 'no budget template'} · {insp} inspections · {punch} punch items
-                  </p>
-                </div>
-                <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
-                  <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: 'edit', modelId: m.id })}>Edit</Button>
-                  <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: 'assign', modelId: m.id })}>Houses</Button>
-                  <Button size="sm" onClick={() => setDialog({ kind: 'apply', modelId: m.id })}>Apply</Button>
-                </div>
-                <div className="hidden lg:block">
-                  <RowMenu label={`More for ${m.name}`}>
-                    {close => <MenuItem danger onClick={() => { close(); remove(m) }}>Delete model</MenuItem>}
-                  </RowMenu>
-                </div>
-                <button type="button" onClick={() => remove(m)} className="text-left text-xs text-danger lg:hidden">Delete model</button>
+              <div key={m.id} className="flex items-center gap-2 px-4 py-2.5">
+                <button type="button" onClick={() => setDialog({ kind: 'edit', modelId: m.id })}
+                  className="min-w-0 flex-1 text-left" title={`Edit ${m.name}`}>
+                  <p className="flex items-center gap-1.5 truncate text-sm font-semibold text-ink"><Home className="h-4 w-4 shrink-0 text-muted-fg" />{m.name}</p>
+                  <p className="truncate text-xs text-muted-fg">{bits.join(' · ')}</p>
+                </button>
+                <Button size="sm" onClick={() => setDialog({ kind: 'apply', modelId: m.id })}>Apply</Button>
+                <RowMenu label={`More for ${m.name}`}>
+                  {close => (
+                    <>
+                      <MenuItem onClick={() => { close(); setDialog({ kind: 'edit', modelId: m.id }) }}>Edit model</MenuItem>
+                      <MenuItem onClick={() => { close(); setDialog({ kind: 'assign', modelId: m.id }) }}>Choose houses</MenuItem>
+                      <MenuItem danger onClick={() => { close(); remove(m) }}>Delete model</MenuItem>
+                    </>
+                  )}
+                </RowMenu>
               </div>
             )
           })}

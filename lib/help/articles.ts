@@ -317,7 +317,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Open the development - it opens on All jobs. Under House models, press Model and name it - "The Aspen".',
         'In the model, give it a budget: press Upload a budget and pick an Excel or CSV sheet - it is read and saved as a template for you - or pick a template you already made on the Budget Templates page. Its lines show right there: tap one to change it, or Add line. Then upload its plans, tick its required inspections, and type its punch items one per line. Beside each punch item, pick who does it - a teammate, a sub from your Directory, or Type a name for anybody else. These save as you make them.',
         'For plans that differ by garage side, choose Garage left or Garage right before uploading. Either garage side goes to every house.',
-        'Press Houses to tick which houses are built as this model.',
+        'Tap the model to open it. In the ... menu beside it, Choose houses ticks which houses are built as this model.',
         'Press Apply. You see every house and exactly what it would get - "2 plans, 46 budget lines, 9 inspections, 12 punch items" - and can untick houses or parts. Nothing is written until you press Apply.',
       ] },
       { type: 'text', text: 'APPLYING AGAIN ADDS ONLY WHAT IS MISSING. Each copy remembers which model it came from, so a house never gets a second copy of a plan, line, inspection or punch item. Change a model later - add a plan, a punch item, an inspection - press Apply again, and you choose which houses get the new things.' },

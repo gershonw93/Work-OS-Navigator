@@ -39,4 +39,10 @@ const page = code('app/(dashboard)/projects/page.tsx')
 ok(/<ProjectsMap projects=\{filtered as any\}[^>]*onRefresh=\{fetchProjects\}/.test(page) && /houses=\{mapHouses as any\}/.test(page),
   'the page hands the map its folded list plus the houses as pins')
 
+// "This gotta consolidate": a model row was Edit + Houses + Apply + Delete,
+// one model per phone screen. One button now; the row opens the model.
+const row = panel.slice(panel.indexOf('const bits = ['), panel.indexOf("{dialog?.kind === 'new'"))
+ok((row.match(/<Button /g) ?? []).length === 1 && /Apply<\/Button>/.test(row), 'a model row carries ONE button, Apply')
+ok(/Choose houses/.test(row) && /Delete model/.test(row) && /<RowMenu/.test(row), '...Houses and Delete are in its menu')
+ok(/onClick=\{\(\) => setDialog\(\{ kind: 'edit'/.test(row), '...and tapping the row opens the model')
 done()
