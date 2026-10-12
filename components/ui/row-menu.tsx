@@ -50,12 +50,15 @@ function usableHeight(): number {
 export function RowMenu({
   label,
   align = 'right',
+  triggerClassName,
   children,
 }: {
   /** What the trigger is for, since it is an icon. */
   label: string
   /** Which edge the panel hangs from. */
   align?: 'left' | 'right'
+  /** For a trigger sitting in a toolbar beside full-size buttons, not in a row. */
+  triggerClassName?: string
   children: (close: () => void) => ReactNode
 }) {
   const [open, setOpen] = useState(false)
@@ -108,7 +111,7 @@ export function RowMenu({
         title={label}
         // 44px on a phone like every other control; the desktop keeps the
         // compact chip it had.
-        className="inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-muted-fg hover:bg-surface lg:h-auto lg:w-auto lg:px-2 lg:py-1"
+        className={cn('inline-flex h-11 w-11 items-center justify-center rounded-md border border-line text-muted-fg hover:bg-surface lg:h-auto lg:w-auto lg:px-2 lg:py-1', triggerClassName)}
       >
         <MoreHorizontal className="h-4 w-4" />
       </button>
