@@ -97,7 +97,7 @@ export async function POST(request: Request, { params }: Ctx) {
   const { data: me } = await db.from('profiles').select('full_name').eq('id', gate.actor.userId).maybeSingle()
   const who = (me as any)?.full_name ?? null
 
-  const results: { houseId: string; houseName: string; added: Record<ApplyPart, number>; errors: string[] }[] = []
+  const results: { houseId: string; houseName: string; added: Record<ApplyPart, number>; errors: string[]; kept: string[] }[] = []
   const told: Told = new Map()
   // Putting a teammate on a house's team is the Team tab's act, so it is only
   // done for somebody who may do that; anybody else assigns by name, which
@@ -201,7 +201,10 @@ async function applyToHouse(db: ReturnType<typeof admin>, h: HouseApply, parts: 
     }
   }
 
-  return { houseId: h.houseId, houseName: h.houseName, added, errors }
+  // Lines this house kept its own figure for - said, so a one-press update
+  // from the model editor can name them rather than imply they changed.
+  const kept = parts.includes('amounts') ? h.amountsKept.map(k => k.description) : []
+  return { houseId: h.houseId, houseName: h.houseName, added, errors, kept }
 }
 
 /**

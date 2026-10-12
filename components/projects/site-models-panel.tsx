@@ -16,10 +16,12 @@ import { typeOptions } from '@/lib/inspection-types'
 import { guessPlanType, baseName } from '@/lib/upload-plan'
 import { ACCEPT_PLANS } from '@/lib/file-accept'
 import {
-  HANDINGS, HANDING_LABEL, APPLY_PARTS, PART_LABEL, applySummary, modelNameProblem,
+  HANDINGS, HANDING_LABEL, APPLY_PARTS, PART_LABEL, applySummary, modelNameProblem, followSummary,
   type Handing, type ApplyPart, type HouseApply,
 } from '@/lib/site-models'
 import { KEPT_WHY } from '@/lib/budget-template-line'
+import { TemplateLineDialog, type TemplateLineItem, type FollowHouses } from '@/components/budget/template-line-dialog'
+import { toAmount } from '@/lib/schedule-dependencies'
 import { pickerValue, parsePickerValue, modelAssigneeProblem, type ModelAssignee } from '@/lib/model-assignee'
 import type { AssignablePeople } from '@/lib/model-assignee-db'
 import { Home, Plus, X, Upload, Loader2, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react'
@@ -160,6 +162,7 @@ export function SiteModelsPanel({ siteId, houses, onChanged }: {
       )}
       {dialog?.kind === 'edit' && current(dialog.modelId) && (
         <ModelEditor siteId={siteId} model={current(dialog.modelId)!} templates={templates} people={people}
+          houseIds={houses.filter(h => h.model_id === dialog.modelId).map(h => h.id)}
           names={models.filter(m => m.id !== dialog.modelId).map(m => m.name)}
           onReload={load} onClose={() => setDialog(null)} />
       )}
@@ -230,8 +233,8 @@ function NewModelDialog({ siteId, names, onClose, onCreated }: {
  * there is no Save button to promise otherwise. Nothing here touches a house;
  * that is Apply's job, with its own preview.
  */
-function ModelEditor({ siteId, model, templates, people, names, onReload, onClose }: {
-  siteId: string; model: ModelRow; templates: { id: string; name: string }[]; people: AssignablePeople | null; names: string[]
+function ModelEditor({ siteId, model, templates, people, houseIds, names, onReload, onClose }: {
+  siteId: string; model: ModelRow; templates: { id: string; name: string }[]; people: AssignablePeople | null; houseIds: string[]; names: string[]
   onReload: () => Promise<void>; onClose: () => void
 }) {
   const base = `/api/projects/${siteId}/models/${model.id}`
@@ -247,6 +250,35 @@ function ModelEditor({ siteId, model, templates, people, names, onReload, onClos
   // zero looks exactly like one that worked until somebody opens a house.
   const [budgetNote, setBudgetNote] = useState<string | null>(null)
   const [choices, setChoices] = useState<string[]>(() => typeOptions())
+  // The template's lines, edited HERE - "adding one expense line to every
+  // house is a bit much and back and forth". Loading/failed are their own
+  // facts: an empty list is a claim that the budget has no lines.
+  const [lines, setLines] = useState<TemplateLineItem[]>([])
+  const [linesState, setLinesState] = useState<'loading' | 'ready' | 'failed'>('loading')
+  const [lineDialog, setLineDialog] = useState<{ item: TemplateLineItem | null } | null>(null)
+  const tplId = model.budget_template_id
+  const loadLines = useCallback(async () => {
+    if (!tplId) { setLines([]); setLinesState('ready'); return }
+    setLinesState('loading')
+    try {
+      const r = await call('/api/budget-templates')
+      if (!r.ok) { setLinesState('failed'); return }
+      const t = (r.data.templates ?? []).find((x: { id: string }) => x.id === tplId)
+      setLines(t?.budget_template_items ?? [])
+      setLinesState('ready')
+    } catch { setLinesState('failed') }
+  }, [tplId])
+  useEffect(() => { loadLines() }, [loadLines])
+
+  /** Put the template's new lines and changed amounts on this model's houses - the apply route, budget parts only. */
+  const follow: FollowHouses | undefined = houseIds.length ? {
+    label: `the ${houseIds.length} ${houseIds.length === 1 ? 'house' : 'houses'} on ${model.name}`,
+    run: async () => {
+      const r = await call(`${base}/apply`, { method: 'POST', body: JSON.stringify({ house_ids: houseIds, parts: ['budget', 'amounts'] }) })
+      if (!r.ok) throw new Error(r.data.error ?? 'could not update the houses')
+      return followSummary(r.data.results ?? [])
+    },
+  } : undefined
 
   useEffect(() => {
     ;(async () => {
@@ -327,7 +359,7 @@ function ModelEditor({ siteId, model, templates, people, names, onReload, onClos
       setBudgetNote(
         `Read ${items.length} line${items.length === 1 ? '' : 's'} from ${file.name}` +
         (amounts === 0
-          ? ' - but no amounts. Check the sheet has a number column, or fill the amounts in with the link below.'
+          ? ' - but no amounts. Check the sheet has a number column, or tap a line below to fill its amount in.'
           : amounts < items.length ? `, ${amounts} with amounts.` : ', all with amounts.') +
         ` Saved as "${tplName}".`,
       )
@@ -376,18 +408,35 @@ function ModelEditor({ siteId, model, templates, people, names, onReload, onClos
             accept=".xlsx,.xls,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
             onChange={e => uploadBudget(e.target.files?.[0] ?? null)} />
         </label>
+        {tplId && (
+          <div className="divide-y divide-line-soft rounded-lg border border-line">
+            {linesState === 'loading' && <p className="px-3 py-2.5 text-sm text-faint">Loading the budget lines…</p>}
+            {linesState === 'failed' && <p className="px-3 py-2.5 text-sm text-danger">Could not load the budget lines. That does not mean there are none - close and reopen to try again.</p>}
+            {linesState === 'ready' && lines.length === 0 && <p className="px-3 py-2.5 text-sm text-muted-fg">No lines yet.</p>}
+            {linesState === 'ready' && lines.map((l, i) => (
+              <button key={l.id ?? i} type="button" onClick={() => setLineDialog({ item: l })}
+                className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm hover:bg-surface">
+                <span className="min-w-0 truncate text-ink-soft">{l.description}</span>
+                <span className="shrink-0 text-ink">{toAmount(l.default_amount) == null ? '-' : dollars(toAmount(l.default_amount)!)}</span>
+              </button>
+            ))}
+          </div>
+        )}
+        {tplId && linesState === 'ready' && (
+          <Button type="button" size="sm" variant="secondary" onClick={() => setLineDialog({ item: null })}><Plus className="h-4 w-4" /> Add line</Button>
+        )}
         {budgetNote && <p className="text-xs text-success">{budgetNote}</p>}
-        {/* The template is edited where it lives - one home for a budget - and
-            the link opens THAT template, not the top of a list. */}
+        {/* Still one home for a budget: these lines ARE the template's, and the
+            full page is there for renaming it or reading it on its own. */}
         {model.budget_template_id && (
-          <a href={`/budget-templates?t=${model.budget_template_id}`} className="block text-xs font-semibold text-accent-fg hover:underline">
-            Add or change lines in this template →
+          <a href={`/budget-templates?t=${model.budget_template_id}`} className="block text-xs text-muted-fg hover:underline">
+            Open this template on the Budget Templates page
           </a>
         )}
         <p className="text-xs text-faint">
           The per-house budget, amounts included. Upload a sheet here, or pick a template made on the Budget Templates
-          page - from scratch, from an existing job, or from Excel. After changing the template, Apply puts new lines and
-          changed amounts on the houses.
+          page. Tap a line to change it or Add line for a new one - each can go straight onto this model&apos;s houses as
+          you save it.
         </p>
       </div>
 
@@ -486,6 +535,11 @@ function ModelEditor({ siteId, model, templates, people, names, onReload, onClos
         <p className="text-xs text-faint">Each becomes a task marked Punch on every house the model is applied to, assigned to whoever you pick beside it - a teammate, a sub, or any name. They are told once per apply, not once per house.</p>
         {people === null && <p className="text-xs text-warn">Could not load your team and subs, so only a typed name can be picked right now. Close and reopen to try again.</p>}
       </div>
+      {lineDialog && tplId && (
+        <TemplateLineDialog templateId={tplId} item={lineDialog.item} follow={follow}
+          onClose={() => setLineDialog(null)}
+          onSaved={said => { setLineDialog(null); setBudgetNote(said ?? null); loadLines() }} />
+      )}
     </Shell>
   )
 }
