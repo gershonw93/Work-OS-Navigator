@@ -150,6 +150,7 @@ export default function HomePage() {
             <ul className="mt-7 space-y-3.5">
               {[
                 'Master calendar and money views across all jobs',
+                'Detailed reports by job, customer, sub or supplier - saved, shared or printed',
                 'Quote to budget to progress, one source of truth',
                 'Role-based views for the office, PMs, and crew',
               ].map(t => (
