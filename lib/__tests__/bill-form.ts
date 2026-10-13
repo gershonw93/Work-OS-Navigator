@@ -90,7 +90,7 @@ ok(/existing_company_id/.test(page), '...through the route that already did this
 ok(/onJob\.has\(c\.id\)/.test(page), 'a sub already on the job is not offered twice')
 
 // The permission had to move, or the fix does nothing for the person who hit it.
-const subs = code('app/api/projects/[id]/subcontracts/route.ts')
+const subs = (code('app/api/projects/[id]/subcontracts/route.ts') + code('lib/writes/subcontract.ts'))
 ok(/existingCompanyId \? 'invoices' : 'team'/.test(subs),
   "attaching needs invoices:edit; minting a new Directory company still needs team:edit")
 // Scoped to POST. The first version searched the whole file and matched the

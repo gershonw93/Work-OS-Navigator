@@ -120,7 +120,7 @@ ok(filed.materials === 186.51, '...while the receipt still counts, now against i
 ok(filed.actual >= 186.51, '...and is inside Actual Spent rather than dropped')
 
 // ── the screen shows it, and can file it ─────────────────────────────────────
-const route = code('app/api/projects/[id]/budget/route.ts')
+const route = (code('app/api/projects/[id]/budget/route.ts') + code('lib/writes/budget-line.ts'))
 ok(/unlinked_subcontracts/.test(route), 'the route sends the contracts that are on no line')
 ok(/unassigned_receipts/.test(route), '...and the receipts that are on no line')
 const budgetPage = code('app/(dashboard)/projects/[id]/budget/page.tsx')
