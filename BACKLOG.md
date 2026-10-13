@@ -560,7 +560,7 @@ and why:
 
 ## ✅ Recently shipped (for reference)
 
-- Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF and Excel export (`lib/report-builder.ts`, migration 139).
+- Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF and Excel export (`lib/report-builder.ts`, migration 140).
 - House model punch items carry who does each one (teammate, Directory sub, or a typed name; `site_model_items.assignee_*`, migration 136). Applying puts them on every punch task, adds a teammate to the house's team when the applier may staff it, and notifies each person once per apply.
 - Developments: the Bulk Add container is called a Development on every screen (the data keeps `is_site` / `parent_project_id`). Add a job inside one (house model applied in the same step), add existing jobs, move or take a job out from its row, make a development from existing jobs in Bulk Add, and see/change a job's development from Project Settings.
 - Sub job view: a Schedule tab on My Jobs (whole job, theirs marked) and delay REPORTS on their own lines that the GC applies through the normal delay screen (`schedule_delay_reports`, migration 135); subs can bill against their own subcontract; free vendor accounts are made in place with a password; Files gained Job Files.

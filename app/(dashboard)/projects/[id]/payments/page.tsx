@@ -25,6 +25,11 @@ interface Payment {
   reference: string | null
   /** Set by the real QuickBooks sync. When present, the chip is a fact, not a claim. */
   qbo_id: string | null
+  /**
+   * A share of one check split across a development's houses. Changed or
+   * deleted with the whole check, on the development - the route refuses it here.
+   */
+  payment_group_id?: string | null
   /** Which invoices it paid and how much went to each - one cheque can pay several. */
   client_payment_allocations?: { client_invoice_id: string; amount: number | string; client_invoices: { invoice_number: string } | null }[]
   /** Holds what is not on an invoice as the client's credit. */
@@ -564,6 +569,8 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                     className="whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
                     <Check className="h-3 w-3" /> QB ✓
                   </span>
+                ) : p.payment_group_id ? (
+                  <span className="text-xs text-faint">-</span>
                 ) : (
                   <button onClick={() => toggleQb(p)} title="Mark as entered in QuickBooks by hand"
                     className={cn('whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
@@ -571,10 +578,14 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                     {p.qb_entered ? <><Check className="h-3 w-3" /> QB</> : 'QB?'}
                   </button>
                 )}
+                {p.payment_group_id ? (
+                  <span className="text-right text-[11px] leading-tight text-faint" title="Part of one check split across houses - change or delete it from the development">Split check</span>
+                ) : (
                 <div className="flex justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                   <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: toAmountInput(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', reference: p.reference ?? '', retainer: p.retainer, qb_entered: p.qb_entered, on_account: !!p.on_account }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
                   <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
+                )}
               </div>
             ))}
           </div>

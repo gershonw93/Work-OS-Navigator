@@ -74,7 +74,9 @@ export async function GET(request: Request) {
         .select('amount')
         .eq('company_id', companyId)
         .eq('status', 'paid')
-        .gte('updated_at', monthStart),
+        // Paid this month: `paid_at`, or - for a bill paid before that was
+        // recorded - when it was entered. There is no updated_at on invoices.
+        .or(`paid_at.gte.${monthStart},and(paid_at.is.null,created_at.gte.${monthStart})`),
       activeJobProjectIds.length > 0
         ? db.from('rfis')
             .select('id', { count: 'exact', head: true })
