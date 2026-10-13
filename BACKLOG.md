@@ -320,7 +320,7 @@ Integrations, Claude Desktop / Claude Code only. The rest of the plan:
 - **Pick the columns, not just the sections.** Sections are on/off today; a column chooser per section (hide "Awaiting approval", add "Due") is the next level of "unlimited options". Shape: `columns?: Record<SectionKey, string[]>` on the config, applied in `tablesOf`.
 - **A live link** that always shows today's numbers, as opposed to the snapshot. Deliberately not the default - a live link is a standing window onto a job, the same power as the client portal, and needs the same thought about who may mint one.
 - **Charts** in the report (billed vs paid over time, budget variance by line). Would read through `docs`' dataviz rules; the doc shape has room for a `charts` block beside `stats` and `tables`.
-- **Excel download inside the iOS app.** `XLSX.writeFile` triggers a browser download, which WKWebView does not surface. PDF/Print works there; the spreadsheet needs a share-sheet path.
+- **No Excel or CSV export - a decision, not an oversight.** The owner removed it: a one-click spreadsheet of every job's money mostly helps somebody leave SyteNav. PDF and share links cover sending a report to somebody. Pinned in `lib/__tests__/reports.ts`; revisit only if customers ask for it as a reason to stay rather than a way out.
 
 ## 💼 QuickBooks
 - **Deleting a client PAYMENT leaves its QuickBooks record standing** *(found Sep 2026 while fixing the invoice void)*. `voidBillInQbo` closes this gap on the money-OUT side and `voidClientInvoiceInQbo` now closes it for invoices, but nothing voids the SalesReceipt or applied Payment when a client payment is deleted here. The books keep counting money that was un-recorded. Same shape, same fix - a void call on delete plus a `qbo_voided_at`-style fact to read.
@@ -591,7 +591,7 @@ and why:
 
 ## ✅ Recently shipped (for reference)
 
-- Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF and Excel export (`lib/report-builder.ts`, migration 140).
+- Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF export (`lib/report-builder.ts`, migration 140). Excel export shipped in #603 and was taken out the same day by decision - see the Reports section.
 - Claude can read SyteNav: a read-only MCP server at `/api/mcp` (projects, tasks, schedule, inspections, sub bills, client invoices) with personal tokens made and revoked on Settings -> Integrations (`mcp_tokens`, migration 141). Phases 2-4 are under Claude above.
 - House model punch items carry who does each one (teammate, Directory sub, or a typed name; `site_model_items.assignee_*`, migration 136). Applying puts them on every punch task, adds a teammate to the house's team when the applier may staff it, and notifies each person once per apply.
 - Developments: the Bulk Add container is called a Development on every screen (the data keeps `is_site` / `parent_project_id`). Add a job inside one (house model applied in the same step), add existing jobs, move or take a job out from its row, make a development from existing jobs in Bulk Add, and see/change a job's development from Project Settings.

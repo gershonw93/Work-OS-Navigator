@@ -16,7 +16,6 @@ import {
 import { RESOURCES } from '../permissions'
 import { UNTRACKED_PREFIXES } from '../analytics'
 import { APP_PATH_PREFIXES } from '../hosts'
-import { docToSheets } from '../report-format'
 import { ok, done, read, code } from './_helpers'
 
 const P1 = '11111111-1111-1111-1111-111111111111'
@@ -171,8 +170,6 @@ const stat = (doc: ReturnType<typeof buildReport>, key: string, label: string) =
   const one = buildReport(cfg({ sections: ['bills'], groupBy: 'none' }), data, opts)
   ok(one.sections[0].tables.length === 1 && one.sections[0].tables[0].columns[0].key === 'job', 'one table leads with a Job column')
   ok(one.sections[0].tables[0].totals?.amount === 26500.5, 'its total adds every row')
-  const sheets = docToSheets(one)
-  ok(sheets.length === 2 && sheets.every(s => s.name.length <= 31), 'Excel gets a sheet per section, names within Excel\'s limit')
 }
 
 // ── every section asks a real permission ─────────────────────────────────────
@@ -210,6 +207,16 @@ const stat = (doc: ReturnType<typeof buildReport>, key: string, label: string) =
   ok(/'\/shared-report'/.test(read('app/robots.ts')), 'and robots keeps search engines off it')
   ok(/label: 'Reports', href: '\/reports', icon: BarChart2, resource: 'reports'/.test(read('components/layout/sidebar.tsx')),
     'the tab is in the nav, behind the reports permission')
+}
+
+// ── no spreadsheet export, by decision ──────────────────────────────────────
+// The owner's call: a one-click spreadsheet of every job's money is the
+// easiest way to leave SyteNav, so Reports exports a PDF and a share link and
+// nothing a different tool can import. Pinned so it is not "fixed" back in.
+{
+  const page = code('app/(dashboard)/reports/page.tsx')
+  ok(!/xlsx|XLSX|FileSpreadsheet|\.csv/.test(page), 'Reports offers no Excel or CSV export')
+  ok(!/docToSheets/.test(read('lib/report-format.ts')), 'and nothing builds sheets for one')
 }
 
 // ── the report reaches a phone as a list, and paper as a table ──────────────

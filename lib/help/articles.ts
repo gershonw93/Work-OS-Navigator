@@ -2283,7 +2283,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'fee earned', 'materials', 'time clock', 'hours', 'daily logs', 'permits', 'inspections', 'schedule',
       'saved report', 'monthly report', 'this month', 'last quarter', 'date range', 'period',
     ],
-    summary: 'A report on any job, customer, sub or supplier - pick what goes in it, then save it, share a link, or export a PDF or spreadsheet.',
+    summary: 'A report on any job, customer, sub or supplier - pick what goes in it, then save it, share a link, or save it as a PDF.',
     blocks: [
       { type: 'text', text: 'Reports is in the sidebar. It builds a report across as many jobs as you like - for one job, for every job a customer or developer has with you, or for a sub or a supplier across every job they are on.' },
       { type: 'steps', items: [
@@ -2296,7 +2296,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'WHAT THE PERIOD COVERS. Dated things - bills, change orders, purchases, client invoices and payments, logs, inspections and hours - are filtered to the period. Contracts and budgets are always to date, because a contract does not have a date range. A schedule line counts if it overlaps the period.' },
       { type: 'text', text: 'SAVE IT. Save keeps the settings, not the numbers, so opening a saved report later runs it again with today\'s figures - a saved "This month" is always this month. Saved reports are shared with everyone in your company who can open Reports.' },
       { type: 'text', text: 'SHARE IT. Share makes a link anyone can open without an account, and can email it for you - pick the customer, sub or supplier and their address fills in. The link holds a copy of the report as it read when you shared it; it does not change afterwards, so share again for fresh numbers. Under Shared links you can see whether it has been opened, copy it again, or turn it off.' },
-      { type: 'text', text: 'EXPORT IT. PDF / Print opens your browser\'s print dialog - choose Save as PDF. Excel downloads a spreadsheet with one sheet per section and the numbers as numbers, so they add up in Excel.' },
+      { type: 'text', text: 'SAVE IT AS A PDF. PDF / Print opens your browser\'s print dialog - choose Save as PDF. Reports does not export to Excel or CSV; to send figures to somebody, share the report or send the PDF.' },
       { type: 'tip', text: 'A report about a sub or a supplier only ever carries their own contracts, bills, change orders, schedule lines and purchases - never another vendor\'s, and never your client billing or margin. That is what makes it safe to share with them.' },
       { type: 'warn', text: 'Budget vs actual, margin and the time clock are marked internal. Untick them before sharing with a developer or a sub - the Share window reminds you if they are still in.' },
       { type: 'text', text: 'WHO CAN USE IT. Admins and managers can run, save and share reports. Office Staff can run and print them. Each section also needs access to that part of the app - margin needs Job Margin & Markup, for example - and a section you cannot see is left out and named. Your admin can change this under Settings → Permissions.' },
