@@ -32,7 +32,7 @@ ok(Array.isArray((entry as any)?.defaultAudience),
   '...with a default audience rather than none, which would resolve to nobody')
 
 // ── the route sends it ──────────────────────────────────────────────────────
-const route = code('app/api/projects/[id]/tasks/[taskId]/route.ts')
+const route = (code('app/api/projects/[id]/tasks/[taskId]/route.ts') + code('lib/writes/task.ts'))
 ok(/notify\(\{/.test(route) && /type: 'task_updated'/.test(route),
   'the task PATCH route actually emits it')
 ok(/audienceFor\(\{/.test(route), '...to the routed audience, not a hardcoded list')

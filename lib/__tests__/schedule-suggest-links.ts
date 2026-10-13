@@ -27,8 +27,9 @@ import { lineTrade } from '../schedule-events'
 console.log('\nThe trade reaches the database')
 
 {
-  const route = code('app/api/projects/[id]/schedule/route.ts')
-  ok(/const \{[^}]*\btrade\b[^}]*\} = await request\.json\(\)/.test(route),
+  const route = (code('app/api/projects/[id]/schedule/route.ts') + code('lib/writes/schedule-item.ts'))
+  // The body is parsed in the route and destructured in `createScheduleItem`.
+  ok(/const \{[^}]*\btrade\b[^}]*\} = body\b/.test(route) && /const body = await request\.json\(\)/.test(route),
     'the POST route destructures `trade` off the body')
   ok(/\btrade:\s*String\(trade/.test(route),
     '...and puts it on the row it inserts')

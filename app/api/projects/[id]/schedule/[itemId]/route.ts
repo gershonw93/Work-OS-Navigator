@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { friendlyDbError } from '@/lib/db-error'
 import { lineName } from '@/lib/schedule-dependencies'
+import { updateScheduleItem } from '@/lib/writes/schedule-item'
 
 export const runtime = 'nodejs'
 
@@ -48,62 +49,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const db = admin()
   const body = await request.json().catch(() => ({} as any))
 
-  // DATES ARE THE CASCADE'S TO WRITE, AND THIS ROUTE REFUSES THEM.
-  //
-  // It used to accept `start_date` / `end_date` and write them with no cascade
-  // at all: no review screen, nobody pushed, no sub told, and no history row -
-  // while still stamping `dates_overridden_at`, which takes the line out of
-  // every FUTURE cascade as well. Today no shipped caller sends them, so the
-  // whole dependency feature was safe BY CONVENTION IN THE CALLERS rather than
-  // by construction here. One new caller - a gantt drag, a bulk editor, a
-  // mobile screen, a script - and the feature is silently bypassed.
-  //
-  // Closed now rather than later precisely because the Delay action adds a
-  // second way to move dates, and that is exactly when a second writer gets
-  // added by accident.
-  if ('start_date' in body || 'end_date' in body) {
-    return NextResponse.json({
-      error: 'Dates go through the cascade route, so what else moves can be reviewed first.',
-    }, { status: 400 })
-  }
-
-  // A WHITELIST WITH A FIELD MISSING FAILS EXACTLY LIKE A REJECTION - the
-  // route drops it and answers 200. `trade` and `progress_pct` are new, so
-  // they go in here in the same change that added them to the table.
-  const allowed = ['label', 'color', 'trade', 'progress_pct']
-  const update: Record<string, unknown> = Object.fromEntries(
-    Object.entries(body).filter(([k]) => allowed.includes(k)),
-  )
-  if (!Object.keys(update).length) {
-    return NextResponse.json({ error: 'Nothing to change.' }, { status: 400 })
-  }
-
-  if (update.progress_pct != null && update.progress_pct !== '') {
-    const n = Number(update.progress_pct)
-    if (!Number.isFinite(n) || n < 0 || n > 100) {
-      return NextResponse.json({ error: 'Percent complete has to be between 0 and 100.' }, { status: 400 })
-    }
-    update.progress_pct = n
-  } else if ('progress_pct' in update) {
-    // Clearing it is a real act: back to "nobody has said", which is not zero.
-    update.progress_pct = null
-  }
-
-  // THE HAND-EDIT FLAG USED TO BE SET HERE, and is not any more: the dates it
-  // watched cannot reach this route. `dates_overridden_at` is now written by
-  // the cascade apply, which is the only thing that moves a date - and which
-  // also knows whether the same save just created a link, the distinction that
-  // `handEditWins` turns on.
-  const { data, error } = await db
-    .from('schedule_items').update(update)
-    .eq('id', params.itemId).eq('project_id', params.id)
-    .select().single()
-
-  if (error) {
-    console.error('[schedule/item] update failed:', error.message)
-    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
-  }
-  return NextResponse.json({ item: data })
+  // Everything after the gate is `updateScheduleItem`, which Claude's MCP
+  // server calls too. It refuses dates: those go through the cascade route.
+  const result = await updateScheduleItem(db, {
+    userId: gate.actor.userId, projectId: params.id, itemId: params.itemId, body,
+  })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 /**

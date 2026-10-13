@@ -1,10 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
-import { cleanDelays, logSaysSomething, EMPTY_LOG_PROBLEM } from '@/lib/daily-log-delays'
 import { NextResponse } from 'next/server'
-import { logActivity } from '@/lib/log-activity'
-import { FIELD_ROLES } from '@/lib/permissions'
+import { createDailyLog } from '@/lib/writes/daily-log'
 
-import { formatDate } from '@/lib/dates'
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -85,42 +82,35 @@ export async function POST(request: Request, { params }: { params: { id: string 
   }
 
   const formData = await request.formData()
-  // The mobile field view flags its submissions. Fall back to the submitter's
-  // role so a field-role user filing any log is still treated as an
-  // observation needing review, even if the flag is missing.
-  const { data: submitterRole } = await db.from('profiles').select('role').eq('id', user.id).single()
-  const isFieldEntry = formData.get('source') === 'field'
-    || FIELD_ROLES.includes((submitterRole?.role as string) ?? '')
-  const log_date = formData.get('log_date') as string
-  const weather_condition = formData.get('weather_condition') as string | null
-  const notes = formData.get('notes') as string | null
-  const safety_observation = formData.get('safety_observation') as string | null
-  const quality_observation = formData.get('quality_observation') as string | null
   const survey_raw = formData.get('survey') as string | null
   const subs_on_site_raw = formData.get('subs_on_site') as string | null
   const workers_on_site_raw = formData.get('workers_on_site') as string | null
   const delays_raw = formData.get('delays') as string | null
-  // The form posted `temperature` and nothing read it, so the number the
-  // Auto-fill weather button fetched was thrown away on every log. `temp_f`
-  // is the column (integer) and what the PATCH route already whitelists.
-  const temp_f_raw = formData.get('temp_f') as string | null
-  // Posted by the mobile field view since it shipped, and dropped on the floor
-  // here until now - the route answered 200 and the log came back without
-  // them, which is a rejection wearing a success.
-  const has_issues = formData.get('has_issues') === 'true'
-  const issue_description = formData.get('issue_description') as string | null
-  const signed_by_name = formData.get('signed_by_name') as string | null
-
-  const survey = survey_raw ? JSON.parse(survey_raw) : {}
-  // A HALF-TYPED DELAY ROW MUST NOT COST SOMEBODY THEIR WHOLE DAY'S LOG.
-  // `cleanDelays` drops the rows that fail the rule and keeps the rest - this
-  // is a record of a day on a site, often filed from a phone at the end of it,
-  // and refusing all of it over one blank description is the wrong trade.
-  const delays = cleanDelays(delays_raw ? safeJson(delays_raw) : [])
-  const workers_on_site = workers_on_site_raw ? JSON.parse(workers_on_site_raw) : []
-  const subs_on_site = subs_on_site_raw ? JSON.parse(subs_on_site_raw) : []
-  const subWorkerTotal = subs_on_site.reduce((t: number, s: any) => t + (Number(s.workers) || 0), 0)
-  const totalWorkers = (workers_on_site.length || 0) + subWorkerTotal
+  // The mobile field view flags its submissions (`source: 'field'`); the role
+  // fallback is asked inside `createDailyLog`.
+  const body = {
+    source: formData.get('source') as string | null,
+    log_date: formData.get('log_date') as string,
+    weather_condition: formData.get('weather_condition') as string | null,
+    notes: formData.get('notes') as string | null,
+    safety_observation: formData.get('safety_observation') as string | null,
+    quality_observation: formData.get('quality_observation') as string | null,
+    survey: survey_raw ? JSON.parse(survey_raw) : {},
+    // Parsed safely - a malformed delays field must not take the log with it.
+    delays: delays_raw ? safeJson(delays_raw) : [],
+    workers_on_site: workers_on_site_raw ? JSON.parse(workers_on_site_raw) : [],
+    subs_on_site: subs_on_site_raw ? JSON.parse(subs_on_site_raw) : [],
+    // The form posted `temperature` and nothing read it, so the number the
+    // Auto-fill weather button fetched was thrown away on every log. `temp_f`
+    // is the column (integer) and what the PATCH route already whitelists.
+    temp_f: formData.get('temp_f') as string | null,
+    // Posted by the mobile field view since it shipped, and dropped on the floor
+    // here until now - the route answered 200 and the log came back without
+    // them, which is a rejection wearing a success.
+    has_issues: formData.get('has_issues') === 'true',
+    issue_description: formData.get('issue_description') as string | null,
+    signed_by_name: formData.get('signed_by_name') as string | null,
+  }
 
   async function uploadTo(bucket: string, file: File) {
     const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
@@ -158,83 +148,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
   let signature_url: string | null = null
   const sigFile = formData.get('signature') as File | null
   if (sigFile && sigFile.size > 0) signature_url = await uploadTo('daily-log-photos', sigFile)
-  const signed = !!(signature_url || signed_by_name)
 
-  // A LOG HAS TO SAY SOMETHING.
-  //
-  // THE BUG: opening the form and pressing Save filed a log with a date and
-  // nothing else. It landed in the list, in the count, and in the client-facing
-  // PDF - a page of blank fields under a heading, which is worse than no entry
-  // at all because it asserts that somebody was on site and reported this.
-  //
-  // Checked here rather than only in the form, because the field app posts to
-  // the same route. Anything substantive counts: a note, an observation, a
-  // photo, an attachment, who was on site, or an answered survey question. The
-  // DATE does not, and neither does the weather - both are filled in for you.
-  if (!logSaysSomething({
-    notes, safety_observation, quality_observation, issue_description,
-    photos: photos.length,
-    attachments: attachments.length,
-    workers: totalWorkers,
-    subs: subs_on_site.length,
-    delays,
-    survey,
-  })) {
-    return NextResponse.json({ error: EMPTY_LOG_PROBLEM }, { status: 400 })
-  }
-
-  const { data: log, error } = await db.from('daily_logs').insert({
-    project_id: params.id,
-    created_by: user.id,
-    // Stamp the author's name too. Without this the log list and PDF render
-    // "Logged by" with nothing after it, so nobody can tell who filed it.
-    created_by_name: (profile as any)?.full_name ?? user.email ?? null,
-    log_date,
-    notes: notes || '',
-    workers_onsite: totalWorkers,
-    // The FORM field is `weather_condition`; the COLUMN is `weather`. Both
-    // posters agree on the wire name, so it stays - but the second weather
-    // COLUMN is gone (114), and this is the one place the two names meet.
-    weather: weather_condition || null,
-    temp_f: temp_f_raw && /^\d+$/.test(temp_f_raw.trim()) ? Number(temp_f_raw.trim()) : null,
-    subs_on_site,
-    // The roster itself, not only the count. `workers_onsite` above is the
-    // derived total; this is who they were, posted all along and stored now.
-    workers_on_site,
-    delays,
-    has_issues,
-    issue_description: issue_description || null,
-    survey,
-    safety_observation: safety_observation || null,
-    quality_observation: quality_observation || null,
-    signed_by_name: signed ? (signed_by_name || null) : null,
-    signature_url,
-    signed_at: signed ? new Date().toISOString() : null,
-    source: isFieldEntry ? 'field' : 'office',
-    // Field entries are observations until a manager reviews them, and stay
-    // out of the client-facing PDF until then.
-    review_status: isFieldEntry ? 'pending' : 'reviewed',
-  }).select().single()
-
-  if (error) return NextResponse.json({ error: `Save failed: ${error.message} (code: ${error.code})` }, { status: 500 })
-
-  if (photos.length > 0) {
-    await db.from('daily_log_photos').insert(
-      photos.map(p => ({ daily_log_id: log.id, photo_url: p.url, caption: p.caption || null, subcontract_id: p.subcontract_id, category: p.category }))
-    )
-  }
-  if (attachments.length > 0) {
-    await db.from('daily_log_attachments').insert(
-      attachments.map(a => ({ daily_log_id: log.id, file_url: a.file_url, file_name: a.file_name }))
-    )
-  }
-
-  const actorName = (profile as any)?.full_name ?? 'Someone'
-  const safetyNote = safety_observation ? ' · ⚠ Safety observation' : ''
-  await logActivity(db, params.id, actorName, 'daily_log_submitted',
-    `Daily log submitted for ${formatDate(log_date, { month: 'short', day: 'numeric', year: 'numeric' })}${safetyNote}`,
-    { log_id: log.id, log_date }
-  )
-
-  return NextResponse.json({ log })
+  // Everything after the uploads is `createDailyLog`, which Claude's MCP server
+  // calls too: the "a log has to say something" rule, the insert, the photo
+  // and attachment rows and the history line.
+  const result = await createDailyLog(db, {
+    userId: user.id, userEmail: user.email, projectId: params.id, profile, body,
+    uploads: { photos, attachments, signature_url },
+  })
+  return NextResponse.json(result.body, { status: result.status })
 }

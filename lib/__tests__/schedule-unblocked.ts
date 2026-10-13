@@ -181,7 +181,7 @@ const find = (rows: ReturnType<typeof gatePicture>, id: string) => rows.find(r =
   ok(/progressReader\(/.test(reader),
     'the gate picture is built on `progressReader`, not a second inline budget query')
 
-  const payload = code('app/api/projects/[id]/schedule/route.ts')
+  const payload = (code('app/api/projects/[id]/schedule/route.ts') + code('lib/writes/schedule-item.ts'))
   ok(/readGatePicture/.test(payload),
     'the schedule payload serves the picture, so the board needs no extra round trip')
   // Against the `.select()` STRING, not the file. The route also declares a

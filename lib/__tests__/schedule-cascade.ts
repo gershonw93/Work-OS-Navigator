@@ -90,7 +90,7 @@ console.log('\nschedule-cascade')
   }
 
   // The narrow power gets the narrow permission.
-  const item = code('app/api/projects/[id]/schedule/[itemId]/route.ts')
+  const item = (code('app/api/projects/[id]/schedule/[itemId]/route.ts') + code('lib/writes/schedule-item.ts'))
   ok(/requirePermission\(admin\(\), request, 'schedule', 'delete'\)/.test(item),
     'deleting a line needs delete, not edit')
 
@@ -105,7 +105,7 @@ console.log('\nschedule-cascade')
 
 // ── the whitelist ────────────────────────────────────────────────────────────
 {
-  const item = code('app/api/projects/[id]/schedule/[itemId]/route.ts')
+  const item = (code('app/api/projects/[id]/schedule/[itemId]/route.ts') + code('lib/writes/schedule-item.ts'))
   // A whitelist with a field missing fails exactly like a rejection, and only
   // one of them says so - the route drops the field and answers 200.
   for (const field of ['trade', 'progress_pct']) {
@@ -130,7 +130,7 @@ console.log('\nschedule-cascade')
 // a line OUT of the cascade for ever and nothing was clearing it, so a line
 // that was dated and then linked never followed anything.
 {
-  const item = code('app/api/projects/[id]/schedule/[itemId]/route.ts')
+  const item = (code('app/api/projects/[id]/schedule/[itemId]/route.ts') + code('lib/writes/schedule-item.ts'))
 
   // Half one: a save that resubmits the same dates is not a decision about
   // them. Every dialog that touches a line posts both dates whether or not

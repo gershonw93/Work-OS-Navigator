@@ -58,6 +58,7 @@ console.log('\ndaily-log-delays')
   const readers = [
     'app/(dashboard)/projects/[id]/daily-logs/page.tsx',
     'app/api/projects/[id]/daily-logs/route.ts',
+    'lib/writes/daily-log.ts',
     'app/api/my-jobs/[projectId]/route.ts',
   ]
   for (const f of readers) {

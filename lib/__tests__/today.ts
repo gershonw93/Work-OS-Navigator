@@ -102,7 +102,7 @@ ok(/const d = day\(i\.scheduled_date\)/.test(code('lib/schedule-events.ts'))
   && !/requested_date/.test(code('lib/schedule-events.ts')),
   '...and the job calendar places one only by its booked date, never the requested one')
 ok(/\.not\('scheduled_date', 'is', null\)/.test(code('app/api/master/calendar/route.ts'))
-  && /\.not\('scheduled_date', 'is', null\)/.test(code('app/api/projects/[id]/schedule/route.ts')),
+  && /\.not\('scheduled_date', 'is', null\)/.test((code('app/api/projects/[id]/schedule/route.ts') + code('lib/writes/schedule-item.ts'))),
   '...and both routes filter on the same column')
 
 done()
