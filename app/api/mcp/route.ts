@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { getActor, actorForUser, type ActorPerms } from '@/lib/server-permissions'
 import { hashMcpToken, isMcpToken } from '@/lib/mcp-token'
 import { handleRpc, rpcError, RPC } from '@/lib/mcp/protocol'
+import { requestOrigin, wwwAuthenticate } from '@/lib/mcp/oauth'
 import { TOOLS, callTool } from '@/lib/mcp/tools'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -27,19 +28,28 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-function unauthorized(message: string) {
+/**
+ * 401 with directions. `WWW-Authenticate` names the protected-resource
+ * metadata, which is how Claude finds the SyteNav sign-in on its own - the
+ * whole of "add it by URL" starts from this header.
+ */
+function unauthorized(request: Request, message: string, expired = false) {
   return NextResponse.json(
     rpcError(null, RPC.INVALID_REQUEST, message),
-    { status: 401, headers: { 'WWW-Authenticate': 'Bearer realm="sytenav"' } },
+    { status: 401, headers: { 'WWW-Authenticate': wwwAuthenticate(requestOrigin(request), expired ? 'invalid_token' : undefined) } },
   )
 }
 
-/** Who this request is, or null. A revoked token is the same null as a wrong one. */
-async function actorFor(db: SupabaseClient, token: string): Promise<ActorPerms | null> {
+/**
+ * Who this request is, or null. A revoked token is the same null as a wrong
+ * one. 'expired' is a token from a Claude sign-in past its hour: said
+ * separately, because the client answers it by renewing, not by signing in.
+ */
+async function actorFor(db: SupabaseClient, token: string): Promise<ActorPerms | null | 'expired'> {
   if (!isMcpToken(token)) return getActor(db, token)
 
   const { data, error } = await db.from('mcp_tokens')
-    .select('id, profile_id')
+    .select('id, profile_id, expires_at')
     .eq('token_hash', hashMcpToken(token))
     .is('revoked_at', null)
     .maybeSingle()
@@ -50,6 +60,8 @@ async function actorFor(db: SupabaseClient, token: string): Promise<ActorPerms |
     return null
   }
   if (!data) return null
+  // NULL is a personal token from Settings, which does not expire.
+  if (data.expires_at && Date.parse(data.expires_at) <= Date.now()) return 'expired'
 
   // When it was last used is what lets somebody spot a connection they no
   // longer recognise. Awaited, because a serverless function may be frozen
@@ -63,11 +75,12 @@ async function actorFor(db: SupabaseClient, token: string): Promise<ActorPerms |
 
 export async function POST(request: Request) {
   const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '').trim()
-  if (!token) return unauthorized('Send a SyteNav token as "Authorization: Bearer <token>". Make one on Settings -> Integrations.')
+  if (!token) return unauthorized(request, 'Sign in to SyteNav to connect, or send a token from Settings -> Integrations as "Authorization: Bearer <token>".')
 
   const db = admin()
   const actor = await actorFor(db, token)
-  if (!actor) return unauthorized('That SyteNav token is not valid, or has been revoked.')
+  if (actor === 'expired') return unauthorized(request, 'That SyteNav sign-in has expired. Renew it.', true)
+  if (!actor) return unauthorized(request, 'That SyteNav token is not valid, or has been revoked.', true)
 
   let message: unknown
   try {

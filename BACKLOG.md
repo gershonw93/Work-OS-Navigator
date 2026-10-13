@@ -284,16 +284,17 @@ the biggest build yet while the books are half-wired ends with both half-done.
 - **Bank-facing budget & sellout** *(tester request)*. Abe: "when you create a bank budget and bank sellout they might be presented in a different way." The working budget and the version a lender wants are formatted differently. Needs a lender report format - probably an extension of the proposal PDF rather than a new thing.
 - **Full development pro-forma** *(tester request - partially addressed)*. A tester who develops (not just builds) wanted the spreadsheet they use as step one: land purchase, design, approvals, soft costs, then a return projection. We shipped the piece every GC needs - hard/soft cost split on the budget + a planning-stage menu (see Recently shipped). **Not built, deliberately:** land acquisition as its own record, debt/equity stack and draw schedule, carrying-cost-over-time modeling, and ROI / profit-on-cost / IRR outputs. That is a developer pro-forma tool, a different product from a GC's job budget - revisit only if more than one customer asks.
 
-## 🤖 Claude (the SyteNav MCP server) - phases 2 to 4
+## 🤖 Claude (the SyteNav MCP server) - phases 3 and 4
 
-Phase 1 shipped: `/api/mcp`, read-only, personal tokens from Settings ->
-Integrations, Claude Desktop / Claude Code only. The rest of the plan:
+Shipped: `/api/mcp`, read-only (phase 1), and "Sign in with SyteNav" so it is
+added in Claude by URL (phase 2, OAuth 2.1 + PKCE + dynamic registration,
+`lib/mcp/oauth*.ts`). The rest of the plan:
 
-- **Phase 2 - OAuth, so it can be added in claude.ai by URL.** claude.ai custom
-  connectors want OAuth 2.1 with dynamic client registration; a pasted bearer
-  token only works in Desktop/Code. Supabase Auth can act as the OAuth server.
-  The token it issues must resolve to the same `ActorPerms`, so nothing in
-  `lib/mcp/tools.ts` changes.
+- **Client ID Metadata Documents** (the newer MCP spec's alternative to dynamic
+  registration, where the client_id IS an https URL). Not built: Claude registers
+  dynamically today. If a client arrives sending a URL as its client_id, it is
+  refused as an unknown client - add CIMD then, fetching and caching the
+  document, never trusting it without matching its redirect_uris.
 - **Phase 3 - writing.** Enter a sub bill (PDF from a Gmail attachment through the
   EXISTING scan, which keeps it metered), record a payment, create a task, add a
   change order, request an inspection, add a Directory contact. THE RULE: a write
@@ -592,6 +593,7 @@ and why:
 ## ✅ Recently shipped (for reference)
 
 - Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF export (`lib/report-builder.ts`, migration 140). Excel export shipped in #603 and was taken out the same day by decision - see the Reports section.
+- Sign in with SyteNav for Claude: add SyteNav as a custom connector by URL, sign in, press Allow (OAuth 2.1, `oauth_clients`/`oauth_codes`, migration 142).
 - Claude can read SyteNav: a read-only MCP server at `/api/mcp` (projects, tasks, schedule, inspections, sub bills, client invoices) with personal tokens made and revoked on Settings -> Integrations (`mcp_tokens`, migration 141). Phases 2-4 are under Claude above.
 - House model punch items carry who does each one (teammate, Directory sub, or a typed name; `site_model_items.assignee_*`, migration 136). Applying puts them on every punch task, adds a teammate to the house's team when the applier may staff it, and notifies each person once per apply.
 - Developments: the Bulk Add container is called a Development on every screen (the data keeps `is_site` / `parent_project_id`). Add a job inside one (house model applied in the same step), add existing jobs, move or take a job out from its row, make a development from existing jobs in Bulk Add, and see/change a job's development from Project Settings.

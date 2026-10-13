@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-141.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-142.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -933,8 +933,8 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   139), revoked not deleted. Every other route resolves the caller through
   `getActor`, which hands the string to the auth server and gets a 401 - so the
   token cannot reach a write route. Never teach `getActor` to read one. Pinned:
-  only the MCP route calls `isMcpToken`, only it and the settings route touch
-  the table.
+  only the MCP route calls `isMcpToken`, and only it, the settings route and
+  the Claude sign-in (`lib/mcp/oauth-server.ts`) touch the table.
 - **ONE RESOLVER.** The token names a profile; `actorForUser` (split out of
   `getActor`) turns it into the same `ActorPerms` the app uses, so Claude reads
   exactly what that person can.
@@ -944,6 +944,25 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   routes, which check only the permission - and a foreign id is refused in the
   same words as a made-up one. Assigned-only roles are REFUSED, not handed a
   wider view, until their in-job scoping lives in lib.
+- **SIGN IN WITH SYTENAV MINTS THE SAME THING A PASTED TOKEN IS.** Claude adds
+  `/api/mcp` by URL: the 401's `WWW-Authenticate` names the protected-resource
+  metadata (`/.well-known/...`, rewritten onto `/api/oauth/*` by next.config -
+  Next will not route a dot folder), Claude registers itself (RFC 7591), sends
+  the person to `/oauth/authorize`, and swaps the code at `/api/oauth/token`.
+  What comes out is an `mcp_tokens` ROW (`oauth_client_id`, an hour's
+  `expires_at`, a rotating refresh hash), so the dispatcher, the Settings card
+  and Revoke never learn which door a token came in by. `lib/mcp/oauth.ts` is
+  the pure half, `lib/mcp/oauth-server.ts` the half that stores. THE RULES:
+  nothing redirects until the client is known and the return address is one it
+  REGISTERED (else the Allow page is an open redirect); PKCE S256 always; a
+  code is claimed by ONE conditional UPDATE (`used_at IS NULL`, unexpired) and a
+  refresh rotates on one conditional on the OLD hash - check-then-act lets two
+  win; only hashes are stored; the ROLE is asked again at every swap and
+  renewal; the Allow page prints where you will be SENT BACK TO, because the
+  app's name is whatever it registered as; `/login` follows `next` to the Allow
+  page and nowhere else (`oauthReturnPath`); registration is capped site-wide
+  and a cap that cannot be read refuses. Pinned and mutation-checked in
+  `mcp-oauth.ts`.
 - **A FAILED READ IS AN ERROR RESULT, NEVER `[]`.** A model repeats "there are
   none" to a person as fact. Same for a half-read: assignees that could not be
   read are null, not "nobody". Pinned, and mutation-checked, in `mcp-server.ts`.

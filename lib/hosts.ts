@@ -33,6 +33,8 @@ export const APP_PATH_PREFIXES = [
   '/customers', '/files', '/help', '/whats-new', '/equipment', '/materials',
   '/budget-templates', '/master-calendar', '/master-money', '/my-bids', '/my-jobs', '/reports',
   '/admin', '/field', '/auth', '/login', '/signup', '/forgot-password', '/reset-password',
+  // The Allow page Claude sends people to - it needs the app's session.
+  '/oauth',
   // Token links handed to people without accounts. They are served by the app,
   // and an old link to the apex still works because it redirects.
   '/portal', '/rfi', '/bid', '/compliance', '/share', '/bill', '/shared-report',

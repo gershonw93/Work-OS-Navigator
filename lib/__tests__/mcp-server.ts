@@ -225,8 +225,8 @@ async function main() {
     .filter(f => !f.includes('__tests__'))
     .filter(f => /from\('mcp_tokens'\)/.test(code(f)))
     .sort()
-  ok(JSON.stringify(readers) === JSON.stringify(['app/api/mcp/route.ts', 'app/api/settings/mcp-tokens/route.ts']),
-    `only the MCP route and the token settings route touch the token table (found: ${readers.join(', ')})`)
+  ok(JSON.stringify(readers) === JSON.stringify(['app/api/mcp/route.ts', 'app/api/settings/mcp-tokens/route.ts', 'lib/mcp/oauth-server.ts']),
+    `only the MCP route, the token settings route and the Claude sign-in touch the token table (found: ${readers.join(', ')})`)
   const resolvers = walk('app').concat(walk('lib'))
     .filter(f => !f.includes('__tests__') && f !== 'lib/mcp-token.ts')
     .filter(f => /isMcpToken\(/.test(code(f)))

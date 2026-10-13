@@ -48,6 +48,13 @@ const nextConfig = {
         source: '/.well-known/apple-app-site-association',
         destination: '/api/apple-app-site-association',
       },
+      // Sign in with SyteNav, for Claude (lib/mcp/oauth.ts). Both the bare
+      // path and the one suffixed with the resource path (RFC 9728 / 8414),
+      // because clients try either. Rewrites for the same reason as above.
+      { source: '/.well-known/oauth-protected-resource', destination: '/api/oauth/protected-resource' },
+      { source: '/.well-known/oauth-protected-resource/:path*', destination: '/api/oauth/protected-resource' },
+      { source: '/.well-known/oauth-authorization-server', destination: '/api/oauth/authorization-server' },
+      { source: '/.well-known/oauth-authorization-server/:path*', destination: '/api/oauth/authorization-server' },
     ]
   },
 
