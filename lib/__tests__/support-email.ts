@@ -43,6 +43,9 @@ console.log('\nsupport-email')
       // data is not a contact point.
       if (/^noreply@sytenav\.com$/i.test(a) && f.endsWith('lib/email.ts')) continue
       if (f.endsWith('lib/seed-demo.ts')) continue
+      // The super-admin list is an identity gate, not a contact point:
+      // nobody is told to write to it.
+      if (f.endsWith('lib/super-admin.ts')) continue
       offenders.push(`${f}: ${a}`)
     }
   }
