@@ -1,8 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
-import { retainagePct as checkRetainage } from '@/lib/pay-app-rules'
-import { ownerScheduleOfValues } from '@/lib/pay-app-sov'
+import { createPayApp } from '@/lib/writes/pay-app'
 
 export const runtime = 'nodejs'
 
@@ -65,85 +64,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
 // POST - start a new pay application. Seeds its lines from the Schedule of
 // Values and carries "previous completed" forward from earlier applications.
+// The body of it lives in `lib/writes/pay-app.ts`, shared with Claude.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const gate = await requirePermission(admin(), request, 'pay-apps', 'edit')
   if (denied(gate)) return gate.denied
 
   const user = await auth(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const db = admin()
 
   const body = await request.json().catch(() => ({}))
-  const subcontractId: string | null = body.subcontract_id || null
-  // Where the 105% got in. This took whatever was sent; the field on the form
-  // had no bounds either, and the default "10" sitting in the box meant typing
-  // "5" to change it appended rather than replaced.
-  if (body.retainage_pct != null) {
-    const checked = checkRetainage(body.retainage_pct)
-    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 })
-  }
-  let retainagePct = body.retainage_pct != null ? Number(body.retainage_pct) : NaN
-  if (isNaN(retainagePct)) {
-    const { data: proj } = await db.from('projects').select('default_retainage_pct').eq('id', params.id).maybeSingle()
-    retainagePct = Number((proj as any)?.default_retainage_pct ?? 10)
-  }
-
-  // Schedule of Values: for a GC->Owner app it's the whole budget; for a
-  // Sub->GC app it's the budget lines linked to that subcontract (fallback to
-  // one line for the contract amount).
-  let sov: { id: string | null; cost_code: string | null; description: string; scheduled_value: number }[] = []
-  if (subcontractId) {
-    const { data: lines } = await db.from('budget_line_items').select('id, cost_code, description, budgeted_amount').eq('project_id', params.id).eq('subcontract_id', subcontractId).order('sort_order')
-    if (lines && lines.length) {
-      sov = lines.map((l: any) => ({ id: l.id, cost_code: l.cost_code, description: l.description, scheduled_value: Number(l.budgeted_amount || 0) }))
-    } else {
-      const { data: sc } = await db.from('subcontracts').select('scope, trade, contract_amount').eq('id', subcontractId).single()
-      sov = [{ id: null, cost_code: null, description: (sc as any)?.scope || (sc as any)?.trade || 'Contract', scheduled_value: Number((sc as any)?.contract_amount || 0) }]
-    }
-  } else {
-    // GC -> Owner. The schedule of values is the budget PLUS approved change
-    // orders. It used to be `budgeted_amount` alone, so a $50,000 approved
-    // owner change order never reached the certificate and the contract sum
-    // stayed at the original figure - on a G702 whose line 1 reads "Original
-    // contract sum + change orders".
-    //
-    // Shared with the drift check a draft runs against itself, so "what this
-    // schedule should say" has one answer rather than two careful ones.
-    sov = (await ownerScheduleOfValues(db, params.id)).map(l => ({
-      id: l.budget_line_item_id,
-      cost_code: l.cost_code,
-      description: l.description,
-      scheduled_value: l.scheduled_value,
-    }))
-  }
-  if (sov.length === 0) return NextResponse.json({ error: 'Build the budget / schedule of values first.' }, { status: 400 })
-
-  // Carry "previous completed" forward: sum prior applications' billed amounts
-  // per schedule-of-values line, for the same direction.
-  const priorQ = db.from('pay_applications').select('id, application_number, pay_application_lines(budget_line_item_id, this_period, materials_stored)').eq('project_id', params.id)
-  const { data: prior } = subcontractId ? await priorQ.eq('subcontract_id', subcontractId) : await priorQ.is('subcontract_id', null)
-  const previousByLine = new Map<string, number>()
-  for (const a of prior ?? []) {
-    for (const l of (a as any).pay_application_lines ?? []) {
-      if (!l.budget_line_item_id) continue
-      previousByLine.set(l.budget_line_item_id, (previousByLine.get(l.budget_line_item_id) ?? 0) + Number(l.this_period || 0) + Number(l.materials_stored || 0))
-    }
-  }
-  const nextNumber = (prior ?? []).reduce((m: number, a: any) => Math.max(m, a.application_number || 0), 0) + 1
-
-  const { data: app, error } = await db.from('pay_applications').insert({
-    project_id: params.id, subcontract_id: subcontractId, application_number: nextNumber,
-    period_start: body.period_start || null, period_end: body.period_end || null,
-    retainage_pct: retainagePct, status: 'draft', created_by: user.id,
-  }).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const lineRows = sov.map((s, i) => ({
-    pay_application_id: app.id, budget_line_item_id: s.id, cost_code: s.cost_code, description: s.description,
-    scheduled_value: s.scheduled_value, previous_completed: s.id ? (previousByLine.get(s.id) ?? 0) : 0,
-    this_period: 0, materials_stored: 0, sort_order: i,
-  }))
-  await db.from('pay_application_lines').insert(lineRows)
-
-  return NextResponse.json({ id: app.id })
+  const result = await createPayApp(admin(), { userId: user.id, projectId: params.id, body })
+  return NextResponse.json(result.body, { status: result.status })
 }

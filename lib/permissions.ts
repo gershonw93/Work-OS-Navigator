@@ -71,6 +71,13 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'quotes',         label: 'Compare Quotes', group: 'Finance', slug: 'quotes' },
   { key: 'financials',     label: 'Financial Summary', group: 'Finance', slug: 'financials' },
   { key: 'change-orders',  label: 'Change Orders',  group: 'Finance', slug: 'change-orders' },
+  // The client's allowance picks. It used to borrow `budget` for the TAB while
+  // every route under /selections asked only "are you signed in", so a sub on
+  // the job could reseed the board or mark a tile Chosen. Its own resource now,
+  // and every built-in role starts exactly where `budget` left it - nobody who
+  // could open the screen loses it. A company role map saved before this key
+  // existed inherits it from `budget` (`INHERITS_FROM`), for the same reason.
+  { key: 'selections',     label: 'Selections',     group: 'Finance', slug: 'selections' },
   // Compliance
   { key: 'permits',        label: 'Permits',        group: 'Docs', slug: 'permits' },
   { key: 'inspections',    label: 'Inspections',    group: 'Docs', slug: 'inspections' },
@@ -166,7 +173,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   project_manager: {
     plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL, time: FULL,
     team: VE, bids: FULL, rfis: FULL,
-    invoices: VE, 'pay-apps': FULL, payments: VE, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL,
+    invoices: VE, 'pay-apps': FULL, payments: VE, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL, selections: FULL,
     permits: FULL, inspections: FULL, 'mark-ready': VE, submittals: FULL, compliance: V, reports: N,
     dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
     // Runs the job and is who the client asks. Regenerating is theirs too - a
@@ -180,7 +187,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   office_staff: {
     plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: V, rfis: V,
-    invoices: FULL, 'pay-apps': FULL, payments: FULL, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL,
+    invoices: FULL, 'pay-apps': FULL, payments: FULL, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL, selections: FULL,
     permits: VE, inspections: VE, 'mark-ready': VE, submittals: VE, compliance: FULL, reports: V,
     dashboard: V, projects: V, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
     // The people who actually email a client their link.
@@ -191,7 +198,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   field_supervisor: {
     plans: V, schedule: V, tasks: VE, progress: VE, 'daily-logs': VCE, time: VCE,
     team: V, bids: N, rfis: V,
-    invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
+    invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N, selections: N,
     permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: VCE, materials: VCE, approvals: V,
     // The crew does not hand the owner a billing portal. Explicit N rather than
@@ -204,7 +211,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   worker: {
     plans: V, schedule: N, tasks: VE, progress: V, 'daily-logs': VC, time: VC,
     team: N, bids: N, rfis: N,
-    invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
+    invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N, selections: N,
     permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     // APPROVALS IS A WINDOW ONTO INVOICES AND RFIs, and this role is denied
     // both - so `view` here granted a screen that could only ever be empty for
@@ -220,7 +227,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
   read_only: {
     plans: V, schedule: V, tasks: V, progress: V, 'daily-logs': V, time: VC,
     team: V, bids: N, rfis: V,
-    invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N,
+    invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N, selections: N,
     permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: V, materials: V, approvals: V,
     // This is the VENDOR role - an invited subcontractor. The client portal
@@ -249,12 +256,27 @@ export function buildAllNone(): PermMap {
   return m
 }
 
+// A resource split out of another one AFTER companies started saving their own
+// role maps. A stored map written before the split does not name the new key,
+// and a key a map never names resolves to nothing - so a company that had
+// customised Project Manager would have lost Selections the day it became a
+// permission. Absent means "inherit what the parent said", never "no"; once the
+// company saves the role again, the key is written and this stops applying.
+export const INHERITS_FROM: Record<string, string> = { selections: 'budget' }
+
+export function withInheritedResources(map: PermMap): PermMap {
+  for (const [child, parent] of Object.entries(INHERITS_FROM)) {
+    if (!(child in map) && map[parent]) map[child] = { ...map[parent] }
+  }
+  return map
+}
+
 // A company can override a built-in role's hardcoded defaults, or define a
 // brand-new role (a "class") that never existed in code. `companyRoleMap` is
 // keyed by role_key -> a full PermMap, loaded from the company_roles table.
 export function resolveRoleBase(role: string | null | undefined, companyRoleMap?: Record<string, PermMap> | null): PermMap {
   const key = role ?? ''
-  if (companyRoleMap && companyRoleMap[key]) return JSON.parse(JSON.stringify(companyRoleMap[key]))
+  if (companyRoleMap && companyRoleMap[key]) return withInheritedResources(JSON.parse(JSON.stringify(companyRoleMap[key])))
   if (isBuiltinRole(role)) return getRoleDefaults(role)
   return buildAllNone()
 }

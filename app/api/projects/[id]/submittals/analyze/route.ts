@@ -2,6 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { guardScan, scanDenied, scanActorFor } from '@/lib/scan-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -17,12 +18,14 @@ const admin = () => createClient(
 )
 
 export async function POST(request: Request, { params: _params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Was: any signed-in account. Reading a tech sheet is the first half of adding
+  // a submittal, so it takes the same gate as adding one.
+  const gate = await requirePermission(db, request, 'submittals', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, _params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   const scan = await guardScan(db, await scanActorFor(db, user.id), 'submittal', _params.id)
   if (scanDenied(scan)) return scan.denied

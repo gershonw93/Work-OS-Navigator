@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { bidRequestOnJob } from '@/lib/writes/bid-request'
 import { bidInviteEmail, bidScopeLine } from '@/lib/bid-invite-email'
 import { deliverLink, readSendBody } from '@/lib/send-link'
 import { notify } from '@/lib/notify'
@@ -27,11 +29,17 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const db = admin()
   const { data: { user } } = await db.auth.getUser(auth)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'request-quotes', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const elsewhere = await bidRequestOnJob(db, params.id, params.reqId)
+  if (elsewhere) return NextResponse.json(elsewhere.body, { status: elsewhere.status })
 
   const { to, note } = await readSendBody(request)
 
   const [{ data: invite }, { data: req }, { data: me }] = await Promise.all([
-    db.from('bid_invites').select('token, vendor_name, status, vendor_company_id').eq('id', params.inviteId).maybeSingle(),
+    db.from('bid_invites').select('token, vendor_name, status, vendor_company_id').eq('id', params.inviteId).eq('bid_request_id', params.reqId).maybeSingle(),
     db.from('bid_requests').select('title, trade, due_date').eq('id', params.reqId).maybeSingle(),
     db.from('profiles').select('full_name, company_id').eq('id', user.id).maybeSingle(),
   ])

@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { bidRequestOnJob } from '@/lib/writes/bid-request'
 import { randomUUID } from 'crypto'
 import { notify } from '@/lib/notify'
 import { appOrigin } from '@/lib/app-url'
@@ -33,6 +35,12 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'request-quotes', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const elsewhere = await bidRequestOnJob(db, params.id, params.reqId)
+  if (elsewhere) return NextResponse.json(elsewhere.body, { status: elsewhere.status })
 
   const { invitees } = await request.json() as { invitees: { company_id?: string | null; name?: string; email?: string }[] }
   if (!invitees?.length) return NextResponse.json({ error: 'No invitees' }, { status: 400 })
@@ -177,6 +185,12 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'request-quotes', 'delete')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const elsewhere = await bidRequestOnJob(db, params.id, params.reqId)
+  if (elsewhere) return NextResponse.json(elsewhere.body, { status: elsewhere.status })
 
   const inviteId = new URL(request.url).searchParams.get('inviteId')
   if (!inviteId) return NextResponse.json({ error: 'inviteId required' }, { status: 400 })

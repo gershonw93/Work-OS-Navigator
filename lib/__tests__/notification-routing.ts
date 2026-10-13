@@ -123,7 +123,9 @@ for (const [file, label] of [
   ['app/api/cron/compliance-reminders/route.ts', 'compliance reminders'],
   ['app/api/projects/[id]/inspections/[inspectionId]/route.ts', 'inspections'],
 ] as const) {
-  const src = code(file)
+  // The RFI route's body moved to lib/writes/rfi.ts, shared with Claude.
+  const src = code(file) + (label === 'RFIs' ? code('lib/writes/rfi.ts') : '')
+    + (label === 'inspections' ? code('lib/writes/inspection.ts') : '')
   ok(/audienceFor\(/.test(src), `${label} routes through audienceFor`)
   ok(!everyone.test(src), `...and no longer notifies every profile at the company`)
 }

@@ -28,7 +28,7 @@ import { whoToCall, callLine, callTargetsFor } from '../inspection-contacts'
 import { ok, done, code, read, readCombined } from './_helpers'
 
 const page = code('app/(dashboard)/projects/[id]/inspections/page.tsx')
-const patch = code('app/api/projects/[id]/inspections/[inspectionId]/route.ts')
+const patch = (code('app/api/projects/[id]/inspections/[inspectionId]/route.ts') + code('lib/writes/inspection.ts'))
 
 // ── a booking is a thing somebody DID ───────────────────────────────────────
 ok(scheduleProblem('scheduled', '', 'Newark BD') !== null,

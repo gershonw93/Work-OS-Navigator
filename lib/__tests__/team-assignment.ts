@@ -222,9 +222,9 @@ void (async () => {
       'an address two accounts share links to NEITHER, rather than to a guess')
   })()
 
-  ok(/profileIdForEmail/.test(code('app/api/projects/[id]/team/route.ts')),
+  ok(/profileIdForEmail/.test(code('app/api/projects/[id]/team/route.ts') + code('lib/writes/team-member.ts')),
     'the add-to-team route asks the shared lookup')
-  ok(!/\.eq\('email', email\)/.test(code('app/api/projects/[id]/team/route.ts')),
+  ok(!/\.eq\('email', email\)/.test(code('app/api/projects/[id]/team/route.ts') + code('lib/writes/team-member.ts')),
     '...and no longer matches an address case-sensitively')
 
   // ── ONE HOME: no copy of the chain left anywhere ────────────────────────────

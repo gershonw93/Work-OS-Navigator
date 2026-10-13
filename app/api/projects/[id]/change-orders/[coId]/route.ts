@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logActivity } from '@/lib/log-activity'
-import { requirePermission, denied } from '@/lib/api-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { updateChangeOrder } from '@/lib/writes/change-order'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,79 +12,21 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string; coId: string } },
 ) {
-  const gate = await requirePermission(admin(), request, 'change-orders', 'edit')
-  if (denied(gate)) return gate.denied
-
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
+  const gate = await requirePermission(db, request, 'change-orders', 'edit')
+  if (denied(gate)) return gate.denied
+  // THE GC'S MONEY. Approving folds the amount into the subcontract's contract,
+  // and a sub's admin holds `change-orders: edit` at their own company - so
+  // without this a sub on the job could approve a change to their own contract.
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const body = await request.json()
-  const { status, review_notes, budget_line_item_id } = body
-
-  // Load the current CO so we can fold/unfold its amount into the linked sub.
-  const { data: existing } = await db
-    .from('change_orders').select('*').eq('id', params.coId).eq('project_id', params.id).single()
-  if (!existing) return NextResponse.json({ error: 'Change order not found' }, { status: 404 })
-
-  const updates: Record<string, any> = {}
-  if (status !== undefined) updates.status = status
-  if (review_notes !== undefined) updates.review_notes = review_notes
-  // Filing an approved change order against a budget line, from the Budget
-  // page's "Not on a budget line" panel. An approved change with no line is
-  // real money the rows below cannot show, and this is how it gets a home.
-  if (budget_line_item_id !== undefined) updates.budget_line_item_id = budget_line_item_id || null
-
-  // When a change order is tied to a subcontract, approving it adds its amount
-  // to that subcontract's contract_amount; un-approving removes it. The
-  // applied_to_contract flag guarantees this happens exactly once.
-  const newStatus = status !== undefined ? status : existing.status
-  if (existing.subcontract_id) {
-    const isApplied = !!existing.applied_to_contract
-    const shouldApply = newStatus === 'approved'
-    if (shouldApply !== isApplied) {
-      const { data: sub } = await db.from('subcontracts').select('contract_amount').eq('id', existing.subcontract_id).single()
-      if (sub) {
-        const delta = shouldApply ? Number(existing.amount || 0) : -Number(existing.amount || 0)
-        await db.from('subcontracts').update({ contract_amount: Number(sub.contract_amount || 0) + delta }).eq('id', existing.subcontract_id)
-        updates.applied_to_contract = shouldApply
-      }
-    }
-  }
-
-  let { data: changeOrder, error } = await db
-    .from('change_orders')
-    .update(updates)
-    .eq('id', params.coId)
-    .eq('project_id', params.id)
-    .select()
-    .single()
-
-  // Older DBs without the applied_to_contract column: retry without the flag.
-  if (error && (error as any).code === '42703') {
-    delete updates.applied_to_contract
-    const retry = await db.from('change_orders').update(updates).eq('id', params.coId).eq('project_id', params.id).select().single()
-    changeOrder = retry.data; error = retry.error
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const actorName = (profile as any)?.full_name ?? 'Someone'
-  const message = status
-    ? `Change order "${changeOrder.title}" marked ${status}`
-    : `Change order "${changeOrder.title}" notes updated`
-
-  await logActivity(db, params.id, actorName, 'change_order_updated', message, {
-    change_order_id: changeOrder.id,
-    status,
-  })
-
-  return NextResponse.json({ changeOrder })
+  // Everything after the gate is `updateChangeOrder`, which Claude's MCP server
+  // calls too (with notes and the budget line only - never the status).
+  // `if (budget_line_item_id !== undefined) updates.budget_line_item_id` lives there.
+  const result = await updateChangeOrder(db, { userId: gate.actor.userId, projectId: params.id, coId: params.coId, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 export async function DELETE(
@@ -93,6 +35,8 @@ export async function DELETE(
 ) {
   const gate = await requirePermission(admin(), request, 'change-orders', 'edit')
   if (denied(gate)) return gate.denied
+  const owned = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

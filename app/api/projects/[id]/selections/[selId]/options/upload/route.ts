@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { selectionOnJob } from '@/lib/writes/selection'
 
 export const runtime = 'nodejs'
 
@@ -23,12 +25,16 @@ const MAX_BYTES = 8 * 1024 * 1024
  * token link with no account.
  */
 export async function POST(request: Request, { params }: { params: { id: string; selId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Used to ask only "is somebody signed in" - and it writes a file under any
+  // job's path and a URL onto any option. `selections: edit`, the job is the
+  // caller's company's, and the selection is on that job.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'selections', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const where = await selectionOnJob(db, params.id, params.selId)
+  if (where) return NextResponse.json(where.body, { status: where.status })
 
   const form = await request.formData()
   const file = form.get('file') as File | null

@@ -23,8 +23,10 @@ ok(missingMemberBody({ name: 'A', role: 'Foreman' }) === null && !!missingMember
 ok(JOB_ROLES.includes('Foreman'), 'job roles have one home')
 
 // ── the routes ask who, and whose job ───────────────────────────────────────
+// The bodies after the gate live in lib/writes/team-member.ts, shared with Claude.
+const teamLib = code('lib/writes/team-member.ts')
 const post = code('app/api/projects/[id]/team/route.ts')
-const postFn = post.slice(post.indexOf('export async function POST'))
+const postFn = post.slice(post.indexOf('export async function POST')) + teamLib.slice(0, teamLib.indexOf('export async function updateTeamMember'))
 ok(postFn.indexOf("requirePermission(db, request, 'team', 'edit')") > 0
   && postFn.indexOf('ownedProject(') > 0
   && postFn.indexOf('ownedProject(') < postFn.indexOf('.insert('),
@@ -34,7 +36,7 @@ const one = code('app/api/projects/[id]/team/[memberId]/route.ts')
 for (const verb of ['PATCH', 'DELETE']) {
   const fn = one.slice(one.indexOf(`export async function ${verb}`))
   const end = verb === 'PATCH' ? fn.indexOf('export async function DELETE') : fn.length
-  const body = fn.slice(0, end)
+  const body = fn.slice(0, end) + (verb === 'PATCH' ? teamLib.slice(teamLib.indexOf('export async function updateTeamMember')) : '')
   const write = verb === 'PATCH' ? body.indexOf('.update(') : body.indexOf('.delete()')
   ok(body.indexOf("requirePermission(db, request, 'team', 'edit')") > 0 && body.indexOf('ownedProject(') > 0
     && body.indexOf('ownedProject(') < write, `${verb} /team/[memberId] takes team:edit and ownership before writing`)

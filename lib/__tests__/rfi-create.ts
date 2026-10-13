@@ -8,7 +8,8 @@
 import { ok, done, code } from './_helpers'
 
 const page = code('app/(dashboard)/projects/[id]/rfis/page.tsx')
-const route = code('app/api/projects/[id]/rfis/route.ts')
+// The route keeps the gate; the body moved to lib/writes/rfi.ts (shared with Claude).
+const route = code('app/api/projects/[id]/rfis/route.ts') + code('lib/writes/rfi.ts')
 
 ok(/> New RFI</.test(page), 'THE GAP: the GC RFI page has a New RFI control')
 ok(/!\(!permsLoading && !permsError && !can\('rfis', 'create'\)\)/.test(page),

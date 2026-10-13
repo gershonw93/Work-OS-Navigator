@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logActivity } from '@/lib/log-activity'
-import { permitProblem } from '@/lib/permit-rules'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { createPermit } from '@/lib/writes/permit'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,12 +9,12 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // GATED. This answered anybody with a login and an id - a worker or an
+  // invited sub, neither of whom holds `permits: view`, could read every
+  // permit on the job by pasting the URL. A guard on the menu is not a guard.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'permits', 'view')
+  if (denied(gate)) return gate.denied
 
   const { data: permits, error } = await db
     .from('permits')
@@ -27,18 +27,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // `edit`, not `create`: Office Staff hold permits VE and file permits today.
+  // And the job must be the caller's company's own - a permit is the GC's
+  // paperwork with the township, and a sub's admin holds `permits: edit` at
+  // their own company.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db
-    .from('profiles')
-    .select('full_name')
-    .eq('id', user.id)
-    .single()
+  const gate = await requirePermission(db, request, 'permits', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const formData = await request.formData()
   const permit_type = formData.get('permit_type') as string
@@ -53,68 +50,36 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const notes = formData.get('notes') as string | null
   const file = formData.get('file') as File | null
 
-  // A BLANK PERMIT IS NOT A PERMIT. A fully empty submit filed one reading
-  // "Building / pending" - neither word typed by anybody, both of them the
-  // form's dropdown defaults. Asked here as well as on the form because the
-  // form is not the only door, and the rule is pure so the two cannot disagree.
-  const problem = permitProblem({
-    permit_type, permit_number, description, issuing_authority,
-    status, issued_date, expiry_date,
+  // Uploaded only once `createPermit` has accepted the permit, as it always was.
+  const uploadFile = file && file.size > 0
+    ? async (): Promise<{ url: string | null } | { error: string }> => {
+      const timestamp = Date.now()
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const storagePath = `${params.id}/${timestamp}-${safeName}`
+      const arrayBuffer = await file.arrayBuffer()
+
+      const { error: uploadError } = await db.storage
+        .from('permits')
+        .upload(storagePath, arrayBuffer, { contentType: file.type, upsert: true })
+
+      if (uploadError) return { error: uploadError.message }
+
+      const { data: signed } = await db.storage
+        .from('permits')
+        .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10)
+
+      return { url: signed?.signedUrl ?? null }
+    }
+    : undefined
+
+  // Everything after reading the form is `createPermit`, which Claude's MCP
+  // server calls too - including the `permitProblem(` check on a blank permit.
+  const result = await createPermit(db, {
+    userId: gate.actor.userId, projectId: params.id, uploadFile,
+    fields: {
+      permit_type, permit_number, description, status, issued_date, expiry_date,
+      issuing_authority, inspector_name, inspector_phone, notes,
+    },
   })
-  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
-
-  let file_url: string | null = null
-
-  if (file && file.size > 0) {
-    const timestamp = Date.now()
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const storagePath = `${params.id}/${timestamp}-${safeName}`
-    const arrayBuffer = await file.arrayBuffer()
-
-    const { error: uploadError } = await db.storage
-      .from('permits')
-      .upload(storagePath, arrayBuffer, { contentType: file.type, upsert: true })
-
-    if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
-
-    const { data: signed } = await db.storage
-      .from('permits')
-      .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10)
-
-    file_url = signed?.signedUrl ?? null
-  }
-
-  const { data: permit, error } = await db
-    .from('permits')
-    .insert({
-      project_id: params.id,
-      permit_type,
-      permit_number: permit_number || null,
-      description: description || null,
-      status: status || 'pending',
-      issued_date: issued_date || null,
-      expiry_date: expiry_date || null,
-      issuing_authority: issuing_authority || null,
-      inspector_name: inspector_name || null,
-      inspector_phone: inspector_phone || null,
-      notes: notes || null,
-      file_url,
-    })
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const actorName = (profile as any)?.full_name ?? 'Someone'
-  const activityMessage = `Permit added: ${permit_type}${permit_number ? ' #' + permit_number : ''}`
-  await logActivity(
-    db,
-    params.id,
-    actorName,
-    'permit_added',
-    activityMessage,
-    { permit_id: permit.id, permit_type, permit_number },
-  )
-
-  return NextResponse.json({ permit }, { status: 201 })
+  return NextResponse.json(result.body, { status: result.status })
 }

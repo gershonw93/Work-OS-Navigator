@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { coerceLines } from '@/lib/item-list'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { createBidRequest } from '@/lib/writes/bid-request'
 
 export const runtime = 'nodejs'
 
@@ -9,12 +10,20 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Request Quotes. BOTH QUESTIONS, on both handlers: the permission
+// (`request-quotes` - buyout work), and that the caller's company OWNS the job.
+// This used to answer anybody with a login, and a sub invited onto the job is
+// exactly who must not read the scope and the other subs pricing against them.
+// Same pair as the thread route under it (`invites/[inviteId]/messages`).
+// ─────────────────────────────────────────────────────────────────────────────
+
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'request-quotes', 'view')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const { data, error } = await db
     .from('bid_requests')
@@ -28,58 +37,42 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'request-quotes', 'create')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const form = await request.formData()
-  const title = form.get('title') as string
-  if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
 
-  // The scope questions, sent as JSON in the multipart form. Stored on the
-  // request so it keeps saying what it said when it went out.
+  // The scope questions, sent as JSON in the multipart form.
   const jsonField = (k: string) => {
     try { const v = JSON.parse((form.get(k) as string) || '[]'); return Array.isArray(v) ? v : [] }
     catch { return [] }
   }
-
-  const base = {
-    project_id: params.id,
-    title,
-    trade: (form.get('trade') as string) || null,
-    description: (form.get('description') as string) || null,
-    due_date: (form.get('due_date') as string) || null,
-    created_by: user.id,
-  }
-  const withScope = {
-    ...base,
-    package_type: (form.get('package_type') as string) || 'turnkey',
-    material_by: (form.get('material_by') as string) || 'sub',
-    included: jsonField('included'),
-    excluded: jsonField('excluded'),
-    ask_for: jsonField('ask_for'),
-    item_list: coerceLines(jsonField('item_list')),
-  }
-
-  let { data: req, error } = await db.from('bid_requests').insert(withScope).select().single()
-  // Pre-migration fallback: scope columns may not exist yet.
-  if (error && (error as any).code === '42703') {
-    const retry = await db.from('bid_requests').insert(base).select().single()
-    req = retry.data; error = retry.error
-  }
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // Attach already-saved project plans (no re-upload)
+  let existing: { file_url: string; file_name?: string }[] = []
   const existingRaw = form.get('existing_attachments') as string | null
   if (existingRaw) {
-    try {
-      const existing = JSON.parse(existingRaw) as { file_url: string; file_name?: string }[]
-      const rows = existing.filter(e => e.file_url).map(e => ({ bid_request_id: req.id, file_url: e.file_url, file_name: e.file_name ?? null }))
-      if (rows.length) await db.from('bid_request_attachments').insert(rows)
-    } catch { /* ignore malformed */ }
+    try { const v = JSON.parse(existingRaw); if (Array.isArray(v)) existing = v } catch { /* ignore malformed */ }
   }
+
+  const result = await createBidRequest(db, {
+    userId: gate.actor.userId, projectId: params.id, existingAttachments: existing,
+    fields: {
+      title: (form.get('title') as string) || null,
+      trade: (form.get('trade') as string) || null,
+      description: (form.get('description') as string) || null,
+      due_date: (form.get('due_date') as string) || null,
+      package_type: (form.get('package_type') as string) || null,
+      material_by: (form.get('material_by') as string) || null,
+      included: jsonField('included'),
+      excluded: jsonField('excluded'),
+      ask_for: jsonField('ask_for'),
+      item_list: jsonField('item_list'),
+    },
+  })
+  if (result.status >= 400) return NextResponse.json(result.body, { status: result.status })
+  const req = result.body.request
 
   // Newly-uploaded plans / attachments
   const files = form.getAll('attachments') as File[]

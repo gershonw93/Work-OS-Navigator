@@ -97,8 +97,8 @@ ok(/const problem = permitProblem\(\{/.test(permits), 'the permit form asks befo
 ok(/const problem = requestProblem\(inspType, requestedDate\)/.test(inspections),
   'the inspection form asks before it sends')
 
-const permitRoute = code('app/api/projects/[id]/permits/route.ts')
-const permitPatch = code('app/api/projects/[id]/permits/[permitId]/route.ts')
+const permitRoute = (code('app/api/projects/[id]/permits/route.ts') + code('lib/writes/permit.ts'))
+const permitPatch = (code('app/api/projects/[id]/permits/[permitId]/route.ts') + code('lib/writes/permit.ts'))
 const inspRoute = (code('app/api/projects/[id]/inspections/route.ts') + code('lib/writes/inspection.ts'))
 ok(/permitProblem\(/.test(permitRoute), 'and the route asks too - the form is not the only door')
 ok(/permitProblem\(after\)/.test(permitPatch),

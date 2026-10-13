@@ -1,10 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { profileIdForEmail } from '@/lib/my-jobs'
-import { logActivity } from '@/lib/log-activity'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
-import { missingMemberBody } from '@/lib/team-member'
-import { friendlyDbError } from '@/lib/db-error'
+import { addTeamMember } from '@/lib/writes/team-member'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -69,37 +66,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const owned = await ownedProject(db, gate.actor, params.id, 'id')
   if ('denied' in owned) return owned.denied
 
-  // SQL: ALTER TABLE project_team_members ADD COLUMN IF NOT EXISTS profile_id uuid REFERENCES profiles(id);
-  // SQL: ALTER TABLE project_activity ADD COLUMN IF NOT EXISTS actor_id uuid;
-
+  // Everything after the gate is `addTeamMember` (lib/writes/team-member.ts),
+  // the same function Claude's add_team_member calls.
   const body = await request.json().catch(() => ({}))
-  const missing = missingMemberBody(body)
-  if (missing) return NextResponse.json({ error: missing }, { status: 400 })
-  const name = String(body.name).trim()
-  const role = String(body.role).trim()
-  const phone = typeof body.phone === 'string' && body.phone.trim() ? body.phone.trim() : null
-  const email = typeof body.email === 'string' && body.email.trim() ? body.email.trim() : null
-
-  // Auto-link to a real profile so the row carries a foreign key rather than a
-  // string somebody typed. Case-insensitively: this was `.eq('email', email)`,
-  // so "Jay@..." against an account stored as "jay@..." wrote a NULL link and
-  // left the person resolving by string match for ever.
-  const profileId = await profileIdForEmail(db, email)
-
-  const { data, error } = await db
-    .from('project_team_members')
-    .insert({ project_id: params.id, name, role, phone, email, profile_id: profileId })
-    .select()
-    .single()
-
-  if (error) {
-    console.error('[team POST]', error)
-    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
-  }
-
-  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-  await logActivity(db, params.id, profile?.full_name || 'Someone', 'team_member_added',
-    `${name} added to the team as ${role}`, { member_id: data.id, name, role }, user.id)
-
-  return NextResponse.json({ member: data })
+  const result = await addTeamMember(db, { userId: user.id, projectId: params.id, body })
+  return NextResponse.json(result.body, { status: result.status })
 }

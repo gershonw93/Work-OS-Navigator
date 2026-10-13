@@ -1,18 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { customerForNewProject } from '@/lib/project-customer'
-import { housesToFollow } from '@/lib/development-customer'
 import { getActor, actorCan } from '@/lib/server-permissions'
-import { asContractType } from '@/lib/contract-type'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { ownsProject } from '@/lib/project-access'
 import { friendlyDbError } from '@/lib/db-error'
-import { guardActivation } from '@/lib/activation-check'
-import { isProjectStatus } from '@/lib/activation'
 import { billingLock } from '@/lib/api-guard'
-import { projectSlotProblem } from '@/lib/billing-read'
-import { COUNTED_PROJECT_STATUSES } from '@/lib/plan-limits'
-import { cleanLotDetails } from '@/lib/lot-details'
+import { updateProject } from '@/lib/writes/project'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -84,193 +77,12 @@ export async function PATCH(
     db, actor as any, params.id, 'id, is_site, customer_id')
   if ('denied' in owned) return owned.denied
 
+  // Everything after the gate is `updateProject` (lib/writes/project.ts) -
+  // the activation pre-flight, the status check and THE PROJECT CAP on a job
+  // coming back into a counted status, so Claude's door meets all three too.
   const body = await request.json()
-  const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount, contract_type, contractor_fee_pct, fee_on_materials } = body
-
-  // Going Active is the one transition worth stopping on, and it had NO gate
-  // at all: `updates.status = status` took any string, from any of three doors,
-  // and only one of them ever showed the pre-flight. So a Building To Sell job
-  // went live with no budget and no sale price and nothing said a word.
-  //
-  // Checked here rather than in the browser because the browser is what was
-  // bypassed. The concerns have to be named back in `acknowledge` - a caller
-  // cannot wave through a job it never looked at.
-  if (isProjectStatus(status) && status === 'active') {
-    const { data: before } = await db.from('projects').select('status').eq('id', params.id).maybeSingle()
-    if (((before as any)?.status ?? 'planning') === 'planning') {
-      const refusal = await guardActivation(db, params.id, body.acknowledge)
-      if (refusal) return refusal
-    }
-  }
-
-  const updates: Record<string, unknown> = {}
-
-  // name, type, status, billing_mode and default_retainage_pct are NOT NULL in
-  // the schema, so `!= null` rather than `!== undefined`: a client sending null
-  // is asking to unset something that cannot be unset, and Postgres rejects the
-  // WHOLE update with a constraint message no user can act on. Null means
-  // "leave it as it is".
-  //
-  // This is not hypothetical - switching a job to simple invoicing sent
-  // default_retainage_pct: null, and the save died on a job that had never
-  // billed anything.
-  if (name != null) updates.name = name
-  if (address !== undefined) updates.address = address
-  if (lat !== undefined && lng !== undefined && lat != null && lng != null) { updates.lat = lat; updates.lng = lng; updates.geocoded_address = address }
-  if (client !== undefined) updates.client = client
-  if (type != null) updates.type = type
-  // Validated against the known set. Any string used to write straight through
-  // - the same hole #359 closed on pay-app status, still open one table over.
-  if (status != null) {
-    if (!isProjectStatus(status)) {
-      return NextResponse.json({ error: 'That is not a project status.' }, { status: 400 })
-    }
-    // BRINGING A JOB BACK IS OPENING A SLOT. Metering only the create route
-    // would leave the eleventh active job one status change away - and the
-    // status change is how a finished job comes back, so it is the likelier
-    // door of the two. Only asked when the move is INTO a counted status from
-    // outside one; re-saving an active job as active must not be refused for
-    // the slot it is already occupying.
-    const { data: was } = await db.from('projects')
-      .select('status, gc_company_id, is_site').eq('id', params.id).maybeSingle()
-    const prev = (was as { status?: string; gc_company_id?: string; is_site?: boolean } | null) ?? null
-    const wasCounted = (COUNTED_PROJECT_STATUSES as readonly string[]).includes(prev?.status ?? '')
-    const willCount = (COUNTED_PROJECT_STATUSES as readonly string[]).includes(status)
-    // A site is a folder and never holds a slot (`readUsage`), so reopening
-    // one must not be refused for want of one.
-    if (willCount && !wasCounted && !prev?.is_site) {
-      const slot = await projectSlotProblem(db, prev?.gc_company_id)
-      if (slot) return NextResponse.json({ error: slot, billing: 'project_limit' }, { status: 402 })
-    }
-    updates.status = status
-  }
-  if (start_date !== undefined) updates.start_date = start_date
-  if (end_date !== undefined) updates.end_date = end_date
-  // THE CUSTOMER IS A CARD, NOT A STRING. A picked id must be one of this
-  // company's customers; a typed new name becomes one (`customerForNewProject`,
-  // the create form's rule). Either way `client` - what the header prints -
-  // follows the card, so the two homes of this fact cannot disagree.
-  let customerName: string | null = null
-  if (typeof body.new_customer_name === 'string' && body.new_customer_name.trim()) {
-    const made = await customerForNewProject(db, actor?.companyId ?? '', body.new_customer_name)
-    if (!made) return NextResponse.json({ error: 'Could not add that customer. Try again, or pick one from the list.' }, { status: 500 })
-    updates.customer_id = made.id
-    updates.client = customerName = made.name
-  } else if (customer_id !== undefined) {
-    if (customer_id) {
-      const { data: c } = await db.from('customers').select('id, name')
-        .eq('id', customer_id).eq('gc_company_id', actor?.companyId ?? '').maybeSingle()
-      if (!c) return NextResponse.json({ error: 'That customer is not one of yours. Reload and pick again.' }, { status: 400 })
-      updates.customer_id = c.id
-      updates.client = customerName = (c as any).name
-    } else {
-      updates.customer_id = null
-      updates.client = null
-    }
-  }
-  if (interior_sqft !== undefined) updates.interior_sqft = interior_sqft
-  if (exterior_sqft !== undefined) updates.exterior_sqft = exterior_sqft
-  if (billing_mode != null) updates.billing_mode = billing_mode
-  if (default_retainage_pct != null) updates.default_retainage_pct = default_retainage_pct
-  if (labor_rate !== undefined) updates.labor_rate = Math.max(0, Number(labor_rate) || 0)
-  // Kept out of `address` on purpose - an address with "Unit 3" on the end
-  // can't be geocoded, which is what stranded bulk-created jobs off the map.
-  if (unit !== undefined) updates.unit = (unit ?? '').toString().trim() || null
-  if (floor !== undefined) updates.floor = (floor ?? '').toString().trim() || null
-  // The cost-plus rate, as a fraction. Clamped rather than trusted - this
-  // drives what a client is billed.
-  if (contractor_fee_pct !== undefined && contractor_fee_pct !== null) {
-    updates.contractor_fee_pct = Math.max(0, Math.min(Number(contractor_fee_pct) || 0, 1))
-  }
-  // How the job pays. Validated against the same list the CHECK constraint
-  // uses, so a bad value is a no-op rather than a 500 the user cannot act on.
-  if (contract_type !== undefined) {
-    updates.contract_type = asContractType(contract_type)
-  }
-  // Does the cost-plus fee apply to material receipts on this job?
-  //
-  // Per project because it is per CONTRACT - some mark up everything the job
-  // costs, some pass materials through. Migration 091, defaulting to false,
-  // which is the behaviour every existing job already had.
-  if (fee_on_materials !== undefined) {
-    updates.fee_on_materials = !!fee_on_materials
-  }
-  // Lot details (migration 131). Only the keys the caller SENT - a form that
-  // never showed the lot section must not wipe what a lot list wrote.
-  Object.assign(updates, cleanLotDetails(body))
-  // Projected revenue. Null means "no figure yet", which is different from 0.
-  if (sellout_amount !== undefined) {
-    updates.sellout_amount = sellout_amount === null || sellout_amount === ''
-      ? null
-      : Math.max(0, Number(sellout_amount) || 0)
-  }
-
-  let { data, error } = await db
-    .from('projects')
-    .update(updates)
-    .eq('id', params.id)
-    .select()
-    .single()
-
-  // Pre-migration fallback: drop columns that may not exist yet, one class at a time.
-  if (error && (error as any).code === '42703' && 'labor_rate' in updates) {
-    const { labor_rate: _lr, ...noRate } = updates
-    const retry = await db.from('projects').update(noRate).eq('id', params.id).select().single()
-    data = retry.data; error = retry.error
-  }
-  if (error && (error as any).code === '42703' && 'sellout_amount' in updates) {
-    const { sellout_amount: _s, ...noSellout } = updates
-    const retry = await db.from('projects').update(noSellout).eq('id', params.id).select().single()
-    data = retry.data; error = retry.error
-  }
-  if (error && (error as any).code === '42703' && 'fee_on_materials' in updates) {
-    const { fee_on_materials: _f, ...noFee } = updates
-    const retry = await db.from('projects').update(noFee).eq('id', params.id).select().single()
-    data = retry.data; error = retry.error
-  }
-  if (error && (error as any).code === '42703' && 'contract_type' in updates) {
-    const { contract_type: _c, ...noContract } = updates
-    const retry = await db.from('projects').update(noContract).eq('id', params.id).select().single()
-    data = retry.data; error = retry.error
-  }
-  if (error && (error as any).code === '42703' && ('unit' in updates || 'floor' in updates)) {
-    const { unit: _u, floor: _f, ...noUnit } = updates
-    const retry = await db.from('projects').update(noUnit).eq('id', params.id).select().single()
-    data = retry.data; error = retry.error
-  }
-  if (error && (error as any).code === '42703' && ('billing_mode' in updates || 'default_retainage_pct' in updates)) {
-    const { billing_mode: _b, default_retainage_pct: _r, ...noBilling } = updates
-    const retry = await db.from('projects').update(noBilling).eq('id', params.id).select().single()
-    data = retry.data; error = retry.error
-  }
-  if (error && (error as any).code === '42703' && ('interior_sqft' in updates || 'exterior_sqft' in updates)) {
-    const { interior_sqft: _i, exterior_sqft: _e, billing_mode: _b2, default_retainage_pct: _r2, ...withoutSqft } = updates
-    const retry = await db.from('projects').update(withoutSqft).eq('id', params.id).select().single()
-    data = retry.data; error = retry.error
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // A DEVELOPMENT'S CUSTOMER IS ITS HOUSES' CUSTOMER - unless a house was given
-  // its own (lib/development-customer.ts says which).
-  let houses: { updated: number; kept: string[] } | undefined
-  if (owned.project.is_site && 'customer_id' in updates && updates.customer_id !== owned.project.customer_id) {
-    const { data: kids, error: kErr } = await db.from('projects').select('id, name, customer_id').eq('parent_project_id', params.id)
-    if (kErr) {
-      console.error('[projects] could not read the houses to pass the customer on', kErr.message)
-    } else {
-      const { follow, kept } = housesToFollow((kids ?? []) as any, owned.project.customer_id)
-      if (follow.length) {
-        const { error: uErr } = await db.from('projects')
-          .update({ customer_id: updates.customer_id ?? null, client: updates.customer_id ? customerName : null })
-          .in('id', follow)
-        if (uErr) console.error('[projects] could not pass the customer on to the houses', uErr.message)
-        else houses = { updated: follow.length, kept }
-      } else houses = { updated: 0, kept }
-    }
-  }
-
-  return NextResponse.json({ project: data, ...(houses ? { houses } : {}) })
+  const result = await updateProject(db, { companyId: actor?.companyId ?? null, projectId: params.id, owned, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 export async function DELETE(

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -12,6 +13,13 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string; packageId: string } },
 ) {
+  // The old Bids tab (folded into Request Quotes by 081). It answered any
+  // login; it now asks `bids` and that the caller's company owns the job.
+  const gate = await requirePermission(admin(), request, 'bids', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -45,6 +53,13 @@ export async function DELETE(
   request: Request,
   { params }: { params: { id: string; packageId: string } },
 ) {
+  // The old Bids tab (folded into Request Quotes by 081). It answered any
+  // login; it now asks `bids` and that the caller's company owns the job.
+  const gate = await requirePermission(admin(), request, 'bids', 'delete')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

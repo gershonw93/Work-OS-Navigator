@@ -1,48 +1,51 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { cleanTypeList } from '@/lib/inspection-types'
+import { requirePermission, denied, billingLock } from '@/lib/api-guard'
+import { directoryContactProblem, updateDirectoryContact } from '@/lib/writes/directory-contact-edit'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
+// THESE ASKED ONLY "ARE YOU SIGNED IN" - and a Directory contact is a row in
+// `companies`, the table that holds every customer of ours too, so any account
+// could rename or delete ANY company by its id, another GC's own included. Now:
+//   - the permission that opens the Directory (`directory: view`). Not `edit`:
+//     the Edit and Delete controls have always been offered to everybody who
+//     can open the Directory, and the Project Manager, Office Staff and Field
+//     Supervisor who use them hold `view` only - `edit` would take a typo fix
+//     away from all three. Whether they SHOULD is a permissions decision, not
+//     one to make silently in a route.
+//   - the read-only billing lock, asked by hand because `view` does not carry it;
+//   - and WHOSE CONTACT IT IS: one this company added (`directoryContactProblem`).
+async function directoryGate(db: ReturnType<typeof admin>, request: Request, companyId: string) {
+  const gate = await requirePermission(db, request, 'directory', 'view')
+  if (denied(gate)) return { denied: gate.denied }
+  const locked = await billingLock(db, gate.actor.companyId)
+  if (locked) return { denied: locked }
+  const refused = await directoryContactProblem(db, { myCompanyId: gate.actor.companyId, companyId })
+  if (refused) return { denied: NextResponse.json(refused.body, { status: refused.status }) }
+  return { actor: gate.actor }
+}
+
 export async function PATCH(request: Request, { params }: { params: { companyId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await directoryGate(db, request, params.companyId)
+  if ('denied' in gate) return gate.denied
 
+  // Everything after the gate is `updateDirectoryContact`
+  // (lib/writes/directory-contact-edit.ts), which asks whose contact it is
+  // again, for Claude's door.
   const body = await request.json()
-  // No 'website': `companies` has no such column, and Supabase answers an
-  // unknown one with data: null rather than an error - so every edit on this
-  // form was one typo away from saving nothing and reporting success.
-  const allowed = ['name', 'type', 'trade', 'contact_email', 'phone', 'address', 'license_number']
-  const updates: Record<string, unknown> = {}
-  for (const key of allowed) {
-    if (body[key] !== undefined) updates[key] = body[key] || null
-  }
-
-  // Which inspections an inspector does lives in `extra` beside the
-  // jurisdiction, so it is MERGED in - replacing `extra` wholesale would wipe
-  // the jurisdiction and cert number this form never shows.
-  if (body.inspection_types !== undefined) {
-    const { data: cur } = await db.from('companies').select('extra').eq('id', params.companyId).maybeSingle()
-    updates.extra = { ...(((cur as any)?.extra as Record<string, unknown>) ?? {}), inspection_types: cleanTypeList(body.inspection_types) }
-  }
-
-  const { data, error } = await db.from('companies').update(updates).eq('id', params.companyId).select().single()
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ company: data })
+  const result = await updateDirectoryContact(db, { myCompanyId: gate.actor.companyId, companyId: params.companyId, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 export async function DELETE(request: Request, { params }: { params: { companyId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await directoryGate(db, request, params.companyId)
+  if ('denied' in gate) return gate.denied
 
   const { error } = await db.from('companies').delete().eq('id', params.companyId)
   if (error) {

@@ -61,7 +61,7 @@ ok(/submittals[\s\S]{0,200}ON DELETE SET NULL/.test(migration),
 ok(readCombined().includes('company_invites_company_id_fkey'),
   'the combined fallback carries both')
 
-const route = code('app/api/directory/[companyId]/route.ts')
+const route = code('app/api/directory/[companyId]/route.ts') + code('lib/writes/directory-contact-edit.ts')
 ok(/code === '23503'/.test(route),
   'a foreign key that still points here is answered in words, not with Postgres\'s own')
 ok(/status: 409/.test(route), '...as a refusal rather than a 500')

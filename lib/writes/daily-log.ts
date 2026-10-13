@@ -166,3 +166,67 @@ export async function createDailyLog(
 
   return { status: 200, body: { log } }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Editing a daily log - moved out of `PATCH /api/projects/[id]/daily-logs/[logId]`
+// unchanged: the same whitelist, the same job scope and the same pre-migration
+// retry with only the core columns.
+//
+// AN EDIT MADE VIA CLAUDE PUTS THE LOG BACK INTO REVIEW. A reviewed log is the
+// one that reaches the client-facing PDF, and the review was of the words that
+// were there - not of what an AI changed them to afterwards. Refusing to touch
+// a reviewed log was the other choice, and the worse one: it leaves the typo a
+// person asked Claude to fix in the client's PDF, where the review cannot help.
+// So the edit lands and the log waits for a person again, exactly as one Claude
+// wrote does (`createDailyLog` above). The review columns ride in the CORE set
+// on the retry, so a missing optional column can never drop the reset and
+// leave Claude's words marked reviewed. The app never passes `via`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const DAILY_LOG_EDIT_FIELDS = ['log_date', 'workers_onsite', 'notes', 'weather', 'temp_f', 'subs_on_site', 'survey', 'safety_observation', 'quality_observation', 'signed_by_name'] as const
+
+const REVIEW_RESET = { review_status: 'pending', reviewed_by: null, reviewed_by_name: null, reviewed_at: null }
+
+export async function updateDailyLog(
+  db: SupabaseClient,
+  { projectId, logId, body, via }: { userId: string; projectId: string; logId: string; body: any; via?: string },
+): Promise<WriteResult> {
+  const updates: Record<string, unknown> = {}
+  for (const key of DAILY_LOG_EDIT_FIELDS) {
+    if (key in body) updates[key] = body[key]
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return { status: 400, body: { error: 'No valid fields to update' } }
+  }
+  if (via) Object.assign(updates, REVIEW_RESET)
+
+  // Core columns guaranteed to exist; the rest are optional and may be absent
+  const CORE = new Set(['log_date', 'workers_onsite', 'notes', 'weather', ...(via ? Object.keys(REVIEW_RESET) : [])])
+
+  async function runUpdate(payload: Record<string, unknown>) {
+    return db
+      .from('daily_logs')
+      .update(payload)
+      .eq('id', logId)
+      .eq('project_id', projectId)
+      .select()
+      .single()
+  }
+
+  let { data: log, error } = await runUpdate(updates)
+
+  // If a column doesn't exist, retry with only the core columns so the save still succeeds
+  if (error && (error as any).code === '42703') {
+    const safe: Record<string, unknown> = {}
+    for (const k of Object.keys(updates)) if (CORE.has(k)) safe[k] = updates[k]
+    if (Object.keys(safe).length > 0) {
+      const retry = await runUpdate(safe)
+      log = retry.data
+      error = retry.error
+    }
+  }
+
+  if (error) return { status: 500, body: { error: error.message } }
+  return { status: 200, body: { log } }
+}

@@ -59,8 +59,12 @@ ok(LOT_FIELDS.every(f => new RegExp(`ADD COLUMN IF NOT EXISTS ${f}\\b`).test(m))
 ok(/city_sewer boolean;/.test(m) && !/city_sewer boolean NOT NULL/.test(m), 'and the yes/no columns are nullable')
 
 // ── every door writes them ──────────────────────────────────────────────────
-ok(/cleanLotDetails\(body\)/.test(read('app/api/projects/route.ts')), 'creating a project keeps the lot details')
-ok(/cleanLotDetails\(body\)/.test(read('app/api/projects/[id]/route.ts')), 'editing a project keeps the lot details')
+{
+  const lib = read('lib/writes/project.ts')
+  const at = lib.indexOf('export async function updateProject')
+  ok(/cleanLotDetails\(body\)/.test(read('app/api/projects/route.ts') + lib.slice(0, at)), 'creating a project keeps the lot details')
+  ok(/cleanLotDetails\(body\)/.test(read('app/api/projects/[id]/route.ts') + lib.slice(at)), 'editing a project keeps the lot details')
+}
 ok(/LotDetailsFields/.test(read('components/projects/project-form.tsx')), 'the create form shows the fields')
 ok(/LotDetailsFields/.test(read('components/layout/edit-project-button.tsx')), 'the settings dialog shows the fields')
 ok(/garage_side: project\?\.garage_side/.test(read('app/(dashboard)/projects/[id]/layout.tsx')),

@@ -2,12 +2,9 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { myJobs } from '@/lib/my-jobs'
 import { getActor, actorCan } from '@/lib/server-permissions'
-import { asContractType } from '@/lib/contract-type'
-import { billingLock } from '@/lib/api-guard'
-import { projectSlotProblem } from '@/lib/billing-read'
-import { cleanLotDetails } from '@/lib/lot-details'
-import { customerForNewProject } from '@/lib/project-customer'
+import { billingLock, requirePermission, denied } from '@/lib/api-guard'
 import { pushCustomer } from '@/lib/quickbooks-push'
+import { createProject } from '@/lib/writes/project'
 import { ownedProjectsFilter } from '@/lib/project-access'
 import { ASSIGNED_ONLY_ROLES } from '@/lib/permissions'
 
@@ -31,6 +28,10 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
+  // The list asked only "are you signed in". Every built-in role holds
+  // `projects: view`; a company that remaps a role to none means it.
+  const gate = await requirePermission(db, request, 'projects', 'view')
+  if (denied(gate)) return gate.denied
   const { data: profile, error: profileError } = await db
     .from('profiles').select('company_id, role, companies:company_id(type)').eq('id', user.id).single()
 
@@ -178,68 +179,16 @@ export async function POST(request: Request) {
   // product uses.
   const locked = await billingLock(admin, profile.company_id)
   if (locked) return locked
-  const slot = await projectSlotProblem(admin, profile.company_id)
-  if (slot) return NextResponse.json({ error: slot, billing: 'project_limit' }, { status: 402 })
-
   const body = await request.json()
-  const { name, address, client, type, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, contract_type } = body
 
-  // A client named by typing becomes a customer card, so the Customers list
-  // and Project Settings see the same client the header prints. See
-  // lib/project-customer.ts.
-  const linked = customer_id ? null : await customerForNewProject(admin, profile.company_id, client)
-  if (linked?.created) await pushCustomer(admin, linked.id)
-
-  const base = {
-    name, address, type, start_date,
-    client: linked ? linked.name : client,
-    end_date: end_date || null,
-    status: 'planning',
-    customer_id: customer_id || linked?.id || null,
-    gc_company_id: profile.company_id,
-    created_by_company_id: profile.company_id,
-  }
-  const withGeo = lat != null && lng != null ? { ...base, lat, lng, geocoded_address: address } : base
-  const withSqft = (interior_sqft != null || exterior_sqft != null)
-    ? { ...withGeo, interior_sqft: interior_sqft ?? null, exterior_sqft: exterior_sqft ?? null }
-    : withGeo
-  const withBilling = billing_mode
-    ? { ...withSqft, billing_mode, ...(default_retainage_pct != null ? { default_retainage_pct } : {}) }
-    : withSqft
-  // Optional at creation. Left off entirely when unanswered so the column stays
-  // null and the Budget tab knows to ask, rather than being defaulted to a
-  // guess that hides the control the job needs.
-  const ct = asContractType(contract_type)
-  const withContract = ct ? { ...withBilling, contract_type: ct } : withBilling
-  // Lot details (migration 131), only the ones sent.
-  const full = { ...withContract, ...cleanLotDetails(body) }
-
-  let { data: project, error: insertError } = await admin.from('projects').insert(full).select().single()
-  // Pre-migration fallback: billing_mode / sqft / geo columns may not exist yet.
-  if (insertError && (insertError as any).code === '42703') {
-    const retryLot = await admin.from('projects').insert(withContract).select().single()
-    project = retryLot.data; insertError = retryLot.error
-  }
-  if (insertError && (insertError as any).code === '42703') {
-    const retryContract = await admin.from('projects').insert(withBilling).select().single()
-    project = retryContract.data; insertError = retryContract.error
-  }
-  if (insertError && (insertError as any).code === '42703') {
-    const retryBilling = await admin.from('projects').insert(withSqft).select().single()
-    project = retryBilling.data; insertError = retryBilling.error
-  }
-  if (insertError && (insertError as any).code === '42703') {
-    const retry1 = await admin.from('projects').insert(withGeo).select().single()
-    project = retry1.data; insertError = retry1.error
-    if (insertError && (insertError as any).code === '42703') {
-      const retry2 = await admin.from('projects').insert(base).select().single()
-      project = retry2.data; insertError = retry2.error
-    }
-  }
-
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ project })
+  // Everything after the gate - the project cap included, so Claude's door
+  // meets it too - is `createProject` (lib/writes/project.ts). A client typed
+  // into being a new customer is pushed to QuickBooks HERE, by the route, as
+  // it always was: nothing under lib/writes reaches QuickBooks.
+  const result = await createProject(admin, {
+    companyId: profile.company_id,
+    body,
+    afterCustomerCreated: id => pushCustomer(admin, id),
+  })
+  return NextResponse.json(result.body, { status: result.status })
 }

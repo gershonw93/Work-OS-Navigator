@@ -103,6 +103,7 @@ ok(/console\.error/.test(punch),
 for (const f of [
   'app/api/projects/route.ts',
   'app/api/projects/[id]/route.ts',
+  'lib/writes/project.ts',
   'app/api/projects/bulk/route.ts',
   'lib/seed-demo.ts',
 ]) {

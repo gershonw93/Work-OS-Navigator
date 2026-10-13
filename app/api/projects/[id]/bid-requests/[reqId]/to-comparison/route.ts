@@ -1,6 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { bidRequestOnJob } from '@/lib/writes/bid-request'
 import { guardScan, scanDenied, scanActorFor } from '@/lib/scan-guard'
 
 export const runtime = 'nodejs'
@@ -47,6 +49,12 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'request-quotes', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const elsewhere = await bidRequestOnJob(db, params.id, params.reqId)
+  if (elsewhere) return NextResponse.json(elsewhere.body, { status: elsewhere.status })
 
   const scan = await guardScan(db, await scanActorFor(db, user.id), 'bid-response', params.id)
   if (scanDenied(scan)) return scan.denied

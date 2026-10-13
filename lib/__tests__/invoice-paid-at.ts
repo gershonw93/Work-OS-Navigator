@@ -8,7 +8,7 @@ import { readdirSync, statSync } from 'fs'
 import { join } from 'path'
 import { ok, done, code, root } from './_helpers'
 
-const route = code('app/api/projects/[id]/invoices/[invoiceId]/route.ts')
+const route = (code('app/api/projects/[id]/invoices/[invoiceId]/route.ts') + code('lib/writes/sub-bill.ts'))
 ok(/status === 'paid' && invoice\.status !== 'paid'\) updates\.paid_at = new Date\(\)\.toISOString\(\)/.test(route),
   'marking a bill paid stamps paid_at, from the move - a second press keeps the first date')
 ok(/status !== 'paid'\) updates\.paid_at = null/.test(route), '...and moving it off Paid clears it')
