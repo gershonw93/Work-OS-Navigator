@@ -301,6 +301,12 @@ async function main() {
     ok(!!f.error && !f.data, 'a failed read is an error, never an empty list')
   }
 
+  // THE ROLE EDITOR shows a saved role WITH the inherited resource, or saving
+  // a role saved before Selections existed would untick it for everyone in it.
+  const rolesRoute = code('app/api/settings/roles/route.ts')
+  ok((rolesRoute.match(/withInheritedResources\(\{ \.\.\.(override|r)\.permissions \}\)/g) ?? []).length === 2,
+    'the role editor reads saved roles through withInheritedResources (built-in overrides AND custom roles)')
+
   done()
 }
 

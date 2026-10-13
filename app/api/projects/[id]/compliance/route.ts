@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { complianceAccess, fileComplianceDocument } from '@/lib/writes/compliance-document'
+import { fileComplianceDocument } from '@/lib/writes/compliance-document'
+import { complianceAccess } from '@/lib/writes/compliance-access'
 
 const admin = () =>
   createClient(

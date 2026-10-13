@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { pushBill, pushBillPayment, updateBillInQbo, voidBillInQbo, billQboRefs } from '@/lib/quickbooks-push'
 import { updateSubBill } from '@/lib/writes/sub-bill'
-import { requirePermission, denied } from '@/lib/api-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -14,15 +14,16 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string; invoiceId: string } },
 ) {
-  const gate = await requirePermission(admin(), request, 'invoices', 'edit')
-  if (denied(gate)) return gate.denied
-
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'invoices', 'edit')
+  if (denied(gate)) return gate.denied
+  // APPROVING A BILL IS THE GC'S ACT, AND IT PUSHES TO THE GC'S QUICKBOOKS.
+  // `invoices: edit` alone let the admin of a sub's own company, invited onto
+  // the job, approve or delete their own bill. Only the GC's Bills tab and
+  // Approvals call this route - a sub's My Jobs page never does.
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   const body = await request.json()
   const result = await updateSubBill(db, { userId: user.id, projectId: params.id, invoiceId: params.invoiceId, body })
@@ -67,15 +68,16 @@ export async function DELETE(
   request: Request,
   { params }: { params: { id: string; invoiceId: string } },
 ) {
-  const gate = await requirePermission(admin(), request, 'invoices', 'edit')
-  if (denied(gate)) return gate.denied
-
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'invoices', 'edit')
+  if (denied(gate)) return gate.denied
+  // APPROVING A BILL IS THE GC'S ACT, AND IT PUSHES TO THE GC'S QUICKBOOKS.
+  // `invoices: edit` alone let the admin of a sub's own company, invited onto
+  // the job, approve or delete their own bill. Only the GC's Bills tab and
+  // Approvals call this route - a sub's My Jobs page never does.
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   // Read what QuickBooks holds BEFORE the row goes - afterwards there is
   // nothing left to read the ids off, and an un-voided Bill is a payable for
