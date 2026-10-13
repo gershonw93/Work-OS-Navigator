@@ -26,7 +26,7 @@ ok(/subcontracts\?\.company_id !== profile\.company_id/.test(delay), 'THE DELAY:
 ok(/missingDelay\(/.test(delay), '...asked the same rule the GC\'s delay dialog asks')
 ok(!/from\('schedule_items'\)\s*\.update/.test(delay) && !/start_date:/.test(delay), '...and it moves NOTHING - the GC decides')
 ok(/type: 'schedule_delay_reported'/.test(delay), '...it tells the GC')
-const cascade = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+const cascade = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
 ok(/kind === 'delay' && typeof body\?\.delay_report_id === 'string'/.test(cascade) && /decideDelayReport\(/.test(cascade),
   'recording the delay is what applies the report - on the one writer of dates, not a second apply door')
 const decide = code('lib/delay-report-db.ts')

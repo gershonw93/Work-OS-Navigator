@@ -71,7 +71,9 @@ const FAKE = 'noemail+1790111215769@placeholder.com'
     'app/(dashboard)/projects/[id]/schedule/page.tsx',
   ]
   for (const d of doors) {
-    ok(/reachableEmail\(/.test(code(d)),
+    // The cascade route's body moved to lib/writes/schedule-move.ts; read both.
+    const src = d.includes('cascade/route') ? code(d) + code('lib/writes/schedule-move.ts') : code(d)
+    ok(/reachableEmail\(/.test(src),
       `${d.split('/').slice(-2).join('/')} asks reachableEmail`)
   }
   ok(!/startsWith\('noemail\+'\)/.test(code('app/api/projects/[id]/quotes/[compId]/award/route.ts')),

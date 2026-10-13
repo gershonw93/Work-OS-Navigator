@@ -171,7 +171,7 @@ ok(slipBadge(LINE, []) === null,
   ok(!/disabled=\{.*delayDaysInput/.test(page),
     'the button is never disabled on the delay fields - a disabled button explains nothing')
 
-  const apply = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const apply = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
   ok(/missingDelayReason\(reason\)/.test(apply),
     'the ROUTE asks the same reason rule - the field app posts here too')
   ok(/schedule_date_changes/.test(apply), 'and the apply writes the history')
