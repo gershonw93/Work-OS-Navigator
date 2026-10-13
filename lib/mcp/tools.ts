@@ -7,7 +7,11 @@ import { inspectionDate, visibleInspections, isOpen } from '@/lib/inspection-sta
 import { lineTrade, scheduleLabel, scheduleSubLabel } from '@/lib/schedule-events'
 import { toAmount, toPct } from '@/lib/schedule-dependencies'
 import { settlementsFor } from '@/lib/invoice-settlement-db'
+import { readBilling } from '@/lib/billing-read'
+import { billingAccess } from '@/lib/billing-state'
 import type { ToolOutcome, ToolSpec } from './protocol'
+import { WRITE_TOOLS, type WriteToolDef } from './write-tools'
+import { runWrite } from './actions'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // What Claude can read out of SyteNav. PHASE 1: READ ONLY.
@@ -368,6 +372,85 @@ export const TOOLS: ToolDef[] = [
       }
     },
   },
+
+  {
+    name: 'list_subcontracts',
+    title: 'List a job\'s subcontracts',
+    description:
+      'The subcontractors and suppliers on one job: subcontract id, company, trade, scope and status. ' +
+      'Use the id to enter a bill or a change order against the right sub.',
+    inputSchema: {
+      type: 'object',
+      properties: { project_id: PROJECT_ID },
+      required: ['project_id'],
+      additionalProperties: false,
+    },
+    resource: 'team',
+    project: 'required',
+    async run({ db, projectIds }) {
+      const { data, error } = await db.from('subcontracts')
+        .select('id, trade, scope, status, company_id, companies ( name, type )')
+        .eq('project_id', projectIds[0])
+        .order('created_at', { ascending: true })
+      if (error) return failed('subcontracts', error)
+      const { rows, truncated } = capped(data ?? [])
+      return {
+        data: {
+          subcontracts: rows.map((c: any) => ({
+            id: c.id, company: c.companies?.name ?? null, company_type: c.companies?.type ?? null,
+            trade: c.trade, scope: c.scope, status: c.status,
+          })),
+          truncated,
+        },
+      }
+    },
+  },
+
+  {
+    name: 'search_directory',
+    title: 'Search the Directory',
+    description:
+      'Find subcontractors, suppliers and inspectors in the company Directory by name or email. ' +
+      'Search before adding a contact, so nobody is added twice.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'Part of a name or email address.' },
+        type: { type: 'string', enum: ['subcontractor', 'supplier', 'inspector', 'other'] },
+      },
+      required: ['query'],
+      additionalProperties: false,
+    },
+    resource: 'directory',
+    project: 'none',
+    async run({ db, actor, args }) {
+      // Only characters a name or address uses: the value goes into an ilike
+      // pattern, where % and _ are wildcards, so they are taken out first.
+      const q = (str(args.query) ?? '').replace(/[%_\\,()]/g, ' ').trim().slice(0, 80)
+      if (q.length < 2) return { error: 'Search for at least two characters.' }
+      const base = () => {
+        let b = db.from('companies').select('id, name, type, trade, contact_email, phone')
+          .eq('added_by_company_id', actor.companyId!)
+        if (str(args.type)) b = b.eq('type', str(args.type)!)
+        return b
+      }
+      const [byName, byEmail] = await Promise.all([
+        base().ilike('name', `%${q}%`).limit(50),
+        base().ilike('contact_email', `%${q}%`).limit(50),
+      ])
+      if (byName.error) return failed('the Directory', byName.error)
+      if (byEmail.error) return failed('the Directory', byEmail.error)
+      const seen = new Map<string, any>()
+      for (const c of [...(byName.data ?? []), ...(byEmail.data ?? [])] as any[]) seen.set(c.id, c)
+      return {
+        data: {
+          contacts: Array.from(seen.values()).map(c => ({
+            id: c.id, name: c.name, type: c.type, trade: c.trade, email: c.contact_email, phone: c.phone,
+          })),
+        },
+      }
+    },
+  },
 ]
 
 /** The person cannot use the MCP server at all, and the sentence that says why - or null. */
@@ -379,43 +462,88 @@ export function actorProblem(actor: ActorPerms): string | null {
   return null
 }
 
+/** Every tool this server has, reading and adding. */
+export const ALL_TOOLS: (ToolDef | WriteToolDef)[] = [...TOOLS, ...WRITE_TOOLS]
+
+/**
+ * The tools a connection is shown. A connection the person did not allow to
+ * add records is never even told the write tools exist - a model offered a
+ * tool will try it, and "you may not" after the fact is a worse answer than
+ * not offering.
+ */
+export function toolsFor(canWrite: boolean): ToolSpec[] {
+  return ALL_TOOLS
+    .filter(t => canWrite || !('write' in t && t.write))
+    .map(({ name, title, description, inputSchema, ...rest }) => ({
+      name, title, description, inputSchema, ...('write' in rest && rest.write ? { write: true } : {}),
+    }))
+}
+
+export interface CallOptions {
+  /** The person allowed this connection to add records. */
+  canWrite: boolean
+  /** Which connection made the call, for the record of what it did. */
+  tokenId: string | null
+}
+
 /**
  * Run one tool for one person. Every gate is here, before any tool body:
- * who they are, the permission the tool names, and the job.
+ * who they are, whether this connection may add, the permission and action
+ * the tool names, the billing lock for a write, the job, and - for a write -
+ * the claim that stops a retried call making a second record.
  */
 export async function callTool(
   db: SupabaseClient,
   actor: ActorPerms,
   name: string,
   args: Record<string, unknown>,
+  opts: CallOptions = { canWrite: false, tokenId: null },
 ): Promise<ToolOutcome> {
-  const tool = TOOLS.find(t => t.name === name)
+  const tool = ALL_TOOLS.find(t => t.name === name)
   if (!tool) return { error: `Unknown tool: ${name}` }
+  const write = 'write' in tool && tool.write === true
 
   const who = actorProblem(actor)
   if (who) return { error: who }
 
-  if (!actorCan(actor, tool.resource, 'view')) {
-    return { error: `This person does not have permission to view ${tool.resource.replace(/-/g, ' ')} in SyteNav.` }
+  if (write && !opts.canWrite) {
+    return { error: 'This connection can only read SyteNav. To let Claude add records, turn on "Can add records" for it on Settings -> Integrations.' }
   }
 
-  if (tool.project === 'none') {
-    return tool.run({ db, actor, args, projectIds: [], projectNames: new Map() })
+  const action = write ? (tool as WriteToolDef).action : 'view'
+  if (!actorCan(actor, tool.resource, action)) {
+    return { error: `This person does not have permission to ${action} ${tool.resource.replace(/-/g, ' ')} in SyteNav.` }
   }
 
-  const { data: owned, error } = await db.from('projects')
-    .select('id, name')
-    .or(ownedProjectsFilter(actor.companyId!))
-  if (error) return failed('projects', error)
-  const projectNames = new Map((owned ?? []).map((p: any) => [p.id as string, p.name as string]))
-
-  const asked = str(args.project_id)
-  if (asked) {
-    // Not "not found": an id for a job at another company is refused in the
-    // same words as one that never existed, so the answer leaks nothing.
-    if (!projectNames.has(asked)) return { error: 'No project with that id among this person\'s jobs. Use list_projects for the ids.' }
-    return tool.run({ db, actor, args, projectIds: [asked], projectNames })
+  if (write) {
+    // The same lock every write route meets: an account past its trial is
+    // still fully READABLE, and that includes through Claude.
+    const access = billingAccess(await readBilling(db, actor.companyId!))
+    if (!access.writable) return { error: access.reason }
   }
-  if (tool.project === 'required') return { error: 'project_id is required. Use list_projects for the ids.' }
-  return tool.run({ db, actor, args, projectIds: Array.from(projectNames.keys()), projectNames })
+
+  let projectIds: string[] = []
+  let projectNames = new Map<string, string>()
+  if (tool.project !== 'none') {
+    const { data: owned, error } = await db.from('projects')
+      .select('id, name')
+      .or(ownedProjectsFilter(actor.companyId!))
+    if (error) return failed('projects', error)
+    projectNames = new Map((owned ?? []).map((p: any) => [p.id as string, p.name as string]))
+
+    const asked = str(args.project_id)
+    if (asked) {
+      // Not "not found": an id for a job at another company is refused in the
+      // same words as one that never existed, so the answer leaks nothing.
+      if (!projectNames.has(asked)) return { error: 'No project with that id among this person\'s jobs. Use list_projects for the ids.' }
+      projectIds = [asked]
+    } else if (tool.project === 'required') {
+      return { error: 'project_id is required. Use list_projects for the ids.' }
+    } else {
+      projectIds = Array.from(projectNames.keys())
+    }
+  }
+
+  if (!write) return (tool as ToolDef).run({ db, actor, args, projectIds, projectNames })
+  return runWrite(db, actor, tool as WriteToolDef, args, projectIds[0] ?? null, opts.tokenId)
 }

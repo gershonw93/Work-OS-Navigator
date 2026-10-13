@@ -84,7 +84,7 @@ ok(/'budget'/.test(read('components/layout/project-tabs.tsx').match(/SITE_ALLOWE
   'a group of houses has its own Budget tab - the main budget')
 ok(/siteBudget/.test(read('app/(dashboard)/projects/[id]/units/page.tsx')) && /houses \+ Number\(siteBudget/.test(read('app/(dashboard)/projects/[id]/units/page.tsx')),
   'the Jobs roll-up adds the main budget to the houses - profit from the houses alone would overstate it')
-ok(/updates\.kind = body\.kind/.test(read('app/api/projects/[id]/tasks/[taskId]/route.ts')) && /kind: 'punch'/.test(read('app/api/projects/[id]/tasks/route.ts')),
+ok(/updates\.kind = body\.kind/.test(read('app/api/projects/[id]/tasks/[taskId]/route.ts')) && /kind: 'punch'/.test((read('app/api/projects/[id]/tasks/route.ts') + read('lib/writes/task.ts'))),
   'punch is accepted by BOTH task doors - a field the edit route drops fails exactly like one it refuses')
 ok(/filterMode === 'punch'/.test(read('app/(dashboard)/projects/[id]/tasks/page.tsx')), 'and the Tasks tab can show the punch list on its own')
 ok(/distinctModelNames/.test(code('app/api/projects/bulk/route.ts')), 'a lot list naming models creates them and assigns the houses')

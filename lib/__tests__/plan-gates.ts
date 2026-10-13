@@ -53,7 +53,7 @@ const children = code('app/api/projects/[id]/children/route.ts')
 ok(/requirePermission\(db, request, 'projects', 'view'\)/.test(children) && /ownedProject\(/.test(children),
   'the group roll-up - every house\'s money - needs projects:view and the group to be the caller\'s')
 
-const tasks = gateOf(code('app/api/projects/[id]/tasks/route.ts'), 'POST') ?? ''
+const tasks = gateOf((code('app/api/projects/[id]/tasks/route.ts') + code('lib/writes/task.ts')), 'POST') ?? ''
 ok(/requirePermission\(db, request, 'tasks', 'view'\)/.test(tasks), 'creating a task needs at least tasks:view')
 ok(/billingLock\(db, gate\.actor\.companyId\)/.test(tasks), '...and since a view gate skips the read-only lock, the route asks for it itself')
 

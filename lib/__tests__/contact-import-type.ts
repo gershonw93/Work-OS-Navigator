@@ -33,7 +33,7 @@ ok(!/type:\s*row\.contact_type/.test(route), 'the import never writes row.contac
 ok(!/error:\s*insertError\.message/.test(route), 'a Postgres sentence is not handed to the user')
 
 // The Directory's own add/edit route must agree with the constraint too.
-const dir = code('app/api/directory/route.ts')
+const dir = (code('app/api/directory/route.ts') + code('lib/writes/directory-contact.ts'))
 const vt = dir.match(/validTypes\s*=\s*\[([^\]]*)\]/)
 const listed = new Set((vt?.[1] ?? '').split(',').map(s => s.trim().replace(/'/g, '')).filter(Boolean))
 ok(listed.size === allowed.size && Array.from(listed).every(t => allowed.has(t)), 'the Directory route accepts exactly the constraint\'s types')

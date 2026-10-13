@@ -60,7 +60,13 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Connect Claude to SyteNav',
-        text: 'Claude can now read your jobs - projects, tasks, the schedule, inspections, bills from subs and invoices to clients - so you can ask "what is overdue on the Henderson job?" and get the answer from SyteNav. Add SyteNav as a custom connector in Claude, sign in, and press Allow. It uses your own permissions and can only read for now. The address to paste is on Settings → Integrations.',
+        text: 'Claude can now read your jobs - projects, tasks, the schedule, inspections, bills from subs and invoices to clients - so you can ask "what is overdue on the Henderson job?" and get the answer from SyteNav. Add SyteNav as a custom connector in Claude, sign in, and press Allow. It uses your own permissions. The address to paste is on Settings → Integrations.',
+        help: 'connect-claude',
+      },
+      {
+        kind: 'new',
+        title: 'Let Claude enter bills, tasks and more',
+        text: 'If you allow it, Claude can also add records: a bill from a sub (straight from the email, PDF attached), a task, an inspection request, a change order or a Directory contact. It shows you what it will enter first. Bills go in waiting for your approval, so nothing reaches QuickBooks until you approve it, and everything it adds is marked "via Claude". It never records payments, edits or deletes. Turn it on for a connection with the ... menu on Settings → Integrations.',
         help: 'connect-claude',
       },
     ],

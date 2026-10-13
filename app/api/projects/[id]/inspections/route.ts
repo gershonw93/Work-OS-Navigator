@@ -1,44 +1,13 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { audienceFor } from '@/lib/notification-audience'
-import { withStructural } from '@/lib/notification-routing'
-import { notify } from '@/lib/notify'
-import { logActivity } from '@/lib/log-activity'
-import { scheduleProblem, requestProblem } from '@/lib/inspection-status'
-import { whoToCall, callLine } from '@/lib/inspection-contacts'
+import { whoToCall } from '@/lib/inspection-contacts'
+import { createInspection, directoryInspectors } from '@/lib/writes/inspection'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-/**
- * THE DIRECTORY'S INSPECTORS - OUT OF `companies`, WHICH IS WHERE THEY LIVE.
- *
- * This read `contacts` from the day it was written in #432, and `contacts`
- * holds ZERO ROWS. Every door that files an inspector - the picker's Quick add,
- * the permits page's "save this inspector", Add Contact in the Directory -
- * POSTs to /api/directory, which inserts into `companies` with
- * `type = 'inspector'`. There are 21 of them there and none anywhere else.
- *
- * So the Directory half of "who do I call" has never produced a single line.
- * Not an error, not an empty state anybody could see: a query against the wrong
- * table comes back `[]`, which renders exactly like "you have not added any" -
- * the same silent failure as the Compliance Report reading a key the route does
- * not answer with. Check the table, the same as you check the column.
- *
- * Scoped to the job's own GC company, plus rows nobody claimed (the demo seed),
- * because the picker stamps `added_by_company_id` from whoever added them and a
- * company must not read another company's address book.
- */
-async function directoryInspectors(db: ReturnType<typeof admin>, projectId: string) {
-  const { data: proj } = await db.from('projects').select('gc_company_id').eq('id', projectId).maybeSingle()
-  const owner = (proj as any)?.gc_company_id
-  let q = db.from('companies').select('id, name, type, phone, extra').eq('type', 'inspector')
-  if (owner) q = q.or(`added_by_company_id.eq.${owner},added_by_company_id.is.null`)
-  const { data } = await q.order('name')
-  return (data ?? []) as any[]
-}
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
@@ -120,143 +89,37 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const notes = formData.get('notes') as string | null
   const file = formData.get('file') as File | null
 
-  // #2 - refused at creation as well as on edit. An inspection cannot be born
-  // into the state the PATCH route now refuses to move it into.
-  const createProblem = scheduleProblem(status, scheduled_date, booked_with)
-  if (createProblem) return NextResponse.json({ error: createProblem }, { status: 400 })
+  // Everything after reading the form is `createInspection`, which Claude's MCP
+  // server calls too. The card photo uploads only once the request is accepted.
+  const uploadCard = async (): Promise<string | null> => {
+    let card_image_url: string | null = null
 
-  // ...AND a blank one cannot be born at all. A fully empty submit created an
-  // inspection and then NOTIFIED THREE SCHEDULERS about it. The guard has to be
-  // here and not only on the form, because the field app posts to this same
-  // route - and it has to be ABOVE the notify below, or the refusal arrives
-  // after three people have already been told.
-  const blank = requestProblem(inspection_type, requested_date)
-  if (blank) return NextResponse.json({ error: blank }, { status: 400 })
+    if (file && file.size > 0) {
+      const timestamp = Date.now()
+      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
+      const storagePath = `${params.id}/${timestamp}-${safeName}`
+      const arrayBuffer = await file.arrayBuffer()
 
-  const { data: me } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-
-  let card_image_url: string | null = null
-
-  if (file && file.size > 0) {
-    const timestamp = Date.now()
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_')
-    const storagePath = `${params.id}/${timestamp}-${safeName}`
-    const arrayBuffer = await file.arrayBuffer()
-
-    const { error: uploadError } = await db.storage
-      .from('inspections')
-      .upload(storagePath, arrayBuffer, { contentType: file.type, upsert: true })
-
-    if (!uploadError) {
-      const { data: signed } = await db.storage
+      const { error: uploadError } = await db.storage
         .from('inspections')
-        .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10)
-      card_image_url = signed?.signedUrl ?? null
+        .upload(storagePath, arrayBuffer, { contentType: file.type, upsert: true })
+
+      if (!uploadError) {
+        const { data: signed } = await db.storage
+          .from('inspections')
+          .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10)
+        card_image_url = signed?.signedUrl ?? null
+      }
     }
+
+    return card_image_url
   }
-
-  const basePayload = {
-    project_id: params.id,
-    type: inspection_type ?? null,
-    trade: trade || null,
-    status: status ?? 'not_scheduled',
-    requested_date: requested_date || null,
-    scheduled_date: scheduled_date || null,
-    booked_with: booked_with || null,
-    booking_reference: booking_reference || null,
-    scheduled_time: scheduled_time || null,
-    inspector_name: inspector_name || null,
-    inspector_phone: inspector_phone || null,
-    scheduling_phone: scheduling_phone || null,
-    scheduler_profile_id: scheduler_profile_id || null,
-    scheduler_name: scheduler_name || null,
-    requested_by_id: user.id,
-    requested_by_name: (me as any)?.full_name || null,
-    notes: notes || null,
-  }
-
-  let { data: inspection, error } = await db
-    .from('inspections')
-    .insert({ ...basePayload, card_image_url })
-    .select()
-    .single()
-
-  // Retry stripping optional columns that may not exist yet
-  if (error && error.code === '42703') {
-    const retry2 = await db.from('inspections').insert(basePayload).select().single()
-    inspection = retry2.data
-    error = retry2.error
-  }
-
-  // Final fallback: only core columns guaranteed to exist
-  if (error && error.code === '42703') {
-    const minimal = { project_id: params.id, type: basePayload.type, status: basePayload.status }
-    const retry3 = await db.from('inspections').insert(minimal).select().single()
-    inspection = retry3.data
-    error = retry3.error
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // #4 - a created inspection is an action on the project, and Job History
-  // recorded nothing until it passed or failed. The creation of a compliance
-  // record is most of what an audit trail is for.
-  const label = inspection_type
-    ? `${inspection_type}${trade ? ` (${trade})` : ''}`
-    : 'Inspection'
-  await logActivity(
-    db, params.id, (me as any)?.full_name ?? 'Someone', 'inspection_created',
-    `${label} requested${requested_date ? ` for ${requested_date}` : ''}`,
-    { inspection_id: (inspection as any)?.id, inspection_type, trade },
-    user.id,
-  )
-
-  // Somebody has to hear that an inspection was asked for.
-  //
-  // THIS WHOLE BLOCK USED TO BE INSIDE `if (scheduler_profile_id)`. The assigned
-  // person GATED the audience instead of joining it, so leaving "Who schedules
-  // this?" on "No one assigned yet" told nobody at all - not the people who can
-  // manage inspections, not even a rule a company had explicitly saved for this
-  // event. The row was created, a 201 came back, and nothing anywhere said the
-  // request had gone into a drawer. An unassigned inspection is exactly the one
-  // somebody else needs to hear about.
-  const { data: proj } = await db.from('projects').select('name, gc_company_id').eq('id', params.id).single()
-  const when = requested_date ? ` - needed by ${requested_date}${scheduled_time ? ` ${scheduled_time}` : ''}` : ''
-
-  // WHO TO CALL, in the notification itself. "Inspection to book" with no
-  // number is a person being told to act with nothing to act on - and the
-  // requester in the field does not know the township's scheduling line. It is
-  // already on the job's permits and in the Directory, so it is gathered rather
-  // than asked for again. Both lookups are best-effort: a missing table or a
-  // slow query must never stop the request being filed.
-  const [permitsRes, contactsRes] = await Promise.all([
-    db.from('permits').select('permit_type, issuing_authority, inspector_name, inspector_phone').eq('project_id', params.id),
-    directoryInspectors(db, params.id),
-  ])
-  const contact = callLine(whoToCall({
-    inspection: { type: inspection_type, inspector_name, inspector_phone, scheduling_phone },
-    permits: (permitsRes.data ?? []) as any[],
-    contacts: contactsRes,
-  }))
-  // The assigned scheduler because it is their job - structural, not a setting -
-  // PLUS anyone the company wants copied in. Never one instead of the other.
-  const bookers = withStructural(
-    await audienceFor({
-      db, companyId: (proj as any)?.gc_company_id, type: 'inspection_to_schedule', exclude: user.id,
-    }),
-    [scheduler_profile_id],
-    user.id,
-  )
-  if (bookers.length) {
-    await notify({
-      db, userIds: bookers, type: 'inspection_to_schedule',
-      title: 'Inspection to book',
-      message: `Book an inspection: ${inspection_type} at ${proj?.name ?? 'a project'}${when}. Requested by ${(me as any)?.full_name ?? 'the field'}.${contact} SyteNav does not contact the inspector - somebody has to call, then record what they were given.`,
-      link: `/projects/${params.id}/inspections?inspection=${(inspection as any)?.id ?? ''}`,
-    })
-  }
-
-  // What actually happened, so the form can say it rather than guess. A create
-  // that told nobody is a fact the person who pressed the button should have.
-  return NextResponse.json({ inspection, notified: bookers.length }, { status: 201 })
+  const result = await createInspection(db, {
+    userId: user.id, projectId: params.id, uploadCard,
+    fields: {
+      inspection_type, trade, status, requested_date, booked_with, booking_reference, scheduled_date,
+      inspector_name, inspector_phone, scheduling_phone, scheduled_time, scheduler_profile_id, scheduler_name, notes,
+    },
+  })
+  return NextResponse.json(result.body, { status: result.status })
 }

@@ -214,7 +214,8 @@ async function main() {
   const tools = code('lib/mcp/tools.ts')
   ok(tools.includes(".from('projects')"), '(the scan below can see queries in tools.ts)')
   ok(!/\.(insert|update|upsert|delete|rpc)\(/.test(tools), 'NO TOOL WRITES: tools.ts contains no insert, update, upsert, delete or rpc')
-  ok(/actorCan\(actor, tool\.resource, 'view'\)/.test(tools), 'the dispatcher asks the permission each tool names')
+  ok(/const action = write \? \(tool as WriteToolDef\)\.action : 'view'/.test(tools) && /actorCan\(actor, tool\.resource, action\)/.test(tools),
+    'the dispatcher asks the permission each tool names - view to read, the tool\'s own action to add')
   ok(/ownedProjectsFilter\(actor\.companyId/.test(tools), 'the jobs come from the same filter as the Projects list')
 
   // A personal token must work on /api/mcp and nowhere else - every other

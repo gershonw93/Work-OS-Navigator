@@ -284,37 +284,36 @@ the biggest build yet while the books are half-wired ends with both half-done.
 - **Bank-facing budget & sellout** *(tester request)*. Abe: "when you create a bank budget and bank sellout they might be presented in a different way." The working budget and the version a lender wants are formatted differently. Needs a lender report format - probably an extension of the proposal PDF rather than a new thing.
 - **Full development pro-forma** *(tester request - partially addressed)*. A tester who develops (not just builds) wanted the spreadsheet they use as step one: land purchase, design, approvals, soft costs, then a return projection. We shipped the piece every GC needs - hard/soft cost split on the budget + a planning-stage menu (see Recently shipped). **Not built, deliberately:** land acquisition as its own record, debt/equity stack and draw schedule, carrying-cost-over-time modeling, and ROI / profit-on-cost / IRR outputs. That is a developer pro-forma tool, a different product from a GC's job budget - revisit only if more than one customer asks.
 
-## 🤖 Claude (the SyteNav MCP server) - phases 3 and 4
+## 🤖 Claude (the SyteNav MCP server) - what is left
 
-Shipped: `/api/mcp`, read-only (phase 1), and "Sign in with SyteNav" so it is
-added in Claude by URL (phase 2, OAuth 2.1 + PKCE + dynamic registration,
-`lib/mcp/oauth*.ts`). The rest of the plan:
+Shipped: reading (phase 1), "Sign in with SyteNav" by URL (phase 2), and
+ADDING with a separate consent (phase 3) - tasks, sub bills (born
+`pending_approval`, so QuickBooks only sees them after a person approves),
+inspection requests, change orders (pending) and Directory contacts, each
+through the app's own `lib/writes/*`. Still to do:
 
-- **Client ID Metadata Documents** (the newer MCP spec's alternative to dynamic
-  registration, where the client_id IS an https URL). Not built: Claude registers
-  dynamically today. If a client arrives sending a URL as its client_id, it is
-  refused as an unknown client - add CIMD then, fetching and caching the
-  document, never trusting it without matching its redirect_uris.
-- **Phase 3 - writing.** Enter a sub bill (PDF from a Gmail attachment through the
-  EXISTING scan, which keeps it metered), record a payment, create a task, add a
-  change order, request an inspection, add a Directory contact. THE RULE: a write
-  tool goes through the existing route's validation (`allocationProblem`,
-  `requestProblem`, the field whitelists, `billingLock`, `notify`), never a direct
-  insert. That means refactoring each route's body into a lib function both call,
-  one at a time. Every write lands in a log with the person and "via Claude"
-  (same reasoning as `demo_notification_log`). Writes carry
-  `readOnlyHint: false` and the destructive ones are left out entirely.
-- **THE QUICKBOOKS DOUBLE-COUNT, before any money write ships.** SyteNav pushes
-  bills and payments INTO QuickBooks. If Claude reads a payment out of QuickBooks
-  (via a QBO connector) and enters it here, the auto-push books it a second time.
-  QuickBooks reads should be tools on THIS server over the company's own
-  connection (`getValidConnection`), and anything entered from QBO data must carry
-  its `qbo_id` so the push skips it - or be refused.
+- **Recording money received.** Deliberately not built: saving a client
+  payment pushes it to QuickBooks THAT MOMENT (`pushPaymentForProject`), so
+  there is no human gate in between - a payment Claude read out of QuickBooks
+  and entered here would be booked twice. Needs either a "draft payment" state
+  the push waits on, or a check against the company's own QBO (via
+  `getValidConnection`) for a payment already there, before it is safe.
+- **Reading QuickBooks through this server** (open invoices, a vendor's
+  balance) over the company's own connection, rather than a separate QBO
+  connector - so "what does QuickBooks say" and "what does SyteNav say" come
+  from one place that knows which records are the same.
+- **Editing.** Adding only today. An edit tool needs each PATCH route's body
+  moved into lib the way the creates were, and a think about which fields a
+  model may change without a person looking (a due date, yes; an amount on an
+  approved bill, no).
+- **Daily logs** - photos are the hard part; a log is mostly evidence.
 - **Assigned-only roles** (field supervisor, worker, read only). Refused today
   because what they see INSIDE a job (only their own tasks) is decided inline in
-  several routes. Lift `taskIdsFor`-style scoping into lib first, then let the
-  dispatcher use it.
-- **Phase 4 - Anthropic's connector directory listing** (needs their review).
+  several routes. Lift `taskIdsFor`-style scoping into lib first.
+- **Client ID Metadata Documents** (the newer MCP spec's alternative to dynamic
+  registration). Claude registers dynamically today; add CIMD when a client
+  arrives sending a URL as its client_id.
+- **Anthropic's connector directory listing** (needs their review).
 
 ## 📊 Reports (the company-wide builder shipped; these are the next asks)
 - **Scheduled sends.** "Email this saved report to the developer on the 1st of every month." The pieces exist - a saved config, the share snapshot, `tokenLinkEmail` - but it needs a cron, a recipient list per saved report, and the Hobby plan's once-a-day cron limit (see Bulk mail in CLAUDE.md). Not built until somebody asks for a second recipient on a schedule.
@@ -592,6 +591,7 @@ and why:
 
 ## ✅ Recently shipped (for reference)
 
+- Claude can add records, with its own consent: tasks, sub bills waiting for approval (PDF attached), inspection requests, change orders, Directory contacts - each through the app's own create code (`lib/writes/*`), credited "via Claude", recorded in `mcp_actions` and guarded against a retried call (migration 143).
 - Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF export (`lib/report-builder.ts`, migration 140). Excel export shipped in #603 and was taken out the same day by decision - see the Reports section.
 - Sign in with SyteNav for Claude: add SyteNav as a custom connector by URL, sign in, press Allow (OAuth 2.1, `oauth_clients`/`oauth_codes`, migration 142).
 - Claude can read SyteNav: a read-only MCP server at `/api/mcp` (projects, tasks, schedule, inspections, sub bills, client invoices) with personal tokens made and revoked on Settings -> Integrations (`mcp_tokens`, migration 141). Phases 2-4 are under Claude above.

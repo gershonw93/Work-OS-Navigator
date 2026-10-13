@@ -24,8 +24,25 @@ export const INSTRUCTIONS =
   'SyteNav is construction project management for general contractors. These tools READ the ' +
   'signed-in person\'s jobs with exactly their permissions in the app: projects, tasks, schedule, ' +
   'inspections, bills from subcontractors and invoices to clients. Nothing here can change ' +
-  'SyteNav yet. Start with list_projects to get project ids. Dates are YYYY-MM-DD; amounts are ' +
+  'SyteNav on this connection. Start with list_projects to get project ids. Dates are YYYY-MM-DD; amounts are ' +
   'US dollars. When a tool says a permission is missing, tell the person - do not guess the data.'
+
+/**
+ * The instructions for a connection the person ALLOWED to add records. Said
+ * up front, because the model decides how careful to be before it calls
+ * anything: confirm first, bills wait for approval, and money received is not
+ * something it can record.
+ */
+export const WRITE_INSTRUCTIONS =
+  'SyteNav is construction project management for general contractors. These tools read the ' +
+  'signed-in person\'s jobs with exactly their permissions in the app, and this connection may also ADD ' +
+  'records: tasks, bills from subs and vendors, inspection requests, change orders and Directory contacts. ' +
+  'Before creating anything, show the person exactly what you will enter and wait for them to say yes. ' +
+  'A bill is created waiting for approval - nothing reaches QuickBooks until a person approves it in ' +
+  'SyteNav. Change orders are created pending. Payments cannot be recorded, and nothing can be edited ' +
+  'or deleted. Check list_sub_bills or search_directory first so you do not enter something twice. ' +
+  'Start with list_projects to get project ids. Dates are YYYY-MM-DD; amounts are US dollars. When a ' +
+  'tool says a permission is missing, tell the person - do not guess.'
 
 export const RPC = {
   PARSE_ERROR: -32700,
@@ -43,6 +60,8 @@ export interface ToolSpec {
   title: string
   description: string
   inputSchema: JsonSchema
+  /** True for a tool that adds a record. Decides the annotations below. */
+  write?: boolean
 }
 
 /** What a tool call produced: data for Claude to read, or a sentence about why not. */
@@ -50,6 +69,8 @@ export type ToolOutcome = { data: unknown } | { error: string }
 
 export interface RpcContext {
   tools: ToolSpec[]
+  /** Which instructions this connection gets - read-only unless the person allowed adding. */
+  instructions?: string
   callTool: (name: string, args: Record<string, unknown>) => Promise<ToolOutcome>
 }
 
@@ -73,11 +94,15 @@ export function negotiateVersion(requested: unknown): string {
 }
 
 /**
- * Every tool here only reads. Declared, because a client decides how much to
- * ask the person before calling a tool from these hints - and declared ON
- * EVERY TOOL by construction, so one cannot be added without it.
+ * What each tool may do, declared, because a client decides how much to ask
+ * the person before calling a tool from these hints - and declared ON EVERY
+ * TOOL by construction, from its `write` flag, so one cannot be added without
+ * it. A write tool only ever ADDS (destructiveHint false), and is not
+ * idempotent: calling it twice would make two records were it not for the
+ * server's own duplicate guard.
  */
 const READ_ONLY = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+const ADDS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false }
 
 /**
  * One message in, one reply out - or null for a notification, which the
@@ -108,7 +133,7 @@ export async function handleRpc(message: unknown, ctx: RpcContext): Promise<RpcR
         protocolVersion: negotiateVersion(params.protocolVersion),
         capabilities: { tools: { listChanged: false } },
         serverInfo: SERVER_INFO,
-        instructions: INSTRUCTIONS,
+        instructions: ctx.instructions ?? INSTRUCTIONS,
       })
 
     case 'ping':
@@ -116,7 +141,7 @@ export async function handleRpc(message: unknown, ctx: RpcContext): Promise<RpcR
 
     case 'tools/list':
       return reply(id, {
-        tools: ctx.tools.map(t => ({ ...t, annotations: { title: t.title, ...READ_ONLY } })),
+        tools: ctx.tools.map(({ write, ...t }) => ({ ...t, annotations: { title: t.title, ...(write ? ADDS : READ_ONLY) } })),
       })
 
     case 'tools/call': {

@@ -5,7 +5,7 @@ import {
 } from '@/lib/mcp-token'
 import { actorProblem } from './tools'
 import {
-  ACCESS_TTL_SECONDS, CODE_TTL_SECONDS, OAUTH_SCOPE, REFRESH_TTL_DAYS, REGISTRATIONS_PER_HOUR,
+  ACCESS_TTL_SECONDS, CODE_TTL_SECONDS, OAUTH_SCOPE, OAUTH_WRITE_SCOPE, REFRESH_TTL_DAYS, REGISTRATIONS_PER_HOUR,
   authorizeProblem, redirectWith, registrationProblem, type AuthorizeParams,
 } from './oauth'
 
@@ -136,6 +136,8 @@ export async function checkAuthorize(db: SupabaseClient, p: AuthorizeParams): Pr
  */
 export async function decideAuthorize(
   db: SupabaseClient, actor: ActorPerms, p: AuthorizeParams, allow: boolean,
+  /** The person ALSO ticked "let it add records" - a separate consent, off unless given. */
+  allowWrite = false,
 ): Promise<{ redirect: string } | { error: string; redirect?: string }> {
   const check = await checkAuthorize(db, p)
   if (!check.ok) return check.redirect ? { error: check.error, redirect: check.redirect } : { error: check.error }
@@ -161,6 +163,7 @@ export async function decideAuthorize(
     code_challenge: p.code_challenge,
     resource: p.resource ?? null,
     expires_at: inSeconds(CODE_TTL_SECONDS),
+    can_write: allowWrite === true,
   })
   if (error) {
     console.error('[oauth] code insert:', error.message)
@@ -197,7 +200,7 @@ async function authenticateClient(
 }
 
 /** Mint the connection: one `mcp_tokens` row, which is what the Settings card lists. */
-async function issueTokens(db: SupabaseClient, profileId: string, client: ClientRow): Promise<OAuthReply> {
+async function issueTokens(db: SupabaseClient, profileId: string, client: ClientRow, canWrite: boolean): Promise<OAuthReply> {
   const access = newMcpToken()
   const refresh = newRefreshToken()
 
@@ -219,19 +222,20 @@ async function issueTokens(db: SupabaseClient, profileId: string, client: Client
     expires_at: inSeconds(ACCESS_TTL_SECONDS),
     refresh_hash: hashMcpToken(refresh),
     refresh_expires_at: inSeconds(REFRESH_TTL_DAYS * 24 * 60 * 60),
+    can_write: canWrite,
   })
   if (error) return failed('token insert', error)
-  return tokenReply(access, refresh)
+  return tokenReply(access, refresh, canWrite)
 }
 
-const tokenReply = (access: string, refresh: string): OAuthReply => ({
+const tokenReply = (access: string, refresh: string, canWrite: boolean): OAuthReply => ({
   status: 200,
   body: {
     access_token: access,
     token_type: 'Bearer',
     expires_in: ACCESS_TTL_SECONDS,
     refresh_token: refresh,
-    scope: OAUTH_SCOPE,
+    scope: canWrite ? `${OAUTH_SCOPE} ${OAUTH_WRITE_SCOPE}` : OAUTH_SCOPE,
   },
 })
 
@@ -260,12 +264,12 @@ async function exchangeCode(db: SupabaseClient, req: TokenRequest): Promise<OAut
     .eq('code_hash', hashMcpToken(req.code))
     .is('used_at', null)
     .gt('expires_at', nowIso())
-    .select('client_id, profile_id, redirect_uri, code_challenge')
+    .select('client_id, profile_id, redirect_uri, code_challenge, can_write')
     .maybeSingle()
   if (error) return failed('code claim', error)
   if (!data) return oauthError(400, 'invalid_grant', 'That code is unknown, expired or already used. Sign in again.')
 
-  const row = data as { client_id: string; profile_id: string; redirect_uri: string; code_challenge: string }
+  const row = data as { client_id: string; profile_id: string; redirect_uri: string; code_challenge: string; can_write?: boolean }
   if (row.client_id !== auth.client.client_id) return oauthError(400, 'invalid_grant', 'That code was issued to a different app.')
   if (row.redirect_uri !== req.redirect_uri) return oauthError(400, 'invalid_grant', 'redirect_uri does not match the sign-in request.')
   if (!pkceMatches(req.code_verifier, row.code_challenge)) return oauthError(400, 'invalid_grant', 'code_verifier does not match.')
@@ -273,7 +277,7 @@ async function exchangeCode(db: SupabaseClient, req: TokenRequest): Promise<OAut
   const who = await stillAllowed(db, row.profile_id)
   if (who) return oauthError(400, 'invalid_grant', who)
 
-  return issueTokens(db, row.profile_id, auth.client)
+  return issueTokens(db, row.profile_id, auth.client, row.can_write === true)
 }
 
 async function refreshTokens(db: SupabaseClient, req: TokenRequest): Promise<OAuthReply> {
@@ -283,12 +287,12 @@ async function refreshTokens(db: SupabaseClient, req: TokenRequest): Promise<OAu
 
   const oldHash = hashMcpToken(req.refresh_token)
   const { data: found, error: findErr } = await db.from('mcp_tokens')
-    .select('id, profile_id, oauth_client_id, refresh_expires_at')
+    .select('id, profile_id, oauth_client_id, refresh_expires_at, can_write')
     .eq('refresh_hash', oldHash)
     .is('revoked_at', null)
     .maybeSingle()
   if (findErr) return failed('refresh lookup', findErr)
-  const row = found as { id: string; profile_id: string; oauth_client_id: string | null; refresh_expires_at: string | null } | null
+  const row = found as { id: string; profile_id: string; oauth_client_id: string | null; refresh_expires_at: string | null; can_write?: boolean } | null
   if (!row || !row.refresh_expires_at || Date.parse(row.refresh_expires_at) <= Date.now()) {
     return oauthError(400, 'invalid_grant', 'That refresh token is unknown, expired or revoked. Sign in again.')
   }
@@ -320,5 +324,7 @@ async function refreshTokens(db: SupabaseClient, req: TokenRequest): Promise<OAu
     .maybeSingle()
   if (error) return failed('refresh rotate', error)
   if (!rotated) return oauthError(400, 'invalid_grant', 'That refresh token was already used. Sign in again.')
-  return tokenReply(access, refresh)
+  // Renewing keeps whatever the connection may do NOW - including a switch
+  // somebody flipped on the Settings card since it was made.
+  return tokenReply(access, refresh, row.can_write === true)
 }

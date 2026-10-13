@@ -30,6 +30,6 @@ export async function POST(request: Request) {
   if (!actor) return NextResponse.json({ error: 'Sign in to SyteNav first.' }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))
-  const result = await decideAuthorize(db, actor, authorizeParams(body ?? {}), body?.decision === 'allow')
+  const result = await decideAuthorize(db, actor, authorizeParams(body ?? {}), body?.decision === 'allow', body?.allow_write === true)
   return NextResponse.json(result, { status: 'error' in result && !result.redirect ? 400 : 200, headers: { 'Cache-Control': 'no-store' } })
 }
