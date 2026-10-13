@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { customerForNewProject } from '@/lib/project-customer'
+import { housesToFollow } from '@/lib/development-customer'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { asContractType } from '@/lib/contract-type'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
@@ -75,6 +77,13 @@ export async function PATCH(
   const locked = await billingLock(db, actor?.companyId)
   if (locked) return locked
 
+  // A job of another company is not this caller's to edit, whatever their role
+  // says about jobs in general - and the customer cascade below writes to every
+  // house under it.
+  const owned = await ownedProject<{ id: string; is_site: boolean | null; customer_id: string | null }>(
+    db, actor as any, params.id, 'id, is_site, customer_id')
+  if ('denied' in owned) return owned.denied
+
   const body = await request.json()
   const { name, address, client, type, status, start_date, end_date, customer_id, lat, lng, interior_sqft, exterior_sqft, billing_mode, default_retainage_pct, labor_rate, unit, floor, sellout_amount, contract_type, contractor_fee_pct, fee_on_materials } = body
 
@@ -137,7 +146,28 @@ export async function PATCH(
   }
   if (start_date !== undefined) updates.start_date = start_date
   if (end_date !== undefined) updates.end_date = end_date
-  if (customer_id !== undefined) updates.customer_id = customer_id || null
+  // THE CUSTOMER IS A CARD, NOT A STRING. A picked id must be one of this
+  // company's customers; a typed new name becomes one (`customerForNewProject`,
+  // the create form's rule). Either way `client` - what the header prints -
+  // follows the card, so the two homes of this fact cannot disagree.
+  let customerName: string | null = null
+  if (typeof body.new_customer_name === 'string' && body.new_customer_name.trim()) {
+    const made = await customerForNewProject(db, actor?.companyId ?? '', body.new_customer_name)
+    if (!made) return NextResponse.json({ error: 'Could not add that customer. Try again, or pick one from the list.' }, { status: 500 })
+    updates.customer_id = made.id
+    updates.client = customerName = made.name
+  } else if (customer_id !== undefined) {
+    if (customer_id) {
+      const { data: c } = await db.from('customers').select('id, name')
+        .eq('id', customer_id).eq('gc_company_id', actor?.companyId ?? '').maybeSingle()
+      if (!c) return NextResponse.json({ error: 'That customer is not one of yours. Reload and pick again.' }, { status: 400 })
+      updates.customer_id = c.id
+      updates.client = customerName = (c as any).name
+    } else {
+      updates.customer_id = null
+      updates.client = null
+    }
+  }
   if (interior_sqft !== undefined) updates.interior_sqft = interior_sqft
   if (exterior_sqft !== undefined) updates.exterior_sqft = exterior_sqft
   if (billing_mode != null) updates.billing_mode = billing_mode
@@ -221,7 +251,26 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ project: data })
+  // A DEVELOPMENT'S CUSTOMER IS ITS HOUSES' CUSTOMER - unless a house was given
+  // its own (lib/development-customer.ts says which).
+  let houses: { updated: number; kept: string[] } | undefined
+  if (owned.project.is_site && 'customer_id' in updates && updates.customer_id !== owned.project.customer_id) {
+    const { data: kids, error: kErr } = await db.from('projects').select('id, name, customer_id').eq('parent_project_id', params.id)
+    if (kErr) {
+      console.error('[projects] could not read the houses to pass the customer on', kErr.message)
+    } else {
+      const { follow, kept } = housesToFollow((kids ?? []) as any, owned.project.customer_id)
+      if (follow.length) {
+        const { error: uErr } = await db.from('projects')
+          .update({ customer_id: updates.customer_id ?? null, client: updates.customer_id ? customerName : null })
+          .in('id', follow)
+        if (uErr) console.error('[projects] could not pass the customer on to the houses', uErr.message)
+        else houses = { updated: follow.length, kept }
+      } else houses = { updated: 0, kept }
+    }
+  }
+
+  return NextResponse.json({ project: data, ...(houses ? { houses } : {}) })
 }
 
 export async function DELETE(

@@ -100,7 +100,7 @@ export async function GET(request: Request) {
   const scope = `gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`
   let { data, error } = await db
     .from('projects')
-    .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng, geocoded_address, interior_sqft, exterior_sqft, parent_project_id, is_site, unit, floor')
+    .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng, geocoded_address, interior_sqft, exterior_sqft, parent_project_id, is_site, unit, floor, billing_mode, default_retainage_pct')
     .or(scope)
     .order('created_at', { ascending: false })
 

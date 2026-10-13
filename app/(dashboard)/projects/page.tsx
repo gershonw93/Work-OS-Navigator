@@ -19,6 +19,8 @@ import { Label } from '@/components/ui/label'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
 import { ProjectsMap } from '@/components/projects/projects-map'
+import { housesSentence } from '@/lib/development-customer'
+import { Select } from '@/components/ui/select'
 import { BulkAddModal } from '@/components/projects/bulk-add-modal'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -144,7 +146,12 @@ export default function ProjectsPage() {
   // Edit form state
   const [editName, setEditName] = useState('')
   const [editAddress, setEditAddress] = useState('')
-  const [editClient, setEditClient] = useState('')
+  // The customer is a CARD picked from the list (or a new one typed here), never
+  // free text: a typed name wrote `projects.client` and nothing else, so
+  // Customers and Project Settings had never heard of it.
+  const [editCustomerId, setEditCustomerId] = useState('')
+  const [editNewCustomer, setEditNewCustomer] = useState('')
+  const [customers, setCustomers] = useState<{ id: string; name: string }[] | null>(null)
   const [editType, setEditType] = useState('')
   const [editStatus, setEditStatus] = useState('')
   const [editStartDate, setEditStartDate] = useState('')
@@ -201,7 +208,14 @@ export default function ProjectsPage() {
     setEditProject(project)
     setEditName(project.name)
     setEditAddress(project.address ?? '')
-    setEditClient(project.client ?? '')
+    setEditCustomerId((project as any).customer_id ?? '')
+    setEditNewCustomer('')
+    if (customers === null) {
+      ;(async () => {
+        const res = await fetch('/api/customers', { headers: { Authorization: `Bearer ${await getToken()}` } }).catch(() => null)
+        if (res?.ok) setCustomers(((await res.json()).customers ?? []).map((c: any) => ({ id: c.id, name: c.name })))
+      })()
+    }
     setEditType(project.type ?? '')
     setEditStatus(project.status ?? '')
     setEditStartDate(project.start_date ?? '')
@@ -215,6 +229,7 @@ export default function ProjectsPage() {
   async function handleEdit(e: React.FormEvent) {
     e.preventDefault()
     if (!editProject) return
+    if (editCustomerId === '__new' && !editNewCustomer.trim()) { notify('Type the new customer\'s name, or pick one from the list.'); return }
     setSaving(true)
     const token = await getToken()
     const res = await fetch(`/api/projects/${editProject.id}`, {
@@ -223,7 +238,9 @@ export default function ProjectsPage() {
       body: JSON.stringify({
         name: editName,
         address: editAddress || null,
-        client: editClient || null,
+        ...(editCustomerId === '__new'
+          ? { new_customer_name: editNewCustomer.trim() }
+          : { customer_id: editCustomerId || null }),
         type: editType || null,
         status: editStatus || null,
         start_date: editStartDate || null,
@@ -240,6 +257,9 @@ export default function ProjectsPage() {
       notify(`Could not save: ${d.error ?? res.statusText}`)
       return
     }
+    const saved = await res.json().catch(() => ({}))
+    const said = housesSentence(saved.houses)
+    if (said) notify(said, { tone: 'success' })
     setEditProject(null)
     fetchProjects()
   }
@@ -356,8 +376,22 @@ export default function ProjectsPage() {
                   <Input value={editAddress} onChange={e => setEditAddress(e.target.value)} />
                 </div>
                 <div className="space-y-1.5">
-                  <Label>Client</Label>
-                  <Input value={editClient} onChange={e => setEditClient(e.target.value)} />
+                  <Label>Customer <span className="font-normal text-faint">(optional)</span></Label>
+                  <Select value={editCustomerId} onChange={e => setEditCustomerId(e.target.value)}>
+                    <option value="">- No customer -</option>
+                    {/* The card this job is on, even before the list loads or if it is not in it. */}
+                    {(editProject as any)?.customer_id && !(customers ?? []).some(c => c.id === (editProject as any).customer_id) && (
+                      <option value={(editProject as any).customer_id}>{editProject?.client ?? 'Current customer'}</option>
+                    )}
+                    {(customers ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                    <option value="__new">+ New customer…</option>
+                  </Select>
+                  {editCustomerId === '__new' && (
+                    <Input value={editNewCustomer} onChange={e => setEditNewCustomer(e.target.value)} placeholder="Customer name" aria-label="New customer name" />
+                  )}
+                  {editProject?.is_site && (
+                    <p className="text-xs text-faint">Also sets it on the houses in this development, except any you gave a different customer.</p>
+                  )}
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
