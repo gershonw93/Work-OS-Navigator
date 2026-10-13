@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  BarChart2, Play, Loader2, Save, Share2, Printer, FileSpreadsheet, Search,
+  BarChart2, Play, Loader2, Save, Share2, Printer, Search,
   FolderKanban, UsersRound, HardHat, Truck, Trash2, Link2, Copy, Power, Bookmark,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
@@ -22,7 +22,6 @@ import {
   SUBJECTS, PERIODS, DEFAULT_CONFIG, sectionsFor, configProblem, internalSections,
   type ReportConfig, type ReportDoc, type ReportSubject, type SectionKey, type PeriodPreset,
 } from '@/lib/report-builder'
-import { docToSheets } from '@/lib/report-format'
 import { fetchProblem } from '@/lib/fetch-error'
 import { formatDate } from '@/lib/dates'
 
@@ -269,20 +268,6 @@ export default function ReportsPage() {
     }
   }
 
-  async function exportExcel() {
-    if (!doc) return
-    try {
-      const XLSX = await import('xlsx')
-      const wb = XLSX.utils.book_new()
-      for (const sh of docToSheets(doc)) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(sh.rows), sh.name)
-      const file = `${doc.title.replace(/[^\w\- ]+/g, '').trim() || 'report'}.xlsx`
-      XLSX.writeFile(wb, file)
-    } catch (e) {
-      console.error('[reports] excel', e)
-      notice('Could not make the spreadsheet.')
-    }
-  }
-
   const recipients: ShareRecipient[] = !opts ? [] : [
     ...opts.customers.map(c => ({ key: `c:${c.id}`, label: c.email ? `${c.name} (${c.email})` : `${c.name} (no email)`, name: c.name, email: c.email ?? null, kind: 'customer' as const })),
     ...opts.subs.map(c => ({ key: `s:${c.id}`, label: c.email ? `${c.name} (${c.email})` : `${c.name} (no email)`, name: c.name, email: c.email ?? null, kind: 'sub' as const })),
@@ -305,7 +290,7 @@ export default function ReportsPage() {
     <div className="p-6 space-y-6">
       <div className="print:hidden flex flex-col gap-1">
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight text-ink"><BarChart2 className="h-6 w-6 text-accent-fg" /> Reports</h1>
-        <p className="text-sm text-muted-fg">Build a report on a job, a customer, a sub or a supplier - pick what goes in it, then save it, share it, or export it as a PDF or a spreadsheet.</p>
+        <p className="text-sm text-muted-fg">Build a report on a job, a customer, a sub or a supplier - pick what goes in it, then save it, share it, or save it as a PDF.</p>
       </div>
 
       {optsError && <p className="print:hidden rounded-xl border border-danger/40 bg-danger-tint px-4 py-3 text-sm text-danger">{optsError}</p>}
@@ -497,7 +482,6 @@ export default function ReportsPage() {
                 <Button variant="secondary" onClick={() => setSharing(true)}><Share2 className="h-4 w-4" /> Share</Button>
               )}
               <Button variant="secondary" onClick={() => window.print()}><Printer className="h-4 w-4" /> PDF / Print</Button>
-              <Button variant="secondary" onClick={exportExcel}><FileSpreadsheet className="h-4 w-4" /> Excel</Button>
             </div>
           )}
           {doc && dropped.length > 0 && (

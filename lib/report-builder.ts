@@ -4,7 +4,7 @@
 // ONE pure function turns a report's settings plus the rows a route loaded
 // into a `ReportDoc`: a title, some sections, and tables of plain values. The
 // screen renders a doc, the shared link renders the SAME doc (a snapshot taken
-// when it was shared), and print / Excel read it too. So there is one place a
+// when it was shared), and print reads it too. So there is one place a
 // number in a report is worked out, and the copy a developer opens cannot
 // disagree with the copy the office printed.
 //
