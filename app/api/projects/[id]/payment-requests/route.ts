@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { resolveStages } from '@/lib/payment-stages'
 import { createPaymentRequest } from '@/lib/writes/payment-request'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -59,9 +60,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
  * pressed.
  */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const a = await auth(request)
-  if (!a) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { db, user } = a
+  // ASKING THE CLIENT FOR MONEY IS `payments: edit`, AND IT IS THE GC'S JOB.
+  // This checked only "are you signed in", so any account holding a project
+  // id - a field worker, an invited sub - could raise a request against a
+  // job's client. `requirePermission` brings the billing lock with it, and
+  // `ownedProject` keeps a sub on the job out: the client is the GC's.
+  const db = admin()
+  const gate = await requirePermission(db, request, 'payments', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   const body = await request.json().catch(() => ({} as any))
 
