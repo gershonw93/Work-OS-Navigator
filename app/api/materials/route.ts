@@ -1,7 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logActivity } from '@/lib/log-activity'
-import { requirePermission, denied } from '@/lib/api-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { ownedProjectsFilter } from '@/lib/project-access'
+import { createMaterialPurchase } from '@/lib/writes/material-purchase'
 
 export const runtime = 'nodejs'
 
@@ -10,27 +11,22 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function ctx(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return null
-  const { data: profile } = await db.from('profiles').select('company_id, full_name').eq('id', user.id).single()
-  if (!profile?.company_id) return null
-  return { db, user, companyId: profile.company_id, actorName: profile.full_name || 'Someone' }
-}
-
 // List material purchases across the company's projects, plus the projects list
 // for the "which job" selector.
+//
+// Gated on `materials: view`. It used to ask only "is somebody signed in", so
+// any account - a sub's included - could read every receipt on its own jobs
+// whatever its role said about Materials.
 export async function GET(request: Request) {
-  const c = await ctx(request)
-  if (!c) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { db, companyId } = c
+  const db = admin()
+  const gate = await requirePermission(db, request, 'materials', 'view')
+  if (denied(gate)) return gate.denied
+  const companyId = gate.actor.companyId
+  if (!companyId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: projects } = await db
     .from('projects').select('id, name')
-    .or(`gc_company_id.eq.${companyId},created_by_company_id.eq.${companyId}`)
+    .or(ownedProjectsFilter(companyId))
     .order('name')
   const projectIds = (projects ?? []).map((p: any) => p.id)
 
@@ -49,61 +45,22 @@ export async function GET(request: Request) {
   return NextResponse.json({ materials, projects: projects ?? [] })
 }
 
+// Add a receipt. The body lives in lib/writes/material-purchase.ts, shared with
+// Claude. The job comes from the body, so it must be one of the company's OWN
+// jobs: a receipt on a job feeds that GC's budget and client billing, and a sub
+// invited onto the job has no business writing one there.
 export async function POST(request: Request) {
-  const gate = await requirePermission(admin(), request, 'materials', 'edit')
+  const db = admin()
+  const gate = await requirePermission(db, request, 'materials', 'edit')
   if (denied(gate)) return gate.denied
-
-  const c = await ctx(request)
-  if (!c) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { db, user, companyId, actorName } = c
+  const { actor } = gate
+  if (!actor.companyId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { project_id, store_name, amount, tax, purchase_date, category, notes, receipt_url, line_items, budget_line_id, save_store, client_paid } = body
-  if (!project_id) return NextResponse.json({ error: 'Pick which job this is for.' }, { status: 400 })
+  if (!body?.project_id) return NextResponse.json({ error: 'Pick which job this is for.' }, { status: 400 })
+  const owned = await ownedProject(db, actor, String(body.project_id), 'id')
+  if ('denied' in owned) return owned.denied
 
-  // Optionally save the store as a supplier in the Directory (find or create by name).
-  let store_company_id: string | null = null
-  if (save_store && store_name?.trim()) {
-    const { data: existing } = await db.from('companies').select('id').ilike('name', store_name.trim()).limit(1).maybeSingle()
-    if (existing) store_company_id = existing.id
-    else {
-      const { data: created } = await db.from('companies').insert({
-        name: store_name.trim(), type: 'supplier', trade: 'Materials',
-        /* no address on file. NOT `noemail+<ts>@placeholder.com`: an invented address passes every is-this-an-address check, so the review screens listed the sub as emailable and a send would have recorded them TOLD. The column is NOT NULL, and '' is what 22 rows already use for absent. */ contact_email: '', insurance_status: 'missing', added_by_company_id: companyId,
-      }).select('id').single()
-      store_company_id = created?.id ?? null
-    }
-  }
-
-  const row = {
-    project_id,
-    company_id: store_company_id,
-    budget_line_id: budget_line_id || null,
-    store_name: store_name || null,
-    amount: Number(amount) || 0,
-    tax: tax != null && tax !== '' ? Number(tax) : null,
-    purchase_date: purchase_date || null,
-    category: category || null,
-    notes: notes || null,
-    receipt_url: receipt_url || null,
-    line_items: line_items ?? null,
-    client_paid: !!client_paid,
-    created_by: user.id,
-  }
-
-  let { data, error } = await db.from('material_purchases').insert(row).select('*').single()
-  // Pre-migration fallback: client_paid column may not exist yet.
-  if (error && (error as any).code === '42703') {
-    const { client_paid: _omit, ...withoutClientPaid } = row
-    const retry = await db.from('material_purchases').insert(withoutClientPaid).select('*').single()
-    data = retry.data; error = retry.error
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  await logActivity(db, project_id, actorName, 'material_purchased',
-    `Material receipt: ${store_name || 'purchase'} - $${Number(amount || 0).toLocaleString()}`,
-    { material_id: data.id, store_name, amount }, user.id)
-
-  return NextResponse.json({ material: data })
+  const result = await createMaterialPurchase(db, { userId: actor.userId, companyId: actor.companyId, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
