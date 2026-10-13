@@ -87,6 +87,12 @@ const AUTHORED: Release[] = [
         text: 'A development now has Record payment: enter the check once and split it across its houses - against each house\'s invoices, as a deposit or draw on a house, or both - with Divide evenly to spread it for you. Every house shows its share and its invoices turn Paid or Partly paid as usual, and when the whole check pays invoices it goes to QuickBooks as one payment, matching the deposit on your bank statement.',
         help: 'record-client-payment',
       },
+      {
+        kind: 'improved',
+        title: 'One customer for a whole development',
+        text: 'Setting the customer on a development - in Project Settings, or Edit on the Projects list, which now picks from your customers instead of a free-text box - sets it on its houses too, except any house you gave a different customer.',
+        help: 'record-client-payment',
+      },
     ],
   },
   {

@@ -18,6 +18,8 @@ import { Settings, X } from 'lucide-react'
 import { headerIconButton } from './header-icon-button'
 import { MoveJobDialog } from '@/components/projects/development-actions'
 import Link from 'next/link'
+import { useNotice } from '@/components/ui/notice'
+import { housesSentence } from '@/lib/development-customer'
 
 interface Props {
   projectId: string
@@ -48,6 +50,7 @@ interface Props {
 
 export function EditProjectButton({ projectId, project }: Props) {
   const router = useRouter()
+  const notify = useNotice()
   const supabase = createClient()
   const [open, setOpen] = useState(false)
   // Which development the job is in is changed by ITS OWN dialog, opened after
@@ -161,6 +164,9 @@ export function EditProjectButton({ projectId, project }: Props) {
     })
     setSaving(false)
     if (!res.ok) { setError((await res.json().catch(() => ({}))).error ?? 'Could not save'); return }
+    // A development's customer goes on to its houses - say what that did.
+    const said = housesSentence((await res.json().catch(() => ({}))).houses)
+    if (said) notify(said, { tone: 'success' })
     setOpen(false)
     // Status/billing changes what the tab bar shows; it caches that on mount.
     window.dispatchEvent(new Event('sytenav:project-updated'))
@@ -235,6 +241,9 @@ export function EditProjectButton({ projectId, project }: Props) {
                   <option value="">- No customer -</option>
                   {customers.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </Select>
+                {project.is_site && (
+                  <p className="text-xs text-faint">Also sets it on the houses in this development, except any you gave a different customer.</p>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
