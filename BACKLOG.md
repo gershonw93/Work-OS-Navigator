@@ -284,6 +284,37 @@ the biggest build yet while the books are half-wired ends with both half-done.
 - **Bank-facing budget & sellout** *(tester request)*. Abe: "when you create a bank budget and bank sellout they might be presented in a different way." The working budget and the version a lender wants are formatted differently. Needs a lender report format - probably an extension of the proposal PDF rather than a new thing.
 - **Full development pro-forma** *(tester request - partially addressed)*. A tester who develops (not just builds) wanted the spreadsheet they use as step one: land purchase, design, approvals, soft costs, then a return projection. We shipped the piece every GC needs - hard/soft cost split on the budget + a planning-stage menu (see Recently shipped). **Not built, deliberately:** land acquisition as its own record, debt/equity stack and draw schedule, carrying-cost-over-time modeling, and ROI / profit-on-cost / IRR outputs. That is a developer pro-forma tool, a different product from a GC's job budget - revisit only if more than one customer asks.
 
+## 🤖 Claude (the SyteNav MCP server) - phases 2 to 4
+
+Phase 1 shipped: `/api/mcp`, read-only, personal tokens from Settings ->
+Integrations, Claude Desktop / Claude Code only. The rest of the plan:
+
+- **Phase 2 - OAuth, so it can be added in claude.ai by URL.** claude.ai custom
+  connectors want OAuth 2.1 with dynamic client registration; a pasted bearer
+  token only works in Desktop/Code. Supabase Auth can act as the OAuth server.
+  The token it issues must resolve to the same `ActorPerms`, so nothing in
+  `lib/mcp/tools.ts` changes.
+- **Phase 3 - writing.** Enter a sub bill (PDF from a Gmail attachment through the
+  EXISTING scan, which keeps it metered), record a payment, create a task, add a
+  change order, request an inspection, add a Directory contact. THE RULE: a write
+  tool goes through the existing route's validation (`allocationProblem`,
+  `requestProblem`, the field whitelists, `billingLock`, `notify`), never a direct
+  insert. That means refactoring each route's body into a lib function both call,
+  one at a time. Every write lands in a log with the person and "via Claude"
+  (same reasoning as `demo_notification_log`). Writes carry
+  `readOnlyHint: false` and the destructive ones are left out entirely.
+- **THE QUICKBOOKS DOUBLE-COUNT, before any money write ships.** SyteNav pushes
+  bills and payments INTO QuickBooks. If Claude reads a payment out of QuickBooks
+  (via a QBO connector) and enters it here, the auto-push books it a second time.
+  QuickBooks reads should be tools on THIS server over the company's own
+  connection (`getValidConnection`), and anything entered from QBO data must carry
+  its `qbo_id` so the push skips it - or be refused.
+- **Assigned-only roles** (field supervisor, worker, read only). Refused today
+  because what they see INSIDE a job (only their own tasks) is decided inline in
+  several routes. Lift `taskIdsFor`-style scoping into lib first, then let the
+  dispatcher use it.
+- **Phase 4 - Anthropic's connector directory listing** (needs their review).
+
 ## 📊 Reports (the company-wide builder shipped; these are the next asks)
 - **Scheduled sends.** "Email this saved report to the developer on the 1st of every month." The pieces exist - a saved config, the share snapshot, `tokenLinkEmail` - but it needs a cron, a recipient list per saved report, and the Hobby plan's once-a-day cron limit (see Bulk mail in CLAUDE.md). Not built until somebody asks for a second recipient on a schedule.
 - **Pick the columns, not just the sections.** Sections are on/off today; a column chooser per section (hide "Awaiting approval", add "Due") is the next level of "unlimited options". Shape: `columns?: Record<SectionKey, string[]>` on the config, applied in `tablesOf`.
@@ -561,6 +592,7 @@ and why:
 ## ✅ Recently shipped (for reference)
 
 - Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF and Excel export (`lib/report-builder.ts`, migration 140).
+- Claude can read SyteNav: a read-only MCP server at `/api/mcp` (projects, tasks, schedule, inspections, sub bills, client invoices) with personal tokens made and revoked on Settings -> Integrations (`mcp_tokens`, migration 141). Phases 2-4 are under Claude above.
 - House model punch items carry who does each one (teammate, Directory sub, or a typed name; `site_model_items.assignee_*`, migration 136). Applying puts them on every punch task, adds a teammate to the house's team when the applier may staff it, and notifies each person once per apply.
 - Developments: the Bulk Add container is called a Development on every screen (the data keeps `is_site` / `parent_project_id`). Add a job inside one (house model applied in the same step), add existing jobs, move or take a job out from its row, make a development from existing jobs in Bulk Add, and see/change a job's development from Project Settings.
 - Sub job view: a Schedule tab on My Jobs (whole job, theirs marked) and delay REPORTS on their own lines that the GC applies through the normal delay screen (`schedule_delay_reports`, migration 135); subs can bill against their own subcontract; free vendor accounts are made in place with a password; Files gained Job Files.
