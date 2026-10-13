@@ -41,7 +41,7 @@ export const ANALYTICS_HOSTS = new Set([
 
 /** Path prefixes never measured. See the list above for why each is here. */
 export const UNTRACKED_PREFIXES = [
-  '/portal', '/share', '/bid', '/bill', '/rfi', '/compliance', '/auth', '/admin', '/api',
+  '/portal', '/share', '/shared-report', '/bid', '/bill', '/rfi', '/compliance', '/auth', '/admin', '/api',
 ]
 
 const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'] as const
