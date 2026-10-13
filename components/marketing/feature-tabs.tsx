@@ -104,7 +104,7 @@ const TABS: { key: string; label: string; blurb: string; items: Item[]; visual: 
       { icon: ReceiptText, title: 'Materials & receipts', body: 'Snap the receipt, AI reads it, and the cost rolls into the budget actuals.' },
       { icon: Send, title: 'RFQs out, bids in', body: 'Send plans to subs and collect bids on a private link. No account needed.' },
       { icon: GitPullRequest, title: 'Change orders', body: 'Scope changes captured and priced, so the budget stays honest.' },
-      { icon: BarChart2, title: 'Financial reports', body: 'Job-level numbers and company-wide rollups, one click apart.' },
+      { icon: BarChart2, title: 'Detailed reports', body: 'By job, customer, sub or supplier. Save it, print it to PDF, or send the developer a link.' },
     ],
     visual: <MoneyMock />,
   },
