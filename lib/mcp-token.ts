@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from 'crypto'
+import { createHash, randomBytes, timingSafeEqual } from 'crypto'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // A personal token for the SyteNav MCP server - the credential Claude Desktop
@@ -46,3 +46,26 @@ export function mcpTokenPrefix(token: string): string {
 // The name check is `lib/mcp-token-name.ts`: the Settings form asks it too,
 // and this file's `crypto` import must not reach a browser bundle.
 export { mcpTokenNameProblem } from './mcp-token-name'
+
+// ── for the Claude sign-in (lib/mcp/oauth-server.ts) ────────────────────────
+
+/** A refresh token. A different prefix, so it can never pass `isMcpToken`. */
+export const REFRESH_TOKEN_PREFIX = 'snvr_'
+
+export function newRefreshToken(): string {
+  return REFRESH_TOKEN_PREFIX + randomBytes(32).toString('base64url')
+}
+
+/** A one-time code or a client id/secret: random, URL-safe, no prefix to route on. */
+export function newOpaque(bytes = 32): string {
+  return randomBytes(bytes).toString('base64url')
+}
+
+/** RFC 7636 S256: does this verifier produce the challenge Claude sent first? */
+export function pkceMatches(verifier: unknown, challenge: string): boolean {
+  if (typeof verifier !== 'string' || !/^[A-Za-z0-9._~-]{43,128}$/.test(verifier)) return false
+  const computed = createHash('sha256').update(verifier).digest('base64url')
+  const a = Buffer.from(computed)
+  const b = Buffer.from(challenge)
+  return a.length === b.length && timingSafeEqual(a, b)
+}

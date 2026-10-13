@@ -32,6 +32,8 @@ interface Connection {
   token_prefix: string
   created_at: string
   last_used_at: string | null
+  /** Made by signing in from Claude, rather than a token pasted into a config file. */
+  signed_in?: boolean
 }
 
 async function authHeader(): Promise<Record<string, string>> {
@@ -164,8 +166,8 @@ export function ClaudeConnectorCard() {
           <div className="min-w-0">
             <p className="font-semibold text-ink">Claude</p>
             <p className="text-sm text-muted-fg">
-              Let Claude Desktop or Claude Code read your jobs - projects, tasks, schedule, inspections,
-              bills and client invoices - with your permissions. Claude can only read for now; it cannot change anything in SyteNav.
+              Let Claude read your jobs - projects, tasks, schedule, inspections, bills and client
+              invoices - with your permissions. Claude can only read for now; it cannot change anything in SyteNav.
             </p>
           </div>
         </div>
@@ -178,6 +180,46 @@ export function ClaudeConnectorCard() {
           <p className="text-sm text-muted-fg">{unavailable}</p>
         ) : (
           <>
+            {/* THE EASY WAY FIRST. Adding SyteNav in Claude by its address
+                signs in through SyteNav's own Allow page - no token, no config
+                file, and it works in claude.ai and the Claude apps. The token
+                below is for the cases that need one. */}
+            <div className="space-y-2 rounded-xl border border-line bg-surface/50 p-3 sm:p-4">
+              <p className="text-sm font-semibold text-ink">Add SyteNav in Claude</p>
+              <ol className="list-decimal space-y-1 pl-5 text-sm text-ink-soft">
+                <li>In Claude, open Settings, then Connectors, and choose Add custom connector.</li>
+                <li>Name it SyteNav and paste this address.</li>
+                <li>Press Connect, sign in to SyteNav if asked, and press Allow.</li>
+              </ol>
+              <CopyBlock label="Connector address" text={serverUrl()} />
+            </div>
+
+            {connections.length > 0 && (
+              <div className="space-y-1.5">
+              <p className="text-sm font-medium text-ink-soft">Your connections</p>
+              <div className="divide-y divide-line-soft rounded-xl border border-line">
+                {connections.map(c => (
+                  <div key={c.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-ink">{c.name}</p>
+                      <p className="text-xs text-muted-fg">
+                        {c.signed_in ? 'Signed in from Claude' : <span className="font-mono">{c.token_prefix}…</span>}
+                        {' · '}
+                        {c.last_used_at
+                          ? <span title={absoluteTime(c.last_used_at)}>last used {timeAgo(c.last_used_at)}</span>
+                          : 'never used'}
+                      </p>
+                    </div>
+                    <Button type="button" variant="outline" size="sm" onClick={() => revoke(c)}>Revoke</Button>
+                  </div>
+                ))}
+              </div>
+              </div>
+            )}
+
+            <p className="text-sm font-medium text-ink-soft">
+              Or use a token, for Claude Code or a Claude Desktop config file
+            </p>
             {fresh && (
               <div className="space-y-3 rounded-xl border border-line bg-surface/50 p-3 sm:p-4">
                 <p className="text-sm text-ink">
@@ -189,26 +231,6 @@ export function ClaudeConnectorCard() {
                 <div className="row-even lg:flex lg:flex-wrap gap-2">
                   <Button type="button" variant="outline" onClick={() => setFresh(null)}>I have copied it</Button>
                 </div>
-              </div>
-            )}
-
-            {connections.length > 0 && (
-              <div className="divide-y divide-line-soft rounded-xl border border-line">
-                {connections.map(c => (
-                  <div key={c.id} className="flex items-center justify-between gap-3 px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-ink">{c.name}</p>
-                      <p className="text-xs text-muted-fg">
-                        <span className="font-mono">{c.token_prefix}…</span>
-                        {' · '}
-                        {c.last_used_at
-                          ? <span title={absoluteTime(c.last_used_at)}>last used {timeAgo(c.last_used_at)}</span>
-                          : 'never used'}
-                      </p>
-                    </div>
-                    <Button type="button" variant="outline" size="sm" onClick={() => revoke(c)}>Revoke</Button>
-                  </div>
-                ))}
               </div>
             )}
 

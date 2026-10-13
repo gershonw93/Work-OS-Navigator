@@ -60,7 +60,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Connect Claude to SyteNav',
-        text: 'Claude Desktop and Claude Code can now read your jobs - projects, tasks, the schedule, inspections, bills from subs and invoices to clients - so you can ask "what is overdue on the Henderson job?" and get the answer from SyteNav. It uses your own permissions and can only read for now. Set it up on Settings → Integrations.',
+        text: 'Claude can now read your jobs - projects, tasks, the schedule, inspections, bills from subs and invoices to clients - so you can ask "what is overdue on the Henderson job?" and get the answer from SyteNav. Add SyteNav as a custom connector in Claude, sign in, and press Allow. It uses your own permissions and can only read for now. The address to paste is on Settings → Integrations.',
         help: 'connect-claude',
       },
     ],

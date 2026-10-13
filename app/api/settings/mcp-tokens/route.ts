@@ -32,17 +32,22 @@ export async function GET(request: Request) {
   const actor = await getActor(db, bearer(request))
   if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // Both kinds: personal tokens (no expiry) and Claude sign-ins, listed while
+  // their refresh token is still good - one past it is a connection that can
+  // never read again, and listing it would offer to revoke nothing.
   const { data, error } = await db.from('mcp_tokens')
-    .select('id, name, token_prefix, created_at, last_used_at')
+    .select('id, name, token_prefix, created_at, last_used_at, oauth_client_id')
     .eq('profile_id', actor.userId)
     .is('revoked_at', null)
+    .or(`refresh_expires_at.is.null,refresh_expires_at.gt.${new Date().toISOString()}`)
     .order('created_at', { ascending: false })
   // A failed read is not "you have no connections".
   if (error) {
     console.error('[mcp-tokens] list failed:', error.message)
     return NextResponse.json({ error: 'Could not load your Claude connections.' }, { status: 500 })
   }
-  return NextResponse.json({ tokens: data ?? [], unavailable: actorProblem(actor) })
+  const tokens = (data ?? []).map(({ oauth_client_id, ...t }: any) => ({ ...t, signed_in: !!oauth_client_id }))
+  return NextResponse.json({ tokens, unavailable: actorProblem(actor) })
 }
 
 export async function POST(request: Request) {
@@ -57,9 +62,12 @@ export async function POST(request: Request) {
   const problem = mcpTokenNameProblem(body?.name)
   if (problem) return NextResponse.json({ error: problem }, { status: 400 })
 
+  // The cap is on tokens made HERE. A Claude sign-in replaces its own
+  // previous connection, so it cannot pile up the way pasted tokens can.
   const { count, error: countErr } = await db.from('mcp_tokens')
     .select('id', { count: 'exact', head: true })
     .eq('profile_id', actor.userId)
+    .is('oauth_client_id', null)
     .is('revoked_at', null)
   if (countErr) {
     console.error('[mcp-tokens] count failed:', countErr.message)
