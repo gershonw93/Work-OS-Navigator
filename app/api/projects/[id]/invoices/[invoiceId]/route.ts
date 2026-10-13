@@ -44,6 +44,13 @@ export async function PATCH(
   // Build update payload from allowed fields
   const updates: Record<string, unknown> = {}
   if (status !== undefined) updates.status = status
+  // WHEN IT WAS PAID IS DERIVED FROM THE MOVE, never taken from the body.
+  // `paid_at` existed from the first migration and nothing wrote it, so every
+  // reader of "paid when" fell back to a guess - the dashboard asked for an
+  // `updated_at` this table has never had, and its cash-out chart read zero.
+  // A re-press of Paid keeps the first date; leaving Paid clears it.
+  if (status === 'paid' && invoice.status !== 'paid') updates.paid_at = new Date().toISOString()
+  else if (status !== undefined && status !== 'paid') updates.paid_at = null
   if (due_date !== undefined) updates.due_date = due_date
   if (description !== undefined) updates.description = description
   if (invoice_number !== undefined) updates.invoice_number = invoice_number
