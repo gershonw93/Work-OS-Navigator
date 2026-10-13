@@ -189,7 +189,7 @@ async function main() {
       ok(!/auth\.getUser\(/.test(body), `${file} ${h} no longer settles for "somebody is signed in"`)
     }
   }
-  const access = code(X
+  const access = code('lib/writes/compliance-access.ts')
   ok(/requirePermission\(db, request, 'projects', 'view'\)/.test(access) && /ownsProject\(actor\.companyId/.test(access),
     'the compliance gate resolves the person and asks whether their company OWNS the job')
   ok(/actorCan\(actor, 'compliance', 'view'\)/.test(access) && /companyOnJob\(db, projectId, actor\.companyId\)/.test(access),
