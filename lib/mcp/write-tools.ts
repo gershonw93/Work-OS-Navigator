@@ -13,8 +13,14 @@ import { createDailyLog } from '@/lib/writes/daily-log'
 import { createClientInvoice } from '@/lib/writes/client-invoice'
 import { createPaymentRequest } from '@/lib/writes/payment-request'
 import { applyScheduleMove } from '@/lib/writes/schedule-move'
-import type { WriteResult } from '@/lib/writes/result'
-import type { ToolOutcome, ToolSpec } from './protocol'
+import type { ToolOutcome } from './protocol'
+import {
+  VIA, str, isDate, fold, PROJECT_ID, DATE, outcome, money, pct, given, onJob,
+  type WriteToolDef,
+} from './tool-kit'
+
+export { VIA }
+export type { WriteToolDef, WriteRunContext } from './tool-kit'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // What Claude can ADD to SyteNav. PHASE 3.
@@ -40,43 +46,13 @@ import type { ToolOutcome, ToolSpec } from './protocol'
 // runs once all of them have said yes.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Who to credit in the activity feed: "Dana via Claude". */
-export const VIA = 'Claude'
 
 /** A document attached to a bill. Vercel caps a request body near 4.5MB; base64 adds a third. */
 export const MAX_DOCUMENT_BYTES = 3 * 1024 * 1024
 const DOCUMENT_TYPES = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'image/heic']
 
-export interface WriteRunContext {
-  db: SupabaseClient
-  actor: ActorPerms
-  args: Record<string, unknown>
-  /** The one job this call is for - checked against the company's own by the dispatcher. */
-  projectId: string | null
-}
 
-export interface WriteToolDef extends ToolSpec {
-  write: true
-  resource: string
-  action: Action
-  project: 'required' | 'none'
-  run: (ctx: WriteRunContext) => Promise<ToolOutcome>
-}
 
-const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null)
-const isDate = (v: unknown): v is string => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)
-const fold = (v: unknown) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
-
-const PROJECT_ID = { type: 'string', description: 'The project id from list_projects.' }
-const DATE = { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }
-
-/** The app's answer, as Claude reads it: the record on success, the app's own sentence on refusal. */
-function outcome(result: WriteResult, key: string, summary: (row: any) => Record<string, unknown>): ToolOutcome {
-  if (result.status >= 400) return { error: String(result.body?.error ?? 'SyteNav refused that.') }
-  const row = result.body?.[key]
-  if (!row) return { error: 'SyteNav did not confirm the record was created. Check the app before trying again.' }
-  return { data: { created: true, ...summary(row) } }
-}
 
 /**
  * A person's name, matched to EXACTLY ONE roster member on the job or nobody.
@@ -394,31 +370,6 @@ export const WRITE_TOOLS: WriteToolDef[] = [
 //     dispatcher already checked is the company's.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const money = (v: unknown): number | null | 'bad' => {
-  if (v == null || v === '') return null
-  const n = typeof v === 'number' ? v : Number(v)
-  return Number.isFinite(n) && n >= 0 ? Math.round(n * 100) / 100 : 'bad'
-}
-const pct = (v: unknown): number | null | 'bad' => {
-  if (v == null || v === '') return null
-  const n = typeof v === 'number' ? v : Number(v)
-  return Number.isFinite(n) && n >= 0 && n <= 100 ? n : 'bad'
-}
-
-/** Only the keys the caller actually gave - an absent key is "leave it alone", never "clear it". */
-function given(args: Record<string, unknown>, keys: string[]): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const k of keys) if (k in args && args[k] !== undefined) out[k] = args[k]
-  return out
-}
-
-/** Does this row belong to this job? A failed read is not a "no" - it says so. */
-async function onJob(db: SupabaseClient, table: string, id: unknown, projectId: string): Promise<string | null> {
-  if (typeof id !== 'string' || !id.trim()) return 'Say which one: the id is missing.'
-  const { data, error } = await db.from(table).select('id').eq('id', id).eq('project_id', projectId).maybeSingle()
-  if (error) { console.error(`[mcp] ${table} lookup:`, error.message); return 'SyteNav could not check that record just now.' }
-  return data ? null : 'That record is not on this job.'
-}
 
 export const MORE_WRITE_TOOLS: WriteToolDef[] = [
   {
