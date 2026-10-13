@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { ACTUAL_STATUSES, lineExposure, rollupBudgetLines } from '@/lib/invoice-budget'
 import { requirePermission, denied } from '@/lib/api-guard'
-import { budgetAmount } from '@/lib/validate'
+import { updateBudgetLine } from '@/lib/writes/budget-line'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -162,60 +162,9 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const updates: Record<string, any> = { updated_at: new Date().toISOString() }
-  for (const key of ['cost_code', 'category', 'description', 'notes', 'subcontract_id']) {
-    if (key in body) updates[key] = body[key] || null
-  }
-  // Costs, checked rather than coerced. `Number(x) || 0` took a negative
-  // happily - a line saved Committed -1 and Actual -2.50 and SUBTRACTED them
-  // from the project totals - and turned a typo into a silent, confident zero.
-  const LABELS: Record<string, string> = {
-    budgeted_amount: 'budget', committed_amount: 'committed amount', actual_amount: 'actual amount',
-  }
-  for (const key of ['budgeted_amount', 'committed_amount', 'actual_amount']) {
-    if (!(key in body)) continue
-    const checked = budgetAmount(body[key], LABELS[key])
-    if (!checked.ok) return NextResponse.json({ error: checked.error }, { status: 400 })
-    updates[key] = checked.value
-  }
-  // Not money - a position in a list, where 0 is the right fallback.
-  if ('sort_order' in body) updates.sort_order = Number(body.sort_order) || 0
-  if ('space_type' in body) updates.space_type = body.space_type === 'interior' || body.space_type === 'exterior' ? body.space_type : null
-  if ('cost_type' in body) updates.cost_type = body.cost_type === 'soft' ? 'soft' : 'hard'
-  // Markup for this trade. NULL is "follow the project rate" and 0 is "zero on
-  // this line" - deliberately different, because storing 0 for the former would
-  // stop the line following a later change to the project rate.
-  if ('markup_pct' in body) {
-    updates.markup_pct = body.markup_pct === '' || body.markup_pct === null
-      ? null
-      : Math.max(0, Number(body.markup_pct) || 0)
-  }
-  if ('markup_excluded' in body) updates.markup_excluded = !!body.markup_excluded
-
-  let { data, error } = await db
-    .from('budget_line_items')
-    .update(updates)
-    .eq('id', params.lineId)
-    .eq('project_id', params.id)
-    .select()
-    .single()
-
-  // Pre-migration fallback: space_type / cost_type / markup may not exist yet.
-  if (error && (error as any).code === '42703') {
-    const { space_type: _s, cost_type: _c, markup_pct: _mp, markup_excluded: _me, ...core } = updates
-    const retry = await db
-      .from('budget_line_items')
-      .update(core)
-      .eq('id', params.lineId)
-      .eq('project_id', params.id)
-      .select()
-      .single()
-    data = retry.data; error = retry.error
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  return NextResponse.json({ item: data })
+  // Everything after the gate is `updateBudgetLine`, which Claude's MCP server can call too.
+  const result = await updateBudgetLine(db, { userId: user.id, projectId: params.id, lineId: params.lineId, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string; lineId: string } }) {

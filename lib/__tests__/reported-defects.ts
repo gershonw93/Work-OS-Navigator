@@ -203,7 +203,7 @@ ok(counted.changes_unlinked === 70_725,
 ok(counted.approved_changes === counted.revised_budget - counted.original_budget,
   'approved changes and the revised budget still agree with each other')
 
-const budgetRoute = code('app/api/projects/[id]/budget/route.ts')
+const budgetRoute = (code('app/api/projects/[id]/budget/route.ts') + code('lib/writes/budget-line.ts'))
 ok(/approvedChangesByLine\(\(data \?\? \[\]\) as any, \(changeOrders \?\? \[\]\) as any\)/.test(budgetRoute),
   'the Budget route works out which approved changes reach no line')
 ok(/changeRollup\.unmapped,/.test(budgetRoute), '...and hands the total to budgetTotals')

@@ -1,12 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logActivity } from '@/lib/log-activity'
 import { ACTUAL_STATUSES, approvedChangesByLine, budgetTotals, rollupBudgetLines } from '@/lib/invoice-budget'
 import { feeForInvoice } from '@/lib/allocations'
 import { markUp } from '@/lib/markup'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { getActor, actorCan } from '@/lib/server-permissions'
-import { budgetAmount } from '@/lib/validate'
+import { createBudgetLine } from '@/lib/writes/budget-line'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -291,54 +290,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()
-  const { cost_code, category, description, budgeted_amount, committed_amount, actual_amount, notes, subcontract_id, space_type, cost_type } = body
-
-  // Same three costs, same rule as the PATCH beside it - a negative committed
-  // or actual amount subtracts from the job's totals, and nothing used to stop
-  // one being typed.
-  const checkedBudgeted = budgetAmount(budgeted_amount, 'budget')
-  const checkedCommitted = budgetAmount(committed_amount, 'committed amount')
-  const checkedActual = budgetAmount(actual_amount, 'actual amount')
-  for (const c of [checkedBudgeted, checkedCommitted, checkedActual]) {
-    if (!c.ok) return NextResponse.json({ error: c.error }, { status: 400 })
-  }
-
-  if (!description) return NextResponse.json({ error: 'Description is required' }, { status: 400 })
-
-  const { count } = await db
-    .from('budget_line_items')
-    .select('*', { count: 'exact', head: true })
-    .eq('project_id', params.id)
-
-  const row = {
-    project_id: params.id,
-    cost_code: cost_code || null,
-    category: category || 'General',
-    description,
-    budgeted_amount: checkedBudgeted.value,
-    committed_amount: checkedCommitted.value,
-    actual_amount: checkedActual.value,
-    notes: notes || null,
-    subcontract_id: subcontract_id || null,
-    space_type: space_type === 'interior' || space_type === 'exterior' ? space_type : null,
-    cost_type: cost_type === 'soft' ? 'soft' : 'hard',
-    sort_order: count ?? 0,
-  }
-
-  let { data, error } = await db.from('budget_line_items').insert(row).select().single()
-  // Pre-migration fallback: space_type column may not exist yet.
-  if (error && (error as any).code === '42703') {
-    const { space_type: _omit, ...withoutSpaceType } = row
-    const retry = await db.from('budget_line_items').insert(withoutSpaceType).select().single()
-    data = retry.data; error = retry.error
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-  await logActivity(db, params.id, profile?.full_name || 'Someone', 'budget_line_added',
-    `Budget line added: ${description} - $${Number(budgeted_amount || 0).toLocaleString()}`,
-    { line_id: data.id, description, budgeted_amount }, user.id)
-
-  return NextResponse.json({ item: data })
+  // Everything after the gate is `createBudgetLine`, which Claude's MCP server can call too.
+  const result = await createBudgetLine(db, { userId: user.id, projectId: params.id, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
