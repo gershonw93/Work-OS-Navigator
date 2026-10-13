@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-13',
+    title: 'Ask Claude about your jobs',
+    items: [
+      {
+        kind: 'new',
+        title: 'Connect Claude to SyteNav',
+        text: 'Claude Desktop and Claude Code can now read your jobs - projects, tasks, the schedule, inspections, bills from subs and invoices to clients - so you can ask "what is overdue on the Henderson job?" and get the answer from SyteNav. It uses your own permissions and can only read for now. Set it up on Settings → Integrations.',
+        help: 'connect-claude',
+      },
+    ],
+  },
+  {
+    date: '2026-10-13',
     title: 'Reports',
     items: [
       {

@@ -8,6 +8,8 @@ import { projectSlotProblem } from '@/lib/billing-read'
 import { cleanLotDetails } from '@/lib/lot-details'
 import { customerForNewProject } from '@/lib/project-customer'
 import { pushCustomer } from '@/lib/quickbooks-push'
+import { ownedProjectsFilter } from '@/lib/project-access'
+import { ASSIGNED_ONLY_ROLES } from '@/lib/permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,7 +23,8 @@ async function getUser(request: Request) {
   return user
 }
 
-const RESTRICTED_ROLES = ['field_supervisor', 'worker', 'read_only', 'member']
+// The roles scoped to the jobs they are assigned to - one list, in lib.
+const RESTRICTED_ROLES = ASSIGNED_ONLY_ROLES
 
 export async function GET(request: Request) {
   const user = await getUser(request)
@@ -49,7 +52,7 @@ export async function GET(request: Request) {
   // Subcontractors: "Projects" lists the jobs they created/own. (Awarded GC
   // jobs live under My Jobs, since those projects are owned by the GC.)
   if ((profile.companies as any)?.type === 'subcontractor' && profile.company_id) {
-    const subScope = `created_by_company_id.eq.${profile.company_id},gc_company_id.eq.${profile.company_id}`
+    const subScope = ownedProjectsFilter(profile.company_id)
     let { data: ownProjects, error: e1 } = await db.from('projects')
       .select('id, name, status, start_date, end_date, address, client, type, created_at, lat, lng, geocoded_address')
       .or(subScope).order('created_at', { ascending: false })
@@ -97,7 +100,7 @@ export async function GET(request: Request) {
 
   // All company projects - either as GC or as standalone owner.
   // Includes address + coords so the Projects map can place pins.
-  const scope = `gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`
+  const scope = ownedProjectsFilter(profile.company_id)
   let { data, error } = await db
     .from('projects')
     .select('id, name, status, start_date, end_date, type, customer_id, address, client, lat, lng, geocoded_address, interior_sqft, exterior_sqft, parent_project_id, is_site, unit, floor')

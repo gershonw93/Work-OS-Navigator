@@ -33,16 +33,29 @@ export async function getActor(db: SupabaseClient, token: string | null | undefi
   if (!token) return null
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return null
+  return actorForUser(db, user.id, user.user_metadata?.role as string | undefined)
+}
 
+/**
+ * The same resolution, for a user already identified some other way - the
+ * MCP server's personal token (`lib/mcp-token.ts`) names a profile, not a
+ * session. ONE resolver, so Claude reading a job and the app reading it are
+ * answered by the same permissions.
+ */
+export async function actorForUser(
+  db: SupabaseClient,
+  userId: string,
+  metadataRole?: string | null,
+): Promise<ActorPerms> {
   // permission_overrides may not exist on older deployments - degrade to role only.
-  let role = (user.user_metadata?.role as string) ?? 'read_only'
+  let role = metadataRole ?? 'read_only'
   let overrides: OverrideMap | null = null
   let companyId: string | null = null
 
   const { data: full, error } = await db
     .from('profiles')
     .select('role, permission_overrides, company_id')
-    .eq('id', user.id)
+    .eq('id', userId)
     .single()
 
   if (!error && full) {
@@ -50,7 +63,7 @@ export async function getActor(db: SupabaseClient, token: string | null | undefi
     overrides = (full.permission_overrides ?? null) as OverrideMap | null
     companyId = full.company_id ?? null
   } else {
-    const { data: basic } = await db.from('profiles').select('role, company_id').eq('id', user.id).single()
+    const { data: basic } = await db.from('profiles').select('role, company_id').eq('id', userId).single()
     if (basic?.role) role = basic.role
     companyId = basic?.company_id ?? null
   }
@@ -59,7 +72,7 @@ export async function getActor(db: SupabaseClient, token: string | null | undefi
   const base = resolveRoleBase(role, companyRoleMap)
 
   return {
-    userId: user.id,
+    userId,
     role,
     companyId,
     permissions: getEffectivePermissions(role, overrides, base),

@@ -26,6 +26,7 @@ import { usePermissions } from '@/lib/use-permissions'
 import type { Action } from '@/lib/permissions'
 import { QuickBooksCard } from '@/components/settings/quickbooks-card'
 import { GoogleContactsCard } from '@/components/settings/google-contacts-card'
+import { ClaudeConnectorCard } from '@/components/settings/claude-connector-card'
 import { PasswordInput } from '@/components/ui/password-input'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 import { ThemeToggle, useTheme } from '@/components/ui/theme-toggle'
@@ -1952,6 +1953,7 @@ export default function SettingsPage() {
               </div>
               <QuickBooksCard />
               <GoogleContactsCard />
+              <ClaudeConnectorCard />
             </div>
           )}
 
