@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { tokenLinkEmail } from '@/lib/email'
 import { deliverLink, readSendBody } from '@/lib/send-link'
 import { appOrigin } from '@/lib/app-url'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { actorCan } from '@/lib/server-permissions'
 
 export const runtime = 'nodejs'
 
@@ -25,11 +27,19 @@ const admin = () => createClient(
  * the very link it was sending (#295).
  */
 export async function POST(request: Request, { params }: { params: { id: string; reqId: string } }) {
-  const auth = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Emailing a client for money, with their portal link in it, is
+  // `payments: edit` on the GC's own job - the link is the key to the
+  // client's project page, so it is `client-portal` as well. This checked
+  // only "signed in".
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(auth)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'payments', 'edit')
+  if (denied(gate)) return gate.denied
+  if (!actorCan(gate.actor, 'client-portal', 'view')) {
+    return NextResponse.json({ error: 'You do not have permission to view client portal.' }, { status: 403 })
+  }
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   const { to, note } = await readSendBody(request)
 

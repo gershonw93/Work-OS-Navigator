@@ -1,18 +1,25 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { friendlyDbError } from '@/lib/db-error'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function auth(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
+// Settling or withdrawing an ask is `payments: edit` on the GC's own job, the
+// same gate as raising one. Both handlers checked only "signed in", so any
+// account holding the ids could mark a client's deposit paid. Delete is
+// `edit` as well, like every other delete in the payments family - a Project
+// Manager holds view+edit there, and this is a draft ask, not the money.
+async function gated(request: Request, projectId: string) {
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  return user ? { db, user } : null
+  const gate = await requirePermission(db, request, 'payments', 'edit')
+  if (denied(gate)) return { denied: gate.denied }
+  const owned = await ownedProject(db, gate.actor, projectId, 'id')
+  if ('denied' in owned) return { denied: owned.denied }
+  return { db }
 }
 
 /**
@@ -24,8 +31,8 @@ async function auth(request: Request) {
  * ask has been answered, and optionally which payment answered it.
  */
 export async function PATCH(request: Request, { params }: { params: { id: string; reqId: string } }) {
-  const a = await auth(request)
-  if (!a) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const a = await gated(request, params.id)
+  if ('denied' in a) return a.denied
   const { db } = a
 
   const body = await request.json().catch(() => ({} as any))
@@ -54,8 +61,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string; reqId: string } }) {
-  const a = await auth(request)
-  if (!a) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const a = await gated(request, params.id)
+  if ('denied' in a) return a.denied
   const { error } = await a.db
     .from('client_payment_requests')
     .delete()

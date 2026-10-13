@@ -3,19 +3,12 @@ import { NextResponse } from 'next/server'
 import { resolveStages } from '@/lib/payment-stages'
 import { createPaymentRequest } from '@/lib/writes/payment-request'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { actorCan } from '@/lib/server-permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
-
-async function auth(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  return user ? { db, user } : null
-}
 
 /**
  * The deposits and stage payments you have asked the client for.
@@ -25,9 +18,15 @@ async function auth(request: Request) {
  * matters on screen: "which of these have I actually asked for?"
  */
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const a = await auth(request)
-  if (!a) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { db } = a
+  // What a client has been asked for is the GC's money, read under the same
+  // gate as the rest of Billing the client - and only on the GC's own job.
+  // This answered anybody signed in, a sub on the job included, and handed
+  // back the client portal token with it.
+  const db = admin()
+  const gate = await requirePermission(db, request, 'payments', 'view')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const [{ data: project }, { data: requests }] = await Promise.all([
     // NOT `client_email` - projects has no such column, and Supabase answers a
@@ -46,7 +45,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
     requests: requests ?? [],
     quoteTotal: (project as any)?.quote_total ?? null,
     clientName: (project as any)?.client ?? null,
-    portalToken: (project as any)?.client_portal_token ?? null,
+    // The portal link is its own permission: billing the client does not
+    // imply being trusted with the key to the client's project page.
+    portalToken: actorCan(gate.actor, 'client-portal', 'view')
+      ? (project as any)?.client_portal_token ?? null
+      : null,
   })
 }
 
