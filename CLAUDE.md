@@ -985,6 +985,22 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   cannot be written refuses the write, and a refused write gives its claim back.
   Credited "Name via Claude" (`withVia`). Pinned and mutation-checked in
   `mcp-write.ts`.
+- **PHASE 4 ADDS EDITS, AND AN EDIT TOOL IS NARROWER THAN ITS ROUTE.** The
+  owner's rule: add and edit, NEVER delete, NEVER record a payment. Ten more
+  route bodies live in `lib/writes/` (budget lines, subcontracts, schedule
+  items and moves, task edits, daily logs, client invoices, payment requests),
+  and the tools in `MORE_WRITE_TOOLS` pass only an allow-list of fields
+  (`given()`): no markup (the margin), no payment schedule (the route wipes and
+  replaces it), no vendor name/email (renames them on every job), no raw
+  status. A record an edit names is checked against the job first (`onJob`) -
+  the task PATCH looks its row up by id alone. EVERYTHING CLIENT-FACING STAYS
+  A DRAFT: a client invoice is born `draft`, a payment request unsent, and a
+  daily log written `via` Claude is born `pending` review. Moving dates is
+  `preview_schedule_move` then `move_schedule_item`, both through
+  `lib/writes/schedule-move.ts`, and `notify` is REQUIRED in the tool's schema
+  and passed through untouched - it emails people outside the company.
+  "What is billable" is ONE function (`lib/client-billable.ts`) for the screen
+  and for Claude. Pinned and mutation-checked in `mcp-write-more.ts`.
 - **A FAILED READ IS AN ERROR RESULT, NEVER `[]`.** A model repeats "there are
   none" to a person as fact. Same for a half-read: assignees that could not be
   read are null, not "nobody". Pinned, and mutation-checked, in `mcp-server.ts`.

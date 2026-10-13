@@ -137,7 +137,11 @@ export async function createDailyLog(
     source: isFieldEntry ? 'field' : 'office',
     // Field entries are observations until a manager reviews them, and stay
     // out of the client-facing PDF until then.
-    review_status: isFieldEntry ? 'pending' : 'reviewed',
+    // A log Claude wrote (`via` set) waits for a person too: an office log
+    // goes straight into the client-facing PDF, and nothing an AI typed should
+    // reach a client without somebody reading it first. The app never passes
+    // `via`, so its behaviour is unchanged.
+    review_status: isFieldEntry || via ? 'pending' : 'reviewed',
   }).select().single()
 
   if (error) return { status: 500, body: { error: `Save failed: ${error.message} (code: ${error.code})` } }

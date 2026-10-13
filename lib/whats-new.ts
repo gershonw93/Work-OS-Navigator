@@ -65,8 +65,8 @@ const AUTHORED: Release[] = [
       },
       {
         kind: 'new',
-        title: 'Let Claude enter bills, tasks and more',
-        text: 'If you allow it, Claude can also add records: a bill from a sub (straight from the email, PDF attached), a task, an inspection request, a change order or a Directory contact. It shows you what it will enter first. Bills go in waiting for your approval, so nothing reaches QuickBooks until you approve it, and everything it adds is marked "via Claude". It never records payments, edits or deletes. Turn it on for a connection with the ... menu on Settings → Integrations.',
+        title: 'Let Claude do the typing',
+        text: 'If you allow it, Claude can add and change records for you: budget lines, subcontracts, schedule items (moving dates shows you who else moves, and asks before emailing any sub), tasks, daily logs, bills from subs straight from the email with the PDF attached, inspection requests, change orders and contacts - and it can draft client invoices and payment requests. Anything a client or QuickBooks would see waits for you: bills wait for approval, invoices and payment requests stay unsent drafts, and logs wait for review. It never deletes or records payments, and everything it does is marked "via Claude". Turn it on for a connection with the ... menu on Settings → Integrations.',
         help: 'connect-claude',
       },
     ],

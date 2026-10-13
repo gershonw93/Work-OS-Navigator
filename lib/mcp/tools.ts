@@ -10,7 +10,9 @@ import { settlementsFor } from '@/lib/invoice-settlement-db'
 import { readBilling } from '@/lib/billing-read'
 import { billingAccess } from '@/lib/billing-state'
 import type { ToolOutcome, ToolSpec } from './protocol'
-import { WRITE_TOOLS, type WriteToolDef } from './write-tools'
+import { WRITE_TOOLS, MORE_WRITE_TOOLS, type WriteToolDef } from './write-tools'
+import { billableCosts } from '@/lib/client-billable'
+import { previewScheduleMove } from '@/lib/writes/schedule-move'
 import { runWrite } from './actions'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -451,6 +453,108 @@ export const TOOLS: ToolDef[] = [
       }
     },
   },
+
+  {
+    name: 'get_budget',
+    title: 'Get a job\'s budget',
+    description: 'A job\'s budget lines: id, category, cost code, description, and the budgeted, committed and actual amounts. Use the id to change a line.',
+    inputSchema: { type: 'object', properties: { project_id: PROJECT_ID }, required: ['project_id'], additionalProperties: false },
+    resource: 'budget',
+    project: 'required',
+    async run({ db, projectIds }) {
+      const { data, error } = await db.from('budget_line_items')
+        .select('id, category, cost_code, description, budgeted_amount, committed_amount, actual_amount, cost_type, subcontract_id, notes')
+        .eq('project_id', projectIds[0])
+        .order('sort_order', { ascending: true })
+      if (error) return failed('the budget', error)
+      const { rows, truncated } = capped(data ?? [])
+      return {
+        data: {
+          // NUMERIC comes back as a string - every amount is read, never passed on as "80.00".
+          lines: rows.map((l: any) => ({
+            id: l.id, category: l.category, cost_code: l.cost_code, description: l.description, cost_type: l.cost_type,
+            budgeted_amount: toAmount(l.budgeted_amount), committed_amount: toAmount(l.committed_amount),
+            actual_amount: toAmount(l.actual_amount), subcontract_id: l.subcontract_id, notes: l.notes,
+          })),
+          truncated,
+        },
+      }
+    },
+  },
+
+  {
+    name: 'list_team',
+    title: 'List a job\'s team',
+    description: 'The people on a job\'s team roster - name, role, email. Use the exact name to put someone on a task.',
+    inputSchema: { type: 'object', properties: { project_id: PROJECT_ID }, required: ['project_id'], additionalProperties: false },
+    resource: 'team',
+    project: 'required',
+    async run({ db, projectIds }) {
+      const { data, error } = await db.from('project_team_members').select('id, name, role, email').eq('project_id', projectIds[0]).order('name')
+      if (error) return failed('the team', error)
+      return { data: { team: (data ?? []).map((m: any) => ({ id: m.id, name: m.name, role: m.role, email: m.email })) } }
+    },
+  },
+
+  {
+    name: 'list_billable_costs',
+    title: 'List costs not yet billed to the client',
+    description:
+      'Approved sub bills and material purchases on a job that are not on a client invoice yet, each with the job\'s markup applied ' +
+      '- the same list the Billing the client screen offers. Use kind + source_id to draft a client invoice.',
+    inputSchema: { type: 'object', properties: { project_id: PROJECT_ID }, required: ['project_id'], additionalProperties: false },
+    resource: 'payments',
+    project: 'required',
+    async run({ db, projectIds }) {
+      const pid = projectIds[0]
+      const [project, invoices, materials, bills] = await Promise.all([
+        db.from('projects').select('contractor_fee_pct').eq('id', pid).maybeSingle(),
+        db.from('invoices').select('id, invoice_number, company_name, description, amount, status, markup_pct, markup_excluded, created_at').eq('project_id', pid),
+        db.from('material_purchases').select('id, store_name, category, amount, purchase_date, markup_pct, markup_excluded').eq('project_id', pid),
+        db.from('client_invoices').select('status, client_invoice_lines(source_invoice_id, source_material_id)').eq('project_id', pid),
+      ])
+      for (const r of [project, invoices, materials, bills]) if (r.error) return failed('the billable costs', r.error)
+      const costs = billableCosts({
+        invoices: invoices.data ?? [], materials: materials.data ?? [], bills: bills.data ?? [],
+        projectPct: Number((project.data as any)?.contractor_fee_pct ?? 0) * 100,
+      })
+      return { data: { costs } }
+    },
+  },
+
+  {
+    name: 'preview_schedule_move',
+    title: 'Preview moving a schedule item',
+    description:
+      'Work out what moving a schedule item to new dates would do, WITHOUT changing anything: which linked lines move with it, ' +
+      'which are skipped and why, and which subcontractors would be affected. Always call this before move_schedule_item and ' +
+      'show the person the result.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        project_id: PROJECT_ID,
+        item_id: { type: 'string', description: 'From get_schedule.' },
+        start_date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+        end_date: { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' },
+      },
+      required: ['project_id', 'item_id', 'start_date', 'end_date'],
+      additionalProperties: false,
+    },
+    resource: 'schedule',
+    project: 'required',
+    async run({ db, actor, args, projectIds }) {
+      const { data: item, error } = await db.from('schedule_items').select('id').eq('id', str(args.item_id) ?? '').eq('project_id', projectIds[0]).maybeSingle()
+      if (error) return failed('the schedule', error)
+      if (!item) return { error: 'That schedule item is not on this job.' }
+      // The app's own preview, which writes nothing - the same plan the move will carry out.
+      const result = await previewScheduleMove(db, {
+        userId: actor.userId, projectId: projectIds[0], itemId: (item as any).id,
+        body: { start_date: args.start_date, end_date: args.end_date },
+      })
+      if (result.status >= 400) return { error: String(result.body?.error ?? 'Could not work out what would move.') }
+      return { data: result.body }
+    },
+  },
 ]
 
 /** The person cannot use the MCP server at all, and the sentence that says why - or null. */
@@ -463,7 +567,7 @@ export function actorProblem(actor: ActorPerms): string | null {
 }
 
 /** Every tool this server has, reading and adding. */
-export const ALL_TOOLS: (ToolDef | WriteToolDef)[] = [...TOOLS, ...WRITE_TOOLS]
+export const ALL_TOOLS: (ToolDef | WriteToolDef)[] = [...TOOLS, ...WRITE_TOOLS, ...MORE_WRITE_TOOLS]
 
 /**
  * The tools a connection is shown. A connection the person did not allow to

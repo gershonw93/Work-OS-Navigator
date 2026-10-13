@@ -302,11 +302,15 @@ through the app's own `lib/writes/*`. Still to do:
   balance) over the company's own connection, rather than a separate QBO
   connector - so "what does QuickBooks say" and "what does SyteNav say" come
   from one place that knows which records are the same.
-- **Editing.** Adding only today. An edit tool needs each PATCH route's body
-  moved into lib the way the creates were, and a think about which fields a
-  model may change without a person looking (a due date, yes; an amount on an
-  approved bill, no).
-- **Daily logs** - photos are the hard part; a log is mostly evidence.
+- **Deleting** - the owner's decision: Claude adds and edits, never deletes.
+  Revisit only with a per-connection "full access" consent and a confirm step.
+- **Editing what is left**: sub bills and change orders after they are made,
+  inspections (a booking needs who it was booked with), the fields phase 4
+  deliberately kept out (markup, payment schedules, vendor details), sending
+  a drafted client invoice or payment request, approving a bill. Each is one
+  route's body moved into `lib/writes/` plus a narrow tool.
+- **Daily log photos** through Claude (a file over MCP is base64 in the body;
+  Vercel caps a request near 4.5MB).
 - **Assigned-only roles** (field supervisor, worker, read only). Refused today
   because what they see INSIDE a job (only their own tasks) is decided inline in
   several routes. Lift `taskIdsFor`-style scoping into lib first.
@@ -591,6 +595,7 @@ and why:
 
 ## ✅ Recently shipped (for reference)
 
+- Claude can add AND edit across the day-to-day: budget lines, subcontracts, schedule items (including moving dates through the app's cascade, with `notify` always the person's call), tasks, daily logs (born pending review), and DRAFT client invoices and unsent payment requests. Ten more create/update route bodies moved into `lib/writes/`; billable costs are one function (`lib/client-billable.ts`). The payment-request POST now needs `payments: edit` on an owned job.
 - Claude can add records, with its own consent: tasks, sub bills waiting for approval (PDF attached), inspection requests, change orders, Directory contacts - each through the app's own create code (`lib/writes/*`), credited "via Claude", recorded in `mcp_actions` and guarded against a retried call (migration 143).
 - Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF export (`lib/report-builder.ts`, migration 140). Excel export shipped in #603 and was taken out the same day by decision - see the Reports section.
 - Sign in with SyteNav for Claude: add SyteNav as a custom connector by URL, sign in, press Allow (OAuth 2.1, `oauth_clients`/`oauth_codes`, migration 142).
