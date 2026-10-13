@@ -166,7 +166,7 @@ const usageSrc = read('lib/billing-read.ts')
 ok(/\.eq\('is_site', false\)/.test(usageSrc), 'the usage count leaves the site folder out')
 const bulkSrc = read('app/api/projects/bulk/route.ts')
 ok(/projectSlotProblem\([\s\S]{0,80}children\.length\)/.test(bulkSrc), 'and Bulk Add asks for room for every house it is about to create')
-ok(/!prev\?\.is_site/.test(read('app/api/projects/[id]/route.ts')), 'and reopening a site folder is never refused for a slot it does not hold')
+ok(/!prev\?\.is_site/.test(read('app/api/projects/[id]/route.ts') + read('lib/writes/project.ts')), 'and reopening a site folder is never refused for a slot it does not hold')
 
 const scansGone = scanLimitProblem(ent3, 150, NOW)!
 ok(!!scansGone, 'at the scan allowance, a scan is refused')
@@ -222,8 +222,12 @@ for (const f of [
 // A rule that exists on one door has to exist on the others. Metering only the
 // create route leaves the eleventh job one status change away - and a status
 // change is how a finished job comes back, which is the likelier door.
-ok(/projectSlotProblem\(/.test(code('app/api/projects/route.ts')), 'creating a job asks for a slot')
-const patch = code('app/api/projects/[id]/route.ts')
+// The bodies live in lib/writes/project.ts since Claude got a door to them -
+// the cap went WITH the body, so both callers meet it.
+const projectLib = code('lib/writes/project.ts')
+ok(/projectSlotProblem\(/.test(code('app/api/projects/route.ts') + projectLib.slice(0, projectLib.indexOf('export async function updateProject'))), 'creating a job asks for a slot')
+ok(/createProject\(/.test(code('app/api/projects/route.ts')) && /updateProject\(/.test(code('app/api/projects/[id]/route.ts')), '...through the shared functions, so Claude\'s door meets the same cap')
+const patch = code('app/api/projects/[id]/route.ts') + projectLib.slice(projectLib.indexOf('export async function updateProject'))
 ok(/projectSlotProblem\(/.test(patch), 'and so does bringing one back')
 ok(/willCount && !wasCounted/.test(patch),
   '...only when the status moves INTO a counted one, so re-saving an active job is not refused for the slot it already holds')

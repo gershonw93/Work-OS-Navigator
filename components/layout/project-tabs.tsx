@@ -166,9 +166,9 @@ const PLANNING_HIDDEN = new Set([
 // A few tabs aren't their own permission resource. Sending documents out is a
 // files action, so it borrows those rights rather than inventing a new toggle
 // nobody would know to set.
-// Client selections are allowances against budget lines - whoever can see the
-// money can see what the client has and hasn't picked.
-const PERMISSION_RESOURCE: Record<string, string> = { sharing: 'files', selections: 'budget' }
+// Selections used to borrow `budget` here; it is its own resource now (with
+// the same defaults), so the tab and the routes behind it ask one question.
+const PERMISSION_RESOURCE: Record<string, string> = { sharing: 'files' }
 
 interface ProjectTabsProps {
   projectId: string

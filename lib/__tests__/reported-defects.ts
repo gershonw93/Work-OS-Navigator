@@ -32,7 +32,8 @@ ok(!ACCEPTED_STATUSES.has('pending' as never) && !ACCEPTED_STATUSES.has('waiting
 ok(SELECTION_STATUSES.every(s => typeof s.hint === 'string' && s.hint.length > 0),
   'every status still explains itself')
 
-const selRoute = code('app/api/projects/[id]/selections/[selId]/route.ts')
+// The PATCH body moved into lib/writes/selection.ts (shared with the MCP server), so the route is read with it.
+const selRoute = code('app/api/projects/[id]/selections/[selId]/route.ts') + code('lib/writes/selection.ts')
 ok(/needs_selected_name: true/.test(selRoute),
   'the PATCH route refuses an accepted status with no choice named')
 ok(/ACCEPTED_STATUSES/.test(selRoute), '...using the shared set, not a second copy of the list')
@@ -80,7 +81,7 @@ ok(/Saved\. Link this to a budget line below/.test(selPage),
 // Both save paths have refused a negative allowance for a while. Rows written
 // before they did are still here, and the page they show up on is the CLIENT's.
 // ─────────────────────────────────────────────────────────────────────────────
-ok(/allowZero: true, label: 'allowance'/.test(code('app/api/projects/[id]/selections/route.ts')),
+ok(/allowZero: true, label: 'allowance'/.test(code('app/api/projects/[id]/selections/route.ts') + code('lib/writes/selection.ts')),
   'creating a selection validates the allowance')
 ok(/\['allowance_amount', 'allowance'\]/.test(selRoute), '...and so does editing one')
 const portal = code('app/portal/[token]/selections/page.tsx')
@@ -220,7 +221,7 @@ ok(/fileAgainstLine\('change_order', co\.id, e\.target\.value\)/.test(budgetPage
   '...with a way to file each against a line')
 ok(/budget_line_item_id: lineId/.test(budgetPage), '...which patches the change order, not the line')
 ok(/if \(budget_line_item_id !== undefined\) updates\.budget_line_item_id/.test(
-  code('app/api/projects/[id]/change-orders/[coId]/route.ts')),
+  code('app/api/projects/[id]/change-orders/[coId]/route.ts') + code('lib/writes/change-order.ts')),
   '...and the change-order route accepts that patch')
 
 // ─────────────────────────────────────────────────────────────────────────────

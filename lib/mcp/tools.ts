@@ -10,7 +10,12 @@ import { settlementsFor } from '@/lib/invoice-settlement-db'
 import { readBilling } from '@/lib/billing-read'
 import { billingAccess } from '@/lib/billing-state'
 import type { ToolOutcome, ToolSpec } from './protocol'
-import { WRITE_TOOLS, MORE_WRITE_TOOLS, type WriteToolDef } from './write-tools'
+import { WRITE_TOOLS, MORE_WRITE_TOOLS } from './write-tools'
+import { ROW_LIMIT, PROJECT_ID, DATE, failed, str, capped, type ToolDef, type WriteToolDef } from './tool-kit'
+import { AREA_TOOLS } from './areas'
+
+export { ROW_LIMIT }
+export type { ToolDef }
 import { billableCosts } from '@/lib/client-billable'
 import { previewScheduleMove } from '@/lib/writes/schedule-move'
 import { runWrite } from './actions'
@@ -39,44 +44,6 @@ import { runWrite } from './actions'
 // which is the sentence it then repeats to a person.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** More than this many rows and the result says it was cut, rather than silently stopping. */
-export const ROW_LIMIT = 200
-
-type ProjectArg = 'required' | 'optional' | 'none'
-
-interface RunContext {
-  db: SupabaseClient
-  actor: ActorPerms
-  args: Record<string, unknown>
-  /** The jobs this call covers: the one asked for, or every job the person can see. */
-  projectIds: string[]
-  projectNames: Map<string, string>
-}
-
-export interface ToolDef extends ToolSpec {
-  /** The permission (resource) a person needs, at `view`. */
-  resource: string
-  project: ProjectArg
-  run: (ctx: RunContext) => Promise<ToolOutcome>
-}
-
-const PROJECT_ID = {
-  type: 'string',
-  description: 'The project id from list_projects.',
-}
-const DATE = { type: 'string', pattern: '^\\d{4}-\\d{2}-\\d{2}$' }
-
-const failed = (what: string, error: { message: string }): ToolOutcome => {
-  console.error(`[mcp] ${what} read failed:`, error.message)
-  return { error: `SyteNav could not read ${what} just now. Try again in a moment.` }
-}
-
-const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null)
-
-/** The rows, and whether there were more than we sent. */
-function capped<T>(rows: T[]): { rows: T[]; truncated: boolean } {
-  return rows.length > ROW_LIMIT ? { rows: rows.slice(0, ROW_LIMIT), truncated: true } : { rows, truncated: false }
-}
 
 export const TOOLS: ToolDef[] = [
   {
@@ -567,7 +534,7 @@ export function actorProblem(actor: ActorPerms): string | null {
 }
 
 /** Every tool this server has, reading and adding. */
-export const ALL_TOOLS: (ToolDef | WriteToolDef)[] = [...TOOLS, ...WRITE_TOOLS, ...MORE_WRITE_TOOLS]
+export const ALL_TOOLS: (ToolDef | WriteToolDef)[] = [...TOOLS, ...WRITE_TOOLS, ...MORE_WRITE_TOOLS, ...AREA_TOOLS]
 
 /**
  * The tools a connection is shown. A connection the person did not allow to

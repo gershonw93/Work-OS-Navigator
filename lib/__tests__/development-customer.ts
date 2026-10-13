@@ -17,7 +17,7 @@ ok(housesToFollow(houses, null).follow.join() === 'a', 'with no old customer, on
 ok(housesSentence({ updated: 2, kept: ['Lot 3'] }) === 'Customer set on 2 houses in this development. Left alone: Lot 3 - it has a different customer of its own.', 'the save says what it did to the houses')
 ok(housesSentence({ updated: 0, kept: [] }) === null, '...and says nothing when there is nothing to say')
 
-const route = code('app/api/projects/[id]/route.ts')
+const route = code('app/api/projects/[id]/route.ts') + code('lib/writes/project.ts')
 ok(/ownedProject<[^>]*>\(\s*db, actor as any, params\.id/.test(route), 'a job of another company cannot be edited - the cascade writes to its houses')
 ok(/from\('customers'\)\.select\('id, name'\)\s*\.eq\('id', customer_id\)\.eq\('gc_company_id'/.test(route), 'a picked customer must be one of yours')
 ok(/customerForNewProject\(db, actor\?\.companyId/.test(route), 'a typed new customer becomes a card, by the create form\'s rule')

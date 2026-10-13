@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
-import { notify } from '@/lib/notify'
-import { validateAllocations } from '@/lib/allocations'
 import { pushBill, pushBillPayment, updateBillInQbo, voidBillInQbo, billQboRefs } from '@/lib/quickbooks-push'
-import { requirePermission, denied } from '@/lib/api-guard'
+import { updateSubBill } from '@/lib/writes/sub-bill'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -15,200 +14,35 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string; invoiceId: string } },
 ) {
-  const gate = await requirePermission(admin(), request, 'invoices', 'edit')
-  if (denied(gate)) return gate.denied
-
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'invoices', 'edit')
+  if (denied(gate)) return gate.denied
+  // APPROVING A BILL IS THE GC'S ACT, AND IT PUSHES TO THE GC'S QUICKBOOKS.
+  // `invoices: edit` alone let the admin of a sub's own company, invited onto
+  // the job, approve or delete their own bill. Only the GC's Bills tab and
+  // Approvals call this route - a sub's My Jobs page never does.
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   const body = await request.json()
-  const {
-    status, due_date, description, invoice_number, amount, client_paid, escrow_paid,
-    markup_pct, markup_excluded, markup_note, line_items, subtotal, tax, retainage,
-    allocations,
-  } = body
-
-  // Fetch existing invoice
-  const { data: invoice, error: fetchError } = await db
-    .from('invoices')
-    .select('*')
-    .eq('id', params.invoiceId)
-    .single()
-
-  if (fetchError || !invoice) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
-
-  // Build update payload from allowed fields
-  const updates: Record<string, unknown> = {}
-  if (status !== undefined) updates.status = status
-  // WHEN IT WAS PAID IS DERIVED FROM THE MOVE, never taken from the body.
-  // `paid_at` existed from the first migration and nothing wrote it, so every
-  // reader of "paid when" fell back to a guess - the dashboard asked for an
-  // `updated_at` this table has never had, and its cash-out chart read zero.
-  // A re-press of Paid keeps the first date; leaving Paid clears it.
-  if (status === 'paid' && invoice.status !== 'paid') updates.paid_at = new Date().toISOString()
-  else if (status !== undefined && status !== 'paid') updates.paid_at = null
-  if (due_date !== undefined) updates.due_date = due_date
-  if (description !== undefined) updates.description = description
-  if (invoice_number !== undefined) updates.invoice_number = invoice_number
-  if (amount !== undefined) updates.amount = amount
-  if (client_paid !== undefined) updates.client_paid = Number(client_paid) || 0
-  if (escrow_paid !== undefined) updates.escrow_paid = Number(escrow_paid) || 0
-  // Cost-plus markup on this one item. null is meaningful and different from 0:
-  // it means "follow the project rate", so the item keeps tracking a later
-  // change to it, where 0 would freeze it at no markup.
-  if (markup_pct !== undefined) {
-    updates.markup_pct = markup_pct === '' || markup_pct === null ? null : Number(markup_pct)
-  }
-  if (markup_excluded !== undefined) updates.markup_excluded = !!markup_excluded
-  if (markup_note !== undefined) updates.markup_note = markup_note || null
-  if (line_items !== undefined) updates.line_items = Array.isArray(line_items) ? line_items : []
-  if (subtotal !== undefined) updates.subtotal = subtotal === '' ? null : subtotal
-  if (tax !== undefined) updates.tax = tax === '' ? null : tax
-  if (retainage !== undefined) updates.retainage = retainage === '' ? null : retainage
-
-  // Splitting this bill across budget lines. Replace-in-full rather than
-  // patch-by-row: the editor sends the whole set, so a row deleted there has to
-  // disappear here, and reconciling row-by-row would leave orphans behind.
-  //
-  // Validated server-side as well as in the form - over-allocating is the one
-  // mistake that would quietly overstate what has landed on the budget.
-  let allocationRows: { budget_line_item_id: string; amount: number; note: string | null }[] | null = null
-  if (allocations !== undefined) {
-    const rows = (Array.isArray(allocations) ? allocations : [])
-      .filter((a: any) => a?.budget_line_item_id)
-      .map((a: any) => ({
-        budget_line_item_id: String(a.budget_line_item_id),
-        amount: Number(a.amount) || 0,
-        note: a.note ? String(a.note) : null,
-      }))
-    const nextAmount = amount !== undefined && amount !== '' ? Number(amount) : Number(invoice.amount ?? 0)
-    const problems = validateAllocations(nextAmount, rows)
-    if (problems.length) {
-      return NextResponse.json({ error: problems.map(p => p.message).join(' ') }, { status: 400 })
-    }
-    allocationRows = rows
-  }
-
-  if (status === 'approved') {
-    const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-    updates.approved_at = new Date().toISOString()
-    updates.approved_by_name = (profile as any)?.full_name ?? null
-
-    await logActivity(db, params.id, (profile as any)?.full_name ?? 'GC', 'invoice_approved', `Invoice ${invoice.invoice_number} approved - $${Number(invoice.amount).toLocaleString()}`)
-
-    // Notify sub company
-    if (invoice.company_id) {
-      const { data: subProfiles } = await db
-        .from('profiles')
-        .select('id')
-        .eq('company_id', invoice.company_id)
-      if (subProfiles?.length) {
-        await notify({
-          db,
-          userIds: subProfiles.map(p => p.id),
-          type: 'invoice_approved',
-          title: `Invoice Approved`,
-          message: `Invoice ${invoice.invoice_number} has been approved - $${Number(invoice.amount).toLocaleString()}`,
-          link: `/projects/${params.id}/invoices`,
-        })
-      }
-    }
-  } else if (status === 'sent') {
-    updates.sent_at = new Date().toISOString()
-
-    const { data: gcProfile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-    // This is a bill the sub sent US - "sent" here means released to be paid,
-    // not sent to them. The old wording described the flow backwards.
-    await logActivity(db, params.id, (gcProfile as any)?.full_name ?? 'GC', 'invoice_sent', `Invoice ${invoice.invoice_number} released for payment - $${Number(invoice.amount).toLocaleString()}`)
-
-    // Tell the sub their invoice cleared - which is the news they want.
-    if (invoice.company_id) {
-      const { data: subProfiles } = await db
-        .from('profiles')
-        .select('id')
-        .eq('company_id', invoice.company_id)
-      if (subProfiles?.length) {
-        await notify({
-          db,
-          userIds: subProfiles.map(p => p.id),
-          type: 'invoice_sent',
-          title: `Invoice released for payment`,
-          message: `Invoice ${invoice.invoice_number} - $${Number(invoice.amount).toLocaleString()} has been approved and released for payment.`,
-          link: `/projects/${params.id}/invoices`,
-        })
-      }
-    }
-  } else if (status === 'paid') {
-    const { data: paidProfile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-    await logActivity(db, params.id, (paidProfile as any)?.full_name ?? 'GC', 'invoice_paid', `Invoice ${invoice.invoice_number} marked as paid - $${Number(invoice.amount).toLocaleString()}`)
-
-    // Notify sub company
-    if (invoice.company_id) {
-      const { data: subProfiles } = await db
-        .from('profiles')
-        .select('id')
-        .eq('company_id', invoice.company_id)
-      if (subProfiles?.length) {
-        await notify({
-          db,
-          userIds: subProfiles.map(p => p.id),
-          type: 'invoice_paid',
-          title: `Invoice Paid`,
-          message: `Invoice ${invoice.invoice_number} has been marked as paid - $${Number(invoice.amount).toLocaleString()}`,
-          link: `/projects/${params.id}/invoices`,
-        })
-      }
-    }
-
-    // Mark related payment schedule item as paid
-    if (invoice.payment_schedule_item_id) {
-      await db
-        .from('payment_schedule_items')
-        .update({ status: 'paid' })
-        .eq('id', invoice.payment_schedule_item_id)
-    }
-  }
-
-  const { data, error } = await db
-    .from('invoices')
-    .update(updates)
-    .eq('id', params.invoiceId)
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  // After the invoice itself saves, so a rejected update never leaves the split
-  // pointing at an amount that was not written.
-  if (allocationRows) {
-    await db.from('invoice_allocations').delete().eq('invoice_id', params.invoiceId)
-    if (allocationRows.length) {
-      const { error: allocError } = await db.from('invoice_allocations')
-        .insert(allocationRows.map(r => ({ ...r, invoice_id: params.invoiceId })))
-      if (allocError) return NextResponse.json({ error: allocError.message }, { status: 500 })
-    }
-  }
-
-  const { data: saved } = await db.from('invoice_allocations')
-    .select('id, budget_line_item_id, amount, note')
-    .eq('invoice_id', params.invoiceId)
+  const result = await updateSubBill(db, { userId: user.id, projectId: params.id, invoiceId: params.invoiceId, body })
+  if (result.status >= 400 || !result.qbo) return NextResponse.json(result.body, { status: result.status })
 
   // An approved (or paid) bill belongs in QuickBooks. Same contract as the
   // payment push: never throws, 8s cap, not-connected is normal, and a miss is
   // caught by the Settings backlog sync. Runs AFTER the update is written so
   // the pusher reads the new status, and its result never gates the response.
-  if (status === 'approved' || status === 'paid') {
+  // HERE rather than in lib/writes/sub-bill.ts, which decides that a push is
+  // due: nothing on the shared write path reaches QuickBooks itself.
+  if (result.qbo.pushBill) {
     await pushBill(db, params.invoiceId)
   }
   // ...and paying it settles that Bill. Two records, in order: without the
   // second, the payable sat open in QuickBooks after the cash had gone out.
   // pushBill runs first so a bill approved and paid in one go has something
   // for the payment to link to.
-  if (status === 'paid') {
+  if (result.qbo.pushPayment) {
     await pushBillPayment(db, params.invoiceId)
   }
   // Correcting the amount on a bill ALREADY in QuickBooks. pushBill above
@@ -220,30 +54,30 @@ export async function PATCH(
   // and the refusal is worth showing: the edit saved here either way, so
   // silence would leave QuickBooks quietly stale again.
   let quickbooks: { updated: boolean; detail?: string } | undefined
-  const amountChanged = amount !== undefined && amount !== '' && Number(amount) !== Number(invoice.amount ?? 0)
-  if (amountChanged && invoice.qbo_id) {
+  if (result.qbo.correctAmount) {
     const res = await updateBillInQbo(db, params.invoiceId)
     quickbooks = res.pushed
       ? { updated: true }
       : { updated: false, detail: res.reason === 'not_connected' ? undefined : res.detail }
   }
 
-  return NextResponse.json({ invoice: data, allocations: saved ?? [], quickbooks })
+  return NextResponse.json({ ...result.body, quickbooks }, { status: result.status })
 }
 
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string; invoiceId: string } },
 ) {
-  const gate = await requirePermission(admin(), request, 'invoices', 'edit')
-  if (denied(gate)) return gate.denied
-
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'invoices', 'edit')
+  if (denied(gate)) return gate.denied
+  // APPROVING A BILL IS THE GC'S ACT, AND IT PUSHES TO THE GC'S QUICKBOOKS.
+  // `invoices: edit` alone let the admin of a sub's own company, invited onto
+  // the job, approve or delete their own bill. Only the GC's Bills tab and
+  // Approvals call this route - a sub's My Jobs page never does.
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   // Read what QuickBooks holds BEFORE the row goes - afterwards there is
   // nothing left to read the ids off, and an un-voided Bill is a payable for

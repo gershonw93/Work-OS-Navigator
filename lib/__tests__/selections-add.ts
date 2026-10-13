@@ -30,7 +30,8 @@ import { friendlyDbError } from '../db-error'
 import { ok, done, code } from './_helpers'
 
 const page = code('app/(dashboard)/projects/[id]/selections/page.tsx')
-const route = code('app/api/projects/[id]/selections/route.ts')
+// The POST body moved into lib/writes/selection.ts (shared with the MCP server), so the route is read with it.
+const route = code('app/api/projects/[id]/selections/route.ts') + code('lib/writes/selection.ts')
 
 // ── 1. open, never toggle ───────────────────────────────────────────────────
 ok(!/setShowAdd\(v => !v\)/.test(page), 'THE BUG: Add selection is not a toggle')
@@ -58,7 +59,10 @@ const said = friendlyDbError({ message: 'null value in column "status" of relati
 ok(!/violates|relation|constraint/.test(said), `the message names a field, not a constraint (${said})`)
 
 // ── 3. the state is written by the code that means it ───────────────────────
-ok((route.match(/status: 'pending'/g) ?? []).length === 2,
+// Counted over the CREATE function only - the same lib file also holds the
+// edit path, whose overage change order is born `pending` too.
+const createBody = route.slice(route.indexOf('export async function createSelection'), route.indexOf('export const SELECTION_FIELDS'))
+ok((createBody.match(/status: 'pending'/g) ?? []).length === 2,
   'both insert paths say `pending` outright - the seed one always did')
 ok(!/status: body\.status/.test(route), '...and neither takes it from the body')
 

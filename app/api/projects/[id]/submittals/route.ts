@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,12 +9,15 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Was: any signed-in account, on any job. Submittals are the GC's record of
+  // what was submitted for review - only the GC's Submittals tab calls these
+  // routes (a sub's job page never does), so the job must be the caller's
+  // company's own as well as the permission held.
+  const gate = await requirePermission(db, request, 'submittals', 'view')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const { data: submittals, error } = await db
     .from('submittals')
@@ -26,12 +30,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // `edit`, not `create`: Office Staff hold submittals view+edit and add them
+  // today, and no role holds create without edit - so nobody loses the button.
+  const gate = await requirePermission(db, request, 'submittals', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   const { data: profile } = await db
     .from('profiles')

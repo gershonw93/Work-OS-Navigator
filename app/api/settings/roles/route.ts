@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import {
-  ROLE_DEFAULTS, RESOURCES, ACTIONS, isBuiltinRole, getRoleDefaults, buildAllNone,
+  ROLE_DEFAULTS, RESOURCES, ACTIONS, isBuiltinRole, getRoleDefaults, buildAllNone, withInheritedResources,
   type PermMap,
 } from '@/lib/permissions'
 
@@ -66,14 +66,16 @@ export async function GET(request: Request) {
     return {
       role_key: key,
       label: override?.label ?? BUILTIN_LABELS[key] ?? key,
-      permissions: override ? override.permissions : getRoleDefaults(key),
+      // A role saved before a resource existed inherits it (`INHERITS_FROM`), so the
+      // grid shows what the routes enforce - and saving it does not quietly untick it.
+      permissions: override ? withInheritedResources({ ...override.permissions }) : getRoleDefaults(key),
       is_custom: false,
       is_overridden: !!override,
     }
   })
   for (const r of rows ?? []) {
     if (!isBuiltinRole(r.role_key)) {
-      roles.push({ role_key: r.role_key, label: r.label, permissions: r.permissions, is_custom: true, is_overridden: true })
+      roles.push({ role_key: r.role_key, label: r.label, permissions: withInheritedResources({ ...r.permissions }), is_custom: true, is_overridden: true })
     }
   }
 

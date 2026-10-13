@@ -1,10 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
-import {
-  typeOptions, cleanTypeName, typeNameProblem, isDefaultType, missingTypes, typeSortOrder,
-} from '@/lib/inspection-types'
-import { companyInspectionTypes, rememberInspectionTypes } from '@/lib/inspection-types-read'
+import { typeOptions, missingTypes } from '@/lib/inspection-types'
+import { companyInspectionTypes } from '@/lib/inspection-types-read'
+import { addRequiredInspections, REQUIRED_COLUMNS } from '@/lib/writes/required-inspection'
 import { utilityInspections, LOT_COLUMNS } from '@/lib/lot-details'
 
 const admin = () => createClient(
@@ -12,7 +11,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-const COLUMNS = 'id, type, sort_order, source, created_at'
+const COLUMNS = REQUIRED_COLUMNS
 
 /**
  * The inspections this job needs, the types that can be picked, and the ones
@@ -55,40 +54,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if ('denied' in owned) return owned.denied
 
   const body = await request.json().catch(() => ({}))
-  const asked: unknown[] = Array.isArray(body?.types) ? body.types : []
-  if (!asked.length) return NextResponse.json({ error: 'Pick at least one inspection.' }, { status: 400 })
-  for (const t of asked) {
-    const problem = typeNameProblem(t)
-    if (problem) return NextResponse.json({ error: problem }, { status: 400 })
-  }
-  const source = body?.source === 'model' ? 'model' : 'manual'
-
-  const { data: existing, error: readError } = await db
-    .from('project_required_inspections').select('type').eq('project_id', params.id)
-  if (readError) {
-    console.error('[required-inspections] read before insert failed', readError.message)
-    return NextResponse.json({ error: 'Could not load the required inspections.' }, { status: 500 })
-  }
-  const toAdd = missingTypes(asked.map(t => cleanTypeName(t)!), existing ?? [])
-  if (toAdd.length) {
-    const rows = toAdd.map((type, i) => ({
-      project_id: params.id, type, source,
-      sort_order: typeSortOrder(type, (existing?.length ?? 0) + i),
-      created_by: gate.actor.userId ?? null,
-    }))
-    const { error } = await db.from('project_required_inspections').insert(rows)
-    // 23505: a second tab added the same type a moment ago - same outcome.
-    if (error && error.code !== '23505') {
-      console.error('[required-inspections] insert failed', error.message)
-      return NextResponse.json({ error: 'Could not save the required inspections.' }, { status: 500 })
-    }
-    // A type typed in here is one this company uses - offer it next time.
-    await rememberInspectionTypes(db, gate.actor.companyId, toAdd.filter(t => !isDefaultType(t)))
-  }
-
-  const { data: required } = await db
-    .from('project_required_inspections').select(COLUMNS).eq('project_id', params.id).order('sort_order')
-  return NextResponse.json({ required: required ?? [], added: toAdd.length })
+  // Everything after the gate is `addRequiredInspections`, which Claude's MCP
+  // server calls too.
+  const result = await addRequiredInspections(db, {
+    userId: gate.actor.userId ?? null, companyId: gate.actor.companyId, projectId: params.id, body,
+  })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 /** Take one off the list. The inspections already filed for it stay - they are the record. */

@@ -101,7 +101,7 @@ ok(/from '@\/lib\/dates'/.test(inspections), '...which it did not even import be
 // derivation is a fallback, not the source of truth.
 ok(/todayDateInput\(\)/.test(inspections),
   'marking an inspection passed sends the browser day, not the server day')
-const route = code('app/api/projects/[id]/inspections/[inspectionId]/route.ts')
+const route = (code('app/api/projects/[id]/inspections/[inspectionId]/route.ts') + code('lib/writes/inspection.ts'))
 ok(/!updates\.completed_date/.test(route),
   'the server only derives completed_date when the client sent none')
 

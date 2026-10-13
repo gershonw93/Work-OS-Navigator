@@ -24,7 +24,8 @@ ok(repairActionProblem(shelf, 'flag', '  ') !== null, '...but not without saying
 ok(repairActionProblem(gone, 'flag', 'x') !== null, 'a retired tool is not reported broken')
 
 // ── the flag does not move it ───────────────────────────────────────────────
-const route = code('app/api/equipment/[id]/repair/route.ts')
+// The body moved into lib/writes (shared with Claude); the route keeps the gate.
+const route = code('app/api/equipment/[id]/repair/route.ts') + code('lib/writes/equipment-repair.ts')
 const flagCase = route.slice(route.indexOf("case 'flag':"), route.indexOf("case 'repaired':"))
 ok(flagCase.length > 0 && !/status/.test(flagCase), 'THE FLAG: reporting it broken does not change where it is')
 ok(needsRepair(outBroken) && outBroken.status === 'checked_out', '...so "checked out" and "needs repair" are both true at once')
@@ -42,7 +43,7 @@ ok(/action === 'flag' \? 'create' : 'edit'/.test(route), 'reporting asks `create
 // ── the check-in asks what shape it came back in ────────────────────────────
 ok(checkInProblem('ok', null) === null, 'THE RETURN: "good to go" needs nothing more')
 ok(checkInProblem('needs_repair', '') !== null && checkInProblem('needs_repair', 'cord nicked') === null, '"needs repair" needs to say what is wrong')
-const checkIn = code('app/api/equipment/[id]/assignment/route.ts')
+const checkIn = code('app/api/equipment/[id]/assignment/route.ts') + code('lib/writes/equipment-assignment.ts')
 ok(/return_condition: condition/.test(checkIn), 'the condition is stored on the check-in itself')
 ok(/condition === 'needs_repair'/.test(checkIn) && /repair_needed_at: new Date/.test(checkIn), '...and a bad one raises the same flag the list does')
 ok(/body\.condition === 'needs_repair' \? 'needs_repair' : 'ok'/.test(checkIn), 'an old caller with no body still checks in as it always did')
@@ -57,7 +58,7 @@ ok(/needsRepair\(item\)/.test(page), 'the check-out dialog shows the repair note
 // ── every move leaves a record, and status has one writer per move ──────────
 for (const a of Object.keys(EVENT_FOR)) ok(!!EVENT_LABEL[EVENT_FOR[a as keyof typeof EVENT_FOR]], `the history can say "${a}" in words`)
 ok(/equipment_events/.test(route), 'the repair route writes the event')
-const list = code('app/api/equipment/route.ts')
+const list = code('app/api/equipment/route.ts') + code('lib/writes/equipment.ts')
 ok(!/updates\.status/.test(list), 'the details PATCH no longer sets status, so nothing moves it without a record')
 ok(STATUS_LABEL.maintenance === 'In for repair', '"maintenance" says what it means')
 

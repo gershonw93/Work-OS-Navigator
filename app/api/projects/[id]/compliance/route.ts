@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logActivity } from '@/lib/log-activity'
+import { fileComplianceDocument } from '@/lib/writes/compliance-document'
+import { complianceAccess } from '@/lib/writes/compliance-access'
 
 const admin = () =>
   createClient(
@@ -12,17 +13,18 @@ export async function GET(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // The GC sees every vendor on its job; a sub on the job sees its OWN
+  // company's paperwork and nobody else's (My Jobs -> Compliance).
+  const access = await complianceAccess(db, request, params.id, { write: false })
+  if ('denied' in access) return access.denied
 
-  const { data: subcontracts, error: subError } = await db
+  let subQuery = db
     .from('subcontracts')
     .select('*, companies(id, name, type, contact_email)')
     .eq('project_id', params.id)
+  if (access.scope === 'own-company') subQuery = subQuery.eq('company_id', access.companyId)
+  const { data: subcontracts, error: subError } = await subQuery
 
   if (subError) return NextResponse.json({ error: subError.message }, { status: 500 })
 
@@ -83,11 +85,14 @@ export async function GET(
  * something the vendor is otherwise excused from.
  */
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // What a vendor owes is the GC's decision, never the vendor's.
+  const access = await complianceAccess(db, request, params.id, { write: true })
+  if ('denied' in access) return access.denied
+  if (access.scope !== 'owner') {
+    return NextResponse.json({ error: 'Only the contractor running this job decides what a vendor owes.' }, { status: 403 })
+  }
+  const user = { id: access.actor.userId }
 
   const body = await request.json().catch(() => ({}))
   const { company_id, type, required, note, scope } = body
@@ -135,52 +140,24 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string } },
 ) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const access = await complianceAccess(db, request, params.id, { write: true })
+  if ('denied' in access) return access.denied
 
-  const body = await request.json()
-  const { company_id, type, status, expiry_date, notes, file_url } = body
+  const body = await request.json().catch(() => ({}))
 
-  if (!company_id || !type) {
-    return NextResponse.json({ error: 'company_id and type are required' }, { status: 400 })
+  // A sub files for its OWN company, and does not approve its own paperwork -
+  // the contractor does. Refused out loud rather than quietly downgraded: a
+  // field the route drops answers exactly like one it saved.
+  if (access.scope === 'own-company') {
+    if (body?.company_id !== access.companyId) {
+      return NextResponse.json({ error: 'You can only file documents for your own company.' }, { status: 403 })
+    }
+    if (body?.status === 'approved') {
+      return NextResponse.json({ error: 'The contractor approves documents. Save it as Pending and they will review it.' }, { status: 400 })
+    }
   }
 
-  const row: Record<string, unknown> = {
-    company_id,
-    project_id: params.id,
-    type,
-    status: status ?? 'pending',
-    expiry_date: expiry_date ?? null,
-    notes: notes ?? null,
-    file_url: file_url ?? null,
-  }
-
-  let { data: doc, error } = await db
-    .from('compliance_documents')
-    .upsert(row, { onConflict: 'company_id,type,project_id' })
-    .select()
-    .single()
-
-  // Retry without notes if migration hasn't run yet
-  if (error && (error as any).code === '42703') {
-    delete row.notes
-    const retry = await db
-      .from('compliance_documents')
-      .upsert(row, { onConflict: 'company_id,type,project_id' })
-      .select()
-      .single()
-    doc = retry.data; error = retry.error
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-  await logActivity(db, params.id, profile?.full_name || 'Someone', 'compliance_document_added',
-    `Compliance document added: ${type}`, { doc_id: doc.id, type, status: doc.status }, user.id)
-
-  return NextResponse.json({ doc }, { status: 201 })
+  const result = await fileComplianceDocument(db, { userId: access.actor.userId, projectId: params.id, body })
+  return NextResponse.json(result.body, { status: result.status })
 }

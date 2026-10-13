@@ -32,7 +32,7 @@ ok(cleanTypeList(['Framing', 'framing', ' ', 'Well']).join() === 'Framing,Well',
 
 // ── a required inspection is not an inspection row ──────────────────────────
 // `not_scheduled` means "asked for, nobody booking it" and notifies schedulers.
-const reqRoute = read('app/api/projects/[id]/required-inspections/route.ts')
+const reqRoute = read('app/api/projects/[id]/required-inspections/route.ts') + read('lib/writes/required-inspection.ts')
 ok(!/from\('inspections'\)\s*\.insert/.test(reqRoute),
   'adding to the required list never creates an inspection row - nothing is requested and nobody is told')
 ok(/ownedProject/.test(reqRoute) && /requirePermission\(db, request, 'inspections', 'edit'\)/.test(reqRoute),
@@ -92,7 +92,7 @@ ok(/type: inspection_type/.test((read('app/api/projects/[id]/inspections/route.t
   'and the "Inspection to book" notification names the matching inspector, not the first one')
 
 // ── the Directory stores it without wiping the rest of `extra` ──────────────
-const patch = code('app/api/directory/[companyId]/route.ts')
+const patch = code('app/api/directory/[companyId]/route.ts') + code('lib/writes/directory-contact-edit.ts')
 ok(/\.\.\.\(\(\(cur as any\)\?\.extra/.test(patch), 'editing an inspector\'s types merges into extra, keeping jurisdiction and cert #')
 ok(/inspection_types/.test((read('app/api/directory/route.ts') + read('lib/writes/directory-contact.ts'))), 'adding an inspector keeps the types picked')
 

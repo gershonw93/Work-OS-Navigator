@@ -31,8 +31,11 @@ const msg = duplicateCustomerMessage({ customer: list[0], by: 'name' })
 ok(/QA Client - Weisblum/.test(msg), 'the refusal names the customer that already exists')
 
 // The route asks, BEFORE the insert, scoped to this company.
+// The POST body lives in lib/writes/customer.ts, shared with Claude's add_customer.
 const route = code('app/api/customers/route.ts')
-const post = route.slice(route.indexOf('export async function POST'), route.indexOf('export async function PATCH'))
+ok(/createCustomer\(/.test(route.slice(route.indexOf('export async function POST'), route.indexOf('export async function PATCH'))), 'POST /api/customers creates through the shared function')
+const lib = code('lib/writes/customer.ts')
+const post = lib.slice(lib.indexOf('export async function createCustomer'), lib.indexOf('export async function updateCustomer'))
 ok(/duplicateCustomer\(/.test(post), 'POST /api/customers checks for a duplicate')
 ok(post.indexOf('duplicateCustomer(') < post.indexOf('.insert('), '...before it inserts')
 ok(/\.eq\('gc_company_id', profile\.company_id\)/.test(post), "...against this company's customers only")

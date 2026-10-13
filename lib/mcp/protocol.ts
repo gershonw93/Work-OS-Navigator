@@ -36,11 +36,21 @@ export const INSTRUCTIONS =
 export const WRITE_INSTRUCTIONS =
   'SyteNav is construction project management for general contractors. These tools read the ' +
   'signed-in person\'s jobs with exactly their permissions in the app, and this connection may also ADD ' +
-  'records: tasks, bills from subs and vendors, inspection requests, change orders and Directory contacts. ' +
-  'Before creating anything, show the person exactly what you will enter and wait for them to say yes. ' +
-  'A bill is created waiting for approval - nothing reaches QuickBooks until a person approves it in ' +
-  'SyteNav. Change orders are created pending. Payments cannot be recorded, and nothing can be edited ' +
-  'or deleted. Check list_sub_bills or search_directory first so you do not enter something twice. ' +
+  'and EDIT records across the app - tasks, schedule, budget, subcontracts, bills from subs, client ' +
+  'invoices and payment requests (as drafts), daily logs, inspections, permits, RFIs, submittals, ' +
+  'selections, change orders, compliance, materials, equipment, customers and Directory contacts - using ' +
+  'these tools rather than a browser. Nothing can be deleted. Payments cannot be recorded. Nothing is ' +
+  'sent or emailed to anyone outside the company: client-facing records are created as drafts for a ' +
+  'person to send. A bill is created waiting for approval - nothing reaches QuickBooks until a person ' +
+  'approves it in SyteNav. ' +
+  'Before creating or changing anything, show the person exactly what you will enter and wait for them ' +
+  'to say yes. Check the matching list_ tool first so you do not enter something twice. ' +
+  'WHEN THE PERSON GIVES YOU A DOCUMENT (a PDF or photo): read it, decide what it is (a sub\'s bill, an ' +
+  'insurance certificate or W-9 or license, a permit, a quote, a store receipt, a change order, plans, or ' +
+  'something else), which job it belongs to and whose it is, and file it with the matching tool - ' +
+  'document_destinations lists them. If ANY of those three is not certain, ask one short question ' +
+  'instead of guessing. If you cannot attach the file itself, create the record and give the person the ' +
+  'attach_url the tool returns so they can drop the original on it. ' +
   'Start with list_projects to get project ids. Dates are YYYY-MM-DD; amounts are US dollars. When a ' +
   'tool says a permission is missing, tell the person - do not guess.'
 

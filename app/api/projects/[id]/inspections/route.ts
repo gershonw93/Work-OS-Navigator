@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { whoToCall } from '@/lib/inspection-contacts'
+import { requirePermission, denied } from '@/lib/api-guard'
 import { createInspection, directoryInspectors } from '@/lib/writes/inspection'
 
 const admin = () => createClient(
@@ -10,12 +11,12 @@ const admin = () => createClient(
 
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // GATED. This answered anybody with a login and an id. Field roles read
+  // their own ready-to-mark list from /api/me/inspections (`mark-ready`), so
+  // nobody who uses this screen today loses it.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'inspections', 'view')
+  if (denied(gate)) return gate.denied
 
   // Voided rows come back only when asked for. They are kept for the record -
   // nothing here is hard-deleted - but they are not the working list, and a
@@ -56,12 +57,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // GATED on `inspections: edit` - the same permission the PATCH beside it asks
+  // for running an inspection, and the one Claude's request_inspection names.
+  // It used to ask only "is somebody signed in", so a worker or a vendor could
+  // file a request and NOTIFY the schedulers about it.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'inspections', 'edit')
+  if (denied(gate)) return gate.denied
+  const user = { id: gate.actor.userId }
 
   const formData = await request.formData()
   const inspection_type = (formData.get('inspection_type') ?? formData.get('type')) as string

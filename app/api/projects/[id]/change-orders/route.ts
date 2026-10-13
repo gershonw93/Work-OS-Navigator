@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { createChangeOrder } from '@/lib/writes/change-order'
-import { requirePermission, denied } from '@/lib/api-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -36,6 +36,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const gate = await requirePermission(admin(), request, 'change-orders', 'edit')
   if (denied(gate)) return gate.denied
+  // A change order is the GC's contract with its client and its subs; a sub's
+  // admin holds `change-orders: edit` at their own company.
+  const owned = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

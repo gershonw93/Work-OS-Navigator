@@ -43,7 +43,7 @@ for (const role of ['admin', 'manager', 'project_manager', 'office_staff']) {
 }
 
 // ── and the route actually asks ─────────────────────────────────────────────
-const patch = code('app/api/projects/[id]/inspections/[inspectionId]/route.ts')
+const patch = (code('app/api/projects/[id]/inspections/[inspectionId]/route.ts') + code('lib/writes/inspection.ts'))
 ok(/const readyOnly = Object\.keys\(updates\)\.every\(/.test(patch),
   'the route tells a ready-only body from any other')
 ok(/requirePermission\(db, request, readyOnly \? 'mark-ready' : 'inspections', 'edit'\)/.test(patch),

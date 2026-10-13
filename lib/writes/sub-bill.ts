@@ -2,6 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { logActivity } from '@/lib/log-activity'
 import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
+import { validateAllocations } from '@/lib/allocations'
 import { withVia, type WriteResult } from './result'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -144,4 +145,233 @@ export async function createSubBill(
   }
 
   return { status: 200, body: { invoice: data } }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Changing a bill - moved out of `PATCH /api/projects/[id]/invoices/[invoiceId]`
+// unchanged: the status moves and who is told, the derived `paid_at`, the
+// split across budget lines (validated against the amount), and the
+// QuickBooks pushes that follow an approval, a payment or a corrected amount.
+//
+// Two things added on the way, both narrowing:
+//   - THE BILL MUST BE ON THE JOB IN THE URL. It was read and written by id
+//     alone, so a request naming a job you could edit reached any bill.
+//   - VIA CLAUDE, ONLY A BILL STILL `pending_approval`, AND NEVER ITS STATUS.
+//     Approval is the moment it goes to QuickBooks - a person stays in front
+//     of that. The app never passes `via`.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** What the route must tell QuickBooks after a bill edit saved. */
+export interface SubBillQboFollowUp {
+  pushBill: boolean
+  pushPayment: boolean
+  correctAmount: boolean
+}
+
+export async function updateSubBill(
+  db: SupabaseClient,
+  { userId, projectId, invoiceId, body, via }: {
+    userId: string; projectId: string; invoiceId: string; body: any; via?: string
+  },
+): Promise<WriteResult & { qbo?: SubBillQboFollowUp }> {
+  const {
+    status, due_date, description, invoice_number, amount, client_paid, escrow_paid,
+    markup_pct, markup_excluded, markup_note, line_items, subtotal, tax, retainage,
+    allocations,
+  } = body
+
+  // Fetch existing invoice
+  const { data: invoice, error: fetchError } = await db
+    .from('invoices')
+    .select('*')
+    .eq('id', invoiceId)
+    .eq('project_id', projectId)
+    .maybeSingle()
+
+  if (fetchError || !invoice) return { status: 404, body: { error: 'Invoice not found' } }
+
+  // Via Claude: fields on a bill still waiting for approval, and nothing else.
+  // Approving is what pushes to QuickBooks and tells the sub; paying is money.
+  if (via) {
+    if (invoice.status !== 'pending_approval') {
+      return { status: 400, body: { error: 'Only a bill still waiting for approval can be changed through Claude. Change this one in SyteNav.' } }
+    }
+    if (status !== undefined) {
+      return { status: 400, body: { error: 'Approving, releasing or paying a bill is done by a person in SyteNav.' } }
+    }
+    // Already in QuickBooks (approved once, then moved back): a correction has
+    // to go through the push the route makes, which Claude's path does not.
+    if (invoice.qbo_id) {
+      return { status: 400, body: { error: 'This bill is already in QuickBooks, so change it in SyteNav where the correction is pushed there too.' } }
+    }
+  }
+
+  // Build update payload from allowed fields
+  const updates: Record<string, unknown> = {}
+  if (status !== undefined) updates.status = status
+  // WHEN IT WAS PAID IS DERIVED FROM THE MOVE, never taken from the body.
+  // `paid_at` existed from the first migration and nothing wrote it, so every
+  // reader of "paid when" fell back to a guess - the dashboard asked for an
+  // `updated_at` this table has never had, and its cash-out chart read zero.
+  // A re-press of Paid keeps the first date; leaving Paid clears it.
+  if (status === 'paid' && invoice.status !== 'paid') updates.paid_at = new Date().toISOString()
+  else if (status !== undefined && status !== 'paid') updates.paid_at = null
+  if (due_date !== undefined) updates.due_date = due_date
+  if (description !== undefined) updates.description = description
+  if (invoice_number !== undefined) updates.invoice_number = invoice_number
+  if (amount !== undefined) updates.amount = amount
+  if (client_paid !== undefined) updates.client_paid = Number(client_paid) || 0
+  if (escrow_paid !== undefined) updates.escrow_paid = Number(escrow_paid) || 0
+  // Cost-plus markup on this one item. null is meaningful and different from 0:
+  // it means "follow the project rate", so the item keeps tracking a later
+  // change to it, where 0 would freeze it at no markup.
+  if (markup_pct !== undefined) {
+    updates.markup_pct = markup_pct === '' || markup_pct === null ? null : Number(markup_pct)
+  }
+  if (markup_excluded !== undefined) updates.markup_excluded = !!markup_excluded
+  if (markup_note !== undefined) updates.markup_note = markup_note || null
+  if (line_items !== undefined) updates.line_items = Array.isArray(line_items) ? line_items : []
+  if (subtotal !== undefined) updates.subtotal = subtotal === '' ? null : subtotal
+  if (tax !== undefined) updates.tax = tax === '' ? null : tax
+  if (retainage !== undefined) updates.retainage = retainage === '' ? null : retainage
+
+  // Splitting this bill across budget lines. Replace-in-full rather than
+  // patch-by-row: the editor sends the whole set, so a row deleted there has to
+  // disappear here, and reconciling row-by-row would leave orphans behind.
+  //
+  // Validated server-side as well as in the form - over-allocating is the one
+  // mistake that would quietly overstate what has landed on the budget.
+  let allocationRows: { budget_line_item_id: string; amount: number; note: string | null }[] | null = null
+  if (allocations !== undefined) {
+    const rows = (Array.isArray(allocations) ? allocations : [])
+      .filter((a: any) => a?.budget_line_item_id)
+      .map((a: any) => ({
+        budget_line_item_id: String(a.budget_line_item_id),
+        amount: Number(a.amount) || 0,
+        note: a.note ? String(a.note) : null,
+      }))
+    const nextAmount = amount !== undefined && amount !== '' ? Number(amount) : Number(invoice.amount ?? 0)
+    const problems = validateAllocations(nextAmount, rows)
+    if (problems.length) {
+      return { status: 400, body: { error: problems.map(p => p.message).join(' ') } }
+    }
+    allocationRows = rows
+  }
+
+  if (status === 'approved') {
+    const { data: profile } = await db.from('profiles').select('full_name').eq('id', userId).single()
+    updates.approved_at = new Date().toISOString()
+    updates.approved_by_name = (profile as any)?.full_name ?? null
+
+    await logActivity(db, projectId, (profile as any)?.full_name ?? 'GC', 'invoice_approved', `Invoice ${invoice.invoice_number} approved - $${Number(invoice.amount).toLocaleString()}`)
+
+    // Notify sub company
+    if (invoice.company_id) {
+      const { data: subProfiles } = await db
+        .from('profiles')
+        .select('id')
+        .eq('company_id', invoice.company_id)
+      if (subProfiles?.length) {
+        await notify({
+          db,
+          userIds: subProfiles.map(p => p.id),
+          type: 'invoice_approved',
+          title: `Invoice Approved`,
+          message: `Invoice ${invoice.invoice_number} has been approved - $${Number(invoice.amount).toLocaleString()}`,
+          link: `/projects/${projectId}/invoices`,
+        })
+      }
+    }
+  } else if (status === 'sent') {
+    updates.sent_at = new Date().toISOString()
+
+    const { data: gcProfile } = await db.from('profiles').select('full_name').eq('id', userId).single()
+    // This is a bill the sub sent US - "sent" here means released to be paid,
+    // not sent to them. The old wording described the flow backwards.
+    await logActivity(db, projectId, (gcProfile as any)?.full_name ?? 'GC', 'invoice_sent', `Invoice ${invoice.invoice_number} released for payment - $${Number(invoice.amount).toLocaleString()}`)
+
+    // Tell the sub their invoice cleared - which is the news they want.
+    if (invoice.company_id) {
+      const { data: subProfiles } = await db
+        .from('profiles')
+        .select('id')
+        .eq('company_id', invoice.company_id)
+      if (subProfiles?.length) {
+        await notify({
+          db,
+          userIds: subProfiles.map(p => p.id),
+          type: 'invoice_sent',
+          title: `Invoice released for payment`,
+          message: `Invoice ${invoice.invoice_number} - $${Number(invoice.amount).toLocaleString()} has been approved and released for payment.`,
+          link: `/projects/${projectId}/invoices`,
+        })
+      }
+    }
+  } else if (status === 'paid') {
+    const { data: paidProfile } = await db.from('profiles').select('full_name').eq('id', userId).single()
+    await logActivity(db, projectId, (paidProfile as any)?.full_name ?? 'GC', 'invoice_paid', `Invoice ${invoice.invoice_number} marked as paid - $${Number(invoice.amount).toLocaleString()}`)
+
+    // Notify sub company
+    if (invoice.company_id) {
+      const { data: subProfiles } = await db
+        .from('profiles')
+        .select('id')
+        .eq('company_id', invoice.company_id)
+      if (subProfiles?.length) {
+        await notify({
+          db,
+          userIds: subProfiles.map(p => p.id),
+          type: 'invoice_paid',
+          title: `Invoice Paid`,
+          message: `Invoice ${invoice.invoice_number} has been marked as paid - $${Number(invoice.amount).toLocaleString()}`,
+          link: `/projects/${projectId}/invoices`,
+        })
+      }
+    }
+
+    // Mark related payment schedule item as paid
+    if (invoice.payment_schedule_item_id) {
+      await db
+        .from('payment_schedule_items')
+        .update({ status: 'paid' })
+        .eq('id', invoice.payment_schedule_item_id)
+    }
+  }
+
+  const { data, error } = await db
+    .from('invoices')
+    .update(updates)
+    .eq('id', invoiceId)
+    .eq('project_id', projectId)
+    .select()
+    .single()
+
+  if (error) return { status: 500, body: { error: error.message } }
+
+  // After the invoice itself saves, so a rejected update never leaves the split
+  // pointing at an amount that was not written.
+  if (allocationRows) {
+    await db.from('invoice_allocations').delete().eq('invoice_id', invoiceId)
+    if (allocationRows.length) {
+      const { error: allocError } = await db.from('invoice_allocations')
+        .insert(allocationRows.map(r => ({ ...r, invoice_id: invoiceId })))
+      if (allocError) return { status: 500, body: { error: allocError.message } }
+    }
+  }
+
+  const { data: saved } = await db.from('invoice_allocations')
+    .select('id, budget_line_item_id, amount, note')
+    .eq('invoice_id', invoiceId)
+
+  // WHAT QUICKBOOKS NEEDS TO HEAR is decided here and SAID by the route: the
+  // pushes stay in `app/api/projects/[id]/invoices/[invoiceId]/route.ts`, so
+  // nothing under lib/writes ever reaches QuickBooks (pinned in mcp-write.ts).
+  const amountChanged = amount !== undefined && amount !== '' && Number(amount) !== Number(invoice.amount ?? 0)
+  const qbo: SubBillQboFollowUp = {
+    pushBill: status === 'approved' || status === 'paid',
+    pushPayment: status === 'paid',
+    correctAmount: amountChanged && !!invoice.qbo_id,
+  }
+
+  return { status: 200, body: { invoice: data, allocations: saved ?? [] }, qbo }
 }

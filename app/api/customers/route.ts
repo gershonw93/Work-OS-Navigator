@@ -21,32 +21,41 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { pushCustomer } from '@/lib/quickbooks-push'
-import { duplicateCustomer, duplicateCustomerMessage } from '@/lib/customer-dedupe'
+import { requirePermission, denied } from '@/lib/api-guard'
+import { getActor, actorCan } from '@/lib/server-permissions'
+import { createCustomer, updateCustomer } from '@/lib/writes/customer'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function getUser(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user } } = await admin().auth.getUser(token)
-  return user
-}
-
+// THESE ASKED NOTHING BUT "ARE YOU SIGNED IN". A Field Worker - `customers: N`
+// - could add, rename or re-address any client card of their company by
+// calling the route the screen hid from them. Writes now take `customers:
+// edit`, not `create`: no built-in role holds create without edit, and the
+// Project Manager and Office Staff who add customers today hold VE, so `create`
+// would have taken the New Customer form away from both.
 export async function GET(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
+  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile) return NextResponse.json({ customers: [] })
+  const actor = await getActor(db, token)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // The list is also the CUSTOMER PICKER on the create and edit project forms,
+  // so somebody who may open or edit a job may read it, whatever a company has
+  // remapped `customers` to - a picker holding nothing under a form you are
+  // entitled to use is the failure the Invoices page already demonstrated.
+  if (!actorCan(actor, 'customers', 'view') && !actorCan(actor, 'projects', 'create') && !actorCan(actor, 'projects', 'edit')) {
+    return NextResponse.json({ error: 'You do not have permission to view customers.' }, { status: 403 })
+  }
+  if (!actor.companyId) return NextResponse.json({ customers: [] })
 
   const { data, error } = await db
     .from('customers')
     .select('*, projects(id, name, status, address, start_date, type)')
-    .eq('gc_company_id', profile.company_id)
+    .eq('gc_company_id', actor.companyId)
     .order('name')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -55,84 +64,35 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+  const gate = await requirePermission(db, request, 'customers', 'edit')
+  if (denied(gate)) return gate.denied
+  if (!gate.actor.companyId) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
   const body = await request.json()
-  const { name, contact_name, email, phone, billing_address, notes } = body
-
-  if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 })
-
-  // One client, one card. This insert used to take anything, so the New
-  // Customer form could file the same client twice and split their projects
-  // and invoices across two cards. See lib/customer-dedupe.ts.
-  const { data: mine, error: listError } = await db
-    .from('customers')
-    .select('id, name, email')
-    .eq('gc_company_id', profile.company_id)
-  if (listError) {
-    console.error('[customers] duplicate check failed', listError)
-    return NextResponse.json({ error: 'Could not check your existing customers. Try again.' }, { status: 500 })
-  }
-  const dup = duplicateCustomer(mine ?? [], { name, email })
-  if (dup) {
-    return NextResponse.json(
-      { error: duplicateCustomerMessage(dup), existing_id: dup.customer.id },
-      { status: 409 },
-    )
-  }
-
-  const { data: customer, error } = await db
-    .from('customers')
-    .insert({ gc_company_id: profile.company_id, name, contact_name, email, phone, billing_address, notes })
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const result = await createCustomer(db, { companyId: gate.actor.companyId, body })
+  if (result.status !== 200) return NextResponse.json(result.body, { status: result.status })
 
   // Into QuickBooks now, not the first time somebody happens to invoice them.
-  await pushCustomer(db, customer.id)
+  await pushCustomer(db, result.body.customer.id)
 
-  return NextResponse.json({ customer })
+  return NextResponse.json(result.body)
 }
 
 export async function PATCH(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+  const gate = await requirePermission(db, request, 'customers', 'edit')
+  if (denied(gate)) return gate.denied
+  if (!gate.actor.companyId) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
   const body = await request.json()
-  const { id, name, contact_name, email, phone, billing_address, notes } = body
+  if (!body.id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-  if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-
-  const updates: Record<string, unknown> = {}
-  if (name !== undefined) updates.name = name
-  if (contact_name !== undefined) updates.contact_name = contact_name
-  if (email !== undefined) updates.email = email
-  if (phone !== undefined) updates.phone = phone
-  if (billing_address !== undefined) updates.billing_address = billing_address
-  if (notes !== undefined) updates.notes = notes
-
-  const { data: customer, error } = await db
-    .from('customers')
-    .update(updates)
-    .eq('id', id)
-    .eq('gc_company_id', profile.company_id)
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  const result = await updateCustomer(db, { companyId: gate.actor.companyId, customerId: body.id, body })
+  if (result.status !== 200) return NextResponse.json(result.body, { status: result.status })
 
   // Corrections reach the books too - an address fixed here used to stay here.
-  await pushCustomer(db, customer.id)
+  await pushCustomer(db, result.body.customer.id)
 
-  return NextResponse.json({ customer })
+  return NextResponse.json(result.body)
 }

@@ -1,85 +1,46 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { permitProblem } from '@/lib/permit-rules'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { updatePermit } from '@/lib/writes/permit'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
+// Both handlers used to ask only "is somebody signed in", so anybody holding a
+// project id - a worker, a vendor, a sub's admin - could rewrite or destroy a
+// GC's permit. Gated on `permits: edit` and on the job being the caller's own.
+
 export async function PATCH(
   request: Request,
   { params }: { params: { id: string; permitId: string } },
 ) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'permits', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const body = await request.json()
-
-  const allowed = [
-    'permit_type',
-    'permit_number',
-    'description',
-    'status',
-    'issued_date',
-    'expiry_date',
-    'issuing_authority',
-    'inspector_name',
-    'inspector_phone',
-    'notes',
-  ]
-
-  const updates: Record<string, unknown> = {}
-  for (const key of allowed) {
-    if (key in body) updates[key] = body[key]
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 })
-  }
-
-  // THE SAME RULE ON THE SAME RECORD. Creating a blank permit was refused and
-  // editing one down to blank was not, which is one door short - and the edit
-  // form sends every field, so clearing the number on an "active" permit was a
-  // single keystroke away. Asked against the row AS IT WILL BE: what the patch
-  // sets if it sets it, and what is stored otherwise, so changing the notes on
-  // a permit is not refused for a field the patch never mentioned.
-  const { data: current } = await db
-    .from('permits')
-    .select('permit_type, permit_number, description, issuing_authority, status, issued_date, expiry_date')
-    .eq('id', params.permitId)
-    .eq('project_id', params.id)
-    .maybeSingle()
-  const after = { ...(current ?? {}), ...updates } as Parameters<typeof permitProblem>[0]
-  const problem = permitProblem(after)
-  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
-
-  const { data: permit, error } = await db
-    .from('permits')
-    .update(updates)
-    .eq('id', params.permitId)
-    .eq('project_id', params.id)
-    .select()
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ permit })
+  // Everything after the gate is `updatePermit` - the whitelist and
+  // `permitProblem(after)` against the row as it will be - which Claude's MCP
+  // server calls too.
+  const result = await updatePermit(db, { userId: gate.actor.userId, projectId: params.id, permitId: params.permitId, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string; permitId: string } },
 ) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // `edit`, not `delete`, the same as voiding an inspection: Office Staff hold
+  // permits VE and remove a mistaken permit today, and no role should lose that.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'permits', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const { error } = await db
     .from('permits')

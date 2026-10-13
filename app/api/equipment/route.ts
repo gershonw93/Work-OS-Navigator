@@ -1,37 +1,37 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
+import { createEquipment, updateEquipment } from '@/lib/writes/equipment'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function getUser(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return null
-  const { data: { user } } = await admin().auth.getUser(token)
-  return user
-}
+// Every handler here used to ask only "is somebody signed in", so a role the
+// permission map gives `equipment: view` (read-only, a vendor) could add, edit
+// and delete the company's equipment. Each now asks the action it performs -
+// view, create, edit, delete - and everything stays scoped to the actor's own
+// company, because equipment belongs to a company, not to a job.
 
 // List all equipment for the company, each with its current holder + location
 // (its latest open assignment). Also returns projects + teammates for the
 // checkout selectors so the page needs a single fetch.
 export async function GET(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ equipment: [], projects: [], teammates: [] })
+  const gate = await requirePermission(db, request, 'equipment', 'view')
+  if (denied(gate)) return gate.denied
+  const companyId = gate.actor.companyId
+  if (!companyId) return NextResponse.json({ equipment: [], projects: [], teammates: [] })
 
   const [{ data: equipment }, { data: openAssignments }, { data: projects }, { data: teammates }] = await Promise.all([
-    db.from('equipment').select('*').eq('company_id', profile.company_id).order('name'),
+    db.from('equipment').select('*').eq('company_id', companyId).order('name'),
     db.from('equipment_assignments')
       .select('id, equipment_id, project_id, holder_name, holder_profile_id, checked_out_at, note')
-      .eq('company_id', profile.company_id)
+      .eq('company_id', companyId)
       .is('checked_in_at', null),
-    db.from('projects').select('id, name').eq('gc_company_id', profile.company_id).order('name'),
-    db.from('profiles').select('id, full_name').eq('company_id', profile.company_id).order('full_name'),
+    db.from('projects').select('id, name').eq('gc_company_id', companyId).order('name'),
+    db.from('profiles').select('id, full_name').eq('company_id', companyId).order('full_name'),
   ])
 
   const projName = new Map((projects ?? []).map((p: any) => [p.id, p.name]))
@@ -61,76 +61,42 @@ export async function GET(request: Request) {
   })
 }
 
+// Add a piece of equipment: `create`, the same action that lets somebody take
+// one out. The body lives in lib/writes/equipment.ts, shared with Claude.
 export async function POST(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+  const gate = await requirePermission(db, request, 'equipment', 'create')
+  if (denied(gate)) return gate.denied
+  if (!gate.actor.companyId) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
   const body = await request.json()
-  const { name, category, asset_tag, serial_number, notes } = body
-  if (!name) return NextResponse.json({ error: 'name is required' }, { status: 400 })
-
-  const { data, error } = await db
-    .from('equipment')
-    .insert({ company_id: profile.company_id, name, category, asset_tag, serial_number: serial_number || null, notes, status: 'available' })
-    .select('*')
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ equipment: { ...data, current: null } })
+  const result = await createEquipment(db, { userId: gate.actor.userId, companyId: gate.actor.companyId, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
+// Edit its details (never its status - see lib/writes/equipment.ts).
 export async function PATCH(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+  const gate = await requirePermission(db, request, 'equipment', 'edit')
+  if (denied(gate)) return gate.denied
+  if (!gate.actor.companyId) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
   const body = await request.json()
-  const { id, name, category, asset_tag, serial_number, notes } = body
-  if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-  if (name !== undefined && !String(name).trim()) return NextResponse.json({ error: 'Name is required.' }, { status: 400 })
-
-  // The details only. `status` used to be accepted here too, from no caller -
-  // it moves through check-out/in and /repair now, which are the doors that
-  // write the history. A status set here would leave a tool "In for repair"
-  // with no record of who sent it.
-  const updates: Record<string, unknown> = {}
-  if (name !== undefined) updates.name = String(name).trim()
-  if (category !== undefined) updates.category = category
-  if (asset_tag !== undefined) updates.asset_tag = asset_tag
-  if (serial_number !== undefined) updates.serial_number = serial_number
-  if (notes !== undefined) updates.notes = notes
-
-  const { data, error } = await db
-    .from('equipment')
-    .update(updates)
-    .eq('id', id)
-    .eq('company_id', profile.company_id)
-    .select('*')
-    .single()
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ equipment: data })
+  const result = await updateEquipment(db, { userId: gate.actor.userId, companyId: gate.actor.companyId, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 export async function DELETE(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+  const gate = await requirePermission(db, request, 'equipment', 'delete')
+  if (denied(gate)) return gate.denied
+  const companyId = gate.actor.companyId
+  if (!companyId) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
 
   const id = new URL(request.url).searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-  const { error } = await db.from('equipment').delete().eq('id', id).eq('company_id', profile.company_id)
+  const { error } = await db.from('equipment').delete().eq('id', id).eq('company_id', companyId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })
 }

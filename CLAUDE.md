@@ -1001,6 +1001,25 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   and passed through untouched - it emails people outside the company.
   "What is billable" is ONE function (`lib/client-billable.ts`) for the screen
   and for Claude. Pinned and mutation-checked in `mcp-write-more.ts`.
+- **PHASE 5 IS EVERY AREA, ONE FILE EACH, AND THE ROUTES BEHIND THEM GOT GATES.**
+  The owner's ask was "EVERYTHING", with the same limits: no delete, no
+  payment, nothing SENT outside the company (client- and sub-facing records are
+  drafts), nothing approved that pushes to QuickBooks. Tools live in
+  `lib/mcp/areas/<area>.ts` (selections, rfis-submittals, permits-inspections,
+  customers-projects, materials-equipment, bids-payapps, documents), listed once
+  in `areas/index.ts`; shapes and helpers are `lib/mcp/tool-kit.ts`. Each area
+  moved its route bodies into `lib/writes/` the same way phase 3 did, and EVERY
+  handler in a route it touched now asks `requirePermission` (plus
+  `ownedProject` where the record is the GC's) - most had checked only "signed
+  in", so any account holding an id, an invited sub included, could write. A
+  new resource gets a role entry for every built-in role AND an `INHERITS_FROM`
+  parent, or a company's SAVED role map (which predates it) silently denies it
+  - and the role editor reads saved maps through `withInheritedResources` so
+  saving one does not untick it. Approving a change order (it raises the
+  contract and what the client is billed) and approving a bill stay a person's.
+  `WRITE_INSTRUCTIONS` tells Claude what a document is for and to ASK when the
+  job, the type or whose it is is not certain. Pinned per area in
+  `mcp-area-*.ts`, each mutation-checked.
 - **A FAILED READ IS AN ERROR RESULT, NEVER `[]`.** A model repeats "there are
   none" to a person as fact. Same for a half-read: assignees that could not be
   read are null, not "nobody". Pinned, and mutation-checked, in `mcp-server.ts`.

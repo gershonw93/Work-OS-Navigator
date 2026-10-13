@@ -7,7 +7,7 @@
 
 import { ok, done, code, read } from './_helpers'
 
-const route = code('app/api/projects/route.ts')
+const route = code('app/api/projects/route.ts') + code('lib/writes/project.ts')
 ok(/customerForNewProject\(admin, profile\.company_id, client\)/.test(route),
   'THE BUG: creating a job with a typed client resolves it to a customer')
 ok(/customer_id: customer_id \|\| linked\?\.id \|\| null/.test(route),

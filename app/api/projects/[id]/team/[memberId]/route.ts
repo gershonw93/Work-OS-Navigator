@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
-import { friendlyDbError } from '@/lib/db-error'
+import { updateTeamMember } from '@/lib/writes/team-member'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -27,29 +27,10 @@ export async function PATCH(
   const owned = await ownedProject(db, gate.actor, params.id, 'id')
   if ('denied' in owned) return owned.denied
 
+  // Everything after the gate is `updateTeamMember` (lib/writes/team-member.ts).
   const body = await request.json()
-  const { name, role, phone, email } = body
-
-  const updates: Record<string, unknown> = {}
-  if (name !== undefined) updates.name = name
-  if (role !== undefined) updates.role = role
-  if (phone !== undefined) updates.phone = phone
-  if (email !== undefined) updates.email = email
-
-  const { data, error } = await db
-    .from('project_team_members')
-    .update(updates)
-    .eq('id', params.memberId)
-    .eq('project_id', params.id)
-    .select()
-    .single()
-
-  if (error) {
-    console.error('[team PATCH]', error)
-    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
-  }
-
-  return NextResponse.json({ member: data })
+  const result = await updateTeamMember(db, { userId: user.id, projectId: params.id, memberId: params.memberId, body })
+  return NextResponse.json(result.body, { status: result.status })
 }
 
 export async function DELETE(

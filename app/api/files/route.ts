@@ -1,28 +1,18 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, billingLock } from '@/lib/api-guard'
+import { recordCompanyFile } from '@/lib/writes/company-file'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function getCompanyId(db: ReturnType<typeof admin>, token: string) {
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return null
-  const { data: profile } = await db
-    .from('profiles')
-    .select('company_id')
-    .eq('id', user.id)
-    .single()
-  return (profile as any)?.company_id ?? null
-}
-
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const company_id = await getCompanyId(db, token)
+  const gate = await requirePermission(db, request, 'files', 'view')
+  if (denied(gate)) return gate.denied
+  const company_id = gate.actor.companyId
   if (!company_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // All projects this company is GC on
@@ -65,12 +55,18 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const company_id = await getCompanyId(db, token)
+  // Asked at `files: view`, plus the billing lock that `view` skips. Every
+  // built-in role holds files view and the Files screen offers Upload to all
+  // of them - a vendor keeps its own W-9 here - so `create` would take the
+  // button away from four roles that use it. The library is the CALLER's own
+  // company's, which is the fence that matters.
+  const gate = await requirePermission(db, request, 'files', 'view')
+  if (denied(gate)) return gate.denied
+  const company_id = gate.actor.companyId
   if (!company_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const locked = await billingLock(db, company_id)
+  if (locked) return locked
 
   // Two ways in. The browser normally uploads straight to storage (see
   // /api/files/upload-url) and posts JSON naming the path it wrote to - that
@@ -131,47 +127,9 @@ export async function POST(request: Request) {
     if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
   }
 
-  const { data: signed, error: signError } = await db.storage
-    .from('company-files')
-    .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10)
-
-  if (signError || !signed?.signedUrl) {
-    return NextResponse.json({ error: signError?.message ?? 'Could not create file URL' }, { status: 500 })
-  }
-
-  const row: Record<string, unknown> = {
-    company_id,
-    name,
-    category,
-    file_url: signed.signedUrl,
-    file_type: fileType,
-    size_bytes: fileSize,
-  }
-
-  if (filledFromId) {
-    // Only accept a parent this company actually owns - the id arrives from the
-    // browser, and a file should never be able to claim descent from someone
-    // else's document.
-    const { data: parent } = await db.from('company_files')
-      .select('id').eq('id', filledFromId).eq('company_id', company_id).maybeSingle()
-    if (parent) {
-      const { data: profile } = await db.from('profiles')
-        .select('full_name').eq('id', (await db.auth.getUser(token)).data.user!.id).maybeSingle()
-      row.filled_from_id = parent.id
-      row.filled_by = (profile as any)?.full_name ?? null
-      row.filled_at = new Date().toISOString()
-    }
-  }
-
-  let { data: companyFile, error } = await db.from('company_files').insert(row).select().single()
-
-  // Pre-migration fallback: the fill columns may not be there yet.
-  if (error && (error as any).code === '42703') {
-    delete row.filled_from_id; delete row.filled_by; delete row.filled_at
-    const retry = await db.from('company_files').insert(row).select().single()
-    companyFile = retry.data; error = retry.error
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ file: companyFile }, { status: 201 })
+  const result = await recordCompanyFile(db, {
+    userId: gate.actor.userId, companyId: company_id, storagePath, name, category,
+    fileType, fileSize, filledFromId,
+  })
+  return NextResponse.json(result.body, { status: result.status })
 }

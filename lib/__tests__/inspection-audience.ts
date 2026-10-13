@@ -80,11 +80,15 @@ ok(/notified: bookers\.length/.test(create),
 // ── assigning a scheduler later notifies them ────────────────────────────────
 // `scheduler_profile_id` has always been editable through PATCH with no
 // notification at all, so assigning somebody through Edit was silent.
-const patch = code('app/api/projects/[id]/inspections/[inspectionId]/route.ts')
+const patch = (code('app/api/projects/[id]/inspections/[inspectionId]/route.ts') + code('lib/writes/inspection.ts'))
 ok(/priorScheduler/.test(patch), 'the PATCH route reads who was assigned before')
 ok(/newScheduler && newScheduler !== priorScheduler/.test(patch),
   '...and only notifies on a real change, not on every save of the Edit form')
-ok((patch.match(/withStructural\(/g) ?? []).length === 3,
+// The PATCH body moved to `updateInspection` in lib/writes/inspection.ts, beside
+// `createInspection` - so count from where it starts, not the whole file.
+const patchOnly = code('app/api/projects/[id]/inspections/[inspectionId]/route.ts')
+  + code('lib/writes/inspection.ts').slice(code('lib/writes/inspection.ts').indexOf('export async function updateInspection'))
+ok((patchOnly.match(/withStructural\(/g) ?? []).length === 3,
   'all three PATCH notifications go through the shared union')
 ok(!/new Set<string>\(\)\s*\n\s*if \(inspection\.requested_by_id\)/.test(patch),
   'the hand-rolled recipient sets are gone')

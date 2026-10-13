@@ -1,6 +1,7 @@
 import { logActivity } from '@/lib/log-activity'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { notify } from '@/lib/notify'
 
 const admin = () => createClient(
@@ -12,6 +13,13 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string; packageId: string } }
 ) {
+  // The old Bids tab (folded into Request Quotes by 081). It answered any
+  // login; it now asks `bids` and that the caller's company owns the job.
+  const gate = await requirePermission(admin(), request, 'bids', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

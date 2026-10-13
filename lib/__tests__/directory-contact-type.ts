@@ -26,7 +26,7 @@ import { ok, done, code } from './_helpers'
 console.log('\n\x1b[1mdirectory-contact-type\x1b[0m')
 
 const page = code('app/(dashboard)/directory/page.tsx')
-const route = code('app/api/directory/[companyId]/route.ts')
+const route = code('app/api/directory/[companyId]/route.ts') + code('lib/writes/directory-contact-edit.ts')
 
 // ── the route has always allowed it ─────────────────────────────────────────
 {

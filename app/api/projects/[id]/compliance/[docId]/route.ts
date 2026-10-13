@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { companyOnJob } from '@/lib/writes/compliance-document'
 
 const admin = () =>
   createClient(
@@ -11,12 +13,24 @@ export async function PATCH(
   request: Request,
   { params }: { params: { id: string; docId: string } },
 ) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Used to ask only "is somebody signed in", and then updated the document by
+  // id ALONE - any account could re-date or approve any company's certificate
+  // on any job. Nothing in the app calls this today, so it is gated at the
+  // permission it means: the GC's, on its own job, for a document on that job.
+  const gate = await requirePermission(db, request, 'compliance', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+
+  const { data: found, error: findError } = await db.from('compliance_documents')
+    .select('id, company_id, project_id').eq('id', params.docId).maybeSingle()
+  if (findError) return NextResponse.json({ error: findError.message }, { status: 500 })
+  const here = found && (
+    (found as any).project_id === params.id
+    || ((found as any).project_id === null && await companyOnJob(db, params.id, (found as any).company_id))
+  )
+  if (!here) return NextResponse.json({ error: 'That document is not on this job.' }, { status: 404 })
 
   const body = await request.json()
   const { status, expiry_date, notes, file_url } = body

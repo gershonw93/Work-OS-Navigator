@@ -304,11 +304,34 @@ through the app's own `lib/writes/*`. Still to do:
   from one place that knows which records are the same.
 - **Deleting** - the owner's decision: Claude adds and edits, never deletes.
   Revisit only with a per-connection "full access" consent and a confirm step.
-- **Editing what is left**: sub bills and change orders after they are made,
-  inspections (a booking needs who it was booked with), the fields phase 4
-  deliberately kept out (markup, payment schedules, vendor details), sending
-  a drafted client invoice or payment request, approving a bill. Each is one
-  route's body moved into `lib/writes/` plus a narrow tool.
+- **Still a person's, by decision**: approving a bill or a change order,
+  sending anything to a client or a sub (invoices, payment requests, pay apps,
+  quote requests, RFI answer links, compliance requests), and the fields kept
+  out on purpose (markup, payment schedules, vendor names, client_paid, money
+  fields on a job). A new submittal needs its file, so there is no
+  create_submittal; a Files or plan entry needs the file too.
+- **Files from Claude**: claude.ai shows a model a document's CONTENTS, not
+  its bytes, so most filing ends in an `attach_url` for the person. A server
+  route that fetches a file Claude names (a Gmail attachment id, a Drive link)
+  over the person's own connection would close that gap.
+- **Routes the phase 5 sweep saw and left ungated** (each checks only "signed
+  in"): `files/[fileId]` PATCH/DELETE, `files/packets/**`, `files/upload-url`,
+  `projects/[id]/documents` GET (any job id), `compliance/request/**`, the
+  permit/inspection/card/compliance `analyze` scans, `projects/[id]/team` GET
+  (needs an "on this job" check - workers read it), `POST /api/directory`
+  (gating on create would take Quick Add from PM/office/field). Inspections
+  POST/PATCH and change-orders GET ask the permission but not ownership.
+  `POST /api/projects` trusts a body `customer_id` (the Claude tool checks it).
+- **Permission maps that disagree with the screens**: Directory Edit/Delete
+  are offered to everyone who can open it but the map gives edit/delete to
+  admin and manager only (routes gate on view + ownership for now); a PM's
+  compliance default is view-only while the tab lets them add (so Claude
+  cannot file compliance for a PM); workers' materials map says create but the
+  route asks edit; the Equipment screen shows buttons a role's map now refuses.
+- **Small bugs found on the way**: Reports counts permit statuses `issued` and
+  `closed`, which the table's check constraint never allows (always 0); the
+  materials POST's "save store to Directory" matches a company by name across
+  ALL tenants.
 - **Daily log photos** through Claude (a file over MCP is base64 in the body;
   Vercel caps a request near 4.5MB).
 - **Assigned-only roles** (field supervisor, worker, read only). Refused today
@@ -595,6 +618,7 @@ and why:
 
 ## ✅ Recently shipped (for reference)
 
+- Claude can do EVERYTHING but delete, pay, approve or send: 84 tools (53 add/edit) across jobs, customers, selections, RFIs, submittals, permits, inspections, change orders, pay apps, quote requests, materials, equipment, compliance, Files, plans and contacts, plus filing a document it is handed (`document_destinations`, asks when unsure). Each area is `lib/mcp/areas/<area>.ts` over `lib/writes/*`, and every route handler those touched now asks a permission (+ ownership); a new `selections` permission; the Directory profile no longer leaks other GCs' data; a sub can no longer approve its own bill or change order.
 - Claude can add AND edit across the day-to-day: budget lines, subcontracts, schedule items (including moving dates through the app's cascade, with `notify` always the person's call), tasks, daily logs (born pending review), and DRAFT client invoices and unsent payment requests. Ten more create/update route bodies moved into `lib/writes/`; billable costs are one function (`lib/client-billable.ts`). The payment-request POST now needs `payments: edit` on an owned job.
 - Claude can add records, with its own consent: tasks, sub bills waiting for approval (PDF attached), inspection requests, change orders, Directory contacts - each through the app's own create code (`lib/writes/*`), credited "via Claude", recorded in `mcp_actions` and guarded against a retried call (migration 143).
 - Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF export (`lib/report-builder.ts`, migration 140). Excel export shipped in #603 and was taken out the same day by decision - see the Reports section.
