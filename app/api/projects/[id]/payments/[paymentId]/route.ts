@@ -18,12 +18,29 @@ async function auth(request: Request) {
   return user
 }
 
+/**
+ * A share of a cheque split across a development's houses is changed or
+ * removed with its cheque, on the development - never alone here. The cheque
+ * is one amount the bank saw; moving one share leaves the rest adding up to
+ * something else, and in QuickBooks the shares can be ONE payment.
+ */
+async function groupedRefusal(db: ReturnType<typeof admin>, projectId: string, paymentId: string) {
+  const { data } = await db.from('client_payments').select('payment_group_id')
+    .eq('id', paymentId).eq('project_id', projectId).maybeSingle()
+  if (!(data as any)?.payment_group_id) return null
+  return NextResponse.json({
+    error: 'This payment is part of a check split across houses. Change or delete it from the development, where the whole check was recorded.',
+  }, { status: 409 })
+}
+
 export async function PATCH(request: Request, { params }: { params: { id: string; paymentId: string } }) {
   const gate = await requirePermission(admin(), request, 'payments', 'edit')
   if (denied(gate)) return gate.denied
 
   const user = await auth(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const grouped = await groupedRefusal(admin(), params.id, params.paymentId)
+  if (grouped) return grouped
   const body = await request.json()
   const updates: Record<string, unknown> = {}
   for (const k of ['paid_date', 'amount', 'method', 'memo', 'reference', 'retainer', 'qb_entered']) {
@@ -85,6 +102,8 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   const user = await auth(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
+  const grouped = await groupedRefusal(db, params.id, params.paymentId)
+  if (grouped) return grouped
   // Read BEFORE the delete: the split cascades away with the payment, and the
   // invoices it paid have to go back to owing what they owe. Without this an
   // invoice reads "Paid" over a payment that no longer exists.

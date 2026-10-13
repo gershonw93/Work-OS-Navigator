@@ -54,6 +54,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-13',
+    title: 'One check across a development\'s houses',
+    items: [
+      {
+        kind: 'new',
+        title: 'Record payment on a development',
+        text: 'A development now has Record payment: enter the check once and split it across its houses - against each house\'s invoices, as a deposit or draw on a house, or both - with Divide evenly to spread it for you. Every house shows its share and its invoices turn Paid or Partly paid as usual, and when the whole check pays invoices it goes to QuickBooks as one payment, matching the deposit on your bank statement.',
+        help: 'record-client-payment',
+      },
+    ],
+  },
+  {
     date: '2026-10-12',
     title: 'Edit budget templates',
     items: [
