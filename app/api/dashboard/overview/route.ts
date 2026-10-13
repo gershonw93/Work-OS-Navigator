@@ -48,7 +48,10 @@ export async function GET(request: Request) {
 
   const [{ data: paymentsIn }, { data: invoicesPaid }, { data: sched }, { data: tasks }, { data: allTasks }] = await Promise.all([
     db.from('client_payments').select('amount, paid_date, created_at').in('project_id', ids),
-    db.from('invoices').select('amount, status, updated_at, created_at').in('project_id', ids).eq('status', 'paid'),
+    // `invoices` has no updated_at - asking for it refused the whole query and
+    // money out read zero. `paid_at` is the date; a bill paid before it was
+    // written falls back to when the bill was entered.
+    db.from('invoices').select('amount, status, paid_at, created_at').in('project_id', ids).eq('status', 'paid'),
     db.from('schedule_items')
       .select('id, project_id, label, start_date, subcontracts(scope, trade, companies(name, type))')
       .in('project_id', ids).gte('start_date', todayIso).lte('start_date', weekEndIso)
@@ -85,7 +88,7 @@ export async function GET(request: Request) {
     const i = idx.get(keyOf(d)); if (i !== undefined) months[i].in += Number(p.amount || 0)
   }
   for (const inv of invoicesPaid ?? []) {
-    const d = new Date(inv.updated_at ?? inv.created_at)
+    const d = new Date(inv.paid_at ?? inv.created_at)
     if (isNaN(d.getTime()) || d < windowStart) continue
     const i = idx.get(keyOf(d)); if (i !== undefined) months[i].out += Number(inv.amount || 0)
   }
