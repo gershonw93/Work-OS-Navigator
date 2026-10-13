@@ -33,3 +33,15 @@ export function clientLabel(
 ): string | null {
   return String(customerName ?? '').trim() || String(projectClient ?? '').trim() || null
 }
+
+/**
+ * The PostgREST filter for "every project this company is on as the owner" -
+ * the GC on the job, or the company that created it. The same two columns
+ * `ownsProject` reads, as a query rather than a check.
+ *
+ * Read by the Projects list and by the MCP server (`lib/mcp/tools.ts`), so
+ * the jobs Claude can see and the jobs on the screen are one answer.
+ */
+export function ownedProjectsFilter(companyId: string): string {
+  return `gc_company_id.eq.${companyId},created_by_company_id.eq.${companyId}`
+}

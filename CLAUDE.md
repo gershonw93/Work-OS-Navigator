@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-138.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-139.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -919,6 +919,34 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   `read_only`; only an admin may invite an admin. Ratcheted in
   `invite-audience.ts`: routes taking a role from the body with no permission
   check may only go DOWN.
+
+## Claude, through the MCP server (IMPORTANT)
+- **`/api/mcp` IS HOW CLAUDE READS SYTENAV, AND PHASE 1 IS READ ONLY BY
+  CONSTRUCTION.** Stateless streamable HTTP, one JSON-RPC message per POST
+  (`lib/mcp/protocol.ts`, pure - no SDK, because a Next route has no Node
+  req/res pair to hand it). Every tool carries `readOnlyHint`, no tool body
+  writes, and the pin scans `lib/mcp/tools.ts` for insert/update/delete. The
+  plan for writes is in BACKLOG.md and the QuickBooks double-count is the thing
+  to solve BEFORE a money write ships.
+- **A PERSONAL TOKEN WORKS ON `/api/mcp` AND NOWHERE ELSE.** `snv_...`, made on
+  Settings -> Integrations, only the SHA-256 stored (`mcp_tokens`, migration
+  139), revoked not deleted. Every other route resolves the caller through
+  `getActor`, which hands the string to the auth server and gets a 401 - so the
+  token cannot reach a write route. Never teach `getActor` to read one. Pinned:
+  only the MCP route calls `isMcpToken`, only it and the settings route touch
+  the table.
+- **ONE RESOLVER.** The token names a profile; `actorForUser` (split out of
+  `getActor`) turns it into the same `ActorPerms` the app uses, so Claude reads
+  exactly what that person can.
+- **THE GATES ARE IN THE DISPATCHER** (`callTool`), not the tools: the role,
+  the permission each tool NAMES (`resource`), and the job. A project id from a
+  model is checked against `ownedProjectsFilter` - stricter than several app
+  routes, which check only the permission - and a foreign id is refused in the
+  same words as a made-up one. Assigned-only roles are REFUSED, not handed a
+  wider view, until their in-job scoping lives in lib.
+- **A FAILED READ IS AN ERROR RESULT, NEVER `[]`.** A model repeats "there are
+  none" to a person as fact. Same for a half-read: assignees that could not be
+  read are null, not "nobody". Pinned, and mutation-checked, in `mcp-server.ts`.
 
 ## Server-side data fetching (IMPORTANT)
 - Layouts nest: `(dashboard)/layout.tsx` wraps `projects/[id]/layout.tsx` wraps
