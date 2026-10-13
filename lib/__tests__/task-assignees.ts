@@ -96,12 +96,12 @@ function nameOnly(name: string): TaskAssignee {
 
 // ── the routes ──────────────────────────────────────────────────────────────
 {
-  const patch = code('app/api/projects/[id]/tasks/[taskId]/route.ts')
+  const patch = (code('app/api/projects/[id]/tasks/[taskId]/route.ts') + code('lib/writes/task.ts'))
   ok(/updates\.completed_by = body\.status === 'completed' \? user\.id : null/.test(patch),
     'the finisher is the ACTOR, never taken from the body - a client that could name them could credit somebody who was not there')
   ok(/updates\.completed_by = [^\n]*: null/.test(patch),
     '...and is CLEARED when a task is re-opened, or the name outlives the work being done')
-  ok(/delete\(\)\.eq\('task_id', params\.taskId\)/.test(patch) && /insert\(wanted\.map/.test(patch),
+  ok(/delete\(\)\.eq\('task_id', (params\.)?taskId\)/.test(patch) && /insert\(wanted\.map/.test(patch),
     'a save REPLACES the assignee rows - delete then insert, because the unique indexes refuse an overlapping insert')
   ok(/body\.assignees !== undefined/.test(patch),
     'and an EMPTY array is a real answer - it is how a task gets unassigned, so it must not read as "not mentioned"')

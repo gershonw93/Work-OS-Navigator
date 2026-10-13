@@ -99,7 +99,7 @@ ok(/e\.kind === 'schedule' && e\.item \?/.test(page) && /openEdit\(e\.item as Sc
   'ONLY a schedule bar opens the editor - nothing in that dialog could save the other two')
 ok(!/setInspections\(\[\]\)\s*$/m.test(page), 'the inspections really are read off the response (fixture sanity)')
 
-const route = code('app/api/projects/[id]/schedule/route.ts')
+const route = (code('app/api/projects/[id]/schedule/route.ts') + code('lib/writes/schedule-item.ts'))
 ok(/from\('inspections'\)/.test(route) && /from\('project_tasks'\)/.test(route),
   'THE CAUSE: the route fetches them at all now - it queried schedule_items and projects and nothing else')
 ok(/\.not\('scheduled_date', 'is', null\)/.test(route),

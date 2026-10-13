@@ -3,6 +3,7 @@ import { progressReader } from '@/lib/schedule-progress-read'
 import { readGatePicture } from '@/lib/schedule-unblocked-read'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { createScheduleItem } from '@/lib/writes/schedule-item'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -186,45 +187,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // A WHITELIST WITH A FIELD MISSING FAILS EXACTLY LIKE A REJECTION, and only
-  // one of them says so. `trade` was absent here while `addPlaceholder` had
-  // been sending it since the day placeholders shipped: the route answered
-  // 200, the line came back, and the trade was on the floor. Every one of the
-  // 121 schedule lines in this database had a null trade because of this line.
-  //
-  // It is not cosmetic. The trade is the only name a placeholder has - a line
-  // with a subcontract gets its trade from the subcontract, so this column
-  // exists FOR the placeholder - and it is what `lib/trade-order.ts` reads to
-  // work out what a line probably waits for. With it dropped, the dependency
-  // picker named those lines from `scheduleLabel` instead and link suggestions
-  // had nothing to reason from at all.
-  const { label, start_date, end_date, color, subcontract_id, trade } = await request.json()
-  if (!start_date || !end_date) {
-    return NextResponse.json({ error: 'start_date and end_date are required' }, { status: 400 })
-  }
-  if (!label && !subcontract_id) {
-    return NextResponse.json({ error: 'label or subcontract_id required' }, { status: 400 })
-  }
-
-  const row: Record<string, unknown> = {
-    project_id: params.id,
-    start_date,
-    end_date,
-    subcontract_id: subcontract_id ?? null,
-    label: label ?? null,
-    color: color ?? null,
-    trade: String(trade ?? '').trim() || null,
-  }
-
-  let { data, error } = await db.from('schedule_items').insert(row).select().single()
-
-  // If label/color columns don't exist yet (migration pending), retry without them
-  if (error && (error as any).code === '42703') {
-    delete row.label; delete row.color; delete row.trade
-    const retry = await db.from('schedule_items').insert(row).select().single()
-    data = retry.data; error = retry.error
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ item: data })
+  // Everything after the gate is `createScheduleItem`, which Claude's MCP
+  // server calls too - the same whitelist, the trade included.
+  const body = await request.json()
+  const result = await createScheduleItem(db, { userId: user.id, projectId: params.id, body })
+  return NextResponse.json(result.body, { status: result.status })
 }

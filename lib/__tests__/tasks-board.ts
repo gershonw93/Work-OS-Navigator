@@ -23,7 +23,7 @@ import { dueLabel } from '../task-due'
 import { ok, done, code } from './_helpers'
 
 const page = code('app/(dashboard)/projects/[id]/tasks/page.tsx')
-const patch = code('app/api/projects/[id]/tasks/[taskId]/route.ts')
+const patch = (code('app/api/projects/[id]/tasks/[taskId]/route.ts') + code('lib/writes/task.ts'))
 const post = (code('app/api/projects/[id]/tasks/route.ts') + code('lib/writes/task.ts'))
 
 // ── 1. a finished task is not late ──────────────────────────────────────────
