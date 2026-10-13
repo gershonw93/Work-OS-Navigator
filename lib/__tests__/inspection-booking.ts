@@ -282,7 +282,7 @@ ok(/BOOKING_DERIVED_COLUMNS/.test(code('lib/inspection-status.ts'))
   && /ready_reminder_sent_at/.test(code('lib/inspection-status.ts')),
   '...from one list, so the next derived column cannot be forgotten in two routes')
 
-const post = code('app/api/projects/[id]/inspections/route.ts')
+const post = (code('app/api/projects/[id]/inspections/route.ts') + code('lib/writes/inspection.ts'))
 ok(/requested_date: requested_date \|\| null/.test(post), 'a created request stores its requested date')
 ok(/const scheduled_date = booked_with \? /.test(post),
   'THE BUG: a create only books something when it says who it was booked with')
@@ -304,7 +304,7 @@ ok(/from\('companies'\)[\s\S]{0,120}?\.eq\('type', 'inspector'\)/.test(post),
   "...it reads `companies` where the app actually files them")
 ok(/added_by_company_id\.eq\.\$\{owner\}/.test(post),
   'and it is scoped to the job\'s own company - an address book is not shared')
-ok(!/from\('contacts'\)/.test(code('app/api/directory/route.ts')),
+ok(!/from\('contacts'\)/.test((code('app/api/directory/route.ts') + code('lib/writes/directory-contact.ts'))),
   'and the directory route stopped returning an always-empty contacts array beside it')
 
 // ── the calendar and the feed only ever see booked rows ─────────────────────

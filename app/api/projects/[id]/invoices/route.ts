@@ -1,10 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { logActivity } from '@/lib/log-activity'
 import { destinationsBySubcontract, rollupBudgetLines } from '@/lib/invoice-budget'
-import { audienceFor } from '@/lib/notification-audience'
-import { notify } from '@/lib/notify'
 import { requirePermission, denied } from '@/lib/api-guard'
+import { createSubBill } from '@/lib/writes/sub-bill'
 import { getActor } from '@/lib/server-permissions'
 
 const admin = () => createClient(
@@ -219,99 +217,13 @@ export async function POST(request: Request, { params }: { params: { id: string 
     company_name = (sc as any).companies?.name ?? company_name ?? null
   }
 
-  // Count existing invoices for this project to generate invoice number
-  const { count } = await db
-    .from('invoices')
-    .select('*', { count: 'exact', head: true })
-    .eq('project_id', params.id)
-
-  const invoice_number = `INV-${params.id.slice(0, 4).toUpperCase()}-${String((count ?? 0) + 1).padStart(3, '0')}`
-
-  let { data, error } = await db
-    .from('invoices')
-    .insert({
-      project_id: params.id,
-      subcontract_id: subcontract_id || null,
-      payment_schedule_item_id: payment_schedule_item_id || null,
-      company_id: company_id || null,
-      company_name: company_name || null,
-      amount,
-      description: description || null,
-      due_date: due_date || null,
-      client_paid: Number(client_paid) || 0,
-      escrow_paid: Number(escrow_paid) || 0,
-      invoice_number,
-      status: 'pending_approval',
-      // A scanned invoice arrives with its document already stored - attach it
-      // here rather than making the user upload the same file a second time.
-      ...(document_url ? { document_url, document_name: document_name || null } : {}),
-      // The breakdown, kept. Every invoice should be able to say what it is
-      // charging for without reopening the PDF.
-      line_items: Array.isArray(line_items) ? line_items : [],
-      subtotal: subtotal ?? null,
-      tax: tax ?? null,
-      retainage: retainage ?? null,
-      quote_check: quote_check ?? null,
-    })
-    .select()
-    .single()
-
-  // Pre-migration fallback: the breakdown columns may not exist yet.
-  if (error && (error as any).code === '42703') {
-    const retry = await db.from('invoices').insert({
-      project_id: params.id,
-      subcontract_id: subcontract_id || null,
-      payment_schedule_item_id: payment_schedule_item_id || null,
-      company_id: company_id || null,
-      company_name: company_name || null,
-      amount,
-      description: description || null,
-      due_date: due_date || null,
-      client_paid: Number(client_paid) || 0,
-      escrow_paid: Number(escrow_paid) || 0,
-      invoice_number,
-      status: 'pending_approval',
-      ...(document_url ? { document_url, document_name: document_name || null } : {}),
-    }).select().single()
-    data = retry.data as any
-    error = retry.error as any
-  }
-
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const { data: creator } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-  const creatorName = (creator as any)?.full_name ?? 'GC'
-  await logActivity(db, params.id, creatorName, 'invoice_created', `Invoice ${invoice_number} created for ${company_name} - $${Number(amount).toLocaleString()}`)
-
-  // A bill needs approving, so tell the people who can approve it.
-  //
-  // This used to notify `[user.id]` - whoever had just created the invoice. A
-  // subcontractor submitting their own bill from /my-jobs was therefore told
-  // to approve it themselves, and the GC was told nothing at all: the bill sat
-  // pending until somebody happened to open the tab.
-  //
-  // Not "everyone at the GC" either. A labourer has invoices: N and cannot
-  // open the page this links to, and a notification you cannot act on is how
-  // people learn to ignore notifications.
-  const { data: project } = await db.from('projects')
-    .select('gc_company_id, created_by_company_id, name').eq('id', params.id).maybeSingle()
-  const owner = (project as any)?.gc_company_id ?? (project as any)?.created_by_company_id ?? null
-  // Whoever can approve a bill, unless the company named somebody else in
-  // Settings -> Notifications -> Who gets told. `audienceFor` falls back to
-  // exactly this permission when nothing is configured, so the behaviour here
-  // is unchanged until an admin decides otherwise.
-  const approvers = await audienceFor({
-    db, companyId: owner, type: 'invoice_pending', exclude: user.id,
+  // Everything after the gate is `createSubBill`, which Claude's MCP server calls too.
+  const result = await createSubBill(db, {
+    userId: user.id, projectId: params.id, company_id, company_name,
+    fields: {
+      subcontract_id, payment_schedule_item_id, amount, description, due_date, client_paid, escrow_paid,
+      document_url, document_name, line_items, subtotal, tax, retainage, quote_check,
+    },
   })
-
-  if (approvers.length) {
-    await notify({
-      db, userIds: approvers, type: 'invoice_pending', title: 'Bill waiting for approval',
-      // Who and how much, because that is what decides whether you open it now.
-      message: `${company_name || creatorName} submitted ${invoice_number} for $${Number(amount || 0).toLocaleString()}${(project as any)?.name ? ` on ${(project as any).name}` : ''}`,
-      link: `/projects/${params.id}/invoices`,
-    })
-  }
-
-  return NextResponse.json({ invoice: data })
+  return NextResponse.json(result.body, { status: result.status })
 }

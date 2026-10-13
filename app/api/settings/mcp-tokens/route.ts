@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   // their refresh token is still good - one past it is a connection that can
   // never read again, and listing it would offer to revoke nothing.
   const { data, error } = await db.from('mcp_tokens')
-    .select('id, name, token_prefix, created_at, last_used_at, oauth_client_id')
+    .select('id, name, token_prefix, created_at, last_used_at, oauth_client_id, can_write')
     .eq('profile_id', actor.userId)
     .is('revoked_at', null)
     .or(`refresh_expires_at.is.null,refresh_expires_at.gt.${new Date().toISOString()}`)
@@ -87,8 +87,10 @@ export async function POST(request: Request) {
       name: String(body.name).trim(),
       token_hash: hashMcpToken(token),
       token_prefix: mcpTokenPrefix(token),
+      // Adding records is a separate tick on the form, off unless given.
+      can_write: body?.can_write === true,
     })
-    .select('id, name, token_prefix, created_at, last_used_at')
+    .select('id, name, token_prefix, created_at, last_used_at, can_write')
     .single()
   if (error) {
     console.error('[mcp-tokens] insert failed:', error.message)
@@ -118,4 +120,42 @@ export async function DELETE(request: Request) {
   }
   if (!data?.length) return NextResponse.json({ error: 'That connection was not found.' }, { status: 404 })
   return NextResponse.json({ ok: true })
+}
+
+/**
+ * Turn "can add records" on or off for one of the caller's own connections.
+ *
+ * Off is always allowed. ON is the same consent the Allow page asks for, given
+ * here by the person signed in to SyteNav - so it is only ever their own row,
+ * and the role is asked again: somebody who cannot connect at all cannot widen
+ * a connection either. A Claude sign-in picks the change up at its next
+ * renewal (the token's scope is re-issued); every call reads the column, so it
+ * takes effect at once either way.
+ */
+export async function PATCH(request: Request) {
+  const db = admin()
+  const actor = await getActor(db, bearer(request))
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await request.json().catch(() => ({}))
+  if (typeof body?.id !== 'string' || typeof body?.can_write !== 'boolean') {
+    return NextResponse.json({ error: 'Which connection, and on or off?' }, { status: 400 })
+  }
+  if (body.can_write) {
+    const who = actorProblem(actor)
+    if (who) return NextResponse.json({ error: who }, { status: 403 })
+  }
+
+  const { data, error } = await db.from('mcp_tokens')
+    .update({ can_write: body.can_write })
+    .eq('id', body.id)
+    .eq('profile_id', actor.userId)
+    .is('revoked_at', null)
+    .select('id, can_write')
+  if (error) {
+    console.error('[mcp-tokens] can_write update failed:', error.message)
+    return NextResponse.json({ error: 'Could not change that connection. Try again.' }, { status: 500 })
+  }
+  if (!data?.length) return NextResponse.json({ error: 'That connection was not found.' }, { status: 404 })
+  return NextResponse.json({ ok: true, can_write: body.can_write })
 }

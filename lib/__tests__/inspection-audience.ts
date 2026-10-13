@@ -64,7 +64,7 @@ ok(withStructural(ROUTED, [ADMIN]).includes(ADMIN),
 ok(withStructural([], [ME], ME).length === 0, 'a request only you would hear tells nobody')
 
 // ── the create route no longer gates on the assignee ─────────────────────────
-const create = code('app/api/projects/[id]/inspections/route.ts')
+const create = (code('app/api/projects/[id]/inspections/route.ts') + code('lib/writes/inspection.ts'))
 ok(!/if \(scheduler_profile_id\) \{/.test(create),
   'the create route does not wrap its notification in `if (scheduler_profile_id)`')
 ok(/audienceFor\(/.test(create), '...it still asks for the routed audience')

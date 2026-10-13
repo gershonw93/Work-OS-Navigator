@@ -42,7 +42,7 @@ const migration = code('supabase/migrations/135_schedule_delay_reports.sql')
 ok(/days BETWEEN 1 AND 365/.test(migration) && /length\(btrim\(reason\)\) >= 4/.test(migration), 'the table refuses what the dialog refuses')
 
 // ── bills: their own subcontract, their own name ────────────────────────────
-const bills = code('app/api/projects/[id]/invoices/route.ts')
+const bills = (code('app/api/projects/[id]/invoices/route.ts') + code('lib/writes/sub-bill.ts'))
 ok(/\.eq\('company_id', actor\.companyId\)/.test(bills) && /company_id = sc\.company_id/.test(bills),
   'THE BILL: a sub may bill only against their own subcontract, and the company comes off it, not the body')
 

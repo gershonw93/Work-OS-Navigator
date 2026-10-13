@@ -72,7 +72,7 @@ ok(/setQuickError\(/.test(picker) && /role="alert"/.test(picker),
 ok(/if \(!res\.ok \|\| !json\.company\)/.test(picker),
   'a refusal from the route is read, not thrown away')
 
-const route = code('app/api/directory/route.ts')
+const route = (code('app/api/directory/route.ts') + code('lib/writes/directory-contact.ts'))
 ok(/quickAddProblem\(name, phone\)/.test(route),
   'and the route asks the same function - a form is not where invalid records are prevented')
 

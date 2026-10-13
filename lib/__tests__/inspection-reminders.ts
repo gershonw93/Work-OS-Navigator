@@ -316,7 +316,7 @@ ok(/ready_reminder_sent_at: new Date\(\)\.toISOString\(\)/.test(cron),
     '...once, or the card could never be closed')
 
   // The id has to survive the trip: `callTargets` is phone numbers and drops it.
-  const route = code('app/api/projects/[id]/inspections/route.ts')
+  const route = (code('app/api/projects/[id]/inspections/route.ts') + code('lib/writes/inspection.ts'))
   ok(/select\('id, name, type, phone, extra'\)/.test(route), 'the route selects the id')
   ok(/directoryContacts/.test(route), '...and sends the contacts, not only the numbers')
   const insp = code('app/(dashboard)/projects/[id]/inspections/page.tsx')

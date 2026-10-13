@@ -89,7 +89,7 @@ ok(INSPECTION_STATUSES.length === 7 && !isInspectionStatus('deleted'),
 
 // ── the routes actually enforce all of this ──────────────────────────────────
 const patch = code('app/api/projects/[id]/inspections/[inspectionId]/route.ts')
-const create = code('app/api/projects/[id]/inspections/route.ts')
+const create = (code('app/api/projects/[id]/inspections/route.ts') + code('lib/writes/inspection.ts'))
 
 // The DELETE checked NOTHING but "are you signed in" - no permission, and no
 // check that the project was even the caller's. A read_only user, who cannot so

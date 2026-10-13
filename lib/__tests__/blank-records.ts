@@ -99,7 +99,7 @@ ok(/const problem = requestProblem\(inspType, requestedDate\)/.test(inspections)
 
 const permitRoute = code('app/api/projects/[id]/permits/route.ts')
 const permitPatch = code('app/api/projects/[id]/permits/[permitId]/route.ts')
-const inspRoute = code('app/api/projects/[id]/inspections/route.ts')
+const inspRoute = (code('app/api/projects/[id]/inspections/route.ts') + code('lib/writes/inspection.ts'))
 ok(/permitProblem\(/.test(permitRoute), 'and the route asks too - the form is not the only door')
 ok(/permitProblem\(after\)/.test(permitPatch),
   '...including the EDIT route, against the row as it will be - clearing the number on an active permit was one keystroke')

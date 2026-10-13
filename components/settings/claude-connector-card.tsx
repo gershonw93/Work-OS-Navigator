@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bot, Check, Copy, Loader2 } from 'lucide-react'
+import { Bot, Check, Copy, Eye, Loader2, PencilLine } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { mcpTokenNameProblem } from '@/lib/mcp-token-name'
 import { absoluteTime, timeAgo } from '@/lib/time-ago'
 
@@ -34,6 +35,8 @@ interface Connection {
   last_used_at: string | null
   /** Made by signing in from Claude, rather than a token pasted into a config file. */
   signed_in?: boolean
+  /** The person allowed this connection to add records. Off unless they did. */
+  can_write?: boolean
 }
 
 async function authHeader(): Promise<Record<string, string>> {
@@ -98,6 +101,9 @@ export function ClaudeConnectorCard() {
   const [name, setName] = useState('')
   const [nameError, setNameError] = useState<string | null>(null)
   const [creating, setCreating] = useState(false)
+  // Adding records is a separate consent, off by default - a box that starts
+  // ticked is a claim the person never made.
+  const [newCanWrite, setNewCanWrite] = useState(false)
   const [fresh, setFresh] = useState<{ token: string; name: string; id: string | null } | null>(null)
 
   const load = useCallback(async () => {
@@ -123,18 +129,45 @@ export function ClaudeConnectorCard() {
       const res = await fetch('/api/settings/mcp-tokens', {
         method: 'POST',
         headers: { ...(await authHeader()), 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name }),
+        body: JSON.stringify({ name, can_write: newCanWrite }),
       })
       const body = await res.json().catch(() => ({}))
       if (!res.ok) { notice(body.error ?? 'Could not create the connection.'); return }
       setFresh({ token: body.token, name: body.connection?.name ?? name.trim(), id: body.connection?.id ?? null })
       setName('')
+      setNewCanWrite(false)
       await load()
     } catch {
       notice('Could not reach SyteNav. Check your connection and try again.')
     } finally {
       setCreating(false)
     }
+  }
+
+  async function setWrite(c: Connection, canWrite: boolean) {
+    try {
+      const res = await fetch('/api/settings/mcp-tokens', {
+        method: 'PATCH',
+        headers: { ...(await authHeader()), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: c.id, can_write: canWrite }),
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) { notice(body.error ?? 'Could not change that connection.'); return }
+      notice(canWrite
+        ? `"${c.name}" can now add records. It still asks you before each one.`
+        : `"${c.name}" can only read now.`, { tone: 'success' })
+      await load()
+    } catch {
+      notice('Could not reach SyteNav. Check your connection and try again.')
+    }
+  }
+
+  function allowWrite(c: Connection) {
+    guard(() => setWrite(c, true), {
+      title: 'Let this connection add records?',
+      body: <>Claude on <span className="font-medium text-ink">{c.name}</span> will be able to add tasks, bills from subs (waiting for approval), inspection requests, change orders and Directory contacts, as you. It cannot record payments, edit or delete anything.</>,
+      confirmLabel: 'Allow adding',
+    })
   }
 
   function revoke(c: Connection) {
@@ -167,7 +200,8 @@ export function ClaudeConnectorCard() {
             <p className="font-semibold text-ink">Claude</p>
             <p className="text-sm text-muted-fg">
               Let Claude read your jobs - projects, tasks, schedule, inspections, bills and client
-              invoices - with your permissions. Claude can only read for now; it cannot change anything in SyteNav.
+              invoices - with your permissions. If you allow it, it can also add tasks, bills from subs,
+              inspection requests, change orders and contacts; it never records payments, edits or deletes.
             </p>
           </div>
         </div>
@@ -208,9 +242,22 @@ export function ClaudeConnectorCard() {
                         {c.last_used_at
                           ? <span title={absoluteTime(c.last_used_at)}>last used {timeAgo(c.last_used_at)}</span>
                           : 'never used'}
+                        {' · '}
+                        <span className={c.can_write ? 'font-medium text-ink' : undefined}>
+                          {c.can_write ? 'Can add records' : 'Read only'}
+                        </span>
                       </p>
                     </div>
-                    <Button type="button" variant="outline" size="sm" onClick={() => revoke(c)}>Revoke</Button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <Button type="button" variant="outline" size="sm" onClick={() => revoke(c)}>Revoke</Button>
+                      <RowMenu label={`More for ${c.name}`}>
+                        {close => (
+                          c.can_write
+                            ? <MenuItem onClick={() => { close(); setWrite(c, false) }}><Eye className="h-3.5 w-3.5" /> Make read only</MenuItem>
+                            : <MenuItem onClick={() => { close(); allowWrite(c) }}><PencilLine className="h-3.5 w-3.5" /> Let it add records</MenuItem>
+                        )}
+                      </RowMenu>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -252,6 +299,15 @@ export function ClaudeConnectorCard() {
               {nameError
                 ? <p className="text-sm text-danger">{nameError}</p>
                 : <p className="text-xs text-muted-fg">Name it after the computer or app, so you can tell connections apart later.</p>}
+              <label className="flex items-start gap-2 pt-1 text-sm text-ink-soft">
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 shrink-0 accent-accent"
+                  checked={newCanWrite}
+                  onChange={e => setNewCanWrite(e.target.checked)}
+                />
+                <span>Also let it add records (optional) - tasks, bills waiting for approval, inspection requests, change orders and contacts.</span>
+              </label>
             </form>
           </>
         )}

@@ -53,7 +53,7 @@ console.log('\n\x1b[1mdirectory-imported-tag\x1b[0m')
 
 // ── imported is derived, and reaches the screen ─────────────────────────────
 {
-  const route = code('app/api/directory/route.ts')
+  const route = (code('app/api/directory/route.ts') + code('lib/writes/directory-contact.ts'))
   ok(/google_contact_imports/.test(route) && /company_record_id/.test(route),
     'the directory route derives `imported` from the link the import already wrote')
   ok(/imported: companiesImported\.has\(c\.id\)/.test(route),

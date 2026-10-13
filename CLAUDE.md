@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-142.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-143.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -921,13 +921,12 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   check may only go DOWN.
 
 ## Claude, through the MCP server (IMPORTANT)
-- **`/api/mcp` IS HOW CLAUDE READS SYTENAV, AND PHASE 1 IS READ ONLY BY
-  CONSTRUCTION.** Stateless streamable HTTP, one JSON-RPC message per POST
+- **`/api/mcp` IS HOW CLAUDE READS (AND, WITH CONSENT, ADDS TO) SYTENAV.**
+  Stateless streamable HTTP, one JSON-RPC message per POST
   (`lib/mcp/protocol.ts`, pure - no SDK, because a Next route has no Node
-  req/res pair to hand it). Every tool carries `readOnlyHint`, no tool body
-  writes, and the pin scans `lib/mcp/tools.ts` for insert/update/delete. The
-  plan for writes is in BACKLOG.md and the QuickBooks double-count is the thing
-  to solve BEFORE a money write ships.
+  req/res pair to hand it). Annotations come from each tool's `write` flag;
+  `lib/mcp/tools.ts` (the reading half and the dispatcher) writes nothing,
+  pinned by a scan for insert/update/delete.
 - **A PERSONAL TOKEN WORKS ON `/api/mcp` AND NOWHERE ELSE.** `snv_...`, made on
   Settings -> Integrations, only the SHA-256 stored (`mcp_tokens`, migration
   139), revoked not deleted. Every other route resolves the caller through
@@ -963,6 +962,29 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   page and nowhere else (`oauthReturnPath`); registration is capped site-wide
   and a cap that cannot be read refuses. Pinned and mutation-checked in
   `mcp-oauth.ts`.
+- **ADDING IS A SECOND CONSENT, AND A RECORD IS MADE BY THE APP'S OWN CODE.**
+  `mcp_tokens.can_write` (migration 143) defaults FALSE - every connection made
+  before phase 3 was told "it cannot change anything" - and is set only by the
+  person: an unticked box on the Allow page (carried code -> token), one on a
+  new token, or the card's ... menu (turning it ON asks first). A session JWT
+  never writes. A read-only connection is not even SHOWN a write tool
+  (`toolsFor`). The five write tools (`lib/mcp/write-tools.ts`) build the body
+  the app's form would and call `lib/writes/*` - the create routes' bodies,
+  MOVED there unchanged so the app and Claude share one home; the route keeps
+  its own gate. The pins that read those routes read route + lib. NOTHING in
+  the MCP layer inserts a record, and the dispatcher asks the tool's own ACTION
+  (`invoices: edit`, `tasks: create`...), not `view`, plus `billingAccess`.
+  **A BILL IS BORN `pending_approval`**, so the QuickBooks push - which runs on
+  approval - always has a person in front of it; that is what makes it safe for
+  Claude to enter one it read out of an email or out of QuickBooks. **NO
+  PAYMENTS**: recording money pushes to QBO the moment it saves, with no human
+  gate, so it is the double-count waiting to happen (BACKLOG). An inspection is
+  `requested`, never `scheduled`. THE CLAIM GOES FIRST (`lib/mcp/actions.ts`):
+  an `mcp_actions` row on a unique key of person + tool + arguments + UTC day,
+  so a retry returns the first result instead of a second bill; a claim that
+  cannot be written refuses the write, and a refused write gives its claim back.
+  Credited "Name via Claude" (`withVia`). Pinned and mutation-checked in
+  `mcp-write.ts`.
 - **A FAILED READ IS AN ERROR RESULT, NEVER `[]`.** A model repeats "there are
   none" to a person as fact. Same for a half-read: assignees that could not be
   read are null, not "nobody". Pinned, and mutation-checked, in `mcp-server.ts`.

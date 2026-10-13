@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { cleanTypeList } from '@/lib/inspection-types'
-import { quickAddProblem } from '@/lib/contact-quick-add'
+import { createDirectoryContact } from '@/lib/writes/directory-contact'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -140,85 +139,8 @@ export async function POST(request: Request) {
   const myCompanyId = userProfile?.company_id ?? null
 
   const body = await request.json()
-  const {
-    name,
-    type = 'subcontractor',
-    trade,
-    contact_email,
-    phone,
-    address,
-    license_number,
-    website,
-    // Inspector-specific
-    specialty,
-    jurisdiction,
-    certification_number,
-    notes,
-    inspection_types,
-  } = body
-
-  if (!name || !contact_email) {
-    return NextResponse.json({ error: 'Name and contact email are required' }, { status: 400 })
-  }
-
-  // The same question the Quick add form asks, asked at the door as well. A
-  // surname in the phone box saved without a word, and the inspections card
-  // then offered it as a tap-to-call link that dials nothing.
-  const problem = quickAddProblem(name, phone)
-  if (problem) return NextResponse.json({ error: problem }, { status: 400 })
-
-  const validTypes = ['gc', 'subcontractor', 'inspector', 'supplier', 'worker', 'other']
-  const safeType = validTypes.includes(type) ? type : 'other'
-
-  // Build extra JSONB payload for inspector/supplier fields
-  const extra: Record<string, string | string[]> = {}
-  if (specialty) extra.specialty = specialty
-  if (jurisdiction) extra.jurisdiction = jurisdiction
-  if (certification_number) extra.certification_number = certification_number
-  if (notes) extra.notes = notes
-  if (website) extra.website = website
-  // Which inspections an inspector does, so "who to call" can put the right
-  // one first for a framing inspection rather than whoever sorts first.
-  const types = safeType === 'inspector' ? cleanTypeList(inspection_types) : []
-  if (types.length) extra.inspection_types = types
-
-  const insertPayload: Record<string, unknown> = {
-    name,
-    type: safeType,
-    trade: trade || null,
-    contact_email,
-    phone: phone || null,
-    address: address || null,
-    license_number: license_number || null,
-    insurance_status: 'missing',
-    added_by_company_id: myCompanyId,
-  }
-
-  // Attempt to set extra column - if it doesn't exist Supabase will just ignore or error
-  if (Object.keys(extra).length > 0) {
-    insertPayload.extra = extra
-  }
-
-  const { data, error } = await admin()
-    .from('companies')
-    .insert(insertPayload)
-    .select()
-    .single()
-
-  if (error) {
-    // If the error is about the extra column not existing, retry without it
-    if (error.message?.includes('extra') || error.code === '42703') {
-      const { extra: _extra, ...payloadWithoutExtra } = insertPayload as Record<string, unknown> & { extra?: unknown }
-      const { data: data2, error: error2 } = await admin()
-        .from('companies')
-        .insert(payloadWithoutExtra)
-        .select()
-        .single()
-      if (error2) return NextResponse.json({ error: error2.message }, { status: 500 })
-      return NextResponse.json({ company: data2 })
-    }
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ company: data })
+  // Everything after reading the body is `createDirectoryContact`, which
+  // Claude's MCP server calls too.
+  const result = await createDirectoryContact(admin(), { myCompanyId, body })
+  return NextResponse.json(result.body, { status: result.status })
 }

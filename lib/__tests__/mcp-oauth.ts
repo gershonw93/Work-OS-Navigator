@@ -271,7 +271,7 @@ async function main() {
       if (t === 'oauth_clients') return { data: CLIENT }
       if (t === 'profiles') return { data: { role: opts.role ?? 'admin', permission_overrides: null, company_id: 'c1' } }
       if (t === 'company_roles') return { data: [] }
-      if (t === 'mcp_tokens' && has(ops, 'select', 'id, profile_id, oauth_client_id, refresh_expires_at')) {
+      if (t === 'mcp_tokens' && has(ops, 'select', 'id, profile_id, oauth_client_id, refresh_expires_at, can_write')) {
         return { data: 'row' in opts ? opts.row : { id: 't1', profile_id: 'u1', oauth_client_id: 'snvc_x', refresh_expires_at: future } }
       }
       if (t === 'mcp_tokens' && has(ops, 'update') && has(ops, 'select', 'id')) return { data: 'rotated' in opts ? opts.rotated : { id: 't1' } }

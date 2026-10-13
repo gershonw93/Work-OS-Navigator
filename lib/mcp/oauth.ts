@@ -16,6 +16,12 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const OAUTH_SCOPE = 'sytenav:read'
+/**
+ * Adding records. Granted only by the person's own tick on the Allow page (or
+ * on the Settings card) - never because a client asked for it, since a scope
+ * string is the CLIENT's request and the consent is the person's.
+ */
+export const OAUTH_WRITE_SCOPE = 'sytenav:write'
 
 /** An access token lasts an hour; Claude renews it with the refresh token. */
 export const ACCESS_TTL_SECONDS = 60 * 60
@@ -50,7 +56,7 @@ export function protectedResourceMetadata(origin: string) {
   return {
     resource: `${origin}${MCP_PATH}`,
     authorization_servers: [origin],
-    scopes_supported: [OAUTH_SCOPE],
+    scopes_supported: [OAUTH_SCOPE, OAUTH_WRITE_SCOPE],
     bearer_methods_supported: ['header'],
     resource_name: 'SyteNav',
   }
@@ -63,7 +69,7 @@ export function authorizationServerMetadata(origin: string) {
     authorization_endpoint: `${origin}${AUTHORIZE_PATH}`,
     token_endpoint: `${origin}${TOKEN_PATH}`,
     registration_endpoint: `${origin}${REGISTER_PATH}`,
-    scopes_supported: [OAUTH_SCOPE],
+    scopes_supported: [OAUTH_SCOPE, OAUTH_WRITE_SCOPE],
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
     // S256 ONLY. `plain` is a PKCE that protects nothing - the challenge IS the

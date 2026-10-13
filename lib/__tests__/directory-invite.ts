@@ -46,7 +46,7 @@ ok(/<RowMenu label=/.test(dir) && /openInvite\(company\)/.test(dir),
   "a single contact's invite lives in the card's row menu")
 ok(/for \(const c of chosen\) \{\s*try \{/.test(dir),
   'the batch catches each invite on its own - one failure cannot abandon the rest')
-ok(/invite_pending/.test(code('app/api/directory/route.ts')),
+ok(/invite_pending/.test((code('app/api/directory/route.ts') + code('lib/writes/directory-contact.ts'))),
   'the route says who already has an invite out, so the count survives a reload')
 
 ok(/<h1 className="text-2xl font-bold text-ink">Directory<\/h1>/.test(dir), 'the page is called what the sidebar calls it')

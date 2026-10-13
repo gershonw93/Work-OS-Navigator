@@ -34,7 +34,7 @@ import { RESOURCES, ROLE_DEFAULTS, getRoleDefaults, can } from '../permissions'
 import { ok, done, code, exists } from './_helpers'
 
 const page = code('app/(dashboard)/projects/[id]/invoices/page.tsx')
-const route = code('app/api/projects/[id]/invoices/route.ts')
+const route = (code('app/api/projects/[id]/invoices/route.ts') + code('lib/writes/sub-bill.ts'))
 const financials = code('app/api/projects/[id]/financials/route.ts')
 
 // ── THE PERMISSION SPLIT THIS PAGE WALKED INTO ──────────────────────────────

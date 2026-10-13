@@ -2,9 +2,9 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorForUser, type ActorPerms } from '@/lib/server-permissions'
 import { hashMcpToken, isMcpToken } from '@/lib/mcp-token'
-import { handleRpc, rpcError, RPC } from '@/lib/mcp/protocol'
+import { handleRpc, rpcError, RPC, INSTRUCTIONS, WRITE_INSTRUCTIONS } from '@/lib/mcp/protocol'
 import { requestOrigin, wwwAuthenticate } from '@/lib/mcp/oauth'
-import { TOOLS, callTool } from '@/lib/mcp/tools'
+import { toolsFor, callTool } from '@/lib/mcp/tools'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The SyteNav MCP server - how Claude reads a person's jobs.
@@ -45,11 +45,19 @@ function unauthorized(request: Request, message: string, expired = false) {
  * one. 'expired' is a token from a Claude sign-in past its hour: said
  * separately, because the client answers it by renewing, not by signing in.
  */
-async function actorFor(db: SupabaseClient, token: string): Promise<ActorPerms | null | 'expired'> {
-  if (!isMcpToken(token)) return getActor(db, token)
+interface Caller { actor: ActorPerms; canWrite: boolean; tokenId: string | null }
+
+async function actorFor(db: SupabaseClient, token: string): Promise<Caller | null | 'expired'> {
+  // A SyteNav session token reads, and never writes: adding records is a
+  // consent given to a CONNECTION (a tick on the Allow page, on a token, or on
+  // the Settings card), and a session was never asked for one.
+  if (!isMcpToken(token)) {
+    const actor = await getActor(db, token)
+    return actor ? { actor, canWrite: false, tokenId: null } : null
+  }
 
   const { data, error } = await db.from('mcp_tokens')
-    .select('id, profile_id, expires_at')
+    .select('id, profile_id, expires_at, can_write')
     .eq('token_hash', hashMcpToken(token))
     .is('revoked_at', null)
     .maybeSingle()
@@ -70,7 +78,7 @@ async function actorFor(db: SupabaseClient, token: string): Promise<ActorPerms |
     .update({ last_used_at: new Date().toISOString() }).eq('id', data.id)
   if (stampErr) console.error('[mcp] last_used_at:', stampErr.message)
 
-  return actorForUser(db, data.profile_id)
+  return { actor: await actorForUser(db, data.profile_id), canWrite: data.can_write === true, tokenId: data.id }
 }
 
 export async function POST(request: Request) {
@@ -78,9 +86,10 @@ export async function POST(request: Request) {
   if (!token) return unauthorized(request, 'Sign in to SyteNav to connect, or send a token from Settings -> Integrations as "Authorization: Bearer <token>".')
 
   const db = admin()
-  const actor = await actorFor(db, token)
-  if (actor === 'expired') return unauthorized(request, 'That SyteNav sign-in has expired. Renew it.', true)
-  if (!actor) return unauthorized(request, 'That SyteNav token is not valid, or has been revoked.', true)
+  const caller = await actorFor(db, token)
+  if (caller === 'expired') return unauthorized(request, 'That SyteNav sign-in has expired. Renew it.', true)
+  if (!caller) return unauthorized(request, 'That SyteNav token is not valid, or has been revoked.', true)
+  const { actor, canWrite, tokenId } = caller
 
   let message: unknown
   try {
@@ -90,8 +99,9 @@ export async function POST(request: Request) {
   }
 
   const reply = await handleRpc(message, {
-    tools: TOOLS.map(({ name, title, description, inputSchema }) => ({ name, title, description, inputSchema })),
-    callTool: (name, args) => callTool(db, actor, name, args),
+    tools: toolsFor(canWrite),
+    instructions: canWrite ? WRITE_INSTRUCTIONS : INSTRUCTIONS,
+    callTool: (name, args) => callTool(db, actor, name, args, { canWrite, tokenId }),
   })
 
   // A notification, or a response the client sent us: accepted, nothing to say.

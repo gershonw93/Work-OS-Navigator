@@ -88,13 +88,13 @@ const own = callTargetsFor({ type: 'Framing', inspector_name: 'Ray', inspector_p
 ok(own[0].name === 'Ray' && own[1].name === 'Fran Framer',
   'what the inspection itself carries still comes first - somebody wrote it down on purpose')
 ok(rankForType([], 'Framing').length === 0, 'an empty list stays empty')
-ok(/type: inspection_type/.test(read('app/api/projects/[id]/inspections/route.ts')),
+ok(/type: inspection_type/.test((read('app/api/projects/[id]/inspections/route.ts') + read('lib/writes/inspection.ts'))),
   'and the "Inspection to book" notification names the matching inspector, not the first one')
 
 // ── the Directory stores it without wiping the rest of `extra` ──────────────
 const patch = code('app/api/directory/[companyId]/route.ts')
 ok(/\.\.\.\(\(\(cur as any\)\?\.extra/.test(patch), 'editing an inspector\'s types merges into extra, keeping jurisdiction and cert #')
-ok(/inspection_types/.test(read('app/api/directory/route.ts')), 'adding an inspector keeps the types picked')
+ok(/inspection_types/.test((read('app/api/directory/route.ts') + read('lib/writes/directory-contact.ts'))), 'adding an inspector keeps the types picked')
 
 ok(DEFAULT_INSPECTION_TYPES.length >= 15, 'the default list is a real starting point')
 

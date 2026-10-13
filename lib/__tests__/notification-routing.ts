@@ -127,7 +127,7 @@ for (const [file, label] of [
   ok(/audienceFor\(/.test(src), `${label} routes through audienceFor`)
   ok(!everyone.test(src), `...and no longer notifies every profile at the company`)
 }
-ok(/audienceFor\(/.test(code('app/api/projects/[id]/invoices/route.ts')),
+ok(/audienceFor\(/.test((code('app/api/projects/[id]/invoices/route.ts') + code('lib/writes/sub-bill.ts'))),
   'bills waiting for approval route through audienceFor')
 
 // The API refuses a direct type, so the screen is not the only thing stopping

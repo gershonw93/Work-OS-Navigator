@@ -106,7 +106,7 @@ function nameOnly(name: string): TaskAssignee {
   ok(/body\.assignees !== undefined/.test(patch),
     'and an EMPTY array is a real answer - it is how a task gets unassigned, so it must not read as "not mentioned"')
 
-  const post = code('app/api/projects/[id]/tasks/route.ts')
+  const post = (code('app/api/projects/[id]/tasks/route.ts') + code('lib/writes/task.ts'))
   ok(/assigneesByTask/.test(post), 'the board is served the assignees')
   ok(/recipientIds/.test(post) && /new Set<string>\(\)/.test(post),
     'EVERYONE on a new task is told, ONCE each - somebody on the roster AND at the assigned sub is one person, not two emails')
