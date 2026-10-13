@@ -51,15 +51,21 @@ export interface ReadDocument {
 /**
  * Check a `document` argument WITHOUT storing it. Null when none was given -
  * that is the normal case, never an error. `where` names the page the person
- * can use instead, so the too-big sentence ends with somewhere to go.
+ * can use instead, so the too-big sentence ends with somewhere to go. `allowed`
+ * narrows the types where the destination's own screen takes fewer (Plans
+ * reads PDF, PNG and JPEG).
  */
-export function readDocument(doc: unknown, where: string): ReadDocument | { problem: string } | null {
+export function readDocument(
+  doc: unknown, where: string, allowed: string[] = DOCUMENT_TYPES,
+): ReadDocument | { problem: string } | null {
   if (doc == null) return null
   if (typeof doc !== 'object' || Array.isArray(doc)) return { problem: 'document must be an object with filename, content_type and data_base64.' }
   const d = doc as Record<string, unknown>
   const filename = (typeof d.filename === 'string' && d.filename.trim()) ? d.filename.trim() : 'document'
   const contentType = typeof d.content_type === 'string' ? d.content_type.trim().toLowerCase() : ''
-  if (!DOCUMENT_TYPES.includes(contentType)) return { problem: 'Attach a PDF or a photo (PNG, JPEG, WebP or HEIC).' }
+  if (!allowed.includes(contentType)) {
+    return { problem: allowed === DOCUMENT_TYPES ? 'Attach a PDF or a photo (PNG, JPEG, WebP or HEIC).' : `Attach one of: ${allowed.join(', ')}.` }
+  }
   const b64 = typeof d.data_base64 === 'string' ? d.data_base64.replace(/^data:[^,]*,/, '') : ''
   const bytes = Buffer.from(b64, 'base64')
   if (!bytes.length) return { problem: 'The attached document is empty.' }

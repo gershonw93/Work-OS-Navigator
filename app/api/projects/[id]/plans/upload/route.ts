@@ -1,9 +1,7 @@
-import { logActivity } from '@/lib/log-activity'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
-
-const PLAN_TYPES = ['architectural', 'structural', 'mep', 'civil', 'landscape', 'other'] as const
+import { recordPlanSheet, PLAN_TYPES } from '@/lib/writes/plan-sheet'
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
@@ -82,37 +80,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     }
   }
 
-  // Get a long-lived signed URL (10 years)
-  const { data: signedUrlData } = await admin.storage
-    .from('plans')
-    .createSignedUrl(storagePath, 60 * 60 * 24 * 365 * 10)
-
-  const { data: plan, error: dbError } = await admin
-    .from('project_plans')
-    .insert({
-      project_id: params.id,
-      folder_id: folderId || null,
-      name,
-      plan_type: planType,
-      file_url: signedUrlData?.signedUrl ?? '',
-      storage_path: storagePath,
-    })
-    .select()
-    .single()
-
-  if (dbError) {
-    // Clean up uploaded file if DB insert fails
-    await admin.storage.from('plans').remove([storagePath])
-    return NextResponse.json({ error: dbError.message }, { status: 500 })
-  }
-
-  // Log activity
-  const { data: uploader } = await admin.from('profiles').select('full_name').eq('id', user.id).single()
-  const actorName = (uploader as any)?.full_name ?? 'Someone'
-  await logActivity(admin, params.id, actorName, 'plan_uploaded',
-    `Uploaded plan "${name}" (${planType})`,
-    { plan_id: plan?.id, name, plan_type: planType }
-  )
-
-  return NextResponse.json({ plan })
+  const result = await recordPlanSheet(admin, {
+    userId: user.id, projectId: params.id, name, planType, folderId, storagePath,
+  })
+  return NextResponse.json(result.body, { status: result.status })
 }
