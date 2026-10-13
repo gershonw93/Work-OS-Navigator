@@ -49,6 +49,8 @@ export default function robots(): MetadataRoute.Robots {
           '/rfi',
           '/compliance',
           '/share',
+          '/shared-report',
+          '/reports',
           '/bill',
           '/field',
           '/my-jobs',

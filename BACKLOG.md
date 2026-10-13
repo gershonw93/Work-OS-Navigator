@@ -315,6 +315,13 @@ Integrations, Claude Desktop / Claude Code only. The rest of the plan:
   dispatcher use it.
 - **Phase 4 - Anthropic's connector directory listing** (needs their review).
 
+## 📊 Reports (the company-wide builder shipped; these are the next asks)
+- **Scheduled sends.** "Email this saved report to the developer on the 1st of every month." The pieces exist - a saved config, the share snapshot, `tokenLinkEmail` - but it needs a cron, a recipient list per saved report, and the Hobby plan's once-a-day cron limit (see Bulk mail in CLAUDE.md). Not built until somebody asks for a second recipient on a schedule.
+- **Pick the columns, not just the sections.** Sections are on/off today; a column chooser per section (hide "Awaiting approval", add "Due") is the next level of "unlimited options". Shape: `columns?: Record<SectionKey, string[]>` on the config, applied in `tablesOf`.
+- **A live link** that always shows today's numbers, as opposed to the snapshot. Deliberately not the default - a live link is a standing window onto a job, the same power as the client portal, and needs the same thought about who may mint one.
+- **Charts** in the report (billed vs paid over time, budget variance by line). Would read through `docs`' dataviz rules; the doc shape has room for a `charts` block beside `stats` and `tables`.
+- **Excel download inside the iOS app.** `XLSX.writeFile` triggers a browser download, which WKWebView does not surface. PDF/Print works there; the spreadsheet needs a share-sheet path.
+
 ## 💼 QuickBooks
 - **Deleting a client PAYMENT leaves its QuickBooks record standing** *(found Sep 2026 while fixing the invoice void)*. `voidBillInQbo` closes this gap on the money-OUT side and `voidClientInvoiceInQbo` now closes it for invoices, but nothing voids the SalesReceipt or applied Payment when a client payment is deleted here. The books keep counting money that was un-recorded. Same shape, same fix - a void call on delete plus a `qbo_voided_at`-style fact to read.
 - **`invoices.subtotal` is written and never read.** `reconcile()` accepts it in its input type and ignores it, computing from the lines instead. Either use it as the check it was meant to be, or drop the column - a field that is stored and never consulted is one somebody will eventually trust.
@@ -584,7 +591,8 @@ and why:
 
 ## ✅ Recently shipped (for reference)
 
-- Claude can read SyteNav: a read-only MCP server at `/api/mcp` (projects, tasks, schedule, inspections, sub bills, client invoices) with personal tokens made and revoked on Settings -> Integrations (`mcp_tokens`, migration 139). Phases 2-4 are under Claude above.
+- Reports tab (#603): company-wide report builder by job, customer, sub or supplier - 13 sections, periods, per-job or combined tables; saved reports (settings, re-run fresh), share links holding a server-built snapshot with optional email, PDF and Excel export (`lib/report-builder.ts`, migration 140).
+- Claude can read SyteNav: a read-only MCP server at `/api/mcp` (projects, tasks, schedule, inspections, sub bills, client invoices) with personal tokens made and revoked on Settings -> Integrations (`mcp_tokens`, migration 141). Phases 2-4 are under Claude above.
 - House model punch items carry who does each one (teammate, Directory sub, or a typed name; `site_model_items.assignee_*`, migration 136). Applying puts them on every punch task, adds a teammate to the house's team when the applier may staff it, and notifies each person once per apply.
 - Developments: the Bulk Add container is called a Development on every screen (the data keeps `is_site` / `parent_project_id`). Add a job inside one (house model applied in the same step), add existing jobs, move or take a job out from its row, make a development from existing jobs in Bulk Add, and see/change a job's development from Project Settings.
 - Sub job view: a Schedule tab on My Jobs (whole job, theirs marked) and delay REPORTS on their own lines that the GC applies through the normal delay screen (`schedule_delay_reports`, migration 135); subs can bill against their own subcontract; free vendor accounts are made in place with a password; Files gained Job Files.

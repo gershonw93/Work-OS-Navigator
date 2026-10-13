@@ -66,6 +66,30 @@ const AUTHORED: Release[] = [
     ],
   },
   {
+    date: '2026-10-13',
+    title: 'Reports',
+    items: [
+      {
+        kind: 'new',
+        title: 'Build a report on any job, customer, sub or supplier',
+        text: 'Reports is in the sidebar. Pick what the report is about - one job or many, a customer or developer, a sub, or a supplier - choose a period, and tick what goes in it: money summary, subcontracts, bills, change orders, materials, budget vs actual, margin, client invoices and payments, schedule, permits, inspections, daily logs and hours. Save it to run again any time with fresh numbers, share it as a link (emailed for you if you like) with a developer or a sub, or export it as a PDF or an Excel spreadsheet.',
+        help: 'reports',
+      },
+    ],
+  },
+  {
+    date: '2026-10-13',
+    title: 'One check across a development\'s houses',
+    items: [
+      {
+        kind: 'new',
+        title: 'Record payment on a development',
+        text: 'A development now has Record payment: enter the check once and split it across its houses - against each house\'s invoices, as a deposit or draw on a house, or both - with Divide evenly to spread it for you. Every house shows its share and its invoices turn Paid or Partly paid as usual, and when the whole check pays invoices it goes to QuickBooks as one payment, matching the deposit on your bank statement.',
+        help: 'record-client-payment',
+      },
+    ],
+  },
+  {
     date: '2026-10-12',
     title: 'Edit budget templates',
     items: [

@@ -1031,6 +1031,15 @@ async function diagnosePaymentRefs(
  * change exists to avoid.
  */
 export async function pushPaymentForProject(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
+  // A SHARE OF A CHEQUE SPLIT ACROSS HOUSES goes across with its cheque, not on
+  // its own - so the backlog sync, which walks payments one by one, does the
+  // right thing without knowing groups exist.
+  const { data: g } = await db.from('client_payments').select('payment_group_id').eq('id', paymentId).maybeSingle()
+  if ((g as any)?.payment_group_id) return pushPaymentGroup(db, (g as any).payment_group_id, ctx)
+  return pushPaymentRow(db, paymentId, ctx)
+}
+
+async function pushPaymentRow(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: p } = await db.from('client_payments')
       .select('id, project_id, amount, paid_date, memo, reference, method, qb_entered, qbo_id, on_account')
@@ -1104,6 +1113,100 @@ export async function pushPaymentForProject(db: SupabaseClient, paymentId: strin
       await logRow(db, companyId, 'payment', p.id, 'error', undefined, detail)
       return { pushed: false, reason: 'failed' as const, detail }
     })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/**
+ * One cheque split across a development's houses, into QuickBooks.
+ *
+ * ONE PAYMENT WHEN IT CAN BE: the bank shows one deposit, so the bookkeeper
+ * wants one record to match it - a Payment with a Line per invoice, across
+ * every house the cheque paid. That is possible when every share pays invoices
+ * (a Payment Line needs an invoice), all of them already in QuickBooks, all
+ * billed to the same QuickBooks customer. Its id goes on the cheque AND on
+ * every share, so each house reads as synced and nothing pushes a share twice.
+ *
+ * Otherwise each share goes across on its own, the way a single payment does
+ * - an invoice payment, or a Sales Receipt for a lump sum - carrying the
+ * cheque's reference so the records can be found together. Invoices not in
+ * QuickBooks yet is WAITING, not otherwise: the backlog sync comes back for it,
+ * and splitting now would make the one-record answer impossible later.
+ */
+export async function pushPaymentGroup(db: SupabaseClient, groupId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: grp } = await db.from('client_payment_groups')
+      .select('id, development_id, amount, paid_date, memo, reference, method, qbo_id').eq('id', groupId).maybeSingle()
+    if (!grp) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
+    if ((grp as any).qbo_id) return { pushed: false, reason: 'already' }
+
+    const { data: rows, error } = await db.from('client_payments')
+      .select('id, project_id, amount, qbo_id, qb_entered, client_payment_allocations(amount, client_invoices(id, invoice_number, qbo_id))')
+      .eq('payment_group_id', groupId)
+    if (error || !rows?.length) return { pushed: false, reason: 'skipped', detail: 'The shares of this payment could not be read' }
+
+    const shares = rows as any[]
+    const allInvoices = shares.every(r => (r.client_payment_allocations ?? []).length > 0)
+    const nonePushed = shares.every(r => !r.qbo_id && !r.qb_entered)
+    const companies = await Promise.all(Array.from(new Set(shares.map(r => r.project_id))).map(id => projectCompany(db, id)))
+    const companyId = companies[0]?.companyId ?? null
+    const customerId = companies[0]?.customerId ?? null
+    const oneCustomer = !!companyId && !!customerId && companies.every(c => c.companyId === companyId && c.customerId === customerId)
+
+    if (allInvoices && nonePushed && oneCustomer) {
+      const links: { label: string; qboId: string; amount: number }[] = []
+      for (const r of shares) for (const a of r.client_payment_allocations ?? []) {
+        const inv = a.client_invoices
+        const label = inv?.invoice_number ?? String(inv?.id ?? '').slice(0, 8)
+        if (!inv?.qbo_id) return { pushed: false, reason: 'skipped', detail: `Invoice ${label} is not in QuickBooks yet` }
+        links.push({ label, qboId: inv.qbo_id, amount: Number(a.amount) })
+      }
+      const conn = await connectionFor(db, companyId!, ctx)
+      if (!conn) return { pushed: false, reason: 'not_connected' }
+      if (!await claimForPush(db, 'client_payment_groups', groupId)) return { pushed: false, reason: 'already' }
+      const { data: dev } = await db.from('projects').select('name').eq('id', (grp as any).development_id).maybeSingle()
+
+      return await budgeted((async (): Promise<PushResult> => {
+        const customerQboId = await ensureCustomerId(db, conn, customerId!, companyId!)
+        const methodQboId = await methodIdFor(conn, (grp as any).method, ctx)
+        const post = (mid: string | null, note: string | null) => qboFetch(conn, 'payment', {
+          method: 'POST',
+          body: JSON.stringify(appliedPaymentPayload(grp as any, customerQboId, links, (dev as any)?.name ?? null, mid, note)),
+        })
+        let res: any
+        try { res = await post(methodQboId, null) } catch (err: any) {
+          // Same retry as a single payment: drop the one optional reference.
+          if (err?.code !== QBO_OBJECT_NOT_FOUND || !methodQboId) throw err
+          res = await post(null, methodNote((grp as any).method))
+        }
+        const qboId = res?.Payment?.Id
+        const now = new Date().toISOString()
+        await db.from('client_payment_groups').update({ qbo_id: qboId, qbo_synced_at: now }).eq('id', groupId)
+        await db.from('client_payments').update({ qbo_id: qboId, qbo_synced_at: now, qb_entered: true, qbo_txn_type: 'payment' })
+          .eq('payment_group_id', groupId)
+        await logRow(db, companyId!, 'payment', groupId, 'success', qboId,
+          `One payment across ${new Set(shares.map(r => r.project_id)).size} houses: ${links.map(l => l.label).join(', ')}`)
+        return { pushed: true, qboId }
+      })()).catch(async (err: any) => {
+        await releaseClaim(db, 'client_payment_groups', groupId)
+        await logRow(db, companyId!, 'payment', groupId, 'error', undefined, err?.message)
+        return { pushed: false, reason: 'failed' as const, detail: err?.message }
+      })
+    }
+
+    // Each share on its own, carrying the cheque's reference.
+    let pushed: string | null = null, failed: string | null = null, notConnected = false
+    for (const r of shares) {
+      if (r.qbo_id) continue
+      const res = await pushPaymentRow(db, r.id, ctx)
+      if (res.pushed) pushed = res.qboId
+      else if (res.reason === 'failed') failed = res.detail ?? 'failed'
+      else if (res.reason === 'not_connected') notConnected = true
+    }
+    if (failed) return { pushed: false, reason: 'failed', detail: failed }
+    if (notConnected && !pushed) return { pushed: false, reason: 'not_connected' }
+    return pushed ? { pushed: true, qboId: pushed } : { pushed: false, reason: 'already' }
   } catch (err: any) {
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
   }

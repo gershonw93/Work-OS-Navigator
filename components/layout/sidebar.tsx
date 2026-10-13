@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
   Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound,
   CalendarDays, DollarSign, Wrench, HelpCircle, ShoppingCart, Sparkles,
-  ChevronsLeft, HardHat,
+  ChevronsLeft, HardHat, BarChart2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -30,6 +30,7 @@ const GC_NAV_ITEMS = [
   { label: 'Equipment', href: '/equipment', icon: Wrench, resource: 'equipment' },
   { label: 'Materials', href: '/materials', icon: ShoppingCart, resource: 'materials' },
   { label: 'Approvals', href: '/approvals', icon: CheckSquare, resource: 'approvals' },
+  { label: 'Reports', href: '/reports', icon: BarChart2, resource: 'reports' },
 ]
 
 // Admin/owner-only cross-project ("master") views.
