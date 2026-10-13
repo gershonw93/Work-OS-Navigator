@@ -149,8 +149,8 @@ async function main() {
     '...including bills, certificates and the catch-all')
   {
     const { db: d, calls } = db()
-    const r = await run(d, 'document_destinations', {}, READ, actor('worker'))
-    ok('data' in r && r.data.destinations.every((x: any) => /^https?:\/\/.+\//.test(x.attach_url)), 'every destination carries an absolute attach_url, even for a worker')
+    const r = await run(d, 'document_destinations', {}, READ, actor('office_staff'))
+    ok('data' in r && r.data.destinations.every((x: any) => /^https?:\/\/.+\//.test(x.attach_url)), 'every destination carries an absolute attach_url, for anybody who can see jobs')
     ok(!calls.some(c => c.table !== 'projects'), '...and reading it touches no table - it is pure data')
   }
 
