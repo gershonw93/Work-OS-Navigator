@@ -4,11 +4,12 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Badge, getStatusVariant } from '@/components/ui/badge'
-import { Building2, MapPin, Search, Plus, FolderInput, ArrowRightLeft, LogOut, Home } from 'lucide-react'
+import { Building2, MapPin, Search, Plus, FolderInput, ArrowRightLeft, LogOut, Home, Banknote } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { lotTag } from '@/lib/lot-details'
 import { HouseModelsDrawer } from '@/components/projects/house-models-drawer'
+import { DevelopmentPayments, DevelopmentPaymentDialog } from '@/components/projects/development-payment'
 import { Button } from '@/components/ui/button'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { useNotice } from '@/components/ui/notice'
@@ -59,6 +60,9 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
   const known = !perms.loading && !perms.error
   const canAdd = !known || perms.can('projects', 'create')
   const canMove = !known || perms.can('projects', 'edit')
+  // Recording a payment is the Payments permission, same as on a single job.
+  const canPay = known && perms.can('payments', 'edit')
+  const [paying, setPaying] = useState(false)
   const [adding, setAdding] = useState(false)
   const [addingExisting, setAddingExisting] = useState(false)
   const [moving, setMoving] = useState<Child | null>(null)
@@ -148,6 +152,11 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
             don't see anywhere once I am in [one] where I can add another". */}
         <div className="row-even lg:flex lg:flex-wrap gap-2">
           {/* Set-up work, not daily work: behind a button, out from the side. */}
+          {canPay && children.length > 0 && (
+            <Button variant="outline" onClick={() => setPaying(true)}>
+              <Banknote className="h-4 w-4" /> Record payment
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setModelsOpen(true)}>
             <Home className="h-4 w-4" /> House models{models.length ? ` · ${models.length}` : ''}
           </Button>
@@ -228,6 +237,8 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
               <p className="text-xl font-bold text-ink">{totals.done}</p>
             </div>
           </div>
+
+          <DevelopmentPayments developmentId={params.id} canEdit={canPay} reloadKey={reloadKey} onChanged={() => setReloadKey(k => k + 1)} />
 
           {children.length > 8 && (
             <div className="relative">
@@ -314,6 +325,10 @@ export default function UnitsPage({ params }: { params: { id: string } }) {
         </>
       )}
 
+      {paying && (
+        <DevelopmentPaymentDialog developmentId={params.id} onClose={() => setPaying(false)}
+          onSaved={said => { setPaying(false); setReloadKey(k => k + 1); notify(said) }} />
+      )}
       {modelsOpen && (
         <HouseModelsDrawer siteId={params.id} houses={children}
           // Closing re-reads, so a model made in the drawer counts on the button.
