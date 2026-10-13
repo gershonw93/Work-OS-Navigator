@@ -66,7 +66,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Let Claude do the typing',
-        text: 'If you allow it, Claude can add and change records for you: budget lines, subcontracts, schedule items (moving dates shows you who else moves, and asks before emailing any sub), tasks, daily logs, bills from subs straight from the email with the PDF attached, inspection requests, change orders and contacts - and it can draft client invoices and payment requests. Anything a client or QuickBooks would see waits for you: bills wait for approval, invoices and payment requests stay unsent drafts, and logs wait for review. It never deletes or records payments, and everything it does is marked "via Claude". Turn it on for a connection with the ... menu on Settings → Integrations.',
+        text: 'If you allow it, Claude can add and change records right across SyteNav: jobs, customers, budget, subcontracts, schedule (moving dates shows you who else moves, and asks before emailing any sub), tasks, daily logs, bills, pay applications, quote requests, permits, inspections, RFIs, submittals, selections, change orders, compliance, materials, equipment and contacts. Drop a document into the chat - a bill, an insurance certificate, a permit, a receipt - and it files it in the right place, asking you first if anything is unclear. Anything a client, a sub or QuickBooks would see waits for you: bills wait for approval, invoices, payment requests, pay applications and quote requests stay unsent drafts, and logs wait for review. It never deletes, records payments or approves, and everything it does is marked "via Claude". Turn it on for a connection with the ... menu on Settings → Integrations.',
         help: 'connect-claude',
       },
     ],

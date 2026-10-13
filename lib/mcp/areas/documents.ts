@@ -382,7 +382,7 @@ export const DOCUMENTS_WRITE: WriteToolDef[] = [
         .select('id, companies ( name )').eq('project_id', pid).eq('company_id', companyId).limit(1)
       if (scError) return failed('the vendors on this job', scError)
       if (!sc?.length) return { error: 'That company is not a vendor on this job. Use list_compliance for the ids.' }
-      const vendor = (sc[0] as any).companies?.name ?? 'the vendor'
+      const vendor = (sc?.[0] as any)?.companies?.name ?? 'the vendor'
 
       const { data: existing, error: exError } = await db.from('compliance_documents')
         .select('id, expiry_date, notes, file_url').eq('company_id', companyId).eq('type', type).eq('project_id', pid).maybeSingle()
