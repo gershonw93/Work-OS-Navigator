@@ -54,6 +54,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-13',
+    title: 'Reports',
+    items: [
+      {
+        kind: 'new',
+        title: 'Build a report on any job, customer, sub or supplier',
+        text: 'Reports is in the sidebar. Pick what the report is about - one job or many, a customer or developer, a sub, or a supplier - choose a period, and tick what goes in it: money summary, subcontracts, bills, change orders, materials, budget vs actual, margin, client invoices and payments, schedule, permits, inspections, daily logs and hours. Save it to run again any time with fresh numbers, share it as a link (emailed for you if you like) with a developer or a sub, or export it as a PDF or an Excel spreadsheet.',
+        help: 'reports',
+      },
+    ],
+  },
+  {
     date: '2026-10-12',
     title: 'Edit budget templates',
     items: [

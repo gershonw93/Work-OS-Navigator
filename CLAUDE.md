@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-138.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-139.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -810,7 +810,7 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   and hash dropped (reset links carry tokens there), UTMs kept by allowlist,
   title derived from the template - `document.title` can carry a project name.
 - **NOT MEASURED:** the native shell (the App Store label says no tracking),
-  non-production hosts, token links (`/portal`, `/share`, `/bid`, `/bill`,
+  non-production hosts, token links (`/portal`, `/share`, `/shared-report`, `/bid`, `/bill`,
   `/rfi`, `/compliance` - the path is the secret and those people are not our
   visitors), `/admin`, Global Privacy Control, and the opt-out cookie.
   **"NOT MEASURED" MEANS THE TAG IS NOT RUNNING, NOT THAT ONE EVENT IS
