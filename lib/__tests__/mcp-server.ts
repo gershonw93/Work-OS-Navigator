@@ -244,6 +244,10 @@ async function main() {
   ok(/mcpTokenNameProblem/.test(card) && /mcpTokenNameProblem/.test(code('app/api/settings/mcp-tokens/route.ts')),
     'the form and the route ask the same name check')
   ok(!/\bconfirm\(|\balert\(/.test(card), 'no native confirm/alert on the card')
+  ok(/const isOpen = open \?\? !connected/.test(card),
+    'the card FOLDS once connected and starts open when not - the setup steps are noise on every later visit')
+  ok(/variant="success"[^>]*>[\s\S]{0,120}Connected<\/Badge>/.test(card), '...and a connected card says so in green')
+  ok(/aria-expanded=\{isOpen\}/.test(card), 'the fold is a real button a screen reader can read the state of')
 
   done()
 }

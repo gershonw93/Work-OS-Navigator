@@ -1,10 +1,11 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Bot, Check, Copy, Eye, Loader2, PencilLine } from 'lucide-react'
+import { Bot, Check, ChevronDown, Copy, Eye, Loader2, PencilLine } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useNotice } from '@/components/ui/notice'
@@ -104,6 +105,8 @@ export function ClaudeConnectorCard() {
   // Adding records is a separate consent, off by default - a box that starts
   // ticked is a claim the person never made.
   const [newCanWrite, setNewCanWrite] = useState(false)
+  const [open, setOpen] = useState<boolean | null>(null)
+  const [showToken, setShowToken] = useState(false)
   const [fresh, setFresh] = useState<{ token: string; name: string; id: string | null } | null>(null)
 
   const load = useCallback(async () => {
@@ -189,21 +192,57 @@ export function ClaudeConnectorCard() {
     })
   }
 
+  // CONNECTED IS THE NORMAL STATE, SO IT IS THE SMALL ONE. Once somebody has
+  // a connection the setup steps are noise on every visit: the card folds to
+  // one row with a green "Connected" and opens on a tap. With no connection it
+  // starts open, because the steps are the whole point of looking. `null`
+  // means nobody has pressed the toggle yet, so the default can follow the
+  // load instead of being decided before it.
+  const connected = state === 'ready' && connections.length > 0
+  const isOpen = open ?? !connected
+  const lastUsed = connections.map(c => c.last_used_at).filter(Boolean).sort().pop() ?? null
+  const canAdd = connections.some(c => c.can_write)
+
   return (
     <Card>
       <CardContent className="space-y-4 p-4 sm:p-5">
-        <div className="flex min-w-0 items-start gap-3">
-          <span className="shrink-0 rounded-lg border border-line-soft bg-surface p-2">
-            <Bot className="h-5 w-5 text-muted-fg" />
+        <div className="flex min-w-0 items-center gap-3">
+          <span className={connected
+            ? 'shrink-0 rounded-lg border border-success/30 bg-success-tint p-2'
+            : 'shrink-0 rounded-lg border border-line-soft bg-surface p-2'}>
+            <Bot className={connected ? 'h-5 w-5 text-success' : 'h-5 w-5 text-muted-fg'} />
           </span>
-          <div className="min-w-0">
-            <p className="font-semibold text-ink">Claude</p>
-            <p className="text-sm text-muted-fg">
-              Let Claude read your jobs - projects, tasks, schedule, inspections, bills and client
-              invoices - with your permissions. If you allow it, it can also add tasks, bills from subs,
-              inspection requests, change orders and contacts; it never records payments, edits or deletes.
-            </p>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="font-semibold text-ink">Claude</p>
+              {connected
+                ? <Badge variant="success"><span className="mr-1 inline-block h-1.5 w-1.5 rounded-full bg-success-solid" aria-hidden /> Connected</Badge>
+                : state === 'ready' && !unavailable && <Badge variant="muted">Not connected</Badge>}
+            </div>
+            {connected && !isOpen ? (
+              <p className="truncate text-sm text-muted-fg">
+                {connections.length === 1 ? '1 connection' : `${connections.length} connections`}
+                {' · '}{canAdd ? 'can add records' : 'read only'}
+                {lastUsed && <> · <span title={absoluteTime(lastUsed)}>last used {timeAgo(lastUsed)}</span></>}
+              </p>
+            ) : (
+              <p className="text-sm text-muted-fg">
+                Let Claude read your jobs - projects, tasks, schedule, inspections, bills and client
+                invoices - with your permissions. If you allow it, it can also add tasks, bills from subs,
+                inspection requests, change orders and contacts; it never records payments, edits or deletes.
+              </p>
+            )}
           </div>
+          {state === 'ready' && !unavailable && (
+            <Button
+              type="button" variant="outline" size="sm" className="shrink-0"
+              aria-expanded={isOpen}
+              onClick={() => setOpen(!isOpen)}
+            >
+              {isOpen ? 'Hide' : 'Manage'}
+              <ChevronDown className={isOpen ? 'h-4 w-4 rotate-180 transition-transform' : 'h-4 w-4 transition-transform'} />
+            </Button>
+          )}
         </div>
 
         {state === 'loading' ? (
@@ -212,7 +251,7 @@ export function ClaudeConnectorCard() {
           <p className="text-sm text-muted-fg">Could not load your Claude connections. Reload to try again.</p>
         ) : unavailable ? (
           <p className="text-sm text-muted-fg">{unavailable}</p>
-        ) : (
+        ) : !isOpen ? null : (
           <>
             {/* THE EASY WAY FIRST. Adding SyteNav in Claude by its address
                 signs in through SyteNav's own Allow page - no token, no config
@@ -264,9 +303,18 @@ export function ClaudeConnectorCard() {
               </div>
             )}
 
-            <p className="text-sm font-medium text-ink-soft">
+            {/* The token is the rarer way in, so it stays folded until asked
+                for - or until one has just been made and must be copied. */}
+            <button
+              type="button"
+              className="flex w-full items-center justify-between gap-2 rounded-lg py-1 text-left text-sm font-medium text-ink-soft hover:text-ink"
+              aria-expanded={showToken || !!fresh}
+              onClick={() => setShowToken(v => !v)}
+            >
               Or use a token, for Claude Code or a Claude Desktop config file
-            </p>
+              <ChevronDown className={showToken || fresh ? 'h-4 w-4 shrink-0 rotate-180 transition-transform' : 'h-4 w-4 shrink-0 transition-transform'} />
+            </button>
+            {(showToken || fresh) && (<>
             {fresh && (
               <div className="space-y-3 rounded-xl border border-line bg-surface/50 p-3 sm:p-4">
                 <p className="text-sm text-ink">
@@ -309,6 +357,7 @@ export function ClaudeConnectorCard() {
                 <span>Also let it add records (optional) - tasks, bills waiting for approval, inspection requests, change orders and contacts.</span>
               </label>
             </form>
+            </>)}
           </>
         )}
       </CardContent>
