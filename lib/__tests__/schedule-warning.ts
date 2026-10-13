@@ -150,14 +150,17 @@ function base(over: Partial<WarningInput> = {}): WarningInput {
 
 // ── the caller wiring ───────────────────────────────────────────────────────
 {
-  const route = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const route = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
   ok(/changeWarning\(\{/.test(route), 'the ROUTE computes it, beside the moves')
   ok(/hasDependents: deps\.some\(d => d\.predecessor_task_id === itemId\)/.test(route),
     'hasDependents asks the LINKS, not the result - a job whose followers are all pinned is still linked')
   ok(/just_linked/.test(route), 'and the preview is told whether this save is creating a link')
   // The preview still writes nothing. A preview that wrote would make "Shift
   // silently" and "Cancel" the same button.
-  ok(!/\.update\(|\.insert\(|\.delete\(/.test(route.split('export async function PUT')[0]),
+  // The route's POST and the lib preview (everything before the apply there).
+  const previewHalf = route.split('export async function PUT')[0]
+    + code('lib/writes/schedule-move.ts').split('export async function applyScheduleMove')[0]
+  ok(!/\.update\(|\.insert\(|\.delete\(/.test(previewHalf),
     'the preview half still writes NOTHING')
 
   const page = code('app/(dashboard)/projects/[id]/schedule/page.tsx')

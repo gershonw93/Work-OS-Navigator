@@ -118,7 +118,7 @@ const at = (pct: number | null): (() => Progress) =>
 
 // ── the wiring ──────────────────────────────────────────────────────────────
 {
-  const route = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const route = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
   ok(/cascade\(lines, deps, itemId, newStart, newEnd, progressOf\)/.test(route),
     'the cascade route supplies real percentages - without it every gate reads unknown')
   ok(/progressReader\(db, lines\)/.test(route),

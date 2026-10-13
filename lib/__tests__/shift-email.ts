@@ -110,7 +110,7 @@ const line = (extra: Partial<ShiftedLine> = {}): ShiftedLine => ({
 
 // ── the route hands over what the template needs ─────────────────────────────
 {
-  const route = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const route = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
   ok(/shiftDays: l\.shiftDays/.test(route),
     'the cascade passes the signed days, rather than making the template re-derive them')
   // One email per sub, not per line - the template takes a LIST and this is

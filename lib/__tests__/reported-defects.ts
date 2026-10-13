@@ -203,7 +203,7 @@ ok(counted.changes_unlinked === 70_725,
 ok(counted.approved_changes === counted.revised_budget - counted.original_budget,
   'approved changes and the revised budget still agree with each other')
 
-const budgetRoute = code('app/api/projects/[id]/budget/route.ts')
+const budgetRoute = (code('app/api/projects/[id]/budget/route.ts') + code('lib/writes/budget-line.ts'))
 ok(/approvedChangesByLine\(\(data \?\? \[\]\) as any, \(changeOrders \?\? \[\]\) as any\)/.test(budgetRoute),
   'the Budget route works out which approved changes reach no line')
 ok(/changeRollup\.unmapped,/.test(budgetRoute), '...and hands the total to budgetTotals')
@@ -241,7 +241,7 @@ ok(/if \(budget_line_item_id !== undefined\) updates\.budget_line_item_id/.test(
 // is the one thing the delay feature exists to collect, was refused by both.
 // This pin follows it to `logSaysSomething` rather than checking the two
 // spellings that were the bug.
-const logRoute = code('app/api/projects/[id]/daily-logs/route.ts')
+const logRoute = (code('app/api/projects/[id]/daily-logs/route.ts') + code('lib/writes/daily-log.ts'))
 const logPage = code('app/(dashboard)/projects/[id]/daily-logs/page.tsx')
 const logRule = code('lib/daily-log-delays.ts')
 ok(/An empty log says somebody was on site and reported nothing/.test(logRule),

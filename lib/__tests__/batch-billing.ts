@@ -18,7 +18,7 @@
 import { ok, done, code, read } from './_helpers'
 
 const ui = code('components/projects/client-invoices.tsx')
-const route = code('app/api/projects/[id]/client-invoices/route.ts')
+const route = (code('app/api/projects/[id]/client-invoices/route.ts') + code('lib/writes/client-invoice.ts') + code('lib/client-billable.ts'))
 
 // ── the label names the job ─────────────────────────────────────────────────
 ok(ui.includes('Create client invoice from approved costs'),

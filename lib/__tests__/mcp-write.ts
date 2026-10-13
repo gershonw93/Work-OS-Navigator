@@ -121,8 +121,10 @@ async function main() {
     ok(t.write === true && keys.has(t.resource) && ['create', 'edit'].includes(t.action),
       `${t.name} names a real permission and an adding action (${t.resource}:${t.action})`)
   }
-  ok(!ALL_TOOLS.some(t => /delete|remove|update|edit_|payment|approve|void/i.test(t.name)),
-    'NO TOOL edits, deletes, approves, voids or records a payment - adding only')
+  ok(!ALL_TOOLS.some(t => /delete|remove|record_payment|apply_credit|approve|void|send_/i.test(t.name)),
+    'NO TOOL deletes, approves, voids, sends or records a payment - adding and editing only (the owner\'s decision)')
+  ok(ALL_TOOLS.filter(t => 'write' in t && t.write).every(t => ['create', 'edit'].includes((t as any).action)),
+    '...and every write tool asks for create or edit, never delete')
 
   // ── the gates ─────────────────────────────────────────────────────────────
   {

@@ -90,7 +90,7 @@ console.log('\nschedule-cascade')
   }
 
   // The narrow power gets the narrow permission.
-  const item = code('app/api/projects/[id]/schedule/[itemId]/route.ts')
+  const item = (code('app/api/projects/[id]/schedule/[itemId]/route.ts') + code('lib/writes/schedule-item.ts'))
   ok(/requirePermission\(admin\(\), request, 'schedule', 'delete'\)/.test(item),
     'deleting a line needs delete, not edit')
 
@@ -105,7 +105,7 @@ console.log('\nschedule-cascade')
 
 // ── the whitelist ────────────────────────────────────────────────────────────
 {
-  const item = code('app/api/projects/[id]/schedule/[itemId]/route.ts')
+  const item = (code('app/api/projects/[id]/schedule/[itemId]/route.ts') + code('lib/writes/schedule-item.ts'))
   // A whitelist with a field missing fails exactly like a rejection, and only
   // one of them says so - the route drops the field and answers 200.
   for (const field of ['trade', 'progress_pct']) {
@@ -130,7 +130,7 @@ console.log('\nschedule-cascade')
 // a line OUT of the cascade for ever and nothing was clearing it, so a line
 // that was dated and then linked never followed anything.
 {
-  const item = code('app/api/projects/[id]/schedule/[itemId]/route.ts')
+  const item = (code('app/api/projects/[id]/schedule/[itemId]/route.ts') + code('lib/writes/schedule-item.ts'))
 
   // Half one: a save that resubmits the same dates is not a decision about
   // them. Every dialog that touches a line posts both dates whether or not
@@ -140,8 +140,9 @@ console.log('\nschedule-cascade')
   // stopped accepting dates; it is now asked by the cascade apply, which is the
   // only thing that moves one. Asked THERE rather than left to the caller, for
   // the same reason the PATCH refuses dates at all.
-  const apply = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
-  ok(/const before = p\.byId\.get\(params\.itemId\)/.test(apply),
+  const apply = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
+  // Widened for the move to lib/writes/schedule-move.ts, where it is an argument, not params.
+  ok(/const before = p\.byId\.get\((params\.)?itemId\)/.test(apply),
     'the apply reads the dates it is about to replace')
   ok(/const datesActuallyChanged =/.test(apply),
     '...and works out whether they actually changed')
@@ -185,7 +186,7 @@ console.log('\nschedule-cascade')
   // The other contradiction: the dialog commits links and then saves dates, so
   // one save said "this follows Sheetrock" and "ignore Sheetrock" a second
   // apart, with the second winning.
-  const cascade = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const cascade = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
   ok(/body\?\.dates_overridden !== false/.test(cascade),
     'the apply takes an explicit "this is not a hand override", defaulting to the protective answer')
   ok(/markOverridden && datesActuallyChanged/.test(cascade),
@@ -208,7 +209,7 @@ console.log('\nschedule-cascade')
   ok(/export function gateOf/.test(pure), 'what a link SAYS is one function')
   ok(/gate: LinkGate \| null/.test(pure), '...and it travels on every reported row')
 
-  const route = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const route = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
   ok(/gate: m\.gate/.test(route) && /gate: s\.gate/.test(route),
     'the route carries it to the screen for both buckets')
 
@@ -320,7 +321,7 @@ console.log('\nschedule-cascade')
     'the report is built by a SECOND walk over every line the links reach')
   ok(/linkOf|LinkKind/.test(pure), 'and each one is labelled direct or downstream')
 
-  const route = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const route = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
   ok(/link: s\.link/.test(route) && /link: m\.link/.test(route),
     'the route carries the link kind through to the screen for both buckets')
 
@@ -374,7 +375,7 @@ console.log('\nschedule-cascade')
 
 // ── no email without the review screen ───────────────────────────────────────
 {
-  const cascade = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const cascade = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
 
   // THE SAFETY PROPERTY. `notify` has no default on purpose: false would make
   // an un-updated caller silently stop telling anybody, true would make one
@@ -386,7 +387,10 @@ console.log('\nschedule-cascade')
 
   // The preview must not write. A preview that wrote would make "Shift
   // silently" and "Cancel" the same button.
+  // Both halves of the preview: the route's POST and the shared function it
+  // calls, which lives in lib/writes/schedule-move.ts before the apply.
   const preview = cascade.slice(cascade.indexOf('export async function POST'), cascade.indexOf('export async function PUT'))
+    + cascade.slice(cascade.indexOf('export async function previewScheduleMove'), cascade.indexOf('export async function applyScheduleMove'))
   ok(preview.length > 100, 'found the preview handler')
   ok(!/\.update\(|\.insert\(|\.delete\(/.test(preview),
     'THE PREVIEW CHANGES NOTHING - no update, insert or delete in it')
@@ -411,7 +415,7 @@ console.log('\nschedule-cascade')
     'THE SPEC: it takes a LIST of lines, so one sub with two phases gets one letter')
   ok(/export function scheduleUnblockedEmail/.test(email), 'and an unblocked template')
 
-  const cascade = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const cascade = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
   // The loop is over SUBS, not over moves.
   ok(/for \(const sub of p\.affected\)/.test(cascade),
     '...and the route loops over subs, not over moved lines')
@@ -423,7 +427,7 @@ console.log('\nschedule-cascade')
   ok(/sent_at TIMESTAMPTZ,/.test(sql) && !/sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW\(\)/.test(sql),
     'sent_at has no default - a default would be the row claiming an email went out')
 
-  const cascade = code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts')
+  const cascade = (code('app/api/projects/[id]/schedule/[itemId]/cascade/route.ts') + code('lib/writes/schedule-move.ts'))
   ok(/send_error/.test(cascade), 'a failed send is recorded as a failure, not as silence')
   ok(/schedule_shift_notices/.test(cascade), 'every send is logged against the line')
 }

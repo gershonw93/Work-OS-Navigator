@@ -1,8 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { resolveStages, isRequestable, percentOfTotal } from '@/lib/payment-stages'
-import { friendlyDbError } from '@/lib/db-error'
-import { money, percent } from '@/lib/validate'
+import { resolveStages } from '@/lib/payment-stages'
+import { createPaymentRequest } from '@/lib/writes/payment-request'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -60,88 +60,21 @@ export async function GET(request: Request, { params }: { params: { id: string }
  * pressed.
  */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const a = await auth(request)
-  if (!a) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { db, user } = a
+  // ASKING THE CLIENT FOR MONEY IS `payments: edit`, AND IT IS THE GC'S JOB.
+  // This checked only "are you signed in", so any account holding a project
+  // id - a field worker, an invited sub - could raise a request against a
+  // job's client. `requirePermission` brings the billing lock with it, and
+  // `ownedProject` keeps a sub on the job out: the client is the GC's.
+  const db = admin()
+  const gate = await requirePermission(db, request, 'payments', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   const body = await request.json().catch(() => ({} as any))
-  const stageIndex = Number.isInteger(body?.stage_index) ? Number(body.stage_index) : null
 
-  let label: string
-  let amount: number
-  let dueHint: string | null = null
-
-  if (stageIndex != null) {
-    const { data: project } = await db.from('projects').select('payment_stages, quote_total').eq('id', params.id).single()
-    const stages = resolveStages((project as any)?.payment_stages, (project as any)?.quote_total)
-    const stage = stages.find(s => s.index === stageIndex)
-    if (!stage) return NextResponse.json({ error: 'That payment stage is no longer on the estimate.' }, { status: 404 })
-    if (!isRequestable(stage)) {
-      return NextResponse.json({ error: 'That stage has no amount yet - set an estimate total, or type an amount instead.' }, { status: 400 })
-    }
-    label = stage.label
-    amount = stage.amount!
-    dueHint = stage.dueHint
-  } else {
-    label = String(body?.label ?? '').trim() || 'Deposit'
-    dueHint = typeof body?.due_hint === 'string' ? body.due_hint.trim() || null : null
-
-    if (body?.percent != null && String(body.percent).trim() !== '') {
-      // A percentage is resolved against the estimate HERE, never taken as a
-      // figure from the browser. The client is about to be asked for this
-      // number; it has to come from the quote, not from what a page happened
-      // to render before the estimate was last edited.
-      const { data: project } = await db.from('projects').select('quote_total').eq('id', params.id).single()
-      // percent() keeps the sign and then judges it. The old line stripped
-      // the minus with the currency symbols, so -10% arrived as 10%.
-      const checked = percent(body.percent)
-      if (!checked.ok) {
-        return NextResponse.json({ error: checked.error }, { status: 400 })
-      }
-      const pct = checked.value
-      const resolved = percentOfTotal(pct, (project as any)?.quote_total)
-      if (resolved == null) {
-        return NextResponse.json({
-          error: `${pct}% of what? This job's estimate has no total yet - set one on the Estimate tab, or ask for a dollar amount.`,
-        }, { status: 400 })
-      }
-      amount = resolved
-      // Say so on the request itself, so a month later it is obvious where the
-      // figure came from and it can be checked against the quote.
-      if (!/%/.test(label)) label = `${label} (${pct}%)`
-    } else {
-      // THE BUG THIS FIXES. This line used to strip everything that was not a
-      // digit or a dot - including the minus - and only THEN ask whether the
-      // amount was positive. Asking a client for -$500 raised a request for
-      // $500. The guard below was always correct; it never saw a negative,
-      // because the clean above had already turned it into one.
-      const checked = money(body?.amount)
-      if (!checked.ok) {
-        return NextResponse.json({ error: checked.error }, { status: 400 })
-      }
-      amount = checked.value
-    }
-  }
-
-  const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
-
-  const { data, error } = await db.from('client_payment_requests').insert({
-    project_id: params.id,
-    label,
-    amount,
-    due_hint: dueHint,
-    stage_index: stageIndex,
-    created_by: (profile as any)?.full_name ?? null,
-  }).select().single()
-
-  if (error) {
-    // The partial unique index. Asking twice for the same stage is a
-    // double-click, not an intention.
-    if ((error as any).code === '23505') {
-      return NextResponse.json({ error: 'You have already asked for that stage and it is still outstanding.' }, { status: 409 })
-    }
-    return NextResponse.json({ error: friendlyDbError(error) }, { status: 500 })
-  }
-
-  return NextResponse.json({ request: data })
+  // Everything after the sign-in check is `createPaymentRequest`, which Claude's MCP server calls too.
+  const result = await createPaymentRequest(db, { userId: user.id, projectId: params.id, body })
+  return NextResponse.json(result.body, { status: result.status })
 }

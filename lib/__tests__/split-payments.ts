@@ -99,7 +99,7 @@ ok(/INSERT INTO client_payment_allocations[\s\S]*FROM client_payments[\s\S]*clie
 ok(/UNIQUE \(payment_id, client_invoice_id\)/.test(mig) && /CHECK \(amount > 0\)/.test(mig), '...one share per invoice per payment, never zero')
 ok(/ON DELETE CASCADE[\s\S]*ON DELETE CASCADE/.test(mig), '...and both foreign keys say what a delete does')
 
-const listRoute = code('app/api/projects/[id]/client-invoices/route.ts')
+const listRoute = (code('app/api/projects/[id]/client-invoices/route.ts') + code('lib/writes/client-invoice.ts'))
 ok(/client_payment_allocations/.test(listRoute) && /settlementOf\(/.test(listRoute), 'the invoice list counts each payment\'s SHARE, not its whole amount')
 ok(/settlementsFor\(/.test(code('app/portal/[token]/page.tsx')) && /b\.balance/.test(code('app/portal/[token]/page.tsx')),
   'the client portal shows what is still owed, not the whole invoice again')
@@ -186,7 +186,7 @@ ok(/Keep anything not on an invoice as credit for this client/.test(code('compon
 ok(/Apply \$\{money\(Math\.min\(credit, owed\)\)\} credit/.test(list) && /credit on account\./.test(list),
   'the invoice list says how much credit there is and offers to apply it')
 ok(/creditAvailableCents\(/.test(code('app/portal/[token]/page.tsx')), 'the client sees their credit on the portal')
-ok(/credit === null \? null/.test(code('app/api/projects/[id]/client-invoices/route.ts')),
+ok(/credit === null \? null/.test((code('app/api/projects/[id]/client-invoices/route.ts') + code('lib/writes/client-invoice.ts'))),
   'an unread credit is sent as unknown, never as $0')
 
 done()
