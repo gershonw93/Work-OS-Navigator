@@ -21,7 +21,7 @@ import { DOCUMENTS_READ, DOCUMENTS_WRITE, DESTINATIONS } from '../mcp/areas/docu
 import { complianceStatusFor } from '../writes/compliance-document'
 import { readDocument, MAX_DOCUMENT_BYTES } from '../writes/stored-document'
 import { statusFromExpiry } from '../compliance-report'
-import { RESOURCES, getEffectivePermissions, getRoleDefaults } from '../permissions'
+import { RESOURCES, getEffectivePermissions, getRoleDefaults, can } from '../permissions'
 import type { ActorPerms } from '../server-permissions'
 import { ok, done, code } from './_helpers'
 
@@ -266,8 +266,19 @@ async function main() {
   }
   {
     const { db: d, calls } = db()
-    const r = await run(d, 'file_compliance_document', { project_id: 'p1', company_id: 'sub1', type: 'coi' }, WRITE, actor('project_manager'))
-    ok('error' in r && !written(calls, 'compliance_documents', 'upsert').length, 'compliance VIEW (a Project Manager by default) cannot file through Claude')
+    // A role holding compliance VIEW only (a company's own remap) cannot file.
+    const viewOnly = actor('project_manager')
+    viewOnly.permissions = { ...viewOnly.permissions, compliance: { view: true } }
+    const r = await run(d, 'file_compliance_document', { project_id: 'p1', company_id: 'sub1', type: 'coi' }, WRITE, viewOnly)
+    ok('error' in r && !written(calls, 'compliance_documents', 'upsert').length, 'compliance VIEW only cannot file through Claude')
+  }
+  {
+    // The owner's call: a Project Manager edits compliance by default, so the
+    // app's write gate and Claude's are the same permission.
+    ok(can(getRoleDefaults('project_manager'), 'compliance', 'edit'), 'a Project Manager holds compliance: edit by default')
+    const access = code('lib/writes/compliance-access.ts')
+    ok(/opts\.write\s*\?\s*actorCan\(actor, 'compliance', 'edit'\)/.test(access),
+      'the Compliance tab writes at compliance: edit, not view - the permission means what it says')
   }
 
   // ── compliance: with no file, and replacing one ───────────────────────────

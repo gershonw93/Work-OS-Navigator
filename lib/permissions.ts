@@ -174,7 +174,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     plans: FULL, schedule: FULL, tasks: FULL, progress: FULL, 'daily-logs': FULL, time: FULL,
     team: VE, bids: FULL, rfis: FULL,
     invoices: VE, 'pay-apps': FULL, payments: VE, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL, selections: FULL,
-    permits: FULL, inspections: FULL, 'mark-ready': VE, submittals: FULL, compliance: V, reports: N,
+    permits: FULL, inspections: FULL, 'mark-ready': VE, submittals: FULL, compliance: VE, reports: N,
     dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
     // Runs the job and is who the client asks. Regenerating is theirs too - a
     // link that has gone somewhere it should not have is their problem to fix.

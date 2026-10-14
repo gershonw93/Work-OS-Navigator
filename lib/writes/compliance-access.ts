@@ -28,10 +28,10 @@ export type ComplianceAccess =
  * The gate every compliance handler asks. `write` adds the billing lock (the
  * base gate is asked at `view`, which skips it).
  *
- * The GC side is asked at `compliance: view`, NOT edit - and that is a
- * decision, not an oversight: a Project Manager's default is compliance V and
- * the Compliance tab offers them Add and Edit, which they use today. Raising it
- * to `edit` takes that away; it belongs with a change to the role default.
+ * The GC side READS at `compliance: view` and WRITES at `compliance: edit`.
+ * It wrote at `view` while a Project Manager's default was view-only and the
+ * tab let them add; the owner gave PMs edit instead, so the permission now
+ * means what it says - same decision as the Directory's edit and delete.
  * The Printed report reads this route too, so `reports: view` also reads.
  */
 export async function complianceAccess(
@@ -49,8 +49,10 @@ export async function complianceAccess(
   const lock = async () => (opts.write ? billingLock(db, actor.companyId) : null)
 
   if (ownsProject(actor.companyId, project as any)) {
-    const may = actorCan(actor, 'compliance', 'view') || (!opts.write && actorCan(actor, 'reports', 'view'))
-    if (!may) return { denied: NextResponse.json({ error: 'You do not have permission to view compliance.' }, { status: 403 }) }
+    const may = opts.write
+      ? actorCan(actor, 'compliance', 'edit')
+      : actorCan(actor, 'compliance', 'view') || actorCan(actor, 'reports', 'view')
+    if (!may) return { denied: NextResponse.json({ error: `You do not have permission to ${opts.write ? 'edit' : 'view'} compliance.` }, { status: 403 }) }
     const locked = await lock(); if (locked) return { denied: locked }
     return { actor, scope: 'owner' }
   }
