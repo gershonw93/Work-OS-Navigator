@@ -4,6 +4,8 @@ import { LOT_COLUMNS, lotFacts } from '@/lib/lot-details'
 import { committedTotal } from '@/lib/committed'
 import { projectEscrow, awaitingApproval as billsAwaitingApproval, AWAITING_APPROVAL_STATUS } from '@/lib/escrow'
 import { TO_BOOK } from '@/lib/inspection-status'
+import { requirePermission, denied } from '@/lib/api-guard'
+import { ownsProject } from '@/lib/project-access'
 
 export const runtime = 'nodejs'
 
@@ -47,16 +49,17 @@ const days = (d: string | null | undefined): number | null => {
  * chase. Mixing them is what makes a dashboard feel like nagging.
  */
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const auth = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // It did check the company - by hand, against `gc_company_id` alone - but
+  // never a permission. Now through the shared gate (`projects: view`, which
+  // every role that can open a job holds) and `ownsProject`, the one rule for
+  // "is this your job", which also counts the company that CREATED it.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(auth)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'projects', 'view')
+  if (denied(gate)) return gate.denied
 
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
   const { data: project } = await db
     .from('projects')
-    .select(`id, name, status, gc_company_id, contractor_fee_pct, billing_mode, is_site, ${LOT_COLUMNS}`)
+    .select(`id, name, status, gc_company_id, created_by_company_id, contractor_fee_pct, billing_mode, is_site, ${LOT_COLUMNS}`)
     .eq('id', params.id)
     .single()
   if (!project) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -64,7 +67,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // The money on this screen is the GC's position on the job. A subcontractor
   // must never be shown it, so the whole route is GC-side only; subs have their
   // own view of their own work at /my-jobs.
-  const isGc = (project as any).gc_company_id === (profile as any)?.company_id
+  const isGc = ownsProject(gate.actor.companyId, project as any)
   if (!isGc) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   // A site is a container - the building or the street. The budget, schedule

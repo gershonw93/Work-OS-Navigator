@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { filesAccess } from '@/lib/files-access'
 
 export const runtime = 'nodejs'
 
@@ -12,15 +13,14 @@ const admin = () => createClient(
 // so there's still a record of what was sent to whom, which is the point of
 // having sent it through the app instead of email.
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+  // `files: view` like creating a share (POST /api/file-shares), plus the
+  // billing lock, and the row is always matched on the caller's company too.
+  const access = await filesAccess(db, request, {
+    write: true, noCompany: () => NextResponse.json({ error: 'Profile not found' }, { status: 400 }),
+  })
+  if ('denied' in access) return access.denied
+  const profile = { company_id: access.companyId }
 
   const body = await request.json().catch(() => ({}))
 
@@ -72,15 +72,14 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 }
 
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+  // `files: view` like creating a share (POST /api/file-shares), plus the
+  // billing lock, and the row is always matched on the caller's company too.
+  const access = await filesAccess(db, request, {
+    write: true, noCompany: () => NextResponse.json({ error: 'Profile not found' }, { status: 400 }),
+  })
+  if ('denied' in access) return access.denied
+  const profile = { company_id: access.companyId }
 
   const { error } = await db
     .from('file_shares').delete().eq('id', params.id).eq('company_id', profile.company_id)

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { linkTeamRows } from '@/lib/my-jobs'
+import { acceptedRole } from '@/lib/personal-access'
 
 export const runtime = 'nodejs'
 
@@ -50,7 +51,10 @@ export async function POST(request: Request) {
 
   if (existing) {
     const patch: Record<string, unknown> = { company_id: invite.company_id, email }
-    if (!existing.role) patch.role = role
+    // Kept only when THIS company set it. A role carried in from another
+    // company is not one the inviter granted - see `acceptedRole`.
+    const write = acceptedRole(existing, invite)
+    if (write) patch.role = write
     await db.from('profiles').update(patch).eq('id', user.id)
   } else {
     await db.from('profiles').upsert({

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { jobGate, companyProfileIds } from '@/lib/job-access'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,12 +8,24 @@ const admin = () => createClient(
 )
 
 export async function PATCH(request: Request, { params }: { params: { id: string; entryId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Approving or rejecting somebody's hours answered ANY login, for any entry
+  // on any job. Now `time: edit` - the Time tab's own `canManage` - and on this
+  // job. On a job the caller's company does NOT own (a sub's admin holds
+  // `time: edit` in their own company's map), only their OWN crew's entries:
+  // a sub signing off the GC's labour is not a thing the screen means.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'time', 'edit')
+  if ('denied' in gate) return gate.denied
+  const user = { id: gate.actor.userId }
+
+  if (gate.side !== 'gc') {
+    const crew = await companyProfileIds(db, gate.actor.companyId)
+    const { data: entry } = await db.from('time_entries').select('profile_id')
+      .eq('id', params.entryId).eq('project_id', params.id).maybeSingle()
+    if (!entry || !crew || !crew.includes((entry as any).profile_id)) {
+      return NextResponse.json({ error: 'Time entry not found' }, { status: 404 })
+    }
+  }
 
   const { approval_status } = await request.json()
   if (!['approved', 'rejected', 'pending'].includes(approval_status)) {

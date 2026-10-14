@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { jobGate } from '@/lib/job-access'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,12 +8,12 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Any login read any job's history - every bill, change order and payment
+  // line in it - by id. Now `projects: view` and ON this job: the history
+  // button sits in the header every sub and crew member on the job sees.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'projects', 'view')
+  if ('denied' in gate) return gate.denied
 
   const { data: activity } = await db
     .from('project_activity')

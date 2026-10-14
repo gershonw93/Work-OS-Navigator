@@ -4,6 +4,7 @@ import { toAmount } from '@/lib/schedule-dependencies'
 import { NextResponse } from 'next/server'
 import { isAssignedOnly } from '@/lib/permissions'
 import { myJobs } from '@/lib/my-jobs'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,12 +12,12 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // The Projects list's strip. Scoped below to the jobs the caller can see:
+  // their assigned ones for an assigned-only role, the company's otherwise.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'projects', 'view')
+  if (denied(gate)) return gate.denied
+  const user = { id: gate.actor.userId }
 
   const { data: profile } = await db.from('profiles').select('company_id, role, email, full_name').eq('id', user.id).single()
   if (!profile?.company_id) return NextResponse.json({ stats: {} })

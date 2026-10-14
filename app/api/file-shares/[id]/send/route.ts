@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { tokenLinkEmail } from '@/lib/email'
 import { deliverLink, readSendBody } from '@/lib/send-link'
 import { appOrigin } from '@/lib/app-url'
+import { filesAccess } from '@/lib/files-access'
 
 export const runtime = 'nodejs'
 
@@ -13,17 +14,19 @@ const admin = () => createClient(
 
 /** Email somebody the link to what was shared - documents, an update, or both. */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const auth = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(auth)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // This emails somebody OUTSIDE the company. It used to look the share up by
+  // id alone, so anybody signed in who held an id could mail another
+  // company's link to anyone. Same gate as creating the share (`files: view`
+  // plus the billing lock), and the row must be the caller's company's.
+  const access = await filesAccess(db, request, { write: true })
+  if ('denied' in access) return access.denied
 
   const { to, note } = await readSendBody(request)
 
   const { data: share } = await db.from('file_shares')
     .select('token, name, message, files, recipient_name, allow_upload, upload_prompt, created_by_name, revoked_at, expires_at')
-    .eq('id', params.id).maybeSingle()
+    .eq('id', params.id).eq('company_id', access.companyId).maybeSingle()
   if (!share?.token) return NextResponse.json({ error: 'That share no longer exists.' }, { status: 404 })
 
   // Sending a link that is already dead would be worse than not sending.
@@ -58,6 +61,6 @@ export async function POST(request: Request, { params }: { params: { id: string 
   return deliverLink({
     to,
     email,
-    onSent: () => db.from('file_shares').update({ status: 'sent' }).eq('id', params.id),
+    onSent: () => db.from('file_shares').update({ status: 'sent' }).eq('id', params.id).eq('company_id', access.companyId),
   })
 }

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { mayTransferOwnership } from '@/lib/company-owner'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,12 +22,14 @@ const admin = () => createClient(
  * worker would be a promotion and a transfer in one click.
  */
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // The "Make owner" control lives on Team & Users, so that tab's permission
+  // first - then `mayTransferOwnership`, which is the narrower rule (only the
+  // owner, only to an admin). `view`, deliberately: handing the account on is
+  // not data, and a locked account must still be able to change hands.
+  const gate = await requirePermission(db, request, 'settings_team', 'view')
+  if (denied(gate)) return gate.denied
+  const user = { id: gate.actor.userId }
 
   const { memberId } = await request.json().catch(() => ({} as any))
   if (!memberId) return NextResponse.json({ error: 'No member given.' }, { status: 400 })

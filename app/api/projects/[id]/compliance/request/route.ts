@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
+import { complianceAccess } from '@/lib/writes/compliance-access'
+import { companyOnJob } from '@/lib/writes/compliance-document'
 
 export const runtime = 'nodejs'
 
@@ -12,15 +14,26 @@ const admin = () => createClient(
 // Create a one-time link asking a company to upload compliance docs.
 // Returns the token + the company's contact email so the UI can prefill a mailto.
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Asking a vendor for paperwork is the GC's job: `compliance: edit` on a job
+  // the caller's company OWNS. A sub on the job reaches complianceAccess too
+  // (for its own documents), but does not send itself requests.
+  const access = await complianceAccess(db, request, params.id, { write: true })
+  if ('denied' in access) return access.denied
+  if (access.scope !== 'owner') {
+    return NextResponse.json({ error: 'This job belongs to another company.' }, { status: 403 })
+  }
+  const user = { id: access.actor.userId }
 
   const { company_id, doc_types } = await request.json() as { company_id: string; doc_types: string[] }
   if (!company_id || !Array.isArray(doc_types) || doc_types.length === 0) {
     return NextResponse.json({ error: 'company_id and at least one doc type are required' }, { status: 400 })
+  }
+
+  // Only a company actually ON this job. Otherwise any company id - another
+  // GC's vendor included - could be named, and its contact address handed back.
+  if (!(await companyOnJob(db, params.id, company_id))) {
+    return NextResponse.json({ error: 'That company is not on this job.' }, { status: 404 })
   }
 
   const { data: company } = await db.from('companies').select('name, contact_email').eq('id', company_id).single()

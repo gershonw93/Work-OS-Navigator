@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { committedTotal } from '@/lib/committed'
 import { masterMoneyRows } from '@/lib/master-money'
 
+import { requirePermission, denied } from '@/lib/api-guard'
+
 export const runtime = 'nodejs'
 
 const admin = () => createClient(
@@ -13,11 +15,13 @@ const admin = () => createClient(
 
 // Cross-project money rollup for the boss. Admin/manager only.
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Every job's money in one table - the Financial Summary asked company-wide. The role check below
+  // stays (the Master section is admin/manager), and the permission is asked
+  // too, so a company that unticks it for a manager is obeyed here as well.
+  const gate = await requirePermission(db, request, 'financials', 'view')
+  if (denied(gate)) return gate.denied
+  const user = { id: gate.actor.userId }
 
   const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
   if (!profile?.company_id) return NextResponse.json({ rows: [] })

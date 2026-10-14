@@ -1,5 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { getActor } from '@/lib/server-permissions'
+import { isAssignedOnly } from '@/lib/permissions'
+import { myJobs } from '@/lib/my-jobs'
+import { taskIdsFor } from '@/lib/task-assignees'
+import { searchGroupAllowed } from '@/lib/company-access'
 
 export const runtime = 'nodejs'
 
@@ -8,11 +13,10 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function getUser(request: Request) {
+async function actorOf(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return null
-  const { data: { user } } = await admin().auth.getUser(token)
-  return user
+  return getActor(admin(), token)
 }
 
 type Hit = {
@@ -31,17 +35,35 @@ function esc(q: string) {
 }
 
 export async function GET(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const actor = await actorOf(request)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const url = new URL(request.url)
   const raw = (url.searchParams.get('q') ?? '').trim()
   if (raw.length < 2) return NextResponse.json({ groups: [] })
 
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  const companyId = profile?.company_id
+  const companyId = actor.companyId
   if (!companyId) return NextResponse.json({ groups: [] })
+
+  // A SEARCH BOX IS A WINDOW ONTO EVERY TABLE IT SEARCHES. This answered
+  // anybody signed in with every budget line, bill, change order and customer
+  // on every job the company has - so a Worker with `budget: N` and one job
+  // could read the whole company's books by typing two letters. Two limits now:
+  //   1. a group the person could not open as a screen is not searched at all
+  //      (`searchGroupAllowed`, one map of group -> resource);
+  //   2. an assigned-only role searches the jobs it is ON, and among their
+  //      tasks only the ones assigned to it - the same answer the Projects
+  //      list and the Tasks tab give it.
+  const allowed = (group: string) => searchGroupAllowed(actor, group)
+  const assignedOnly = isAssignedOnly(actor.role)
+  let membership: { memberIds: string[]; projectIds: string[] } | null = null
+  let myName: string | null = null
+  if (assignedOnly) {
+    const { data: me } = await db.from('profiles').select('email, full_name, company_id').eq('id', actor.userId).single()
+    myName = (me as any)?.full_name ?? null
+    membership = await myJobs(db, actor.userId, me)
+  }
 
   const q = esc(raw)
   if (!q) return NextResponse.json({ groups: [] })
@@ -53,7 +75,8 @@ export async function GET(request: Request) {
     .from('projects')
     .select('id, name, address, client')
     .or(`gc_company_id.eq.${companyId},created_by_company_id.eq.${companyId}`)
-  const projects = projRows ?? []
+  const onJobs = membership ? new Set(membership.projectIds) : null
+  const projects = (projRows ?? []).filter(p => !onJobs || onJobs.has(p.id))
   const projectIds = projects.map(p => p.id)
   const projName = new Map(projects.map(p => [p.id, p.name]))
   const inList = projectIds.length ? projectIds : ['00000000-0000-0000-0000-000000000000']
@@ -64,19 +87,22 @@ export async function GET(request: Request) {
   const safe = async (fn: () => Promise<Hit[]>): Promise<Hit[]> => {
     try { return await fn() } catch { return [] }
   }
+  // A group the caller may not see is never QUERIED, not filtered afterwards.
+  const only = (group: string, fn: () => Promise<Hit[]>): Promise<Hit[]> =>
+    allowed(group) ? safe(fn) : Promise.resolve([])
 
   const [
     projectHits, budgetHits, materialHits, invoiceHits, subHits,
     rfiHits, taskHits, changeOrderHits, customerHits, directoryHits, teamHits,
   ] = await Promise.all([
     // Projects
-    safe(async () => projects
+    only('projects', async () => projects
       .filter(p => [p.name, p.address, p.client].some(v => (v ?? '').toLowerCase().includes(ql)))
       .slice(0, PER)
       .map(p => ({ id: p.id, title: p.name, subtitle: [p.client, p.address].filter(Boolean).join(' · ') || null, href: `/projects/${p.id}` }))),
 
     // Budget line items
-    safe(async () => {
+    only('budget', async () => {
       const { data } = await db.from('budget_line_items')
         .select('id, description, cost_code, category, project_id')
         .in('project_id', inList)
@@ -90,7 +116,7 @@ export async function GET(request: Request) {
     }),
 
     // Material receipts
-    safe(async () => {
+    only('materials', async () => {
       const { data } = await db.from('material_purchases')
         .select('id, store_name, category, notes, amount, project_id')
         .in('project_id', inList)
@@ -104,7 +130,7 @@ export async function GET(request: Request) {
     }),
 
     // Invoices
-    safe(async () => {
+    only('invoices', async () => {
       const { data } = await db.from('invoices')
         .select('id, invoice_number, company_name, description, amount, project_id')
         .in('project_id', inList)
@@ -118,7 +144,7 @@ export async function GET(request: Request) {
     }),
 
     // Subcontracts
-    safe(async () => {
+    only('subcontracts', async () => {
       const { data } = await db.from('subcontracts')
         .select('id, scope, trade, project_id, companies(name)')
         .in('project_id', inList)
@@ -132,7 +158,7 @@ export async function GET(request: Request) {
     }),
 
     // RFIs
-    safe(async () => {
+    only('rfis', async () => {
       const { data } = await db.from('rfis')
         .select('id, rfi_number, subject, project_id')
         .in('project_id', inList)
@@ -146,12 +172,19 @@ export async function GET(request: Request) {
     }),
 
     // Tasks
-    safe(async () => {
-      const { data } = await db.from('project_tasks')
+    only('tasks', async () => {
+      let tq = db.from('project_tasks')
         .select('id, title, description, project_id')
         .in('project_id', inList)
         .or(`title.ilike.${like},description.ilike.${like}`)
-        .limit(PER)
+      if (membership) {
+        // Their own tasks only. A lookup that FAILED (null) searches nothing
+        // rather than everything.
+        const mine = await taskIdsFor(db, { memberIds: membership.memberIds, name: myName })
+        if (!mine || !mine.length) return []
+        tq = tq.in('id', mine)
+      }
+      const { data } = await tq.limit(PER)
       return (data ?? []).map((t: any) => ({
         id: t.id, title: t.title || 'Task',
         subtitle: projName.get(t.project_id) || null,
@@ -160,7 +193,7 @@ export async function GET(request: Request) {
     }),
 
     // Change orders
-    safe(async () => {
+    only('change-orders', async () => {
       const { data } = await db.from('change_orders')
         .select('id, title, description, project_id')
         .in('project_id', inList)
@@ -174,7 +207,7 @@ export async function GET(request: Request) {
     }),
 
     // Customers
-    safe(async () => {
+    only('customers', async () => {
       const { data } = await db.from('customers')
         .select('id, name, contact_name, email, phone, billing_address')
         .eq('gc_company_id', companyId)
@@ -188,7 +221,7 @@ export async function GET(request: Request) {
     }),
 
     // Directory (companies I've added or work with)
-    safe(async () => {
+    only('directory', async () => {
       const { data } = await db.from('companies')
         .select('id, name, trade, contact_email, phone')
         .eq('added_by_company_id', companyId)
@@ -202,7 +235,7 @@ export async function GET(request: Request) {
     }),
 
     // Team members (profiles in the same company)
-    safe(async () => {
+    only('team', async () => {
       const { data } = await db.from('profiles')
         .select('id, full_name, email, phone, role')
         .eq('company_id', companyId)

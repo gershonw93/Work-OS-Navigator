@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
+import { requirePermission, denied } from '@/lib/api-guard'
+
 export const runtime = 'nodejs'
 
 const admin = () => createClient(
@@ -11,11 +13,13 @@ const admin = () => createClient(
 // Cross-project calendar: schedule items + task due dates across all the
 // company's projects. Admin/manager only. Each item links to its project.
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Every job's schedule, tasks and inspections in one place - the Schedule tab's question asked company-wide. The role check below
+  // stays (the Master section is admin/manager), and the permission is asked
+  // too, so a company that unticks it for a manager is obeyed here as well.
+  const gate = await requirePermission(db, request, 'schedule', 'view')
+  if (denied(gate)) return gate.denied
+  const user = { id: gate.actor.userId }
 
   const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
   if (!profile?.company_id) return NextResponse.json({ items: [], projects: [] })

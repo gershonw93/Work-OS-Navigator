@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { guardScan, scanDenied, scanActorFor } from '@/lib/scan-guard'
+import { guardScan, scanDenied } from '@/lib/scan-guard'
+import { complianceAccess } from '@/lib/writes/compliance-access'
 
 export const runtime = 'nodejs'
 
@@ -17,13 +18,15 @@ const admin = () => createClient(
 )
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // The same door as filing the document the scan fills in: the GC at
+  // `compliance: edit`, or a sub ON the job for its own paperwork. Asked
+  // BEFORE the meter row - a caller who may not file one must not spend a
+  // scan, nor store a file under somebody else's job.
+  const access = await complianceAccess(db, request, params.id, { write: true })
+  if ('denied' in access) return access.denied
 
-  const scan = await guardScan(db, await scanActorFor(db, user.id), 'compliance', params.id)
+  const scan = await guardScan(db, access.actor, 'compliance', params.id)
   if (scanDenied(scan)) return scan.denied
 
   const formData = await request.formData()

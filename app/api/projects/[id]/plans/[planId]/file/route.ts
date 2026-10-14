@@ -1,6 +1,8 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { createClient as cookieClient } from '@/lib/supabase/server'
+import { actorForUser } from '@/lib/server-permissions'
+import { actorJobGate } from '@/lib/job-access'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The bytes of one plan, from OUR origin.
@@ -41,6 +43,17 @@ export async function GET(
   if (!user) return new NextResponse('Unauthorized', { status: 401 })
 
   const db = admin()
+  // That sign-in was the only check: any account could stream any job's
+  // drawings by their ids. Now `plans: view` and ON this job (the owner, a
+  // sub on it, its team) - the plan viewer is in every sub's lane. Resolved
+  // from the cookie's user through the same `actorForUser` the bearer routes
+  // use, so the two doors cannot answer differently.
+  const actor = await actorForUser(db, user.id, user.user_metadata?.role as string | undefined)
+  const gate = await actorJobGate(db, actor, params.id, 'plans', 'view')
+  if ('denied' in gate) {
+    // Plain text, like every other answer here - `<img>` and pdf.js read it.
+    return new NextResponse(gate.denied.status === 404 ? 'Not found' : 'Forbidden', { status: gate.denied.status })
+  }
   const { data: plan } = await db
     .from('project_plans')
     .select('storage_path, file_url, name')

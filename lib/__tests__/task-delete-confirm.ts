@@ -18,8 +18,8 @@ ok(/hideDelete = !perms\.loading && !perms\.error && !can\('tasks', 'delete'\)/.
 
 const route = code('app/api/projects/[id]/tasks/[taskId]/route.ts')
 const routeDel = route.slice(route.indexOf('export async function DELETE('))
-ok(/requirePermission\(db, request, 'tasks', 'delete'\)/.test(routeDel) &&
-  routeDel.indexOf("requirePermission(") < routeDel.indexOf(".delete()"),
+ok(/jobGate\(db, request, params\.id, 'tasks', 'delete'\)/.test(routeDel) &&
+  routeDel.indexOf("jobGate(") < routeDel.indexOf(".delete()"),
   'the route asks for tasks: delete BEFORE deleting - it asked nothing, so any account could delete any task')
 ok(!/error: error\.message/.test(routeDel), '...and a failure is not a raw database sentence')
 

@@ -7,6 +7,7 @@ import { TRIAL_DAYS } from '@/lib/plans'
 import { dayWords } from '@/lib/dates'
 import { resolveCopy } from '@/lib/email-copy-read'
 import { paragraphs } from '@/lib/email-copy'
+import { escapeLike } from '@/lib/personal-access'
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('Authorization')
@@ -29,7 +30,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { companyName, companyType, fullName, email, userId, inviteToken } = await request.json()
+  // `email` and `userId` are deliberately NOT read off the body. Both are the
+  // client's claim about who it is, and both used to decide something: the
+  // profile was written for `userId` (anybody else's account id), and the
+  // address picked which EXISTING company to join - as its admin - by matching
+  // `companies.contact_email`. A valid invite of your own plus somebody else's
+  // contact address was a seat as admin of their company. The token answers
+  // both questions, and it is the only thing here that cannot be typed.
+  const { companyName, companyType, fullName, inviteToken } = await request.json()
+  const email = (user.email ?? '').trim()
+  if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Gated beta: account creation requires an approved access request token.
   // (Fail open only if the access_requests table doesn't exist yet.)
@@ -71,7 +81,7 @@ export async function POST(request: Request) {
     )
   }
 
-  const targetId = userId ?? user.id
+  const targetId = user.id
 
   // Check if profile already exists
   const { data: existing } = await admin
@@ -91,7 +101,7 @@ export async function POST(request: Request) {
   const { data: existingCompany } = await admin
     .from('companies')
     .select('id, type')
-    .eq('contact_email', email)
+    .ilike('contact_email', escapeLike(email))
     .single()
 
   let company = existingCompany

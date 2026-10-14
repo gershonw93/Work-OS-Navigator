@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission, denied, billingLock } from '@/lib/api-guard'
 import { taskIdsFor } from '@/lib/task-assignees'
 import { createTask } from '@/lib/writes/task'
+import { jobGate } from '@/lib/job-access'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -10,12 +11,15 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Answered any login, for any job id - the whole task board, who is on each
+  // task, and the job's team and subs. Now `tasks: view` and ON this job: the
+  // board is read from the Tasks tab, Progress, Daily Logs and the budget's
+  // line items, and by a sub on a job they were hired onto. The assigned-only
+  // narrowing below is unchanged.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'tasks', 'view')
+  if ('denied' in gate) return gate.denied
+  const user = { id: gate.actor.userId }
 
   const { data: profile } = await db.from('profiles').select('role, full_name').eq('id', user.id).single()
 

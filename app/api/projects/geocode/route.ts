@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { lookUpAddress } from '@/lib/geocode'
 import { projectSite, sameAddress } from '@/lib/project-site'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -17,13 +18,16 @@ const admin = () => createClient(
 // is how this route and the punch route came to use different geocoders with
 // different rules. lib/geocode.ts is the one lookup now.
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ updated: 0 })
+  // Every lookup is a call to a paid geocoder, so a real person with a
+  // company, entitled to the Projects screen the map is drawn on - and only
+  // ever their OWN company's jobs (the filter below). `view`, and no billing
+  // lock: this fills a derived cache (the pin), not something a person wrote,
+  // and a locked account's map must still draw - it stays fully readable.
+  const gate = await requirePermission(db, request, 'projects', 'view')
+  if (denied(gate)) return gate.denied
+  const profile = { company_id: gate.actor.companyId }
+  if (!profile.company_id) return NextResponse.json({ updated: 0 })
 
   const { data: projects, error: selErr } = await db
     .from('projects')

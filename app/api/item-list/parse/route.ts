@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import * as XLSX from 'xlsx'
 import { parseItemRows } from '@/lib/item-list'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -16,11 +17,13 @@ const admin = () => createClient(
 // parser uses the sheet's own header row when it has one and falls back to a
 // heuristic when it doesn't. Whatever comes back is editable before it's sent.
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Reads the uploaded sheet and nothing else - no table, no storage - so the
+  // gate is the screen's: Request Quotes, the only page that sends a takeoff
+  // here. `view`, because parsing writes nothing; saving the lines is the
+  // request-quotes route's own write, which carries its own gate and lock.
+  const gate = await requirePermission(db, request, 'request-quotes', 'view')
+  if (denied(gate)) return gate.denied
 
   const form = await request.formData()
   const file = form.get('file') as File | null

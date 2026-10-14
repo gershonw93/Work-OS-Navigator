@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { setupProgress } from '@/lib/job-setup'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -17,12 +18,17 @@ const admin = () => createClient(
  * fails to load is worse than one reporting a zero.
  */
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Any login, any job. The checklist is about setting up YOUR job - the
+  // client, the budget, sharing the portal - so it is the owning company's:
+  // `projects: view` and `ownedProject`. A sub on the job is refused, and the
+  // chip (which renders nothing without an answer) stops showing them a list
+  // of the GC's chores.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'projects', 'view')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   const count = async (table: string, column = 'project_id') => {
     try {
@@ -82,12 +88,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
 /** Hide the checklist for THIS person on this job, or bring it back. */
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Hiding the checklist is per PERSON and only ever touches the caller's own
+  // dismissal row - but on a job id from the URL, so it asks the same question
+  // as the GET: no row for a job you cannot see the checklist on. No billing
+  // lock: this is a display preference, not the company's data, and a locked
+  // account must still be able to tidy its own screen.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'projects', 'view')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const user = { id: gate.actor.userId }
 
   const body = await request.json().catch(() => ({}))
   const dismissed = !!body?.dismissed

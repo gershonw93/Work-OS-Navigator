@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server'
 import { admin, qboConfigured, QBO_ENV } from '@/lib/quickbooks'
 
+import { requirePermission, denied } from '@/lib/api-guard'
+import { mayManageCompanySetting } from '@/lib/company-access'
+
 export const runtime = 'nodejs'
 
 // Connection status for the Settings card + recent sync activity.
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
+  // The card is on the Integrations tab (settings_company: view). What it
+  // returns - the sync log's messages, how many bills and payments are stuck -
+  // is the company's books, and this answered any account signed in.
+  const gate = await requirePermission(db, request, 'settings_company', 'view')
+  if (denied(gate)) return gate.denied
+  const profile = { company_id: gate.actor.companyId }
+  if (!profile.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
 
   const { data: conn } = await db.from('quickbooks_connections')
     .select('realm_id, qbo_company_name, environment, status, connected_at')
@@ -63,7 +65,9 @@ export async function GET(request: Request) {
   return NextResponse.json({
     configured: qboConfigured(),
     environment: QBO_ENV,
-    canManage: ['admin', 'manager'].includes(profile.role),
+    // The SAME predicate connect, disconnect and sync ask, so a button the
+    // card shows is one the route will honour.
+    canManage: mayManageCompanySetting(gate.actor),
     connection: conn ?? null,
     unsyncedPayments,
     unsyncedBills,

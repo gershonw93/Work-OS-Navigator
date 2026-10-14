@@ -2,7 +2,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { DEFAULT_INSPECTION_TYPES } from '@/lib/inspection-types'
-import { guardScan, scanDenied, scanActorFor } from '@/lib/scan-guard'
+import { guardScan, scanDenied } from '@/lib/scan-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -18,14 +19,16 @@ const admin = () => createClient(
 )
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // The permission for the record this scan fills in, on a job the caller's
+  // company OWNS - asked BEFORE the meter row, so a caller who may not write
+  // one never spends a scan (or stores a file) against somebody else's job.
+  const gate = await requirePermission(db, request, 'inspections', 'edit')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
-  const scan = await guardScan(db, await scanActorFor(db, user.id), 'inspection', params.id)
+  const scan = await guardScan(db, gate.actor, 'inspection', params.id)
   if (scanDenied(scan)) return scan.denied
 
   const formData = await request.formData()

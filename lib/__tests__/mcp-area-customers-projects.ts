@@ -223,9 +223,10 @@ async function main() {
     'the Directory screen offers Edit and Delete only to whoever holds them - all three places each appears')
   ok(/added_by_company_id !== myCompanyId/.test(code('lib/writes/directory-contact-edit.ts')),
     '...which is: one this company added - not another firm\'s own account')
-  // The one handler left at "signed in": the team roster read. Workers and
-  // invited subs read it from Daily Logs and Plans while holding `team: N`.
-  ok(/auth\.getUser\(token\)/.test(routeFn(code('app/api/projects/[id]/team/route.ts'), 'GET')), '(team GET stays signed-in only - documented, not forgotten)')
+  // The team roster read is not gated on `team: view` - workers and invited
+  // subs read it from Daily Logs and Plans while holding `team: N` - but it is
+  // no longer signed-in only: the caller has to be ON the job (lockdown-job.ts).
+  ok(/jobSide\(db, actor, params\.id\)/.test(routeFn(code('app/api/projects/[id]/team/route.ts'), 'GET')), '(team GET asks "on this job", not team: view - documented, not forgotten)')
 
   // ── behaviour, through the dispatcher ─────────────────────────────────────
   {

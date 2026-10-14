@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { jobGate, logOnJob } from '@/lib/job-access'
 
 export const runtime = 'nodejs'
 
@@ -9,12 +10,14 @@ const admin = () => createClient(
 )
 
 export async function POST(request: Request, { params }: { params: { id: string; logId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Answered any login, and inserted onto whatever log id it was handed. Now
+  // on this job, the log on this job, and the billing lock. `daily-logs: VIEW`
+  // because the Daily Logs screen offers Add Photos to everybody who can open
+  // a log - view-only roles included - and a lockdown must not take it away.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'daily-logs', 'view', { write: true })
+  if ('denied' in gate) return gate.denied
+  if (!(await logOnJob(db, params.id, params.logId))) return NextResponse.json({ error: 'Log not found' }, { status: 404 })
 
   const formData = await request.formData()
   const files = formData.getAll('photos') as File[]

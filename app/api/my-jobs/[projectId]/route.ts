@@ -25,14 +25,21 @@ export async function GET(request: Request, { params }: { params: { projectId: s
     db.from('subcontracts').select('*').eq('project_id', params.projectId).eq('company_id', companyId).order('created_at', { ascending: true }),
   ])
 
-  if (!project) return NextResponse.json({ error: `Project not found (${projectError?.message ?? 'no row'})` }, { status: 404 })
+  // ONE ANSWER FOR "NO SUCH JOB" AND "NOT YOUR JOB". It was a 404 carrying
+  // the database's own words for a missing id and a 403 for a real one, which
+  // tells any signed-in account which project ids exist.
+  const notFound = () => NextResponse.json({ error: 'Project not found' }, { status: 404 })
+  if (!project) {
+    if (projectError) console.error('[my-jobs] project read failed', { project: params.projectId, error: projectError.message })
+    return notFound()
+  }
 
   const hasSubcontract = subcontracts && subcontracts.length > 0
 
   // Verify access: either has a subcontract, or owns the project
   if (!hasSubcontract) {
     const { data: ownership } = await db.from('projects').select('created_by_company_id').eq('id', params.projectId).eq('created_by_company_id', companyId).maybeSingle()
-    if (!ownership) return NextResponse.json({ error: 'Access denied' }, { status: 403 })
+    if (!ownership) return notFound()
   }
 
   // WHICH TASKS ARE THIS SUB'S. Was `.eq('assigned_to_company_id', companyId)`

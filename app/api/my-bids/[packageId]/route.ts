@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
+import { invitationToPackage } from '@/lib/personal-access'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +20,13 @@ export async function GET(request: Request, { params }: { params: { packageId: s
 
   const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+
+  // INVITED FIRST, before the package is read. The package carries the GC's
+  // scope, plans and job address; read first, a missing id said "not found"
+  // and a real one said "not invited", which tells a stranger which ids exist.
+  // One answer for both.
+  const invitation = await invitationToPackage(db, profile.company_id, params.packageId)
+  if (!invitation) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
 
   const CORE = `
       id, scope, description, trade, due_date, status, requirements, specifications,
@@ -38,15 +46,6 @@ export async function GET(request: Request, { params }: { params: { packageId: s
   }
 
   if (!pkg) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
-
-  const { data: invitation } = await db
-    .from('bid_invitations')
-    .select('id, status')
-    .eq('bid_package_id', params.packageId)
-    .eq('company_id', profile.company_id)
-    .single()
-
-  if (!invitation) return NextResponse.json({ error: 'Not invited to this package' }, { status: 403 })
 
   const { data: myBid } = await db
     .from('bids')
@@ -77,6 +76,14 @@ export async function POST(request: Request, { params }: { params: { packageId: 
     .eq('id', user.id)
     .single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+
+  // ONLY A COMPANY THAT WAS INVITED MAY BID, and that is asked before the
+  // form is read, before a proposal is uploaded into storage, and before the
+  // GC is told. This handler checked nothing but the sign-in: any account
+  // holding a package id could post a bid onto it, mark the invitations
+  // accepted, write the GC's activity feed and ring the GC's bell.
+  const invitation = await invitationToPackage(db, profile.company_id, params.packageId)
+  if (!invitation) return NextResponse.json({ error: 'Package not found' }, { status: 404 })
 
   const formData = await request.formData()
   const amount = parseFloat(formData.get('amount') as string)

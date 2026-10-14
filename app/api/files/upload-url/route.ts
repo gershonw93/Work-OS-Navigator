@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { filesAccess } from '@/lib/files-access'
 
 export const runtime = 'nodejs'
 
@@ -24,16 +25,13 @@ const MAX_UPLOAD_BYTES = 200 * 1024 * 1024
  * Same fix as the share links (see app/api/share/[token]/upload-url).
  */
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  const company_id = (profile as any)?.company_id
-  if (!company_id) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // The first half of POST /api/files, so the same gate: `files: view` (every
+  // role the page offers Upload to), the billing lock, and a path inside the
+  // caller's OWN company folder - which POST /api/files checks again.
+  const access = await filesAccess(db, request, { write: true })
+  if ('denied' in access) return access.denied
+  const company_id = access.companyId
 
   const body = await request.json().catch(() => ({}))
   const name = String(body?.name ?? '').trim()

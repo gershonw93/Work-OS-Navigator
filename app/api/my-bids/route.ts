@@ -32,7 +32,9 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile) return NextResponse.json({ invitations: [], quote_requests: [] })
+  // No company, no invitations - and asked HERE rather than left to how
+  // `.eq('vendor_company_id', null)` happens to compare.
+  if (!profile?.company_id) return NextResponse.json({ invitations: [], quote_requests: [] })
 
   const { data: invites } = await db
     .from('bid_invites')
