@@ -322,9 +322,7 @@ through the app's own `lib/writes/*`. Still to do:
   (gating on create would take Quick Add from PM/office/field). Inspections
   POST/PATCH and change-orders GET ask the permission but not ownership.
   `POST /api/projects` trusts a body `customer_id` (the Claude tool checks it).
-- **Permission maps that disagree with the screens**: a PM's
-  compliance default is view-only while the tab lets them add (so Claude
-  cannot file compliance for a PM); workers' materials map says create but the
+- **Permission maps that disagree with the screens**: workers' materials map says create but the
   route asks edit; the Equipment screen shows buttons a role's map now refuses (owner: leave for now).
 - **Small bugs found on the way**: Reports counts permit statuses `issued` and
   `closed`, which the table's check constraint never allows (always 0); the
