@@ -7,7 +7,7 @@
 // URL or a claim in the body is answered for whoever asks unless the route
 // itself checks it. Each handler below is pinned on the check that scopes it.
 
-import { invitationToPackage, acceptedRole, escapeLike } from '../personal-access'
+import { invitationToPackage, acceptedRole, escapeLike, inviteMove } from '../personal-access'
 import { ok, done, code } from './_helpers'
 
 const signedIn = (src: string) => /auth\.getUser\(token\)/.test(src)
@@ -146,5 +146,17 @@ const fakeDb = (fail = false) => ({
   const origErr = console.error; console.error = () => {}
   ok(await invitationToPackage(fakeDb(true), 'C1', 'P1') === null, 'a failed read is a refusal, never a pass')
   console.error = origErr
+  // AN INVITE NEVER MOVES SOMEBODY WHO ALREADY BELONGS TO ANOTHER COMPANY.
+  // invite/accept runs on every sign-in and password reset, so a GC typing an
+  // address into an invite used to take that person out of their own company.
+  ok(inviteMove(null, { company_id: 'B' }) === 'join', 'no profile yet: joins')
+  ok(inviteMove({ company_id: null }, { company_id: 'B' }) === 'join', 'a profile with no company: joins')
+  ok(inviteMove({ company_id: 'B' }, { company_id: 'B' }) === 'join', 'already in the inviting company: stays')
+  ok(inviteMove({ company_id: 'A' }, { company_id: 'B' }) === 'blocked', 'in ANOTHER company: never moved')
+  const acceptRoute = code('app/api/invite/accept/route.ts')
+  const block = acceptRoute.indexOf("inviteMove(existing, invite) === 'blocked'")
+  ok(block > 0 && block < acceptRoute.indexOf(".from('profiles').update(") && block < acceptRoute.indexOf(".from('profiles').upsert(")
+    && block < acceptRoute.indexOf("linkTeamRows(") && block < acceptRoute.indexOf("update({ status: 'accepted' })"),
+    'invite/accept refuses the move BEFORE it writes the profile, claims team rows or marks the invite accepted')
   done()
 })()

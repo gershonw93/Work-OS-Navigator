@@ -55,5 +55,23 @@ export function acceptedRole(
   return invited
 }
 
+/**
+ * May accepting this invite put the profile in the inviting company?
+ *
+ * `invite/accept` runs on EVERY sign-in and every password reset, and used to
+ * move whoever owned the address into whichever company had invited it. So any
+ * GC could type somebody's email into an invite and, the next time that person
+ * reset their password, take them out of their own company. The owner's rule:
+ * an invite never moves somebody who already belongs to ANOTHER company. They
+ * join only with no company yet, or when it is already the inviting one.
+ */
+export function inviteMove(
+  existing: { company_id?: string | null } | null | undefined,
+  invite: { company_id: string },
+): 'join' | 'blocked' {
+  if (!existing?.company_id) return 'join'
+  return existing.company_id === invite.company_id ? 'join' : 'blocked'
+}
+
 /** PostgREST treats `%` and `_` as wildcards in ilike; keep them literal. */
 export const escapeLike = (v: string): string => v.replace(/[\\%_]/g, m => `\\${m}`)
