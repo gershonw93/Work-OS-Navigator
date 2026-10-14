@@ -211,8 +211,16 @@ async function main() {
   }
   const dir = code('app/api/directory/[companyId]/route.ts')
   const dirGate = dir.slice(dir.indexOf('async function directoryGate'), dir.indexOf('export async function PATCH'))
-  ok(/requirePermission\(db, request, 'directory'/.test(dirGate) && /billingLock\(/.test(dirGate) && /directoryContactProblem\(/.test(dirGate),
-    'the Directory gate asks the permission, the read-only lock, and WHOSE CONTACT IT IS')
+  ok(/requirePermission\(db, request, 'directory', action\)/.test(dirGate) && /directoryContactProblem\(/.test(dirGate),
+    'the Directory gate asks the permission for the act (a write, so the read-only lock comes with it) and WHOSE CONTACT IT IS')
+  // The owner's call: somebody WITHOUT directory edit/delete cannot do either,
+  // from the screen or around it - the route asks the act, the screen hides it.
+  ok(/directoryGate\(db, request, params\.companyId, 'edit'\)/.test(routeFn(dir, 'PATCH')), 'changing a contact needs directory: edit')
+  ok(/directoryGate\(db, request, params\.companyId, 'delete'\)/.test(routeFn(dir, 'DELETE')), 'removing a contact needs directory: delete')
+  const dirPage = code('app/(dashboard)/directory/page.tsx')
+  ok(/canEditContact = can\('directory', 'edit'\)/.test(dirPage) && /canDeleteContact = can\('directory', 'delete'\)/.test(dirPage)
+    && (dirPage.match(/\{canEditContact && \(/g) ?? []).length === 3 && (dirPage.match(/\{canDeleteContact && \(/g) ?? []).length === 3,
+    'the Directory screen offers Edit and Delete only to whoever holds them - all three places each appears')
   ok(/added_by_company_id !== myCompanyId/.test(code('lib/writes/directory-contact-edit.ts')),
     '...which is: one this company added - not another firm\'s own account')
   // The one handler left at "signed in": the team roster read. Workers and
