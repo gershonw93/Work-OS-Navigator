@@ -174,6 +174,10 @@ export default function DirectoryPage() {
   // instead of an identical button on every card.
   const { can } = usePermissions()
   const canInvite = can('directory', 'edit')
+  // Edit and Delete are offered only to whoever holds them - the route refuses
+  // everybody else, so a button for them would be a control that cannot work.
+  const canEditContact = can('directory', 'edit')
+  const canDeleteContact = can('directory', 'delete')
   const [bulkOpen, setBulkOpen] = useState(false)
   const [bulkSelected, setBulkSelected] = useState<string[]>([])
   const [bulkSending, setBulkSending] = useState(false)
@@ -1023,12 +1027,16 @@ export default function DirectoryPage() {
                               {company.invite_pending || invitedIds.includes(company.id) ? 'Resend invite' : 'Invite to SyteNav'}
                             </MenuItem>
                           )}
-                          <MenuItem onClick={() => { close(); openEditCompany(company) }}>
-                            <Pencil className="h-4 w-4" /> Edit
-                          </MenuItem>
-                          <MenuItem danger onClick={() => { close(); deleteCompany(company) }}>
-                            <Trash2 className="h-4 w-4" /> Delete
-                          </MenuItem>
+                          {canEditContact && (
+                            <MenuItem onClick={() => { close(); openEditCompany(company) }}>
+                              <Pencil className="h-4 w-4" /> Edit
+                            </MenuItem>
+                          )}
+                          {canDeleteContact && (
+                            <MenuItem danger onClick={() => { close(); deleteCompany(company) }}>
+                              <Trash2 className="h-4 w-4" /> Delete
+                            </MenuItem>
+                          )}
                         </>
                       )}
                     </RowMenu>
@@ -1238,12 +1246,16 @@ export default function DirectoryPage() {
                   <p className="text-sm text-faint mt-0.5 break-words">{[profileData?.company?.trade, profileData?.company?.type ? TYPE_LABELS[profileData.company.type as ContactType] : null].filter(Boolean).join(' · ')}</p>
                 </div>
                 <div className="hidden lg:flex items-center gap-2 mt-1 shrink-0">
-                  <button onClick={() => openEditCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted-fg hover:border-muted2 hover:text-ink-soft transition-colors">
-                    <Pencil className="h-3.5 w-3.5" /> Edit
-                  </button>
-                  <button onClick={() => deleteCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger-tint transition-colors">
-                    <Trash2 className="h-3.5 w-3.5" /> Delete
-                  </button>
+                  {canEditContact && (
+                    <button onClick={() => openEditCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-muted-fg hover:border-muted2 hover:text-ink-soft transition-colors">
+                      <Pencil className="h-3.5 w-3.5" /> Edit
+                    </button>
+                  )}
+                  {canDeleteContact && (
+                    <button onClick={() => deleteCompany(profileData?.company)} className="flex items-center gap-1.5 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger-tint transition-colors">
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </button>
+                  )}
                   <button onClick={() => setProfileCompanyId(null)} aria-label="Close" title="Close" className="text-faint hover:text-muted-fg ml-2"><X className="h-5 w-5" /></button>
                 </div>
                 <button onClick={() => setProfileCompanyId(null)} aria-label="Close" title="Close"
@@ -1253,14 +1265,20 @@ export default function DirectoryPage() {
               </div>
               {/* Both edges, equal width - .row-even, not `flex` making each
                   control as wide as its own label. */}
-              <div className="row-even gap-2 mt-4 lg:hidden">
-                <button onClick={() => openEditCompany(profileData?.company)} className="flex h-11 items-center justify-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-muted-fg hover:border-muted2 hover:text-ink-soft transition-colors">
-                  <Pencil className="h-4 w-4" /> Edit
-                </button>
-                <button onClick={() => deleteCompany(profileData?.company)} className="flex h-11 items-center justify-center gap-1.5 rounded-lg border border-danger/30 px-3 text-sm font-medium text-danger hover:bg-danger-tint transition-colors">
-                  <Trash2 className="h-4 w-4" /> Delete
-                </button>
-              </div>
+              {(canEditContact || canDeleteContact) && (
+                <div className="row-even gap-2 mt-4 lg:hidden">
+                  {canEditContact && (
+                    <button onClick={() => openEditCompany(profileData?.company)} className="flex h-11 items-center justify-center gap-1.5 rounded-lg border border-line px-3 text-sm font-medium text-muted-fg hover:border-muted2 hover:text-ink-soft transition-colors">
+                      <Pencil className="h-4 w-4" /> Edit
+                    </button>
+                  )}
+                  {canDeleteContact && (
+                    <button onClick={() => deleteCompany(profileData?.company)} className="flex h-11 items-center justify-center gap-1.5 rounded-lg border border-danger/30 px-3 text-sm font-medium text-danger hover:bg-danger-tint transition-colors">
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* Tabs

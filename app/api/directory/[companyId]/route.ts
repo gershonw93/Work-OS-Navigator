@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { requirePermission, denied, billingLock } from '@/lib/api-guard'
+import { requirePermission, denied } from '@/lib/api-guard'
 import { directoryContactProblem, updateDirectoryContact } from '@/lib/writes/directory-contact-edit'
 
 const admin = () => createClient(
@@ -11,19 +11,15 @@ const admin = () => createClient(
 // THESE ASKED ONLY "ARE YOU SIGNED IN" - and a Directory contact is a row in
 // `companies`, the table that holds every customer of ours too, so any account
 // could rename or delete ANY company by its id, another GC's own included. Now:
-//   - the permission that opens the Directory (`directory: view`). Not `edit`:
-//     the Edit and Delete controls have always been offered to everybody who
-//     can open the Directory, and the Project Manager, Office Staff and Field
-//     Supervisor who use them hold `view` only - `edit` would take a typo fix
-//     away from all three. Whether they SHOULD is a permissions decision, not
-//     one to make silently in a route.
-//   - the read-only billing lock, asked by hand because `view` does not carry it;
+//   - the permission for the ACT: `directory: edit` to change a contact,
+//     `directory: delete` to remove one. The screen only offers each control to
+//     somebody who holds it - the owner's decision: a person without the
+//     permission must not be able to do it, from the screen or around it.
+//     (Write actions carry the read-only billing lock with them.)
 //   - and WHOSE CONTACT IT IS: one this company added (`directoryContactProblem`).
-async function directoryGate(db: ReturnType<typeof admin>, request: Request, companyId: string) {
-  const gate = await requirePermission(db, request, 'directory', 'view')
+async function directoryGate(db: ReturnType<typeof admin>, request: Request, companyId: string, action: 'edit' | 'delete') {
+  const gate = await requirePermission(db, request, 'directory', action)
   if (denied(gate)) return { denied: gate.denied }
-  const locked = await billingLock(db, gate.actor.companyId)
-  if (locked) return { denied: locked }
   const refused = await directoryContactProblem(db, { myCompanyId: gate.actor.companyId, companyId })
   if (refused) return { denied: NextResponse.json(refused.body, { status: refused.status }) }
   return { actor: gate.actor }
@@ -31,7 +27,7 @@ async function directoryGate(db: ReturnType<typeof admin>, request: Request, com
 
 export async function PATCH(request: Request, { params }: { params: { companyId: string } }) {
   const db = admin()
-  const gate = await directoryGate(db, request, params.companyId)
+  const gate = await directoryGate(db, request, params.companyId, 'edit')
   if ('denied' in gate) return gate.denied
 
   // Everything after the gate is `updateDirectoryContact`
@@ -44,7 +40,7 @@ export async function PATCH(request: Request, { params }: { params: { companyId:
 
 export async function DELETE(request: Request, { params }: { params: { companyId: string } }) {
   const db = admin()
-  const gate = await directoryGate(db, request, params.companyId)
+  const gate = await directoryGate(db, request, params.companyId, 'delete')
   if ('denied' in gate) return gate.denied
 
   const { error } = await db.from('companies').delete().eq('id', params.companyId)
