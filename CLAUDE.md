@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-148.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-149.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -887,6 +887,20 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   or a double press went round. A destructive replace needs an explicit flag in
   the body AND the heavier permission (`edit`); without the flag the route hands
   back what is already there.
+
+- **A PORTAL LINK READS; A SIGNED-IN CLIENT AGREES.** The `client_portal_token`
+  is a bearer string a GC texts and a client forwards, so it may show and ask
+  but never approve money. Answering a change order needs a session whose
+  address matches the job's CUSTOMER RECORD (`signedInClient`,
+  `lib/portal-login-server.ts`) - a free login started by a six-digit code
+  emailed to that address, never one the page supplies. Only the HMAC of a code
+  is stored; it is claimed by one conditional UPDATE; the send cap fails
+  CLOSED. The login is `app_metadata.portal_client` with NO profile, and the
+  dashboard layout sends it to `/portal-account` rather than rendering an empty
+  app. With no subcontract the client's yes APPROVES (`approvalCounts`); on a
+  sub-linked change order it stays a record, because approving folds money into
+  the SUB's contract and that is the GC's commitment. Decided off the row,
+  never the body. Pinned in `portal-login.ts` and `change-order-client.ts`.
 
 - **NO API HANDLER CHECKS ONLY A SIGN-IN, UNLESS IT IS ON THE PERSONAL LIST.**
   Every route is service-role and middleware skips `/api/`, so "signed in" is

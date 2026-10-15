@@ -60,7 +60,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Share a change order for the client to approve',
-        text: 'Open a change order and press Share with client - with or without an email. They see it on their link, can approve or decline it with a note, or ask about it. Their answer shows on the change order and you are told; it stays pending until you approve it, because approving is what adds it to the contract.',
+        text: 'Open a change order and press Share with client - with or without an email. They see it on their link and can approve or decline it with a note, or ask about it. To answer they sign in for free with a code emailed to the address on their customer record - no password. On a change order with no subcontract their approval approves it; on one tied to a subcontract it stays pending until you approve it, because that adds to the sub\'s contract. Either way you are told.',
         help: 'change-order-basics',
       },
     ],

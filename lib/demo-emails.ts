@@ -5,7 +5,7 @@ import {
   inviteEmail, platformInviteEmail, teamInviteEmail, vendorInviteEmail, subWelcomeEmail,
   passwordResetEmail, welcomeEmail, clientPortalEmail, tokenLinkEmail,
   awardEmail, scheduleShiftEmail, scheduleUnblockedEmail, scopeChangeEmail,
-  deletionRequestEmail, weeklySummaryEmail,
+  deletionRequestEmail, weeklySummaryEmail, portalLoginCodeEmail,
 } from './email'
 import { summarizeWeek, weekEnding } from './weekly-summary'
 import { deletionPromise } from './account-deletion'
@@ -123,6 +123,12 @@ export const DEMO_EMAILS: DemoEmail[] = [
     label: 'Account deletion request',
     when: 'Somebody presses Delete my account (Settings > Profile, or Me in Field Mode).',
     build: () => deletionRequestEmail({ name: PERSON, promise: deletionPromise('self'), supportEmail: SUPPORT_EMAIL }),
+  },
+  {
+    key: 'portal-login-code',
+    label: 'Client sign-in code',
+    when: 'A client asks to sign in on their project page - to approve a change order.',
+    build: () => portalLoginCodeEmail({ code: '482913', projectName: PROJECT, minutes: 10 }),
   },
   {
     key: 'weekly-summary',

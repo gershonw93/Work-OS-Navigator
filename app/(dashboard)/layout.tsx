@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
-import { currentAuth } from '@/lib/supabase/current-user'
+import { currentAuth, currentProfile } from '@/lib/supabase/current-user'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TopNav } from '@/components/layout/top-nav'
 import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
@@ -28,6 +28,15 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     // 'unknown': we could not ask, twice. Say that, rather than showing a
     // login form to somebody whose session is fine.
     return <AuthUnavailable />
+  }
+
+  // A CLIENT'S FREE LOGIN IS NOT AN ACCOUNT. It exists so a homeowner can
+  // approve a change order on their project page (`lib/portal-login.ts`), and
+  // carries no profile and no company - every screen in here would render
+  // empty for it. Only the flagged logins pay for the read, and a client who
+  // is later invited for real has a profile and walks straight in.
+  if ((user.app_metadata as any)?.portal_client && !(await currentProfile())) {
+    redirect('/portal-account')
   }
 
   // NO ROLE REDIRECT HERE, AND THAT IS THE FIX.

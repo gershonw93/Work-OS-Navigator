@@ -1,15 +1,18 @@
 'use client'
 
 // One change order on the client's link: what changes, what it costs, where it
-// stands, Approve / Decline, and a question box. The answer is a RECORD the GC
-// approves against - the page says so, so nobody thinks pressing Approve has
-// already changed the contract.
+// stands, Approve / Decline, and a question box. Answering needs the client
+// SIGNED IN (a free, code-by-email login - `portal-sign-in.tsx`). On a change
+// order with no subcontract their Approve IS the approval; on one tied to a
+// subcontract it is a record the GC approves against. The page says which, so
+// nobody thinks pressing Approve did more - or less - than it did.
 
 import { useState } from 'react'
 import { Check, Loader2, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { clientCoStatus, clientResponseProblem, RESPONSE_NOTE_MAX } from '@/lib/change-order-client'
 import { PortalThread } from './portal-thread'
+import { PortalSignIn, portalAccessToken, usePortalLogin } from './portal-sign-in'
 
 export interface PortalCo {
   id: string
@@ -20,6 +23,8 @@ export interface PortalCo {
   status: string
   client_shared_at: string | null
   client_response: 'approved' | 'declined' | null
+  /** Whether their Approve approves it on its own - derived on the server, never the subcontract id. */
+  approval_counts: boolean
 }
 
 const money = (n: number | string) => `$${Number(n).toLocaleString('en-US', { maximumFractionDigits: 0 })}`
@@ -32,6 +37,7 @@ export function PortalChangeOrder({ token, co }: { token: string; co: PortalCo }
   const [error, setError] = useState('')
   const [done, setDone] = useState('')
   const open = state.status === 'pending'
+  const login = usePortalLogin(token)
 
   async function answer(response: 'approved' | 'declined') {
     // The same rule the route asks, asked first so the message lands here.
@@ -39,13 +45,21 @@ export function PortalChangeOrder({ token, co }: { token: string; co: PortalCo }
     if (problem) { setError(problem); return }
     setBusy(response); setError(''); setDone('')
     try {
+      const access = await portalAccessToken()
       const res = await fetch(`/api/portal/${token}/change-orders/${state.id}`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(access ? { Authorization: `Bearer ${access}` } : {}) },
         body: JSON.stringify({ response, note: note.trim() || null, name }),
       })
       const d = await res.json().catch(() => ({}))
-      if (!res.ok) { setError(d.error ?? 'Could not save that. Try again.'); return }
-      setState(s => ({ ...s, client_response: response }))
+      if (!res.ok) {
+        // The session ran out (or changed) since the page checked: show the
+        // sign-in box rather than a dead end.
+        if (d.needs_login) login.recheck()
+        setError(d.error ?? 'Could not save that. Try again.')
+        return
+      }
+      setState(s => ({ ...s, client_response: response, ...(d.approved ? { status: 'approved' } : {}) }))
       setDone(d.message ?? 'Saved.')
     } catch {
       setError('We could not tell whether that went - reload the page before answering again.')
@@ -74,7 +88,12 @@ export function PortalChangeOrder({ token, co }: { token: string; co: PortalCo }
       </div>
       {state.description && <p className="text-sm text-muted-fg whitespace-pre-wrap">{state.description}</p>}
 
-      {open && (
+      {open && login.state.kind !== 'signed-in' && (
+        <div className="border-t border-line-soft pt-2.5">
+          <PortalSignIn token={token} state={login.state} recheck={login.recheck} />
+        </div>
+      )}
+      {open && login.state.kind === 'signed-in' && (
         <div className="space-y-2 border-t border-line-soft pt-2.5">
           <textarea rows={2} maxLength={RESPONSE_NOTE_MAX} value={note} onChange={e => setNote(e.target.value)}
             placeholder="Add a note (optional)"
@@ -94,8 +113,9 @@ export function PortalChangeOrder({ token, co }: { token: string; co: PortalCo }
             </button>
           </div>
           <p className="text-xs text-faint">
-            Your answer goes straight to us. Approving tells us to go ahead - we add it to your contract and confirm.
-            You can change your answer until we do.
+            {state.approval_counts
+              ? 'Approving adds this change to your contract. Declining tells us not to go ahead - you can change a decline until we act on it.'
+              : 'Your answer goes straight to us. Approving tells us to go ahead - we add it to your contract and confirm. You can change your answer until we do.'}
           </p>
         </div>
       )}

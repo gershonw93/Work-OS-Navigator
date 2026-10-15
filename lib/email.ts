@@ -698,6 +698,36 @@ export function passwordResetEmail({ resetUrl }: { resetUrl: string }) {
 }
 
 /**
+ * The client's sign-in code, for approving on their project page. Six digits
+ * and nothing to click: the code is typed on the page that asked for it, so a
+ * forwarded email is no use to anybody without that page open.
+ */
+export function portalLoginCodeEmail({ code, projectName, minutes }: { code: string; projectName: string | null; minutes: number }) {
+  const job = projectName?.trim() || 'your project'
+  const text = [
+    `Your sign-in code for ${job} is:`,
+    '',
+    code,
+    '',
+    `Type it on your project page. It works once and expires in ${minutes} minutes.`,
+    '',
+    "If you didn't ask for this, ignore it - nobody can sign in without the code.",
+  ].join('\n')
+  const html = emailLayout({
+    preheader: `Your sign-in code: ${code}`,
+    eyebrow: 'Sign-in code',
+    heading: code,
+    subheading: job,
+    paragraphs: [
+      'Type this code on your project page to sign in.',
+      `It works once and expires in ${minutes} minutes.`,
+    ],
+    footNote: "If you didn't ask for this, ignore it - nobody can sign in without the code.",
+  })
+  return { subject: `${code} is your sign-in code for ${job}`, text, html }
+}
+
+/**
  * "We have your request to delete your account."
  *
  * Sent to the person who pressed Delete my account (or, for a whole company,

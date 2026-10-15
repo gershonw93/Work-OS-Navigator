@@ -4525,3 +4525,21 @@ ALTER TABLE client_messages DROP CONSTRAINT IF EXISTS client_messages_one_subjec
 ALTER TABLE client_messages ADD CONSTRAINT client_messages_one_subject
   CHECK (num_nonnulls(selection_id, client_invoice_id, payment_request_id, change_order_id) <= 1);
 CREATE INDEX IF NOT EXISTS idx_client_messages_change_order ON client_messages (change_order_id, created_at) WHERE change_order_id IS NOT NULL;
+
+-- 149 portal login codes
+-- no longer exists proves nothing.
+CREATE TABLE IF NOT EXISTS portal_login_codes (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  project_id  uuid NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  email       text NOT NULL,
+  code_hash   text NOT NULL,
+  expires_at  timestamptz NOT NULL,
+  attempts    integer NOT NULL DEFAULT 0,
+  used_at     timestamptz,
+  created_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_portal_login_codes_email ON portal_login_codes (lower(email), created_at DESC);
+ALTER TABLE portal_login_codes ENABLE ROW LEVEL SECURITY;
+
+-- Who approved, as a login rather than a typed name.
+ALTER TABLE change_orders ADD COLUMN IF NOT EXISTS client_response_email text;
