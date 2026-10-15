@@ -9,7 +9,7 @@ import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import {
-  Palette, Plus, Trash2, Link2, CheckCircle2, AlertTriangle, Clock, X,
+  Palette, Plus, Trash2, Link2, CheckCircle2, Hammer, Undo2, AlertTriangle, Clock, X,
   ChevronDown, ChevronRight, ExternalLink, Sparkles, GitPullRequest, Loader2,
   ClipboardPaste, Truck, MessageSquareWarning, ImagePlus, Search, ArrowRight,
   LayoutGrid, Home, Building2, PaintRoller, Warehouse, Droplets, Archive, Square, Refrigerator,
@@ -19,7 +19,7 @@ import {
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { StatStrip } from '@/components/ui/stat-strip'
 import {
-  SELECTION_CATEGORIES, SELECTION_STATUSES, STATUS_TINT, PROJECT_TYPE_LABEL, ACCEPTED_STATUSES,
+  SELECTION_CATEGORIES, SELECTION_STATUSES, STATUS_TINT, selectionStage, PROJECT_TYPE_LABEL, ACCEPTED_STATUSES,
   categoryDef, daysUntil, isOutstanding, urgency, variance,
   recommendedCategories, seedRowCount, itemsForType, isHomeType, matchBudgetLine,
   type SelectionStatus,
@@ -429,6 +429,13 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   async function linkToBudget(sel: Selection, lineId: string) {
     const info = lineId ? lineBudget(lineId, sel.id) : null
     const patchBody: any = { budget_line_item_id: lineId || null }
+    // "Link this to a budget line below and it moves to Chosen" - the line was
+    // the only thing missing, so linking it is what makes it Chosen. With the
+    // status no longer a dropdown, nothing else would.
+    if (lineId && isOutstanding(sel.status) && !missingFor({ ...sel, budget_line_item_id: lineId }, 'chosen')) {
+      patchBody.status = 'chosen'
+      if (blocked?.id === sel.id) setBlocked(null)
+    }
 
     if (info && sel.allowance_amount == null && info.remaining > 0) {
       patchBody.allowance_amount = info.remaining
@@ -460,7 +467,11 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     })
     if (!res.ok) { notify((await res.json().catch(() => ({}))).error ?? 'Could not add a budget line'); return }
     const newId = (await res.json().catch(() => ({}))).item?.id
-    if (newId) await patch(sel.id, { budget_line_item_id: newId })
+    if (newId) {
+      const body: Record<string, unknown> = { budget_line_item_id: newId }
+      if (isOutstanding(sel.status) && !missingFor({ ...sel, budget_line_item_id: newId }, 'chosen')) body.status = 'chosen'
+      await patch(sel.id, body)
+    }
     else load()
   }
 
@@ -488,8 +499,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
     setAddError(null); setShowAdd(true)
   }
 
-  // The status dropdown. An accepted status needs TWO things, and the route
-  // refuses on either. Both are asked for here, at the field that is missing,
+  // A status move from the row menu. An accepted status needs TWO things, and
+  // the route refuses on either. Both are asked for here, at the field that is missing,
   // rather than sent and refused into a dialog - which is what the server's
   // own message could only ever be.
   function changeStatus(sel: Selection, next: SelectionStatus) {
@@ -1028,6 +1039,13 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                             {sel.status === 'chosen' && (
                               <MenuItem onClick={() => { close(); openOrder(sel) }}><Truck className="h-3.5 w-3.5" /> Order it</MenuItem>
                             )}
+                            {/* Installed is the one stage nothing in the app can observe, so it is the one a person says. */}
+                            {sel.status === 'ordered' && (
+                              <MenuItem onClick={() => { close(); changeStatus(sel, 'installed') }}><Hammer className="h-3.5 w-3.5" /> Mark installed</MenuItem>
+                            )}
+                            {sel.status === 'installed' && (
+                              <MenuItem onClick={() => { close(); changeStatus(sel, sel.ordered_at ? 'ordered' : 'chosen') }}><Undo2 className="h-3.5 w-3.5" /> Not installed yet</MenuItem>
+                            )}
                             {v != null && v > 0 && !sel.change_order_id && (
                               <MenuItem onClick={() => { close(); patch(sel.id, { create_change_order: true }) }}>
                                 <GitPullRequest className="h-3.5 w-3.5" /> Raise a {money(v)} change order
@@ -1088,13 +1106,13 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                             <BudgetDot linked={!!sel.budget_line_item_id} name={lineName(sel.budget_line_item_id)} />
                           </div>
                           <div className="hidden lg:block">
-                            <StatusPill status={sel.status} onChange={next => changeStatus(sel, next)} />
+                            <StatusPill status={selectionStage(sel, !!portalToken)} />
                           </div>
                           <div className="hidden lg:flex justify-end">{menu}</div>
 
                           {/* Phone: the same facts on one quiet line under the name */}
                           <div className="lg:hidden flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-6 text-xs text-muted-fg">
-                            <StatusPill status={sel.status} onChange={next => changeStatus(sel, next)} />
+                            <StatusPill status={selectionStage(sel, !!portalToken)} />
                             <span className="tabular-nums">{sel.allowance_amount != null ? money(sel.allowance_amount) : 'No allowance'}</span>
                             {sel.needed_by && (
                               <span className={cn(isOutstanding(sel.status) ? whenTone : 'text-faint')}>
@@ -1439,6 +1457,9 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                           const body: Record<string, unknown> = { selected_name: name || null }
                                           if (name && !missingFor({ ...sel, selected_name: name }, 'chosen')) body.status = 'chosen'
                                           else if (name && !sel.budget_line_item_id) setBlocked({ id: sel.id, why: 'line' })
+                                          // Clearing the choice un-chooses it: Chosen with nothing named
+                                          // is the claim the route refuses, and there is no dropdown to undo it by hand.
+                                          else if (!name && sel.status === 'chosen') body.status = 'pending'
                                           patch(sel.id, body)
                                         }} />
                                       {blocked?.id === sel.id && (
@@ -1540,18 +1561,18 @@ function SummaryCard({ label, tone, children }: { label: string; tone?: 'warn'; 
 }
 
 /**
- * The status, as a pill you can change. Still a native select underneath - on
- * a phone that is the system picker, which is the right control for five words.
+ * The status, READ-ONLY. It used to be a free dropdown, which let a row with
+ * three options under it say "Not started" and a row nobody ordered say
+ * "Ordered". Every stage is now moved by the thing that makes it true - adding
+ * options and sharing the portal, recording a choice and its budget line,
+ * Order it, Mark installed - and the pill only reports where that left it.
  */
-function StatusPill({ status, onChange }: { status: SelectionStatus; onChange: (next: SelectionStatus) => void }) {
+function StatusPill({ status }: { status: SelectionStatus }) {
+  const def = SELECTION_STATUSES.find(s => s.key === status)
   return (
-    <span className={cn('relative inline-flex items-center rounded-full', STATUS_TINT[status])}>
-      <span className="pointer-events-none absolute left-2.5 h-1.5 w-1.5 rounded-full bg-current" />
-      <select value={status} aria-label="Status" onChange={e => onChange(e.target.value as SelectionStatus)}
-        className="appearance-none whitespace-nowrap rounded-full border-0 bg-transparent py-1 pl-6 pr-7 text-xs font-semibold text-current focus:outline-none focus:ring-1 focus:ring-accent">
-        {SELECTION_STATUSES.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2 h-3 w-3" />
+    <span title={def?.hint} className={cn('inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold', STATUS_TINT[status])}>
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {def?.label ?? status}
     </span>
   )
 }
