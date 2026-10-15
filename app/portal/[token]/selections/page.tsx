@@ -42,7 +42,7 @@ interface Selection {
   change_requested_at: string | null
   selection_options: Option[]
   /** The questions on this selection, both sides, oldest first not guaranteed. */
-  selection_messages?: SelectionMessage[]
+  client_messages?: SelectionMessage[]
 }
 
 export default function PortalSelectionsPage({ params }: { params: { token: string } }) {
@@ -394,7 +394,7 @@ function SelectionQuestions({ token, sel, name, onPosted }: {
   name: string
   onPosted: () => Promise<void> | void
 }) {
-  const messages = [...(sel.selection_messages ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  const messages = [...(sel.client_messages ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at))
   const { count, waitingOnClient } = selectionThreadSummary(messages)
   // Open by default once there is a conversation - the answer is the thing they came back for.
   const [open, setOpen] = useState(count > 0)

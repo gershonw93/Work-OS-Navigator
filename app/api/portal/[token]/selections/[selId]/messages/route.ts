@@ -38,7 +38,7 @@ export async function POST(request: Request, { params }: { params: { token: stri
   const problem = messageProblem(payload?.body)
   if (problem) return NextResponse.json({ error: problem }, { status: 400 })
 
-  const { count, error: countErr } = await db.from('selection_messages')
+  const { count, error: countErr } = await db.from('client_messages')
     .select('id', { count: 'exact', head: true })
     .eq('project_id', project.id).eq('side', 'client')
     .gte('created_at', new Date(Date.now() - 60 * 60 * 1000).toISOString())

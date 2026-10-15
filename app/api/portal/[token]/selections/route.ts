@@ -31,7 +31,7 @@ export async function GET(_request: Request, { params }: { params: { token: stri
       ordered_at, expected_delivery, change_requested_at, change_request_note,
       reference_url, reference_label, budget_line_item_id,
       selection_options (id, name, description, price, brand, model_number, color_hex, image_url, link_url, is_allowance, sort_order),
-      selection_messages (id, side, author_name, body, created_at)`)
+      client_messages (id, side, author_name, body, created_at)`)
     .eq('project_id', project.id)
     .order('sort_order', { ascending: true })
   // A refused read is not an empty board: "You're all caught up" over a query

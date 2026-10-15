@@ -37,7 +37,7 @@ ok(/if \(countErr\) \{[\s\S]*status: 503/.test(portalPost), '...and a cap that c
 ok(!/getActor|requirePermission/.test(portalPost), 'the client needs no account to ask')
 
 const portalGet = code('app/api/portal/[token]/selections/route.ts')
-ok(/selection_messages \(id, side, author_name, body, created_at\)/.test(portalGet) && !/selection_messages \([^)]*author_id/.test(portalGet),
+ok(/client_messages \(id, side, author_name, body, created_at\)/.test(portalGet) && !/client_messages \([^)]*author_id/.test(portalGet),
   'the portal carries each thread, without the GC\'s user ids')
 ok(/if \(selErr\) \{[\s\S]*status: 500/.test(portalGet), 'a refused read is an error, never "You\'re all caught up"')
 
@@ -52,13 +52,13 @@ ok(/type: 'selection_question'/.test(db) && /audienceFor\(/.test(db), 'a client 
 ok(/author_id: side === 'gc' \? input\.authorId : null/.test(db), 'a client message never carries a user id')
 ok(/if \(!to\) return \{ message: message as SelectionMessage, emailed: \{ sent: false, reason: 'no_email'/.test(db),
   'a reply with no client address on file is SAVED and says it was not emailed')
-ok(db.indexOf("from('selection_messages').insert") < db.indexOf('sendEmail('), 'the message is stored before anybody is told - the message is the work')
+ok(db.indexOf("from('client_messages').insert") < db.indexOf('sendEmail('), 'the message is stored before anybody is told - the message is the work')
 ok(/if \(error\) \{[\s\S]*return \{ error: 'Could not load the messages\.' \}/.test(db), 'a failed thread read is an error, not an empty thread')
 
 // ── the screens ────────────────────────────────────────────────────────────
 const board = code('app/(dashboard)/projects/[id]/selections/page.tsx')
 ok(/<ClientQuestions projectId=\{params\.id\} selectionId=\{sel\.id\}/.test(board), 'every open selection on the board has the client thread')
-ok(/client asked a question/.test(board) && /selectionThreadSummary\(sel\.selection_messages\)\.waitingOnGc/.test(board),
+ok(/client asked a question/.test(board) && /selectionThreadSummary\(sel\.client_messages\)\.waitingOnGc/.test(board),
   'the row says when the client is waiting on an answer, from who spoke last')
 ok(/Saved\. There is no email address on this client/.test(board), 'the board says when a reply was saved but could not be emailed')
 ok(/^function ClientQuestions\(/m.test(board), 'the thread panel is declared at module level')

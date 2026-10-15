@@ -1,5 +1,5 @@
 // The selection thread, wired to the database: the one reader and the one
-// writer of `selection_messages`, shared by the client's route
+// writer of `client_messages`, shared by the client's route
 // (/api/portal/<token>/selections/<selId>/messages) and the GC's
 // (/api/projects/<id>/selections/<selId>/messages), so the two sides cannot
 // store or tell people differently.
@@ -12,7 +12,7 @@ import type { SelectionMessage, SelectionSide } from './selection-thread'
 const COLS = 'id, side, author_name, body, created_at'
 
 export async function readSelectionThread(db: any, selectionId: string): Promise<{ messages: SelectionMessage[] } | { error: string }> {
-  const { data, error } = await db.from('selection_messages').select(COLS)
+  const { data, error } = await db.from('client_messages').select(COLS)
     .eq('selection_id', selectionId).order('created_at', { ascending: true })
   // A refused read is not an empty thread.
   if (error) {
@@ -52,7 +52,7 @@ export async function postSelectionMessage(input: PostInput): Promise<PostResult
   const { db, project, selection, side } = input
   const body = input.body.trim()
 
-  const { data: message, error } = await db.from('selection_messages').insert({
+  const { data: message, error } = await db.from('client_messages').insert({
     selection_id: selection.id,
     project_id: project.id,
     side,
