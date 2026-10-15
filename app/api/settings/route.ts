@@ -290,7 +290,9 @@ export async function PATCH(request: Request) {
 
     if (profile.company_id) {
       const companyUpdates: Record<string, unknown> = {}
-      const allowed = ['name', 'type', 'contact_email', 'phone', 'address', 'license_number', 'default_payment_terms', 'default_billing_mode', 'default_contract_type', 'default_retainage_pct', 'auto_logout_minutes']
+      // NOT `type`: it decides the product and the billing, and changing it is a
+      // platform-console job (CLAUDE.md, "A SUBCONTRACTOR IS NOT A TENANT").
+      const allowed = ['name', 'contact_email', 'phone', 'address', 'license_number', 'default_payment_terms', 'default_billing_mode', 'default_contract_type', 'default_retainage_pct', 'auto_logout_minutes']
       for (const key of allowed) {
         if (company[key] !== undefined) companyUpdates[key] = company[key]
       }

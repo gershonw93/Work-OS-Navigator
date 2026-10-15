@@ -184,6 +184,11 @@ function RoleBadge({ role, label }: { role: string; label?: string }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
+const COMPANY_TYPE_LABEL: Record<string, string> = {
+  gc: 'General Contractor', subcontractor: 'Subcontractor', supplier: 'Supplier',
+  inspector: 'Inspector', worker: 'Worker', other: 'Other',
+}
+
 export default function SettingsPage() {
   const guardDelete = useDeleteGuard()
   const notify = useNotice()
@@ -537,7 +542,6 @@ export default function SettingsPage() {
         body: JSON.stringify({
           company: {
             name: companyName,
-            type: companyType,
             contact_email: contactEmail,
             phone: companyPhone,
             address,
@@ -1149,20 +1153,14 @@ export default function SettingsPage() {
                       </div>
                       <div>
                         <Label htmlFor="companyType">Company Type</Label>
-                        <SearchableSelect
-                          id="companyType"
-                          value={companyType}
-                          onChange={(e) => setCompanyType(e.target.value)}
-                          className="mt-1"
-                        >
-                          <option value="">Select type…</option>
-                          <option value="general_contractor">General Contractor</option>
-                          <option value="subcontractor">Subcontractor</option>
-                          <option value="owner">Owner</option>
-                          <option value="architect">Architect / Designer</option>
-                          <option value="engineer">Engineer</option>
-                          <option value="other">Other</option>
-                        </SearchableSelect>
+                        {/* Read only. The type decides which product a company
+                            gets and whether it is billed, so it is changed from
+                            the platform console, never from here - and the old
+                            picker's values ("general_contractor") were not the
+                            ones stored ("gc"), so saving it wrote a type nothing
+                            in the app recognises. */}
+                        <Input id="companyType" value={COMPANY_TYPE_LABEL[companyType] ?? (companyType || 'Not set')} readOnly disabled className="mt-1" />
+                        <p className="mt-1 text-xs text-muted-fg">To change this, contact SyteNav support.</p>
                       </div>
                       <div>
                         <Label htmlFor="contactEmail">Contact Email</Label>
