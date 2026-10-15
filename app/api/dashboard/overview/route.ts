@@ -2,6 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
 import { formatDate } from '@/lib/dates'
+import { requirePermission, denied } from '@/lib/api-guard'
+import { actorCan } from '@/lib/server-permissions'
 export const runtime = 'nodejs'
 
 const admin = () => createClient(
@@ -12,15 +14,18 @@ const admin = () => createClient(
 // Admin/owner dashboard extras: monthly cash in vs out, this week's items,
 // and recent projects with progress. 403 for non-admin roles (page falls back).
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'dashboard', 'view')
+  if (denied(gate)) return gate.denied
+  const user = { id: gate.actor.userId }
 
   const { data: profile } = await db.from('profiles').select('company_id, role, full_name').eq('id', user.id).single()
   if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 403 })
   if (!['admin', 'manager'].includes(profile.role ?? '')) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+  // Cash in vs cash out across every job is the Financial Summary's question.
+  // Admin and manager hold it by default; a company that unticked it for one
+  // of them has said they do not see the company's money.
+  if (!actorCan(gate.actor, 'financials', 'view')) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
   const firstName = (profile.full_name ?? '').trim().split(/\s+/)[0] || null
 
   const { data: projects } = await db

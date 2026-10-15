@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,12 +8,12 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // The Dashboard's feed. Every built-in role holds dashboard: view; a company
+  // that unticks it for a role has said that role has no dashboard.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'dashboard', 'view')
+  if (denied(gate)) return gate.denied
+  const user = { id: gate.actor.userId }
 
   const { data: profile } = await db
     .from('profiles')

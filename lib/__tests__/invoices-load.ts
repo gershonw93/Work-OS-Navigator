@@ -76,10 +76,10 @@ ok(/setSubcontracts\(\(d\.subcontracts \?\? \[\]\)/.test(page)
   // A route with NO requirePermission cannot cause the bug this file is about -
   // it lets everybody through rather than too few - so it is not a failure
   // here. It is still a permission that is decoration, so the list is
-  // RATCHETED and may only go DOWN. `/api/directory` scopes its answer to the
-  // caller's own company but never asks the `directory` resource; it is in
-  // BACKLOG.md, not fixed here, because gating it touches screens this change
-  // has no business touching.
+  // RATCHETED and may only go DOWN. `/api/directory` is the one left, and only
+  // to THIS regex: it gates through `directoryReadLevel` (directory: view, or
+  // the share-box slice at files: view) rather than `requirePermission`,
+  // because one call cannot say "either". Pinned in `lockdown-company.ts`.
   const ungated: string[] = []
 
   for (const url of urls.slice().sort()) {

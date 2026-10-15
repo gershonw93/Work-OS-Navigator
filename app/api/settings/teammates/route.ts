@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { getActor, actorCan } from '@/lib/server-permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,20 +12,26 @@ export async function GET(request: Request) {
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const actor = await getActor(db, token)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await db
-    .from('profiles')
-    .select('company_id')
-    .eq('id', user.id)
-    .single()
-
-  if (!profile?.company_id) return NextResponse.json({ teammates: [] })
+  // THE ROSTER is any member's: the inspections page, the project team picker
+  // and role preview all read it, and it is only ever the caller's own company.
+  //
+  // PENDING INVITES and the repair below are Team & Users'. The repair is a
+  // WRITE - it moves a profile into this company and marks invites accepted -
+  // and it ran for whoever opened a screen that listed colleagues. Listing the
+  // invites asks the tab's `view`; repairing them asks `edit`.
+  const profile = { company_id: actor.companyId }
+  if (!profile.company_id) return NextResponse.json({ teammates: [] })
+  const seesInvites = actorCan(actor, 'settings_team', 'view')
+  const repairsInvites = actorCan(actor, 'settings_team', 'edit')
 
   const [{ data: teammates }, { data: rawInvites }, ownerRes] = await Promise.all([
     db.from('profiles').select('id, full_name, email, role').eq('company_id', profile.company_id).order('full_name'),
-    db.from('company_invites').select('*').eq('company_id', profile.company_id).eq('status', 'pending'),
+    seesInvites
+      ? db.from('company_invites').select('*').eq('company_id', profile.company_id).eq('status', 'pending')
+      : Promise.resolve({ data: [] as Record<string, unknown>[] }),
     // Who owns this company, so the UI can mark them and hide the controls
     // that would act on them. Null when migration 094 has not been applied -
     // the SERVER still refuses those actions either way, so an out-of-date
@@ -43,7 +50,7 @@ export async function GET(request: Request) {
     .filter((e: string) => !memberEmails.has(e))
 
   let acceptedElsewhere = new Set<string>()
-  if (remainingInviteEmails.length > 0) {
+  if (repairsInvites && remainingInviteEmails.length > 0) {
     // Check profiles table by email column
     const { data: existingProfiles } = await db
       .from('profiles')

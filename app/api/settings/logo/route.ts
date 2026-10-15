@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, billingLock } from '@/lib/api-guard'
+import { mayManageCompanySetting } from '@/lib/company-access'
 
 export const runtime = 'nodejs'
 
@@ -9,16 +11,20 @@ const admin = () => createClient(
 )
 
 // Upload the company logo (PNG/JPG). Stamped on generated PDFs and reports.
+//
+// The logo is on the Company tab (settings_company: view), and changing it is
+// a company-level act: admin or manager, or a role the company has granted
+// settings_company: edit. Always the caller's OWN company - the id comes off
+// the actor, never the request.
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
-  if (!['admin', 'manager'].includes(profile.role ?? '')) return NextResponse.json({ error: 'Only an admin can change the logo.' }, { status: 403 })
+  const gate = await requirePermission(db, request, 'settings_company', 'view')
+  if (denied(gate)) return gate.denied
+  const profile = { company_id: gate.actor.companyId }
+  if (!profile.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
+  if (!mayManageCompanySetting(gate.actor)) return NextResponse.json({ error: 'Only an admin can change the logo.' }, { status: 403 })
+  const locked = await billingLock(db, profile.company_id)
+  if (locked) return locked
 
   const form = await request.formData()
   const file = form.get('file') as File | null
@@ -40,13 +46,13 @@ export async function POST(request: Request) {
 
 // Remove the logo.
 export async function DELETE(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id || !['admin', 'manager'].includes(profile.role ?? '')) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+  const gate = await requirePermission(db, request, 'settings_company', 'view')
+  if (denied(gate)) return gate.denied
+  const profile = { company_id: gate.actor.companyId }
+  if (!profile.company_id || !mayManageCompanySetting(gate.actor)) return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+  const locked = await billingLock(db, profile.company_id)
+  if (locked) return locked
   await db.from('companies').update({ logo_url: null }).eq('id', profile.company_id)
   return NextResponse.json({ ok: true })
 }

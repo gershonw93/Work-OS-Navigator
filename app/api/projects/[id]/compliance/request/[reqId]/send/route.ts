@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { tokenLinkEmail } from '@/lib/email'
 import { deliverLink, readSendBody } from '@/lib/send-link'
 import { appOrigin } from '@/lib/app-url'
+import { complianceAccess } from '@/lib/writes/compliance-access'
 
 export const runtime = 'nodejs'
 
@@ -13,16 +14,20 @@ const admin = () => createClient(
 
 /** Email a sub the link to upload their compliance documents. */
 export async function POST(request: Request, { params }: { params: { id: string; reqId: string } }) {
-  const auth = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(auth)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // This emails somebody OUTSIDE the company, in the GC's name: `compliance:
+  // edit` on a job the caller's company owns, and only a request filed on it.
+  const access = await complianceAccess(db, request, params.id, { write: true })
+  if ('denied' in access) return access.denied
+  if (access.scope !== 'owner') {
+    return NextResponse.json({ error: 'This job belongs to another company.' }, { status: 403 })
+  }
+  const user = { id: access.actor.userId }
 
   const { to, note } = await readSendBody(request)
 
   const [{ data: req }, { data: me }, { data: project }] = await Promise.all([
-    db.from('compliance_requests').select('token, doc_types, vendor_name').eq('id', params.reqId).maybeSingle(),
+    db.from('compliance_requests').select('token, doc_types, vendor_name').eq('id', params.reqId).eq('project_id', params.id).maybeSingle(),
     db.from('profiles').select('full_name, company_id').eq('id', user.id).maybeSingle(),
     db.from('projects').select('name').eq('id', params.id).maybeSingle(),
   ])
@@ -51,6 +56,6 @@ export async function POST(request: Request, { params }: { params: { id: string;
   return deliverLink({
     to,
     email,
-    onSent: () => db.from('compliance_requests').update({ status: 'sent' }).eq('id', params.reqId),
+    onSent: () => db.from('compliance_requests').update({ status: 'sent' }).eq('id', params.reqId).eq('project_id', params.id),
   })
 }

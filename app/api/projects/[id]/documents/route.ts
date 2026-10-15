@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { jobGate } from '@/lib/job-access'
 
 export const runtime = 'nodejs'
 
@@ -20,14 +21,18 @@ const admin = () => createClient(
  * are company documents that get sent with a job's paperwork constantly.
  */
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Any login, ANY job id: plans, permits, submittals and compliance documents
+  // with their file links. Now `files: view` (Sharing borrows it, and every
+  // built-in role holds it) and ON this job. The picker is also opened from a
+  // plan's "send a scope update", which a sub can reach - so somebody who does
+  // not own the job gets the plans and their own company's files, never the
+  // GC's permits, submittals and compliance paperwork.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'files', 'view')
+  if ('denied' in gate) return gate.denied
+  const owner = gate.side === 'gc'
+  const profile = { company_id: gate.actor.companyId }
 
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
 
   // Each source is best-effort: a table missing on an older deployment should
   // cost you that one group, not the whole picker.
@@ -38,9 +43,9 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const [project, plans, permits, submittals, compliance, companyFiles] = await Promise.all([
     db.from('projects').select('name').eq('id', params.id).single(),
     grab(() => db.from('project_plans').select('id, name, file_url, plan_type, created_at').eq('project_id', params.id)),
-    grab(() => db.from('permits').select('id, permit_type, permit_number, file_url, created_at').eq('project_id', params.id)),
-    grab(() => db.from('submittals').select('id, title, file_url, type, created_at').eq('project_id', params.id)),
-    grab(() => db.from('compliance_documents').select('id, type, file_url, created_at').eq('project_id', params.id)),
+    !owner ? Promise.resolve([]) : grab(() => db.from('permits').select('id, permit_type, permit_number, file_url, created_at').eq('project_id', params.id)),
+    !owner ? Promise.resolve([]) : grab(() => db.from('submittals').select('id, title, file_url, type, created_at').eq('project_id', params.id)),
+    !owner ? Promise.resolve([]) : grab(() => db.from('compliance_documents').select('id, type, file_url, created_at').eq('project_id', params.id)),
     profile?.company_id
       ? grab(() => db.from('company_files').select('id, name, file_url, file_type, size_bytes, category, created_at').eq('company_id', profile.company_id))
       : Promise.resolve([]),

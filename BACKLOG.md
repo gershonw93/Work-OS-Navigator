@@ -314,16 +314,23 @@ through the app's own `lib/writes/*`. Still to do:
   its bytes, so most filing ends in an `attach_url` for the person. A server
   route that fetches a file Claude names (a Gmail attachment id, a Drive link)
   over the person's own connection would close that gap.
-- **Routes the phase 5 sweep saw and left ungated** (each checks only "signed
-  in"): `files/[fileId]` PATCH/DELETE, `files/packets/**`, `files/upload-url`,
-  `projects/[id]/documents` GET (any job id), `compliance/request/**`, the
-  permit/inspection/card/compliance `analyze` scans, `projects/[id]/team` GET
-  (needs an "on this job" check - workers read it), `POST /api/directory`
-  (gating on create would take Quick Add from PM/office/field). Inspections
-  POST/PATCH and change-orders GET ask the permission but not ownership.
-  `POST /api/projects` trusts a body `customer_id` (the Claude tool checks it).
+- **Left open by the sign-in-only lockdown** (every handler is now gated or a
+  pinned PERSONAL route - `signed-in-only.ts`): an assigned-only role can PATCH
+  any task on its job, not only its own, and task assignee ids are not checked
+  against the job; a sub-company admin on a GC's job still sees the whole task
+  board and activity feed; the team roster GET returns every column (emails,
+  phones) to anyone on the job; Approvals shows a field supervisor / read-only
+  the pending sub-bill amounts on every job (they hold `invoices: N`), and
+  project stats show them contract/paid totals; manager keeps logo, delete
+  protection and QuickBooks through a role branch while the map says
+  `settings_company: V`; `verify-delete-key` has no rate limit; the
+  `company_invites` email match is case-sensitive (an invite to a mixed-case
+  address never matches); a new user whose verified address is an existing
+  company's `contact_email` joins it as admin (the Directory-sub link - also
+  true of a GC's contact mailbox). Inspections POST/PATCH and change-orders GET
+  ask the permission but not ownership; packet `file_ids` are not checked.
 - **Permission maps that disagree with the screens**: workers' materials map says create but the
-  route asks edit; the Equipment screen shows buttons a role's map now refuses (owner: leave for now).
+  route asks edit; the Equipment screen shows buttons a role's map now refuses (owner: leave for now); the Daily Logs tab (photo delete, tags, updates), the Tasks tab (status, sign-off), the job planner Save and the Files page (rename, delete, share) are offered at `view` while the map says edit/delete - kept as the screens offer them.
 - **Small bugs found on the way**: Reports counts permit statuses `issued` and
   `closed`, which the table's check constraint never allows (always 0); the
   materials POST's "save store to Directory" matches a company by name across
@@ -614,6 +621,7 @@ and why:
 
 ## ✅ Recently shipped (for reference)
 
+- Every API handler now asks more than "signed in" (about 80 more, in four groups: job field routes via `lib/job-access.ts` `jobGate`/`jobSide` - on the job as owner, sub or team member; documents, scans, Files and Sharing via `filesAccess`/`complianceAccess`; company and settings via `lib/company-access.ts`; personal routes verified and pinned). Holes closed on the way: a profile-less account posting a daily log became the job's GC admin; signup took `email`/`userId` from the body (join any company as admin); an admin elsewhere kept admin when invited read-only; an invite moved somebody OUT of their own company on password reset; anybody could bid on any package, mail any share link, raise a compliance request for any company, or run paid scans on any job; search showed workers every budget line and bill. Company type is no longer editable in Settings (its picker wrote values nothing reads). Ratcheted in `signed-in-only.ts`.
 - Claude can do EVERYTHING but delete, pay, approve or send: 84 tools (53 add/edit) across jobs, customers, selections, RFIs, submittals, permits, inspections, change orders, pay apps, quote requests, materials, equipment, compliance, Files, plans and contacts, plus filing a document it is handed (`document_destinations`, asks when unsure). Each area is `lib/mcp/areas/<area>.ts` over `lib/writes/*`, and every route handler those touched now asks a permission (+ ownership); a new `selections` permission; the Directory profile no longer leaks other GCs' data; a sub can no longer approve its own bill or change order.
 - Claude can add AND edit across the day-to-day: budget lines, subcontracts, schedule items (including moving dates through the app's cascade, with `notify` always the person's call), tasks, daily logs (born pending review), and DRAFT client invoices and unsent payment requests. Ten more create/update route bodies moved into `lib/writes/`; billable costs are one function (`lib/client-billable.ts`). The payment-request POST now needs `payments: edit` on an owned job.
 - Claude can add records, with its own consent: tasks, sub bills waiting for approval (PDF attached), inspection requests, change orders, Directory contacts - each through the app's own create code (`lib/writes/*`), credited "via Claude", recorded in `mcp_actions` and guarded against a retried call (migration 143).

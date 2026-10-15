@@ -888,6 +888,20 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   the body AND the heavier permission (`edit`); without the flag the route hands
   back what is already there.
 
+- **NO API HANDLER CHECKS ONLY A SIGN-IN, UNLESS IT IS ON THE PERSONAL LIST.**
+  Every route is service-role and middleware skips `/api/`, so "signed in" is
+  "anybody holding an id" - and two sweeps found about 160 such handlers,
+  including a daily-log POST that made a profile-less account the job's GC
+  ADMIN and a signup that took the email and user id from the body. A job
+  route a crew or sub uses asks `jobGate` (`lib/job-access.ts`: the permission,
+  then ON THIS JOB - owner, sub with a subcontract, or team member by
+  profile/email, never by name); a GC-only one asks `ownedProject`; a company
+  one scopes to the actor's company (`lib/company-access.ts`, `filesAccess`).
+  The few that truly touch only the caller's own rows are listed in
+  `signed-in-only.ts`, which fails on any new sign-in-only handler AND on a
+  stale entry. And an invite never moves somebody who already belongs to
+  ANOTHER company (`inviteMove`) - `invite/accept` runs on every password reset.
+
 ## Who the email is FOR, and who may send it (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).
 - **THERE ARE TWO DOORS INTO SYTENAV AND THEY MEAN DIFFERENT THINGS.** The

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { linkTeamRows } from '@/lib/my-jobs'
+import { acceptedRole, inviteMove } from '@/lib/personal-access'
 
 export const runtime = 'nodejs'
 
@@ -48,9 +49,20 @@ export async function POST(request: Request) {
     .eq('id', user.id)
     .maybeSingle()
 
+  // Somebody who already belongs to ANOTHER company is never moved by an
+  // invite (`inviteMove`). The invite stays pending so the inviter still sees
+  // it, and the person keeps the company they are in.
+  if (inviteMove(existing, invite) === 'blocked') {
+    console.warn(`[invite/accept] ${user.id} is in another company; invite ${invite.id} left pending`)
+    return NextResponse.json({ accepted: false, reason: 'other_company' })
+  }
+
   if (existing) {
     const patch: Record<string, unknown> = { company_id: invite.company_id, email }
-    if (!existing.role) patch.role = role
+    // Kept only when THIS company set it. A role carried in from another
+    // company is not one the inviter granted - see `acceptedRole`.
+    const write = acceptedRole(existing, invite)
+    if (write) patch.role = write
     await db.from('profiles').update(patch).eq('id', user.id)
   } else {
     await db.from('profiles').upsert({

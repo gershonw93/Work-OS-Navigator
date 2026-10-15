@@ -1,19 +1,26 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { actorCan } from '@/lib/server-permissions'
 import { createDailyLog } from '@/lib/writes/daily-log'
+import { jobGate } from '@/lib/job-access'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+// ─────────────────────────────────────────────────────────────────────────────
+// Both handlers answered any login, for any job id: every log, photo and
+// signature on a job to anybody holding its id. Now the permission AND that the
+// caller is ON the job (`lib/job-access.ts`) - the owning company, a sub with a
+// subcontract on it, or somebody on its team - because the people filing logs
+// are as often the sub and the field crew as the GC's office.
+// ─────────────────────────────────────────────────────────────────────────────
 
+export async function GET(request: Request, { params }: { params: { id: string } }) {
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'daily-logs', 'view')
+  if ('denied' in gate) return gate.denied
 
   const { data: logs, error } = await db
     .from('daily_logs')
@@ -55,31 +62,27 @@ function safeJson(raw: string): unknown {
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  let { data: profile } = await db.from('profiles').select('full_name, company_id').eq('id', user.id).single()
-
-  // Auto-create profile if missing (handles users created before schema existed)
-  if (!profile) {
-    const { data: project } = await db.from('projects').select('gc_company_id').eq('id', params.id).single()
-    const company_id = (project as any)?.gc_company_id
-    if (company_id) {
-      await db.from('profiles').upsert({
-        id: user.id,
-        company_id,
-        email: user.email ?? '',
-        full_name: user.user_metadata?.full_name ?? user.email ?? 'User',
-        role: 'admin',
-      })
-      const retry = await db.from('profiles').select('full_name, company_id').eq('id', user.id).single()
-      profile = retry.data
-    }
+  // THE GC'S OWN STAFF NEED `create` - the Daily Logs screen hides New Log
+  // behind it. A SUB or a team member from another company files from My Jobs
+  // holding `daily-logs: view` (an invited vendor is `read_only`), so for them
+  // being on the job is the gate and `view` the floor - the same reasoning that
+  // gates task creation at view. Either way it is a write, so the billing lock.
+  const onJob = await jobGate(db, request, params.id, 'daily-logs', 'view', { write: true })
+  if ('denied' in onJob) return onJob.denied
+  if (onJob.side === 'gc' && !actorCan(onJob.actor, 'daily-logs', 'create')) {
+    return NextResponse.json({ error: 'You do not have permission to create daily logs.' }, { status: 403 })
   }
+  const user = { id: onJob.actor.userId, email: null as string | null }
+  const { data: profile } = await db.from('profiles').select('full_name, company_id, email').eq('id', user.id).maybeSingle()
+  user.email = (profile as any)?.email ?? null
+
+  // The "auto-create a missing profile" block that used to sit here is GONE,
+  // and it was the worst thing in this file: a signed-in account with no
+  // profile that posted a log against ANY job id was written in as an ADMIN of
+  // that job's GC company. Nobody without a profile can reach this line now
+  // (they are on no job), and a profile is made at signup and invite, never as
+  // a side effect of filing a log.
 
   const formData = await request.formData()
   const survey_raw = formData.get('survey') as string | null

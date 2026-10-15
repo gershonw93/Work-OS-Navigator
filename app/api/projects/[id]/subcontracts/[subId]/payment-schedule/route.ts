@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -7,12 +8,18 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request, { params }: { params: { id: string; subId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Any login, any subcontract id: what the GC pays a sub and when. It is
+  // read from the Subs & Team tab, so `team: view` - what `subcontracts` GET
+  // asks - and the owning company's (`ownedProject`), and the subcontract has
+  // to be on THIS job rather than any id in the URL.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'team', 'view')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const { data: sub } = await db.from('subcontracts').select('id')
+    .eq('id', params.subId).eq('project_id', params.id).maybeSingle()
+  if (!sub) return NextResponse.json({ error: 'Subcontract not found' }, { status: 404 })
 
   const { data: items, error } = await db
     .from('payment_schedule_items')

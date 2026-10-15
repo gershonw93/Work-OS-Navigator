@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { TRADE_SCOPES, scopeForTrade, type TradeScope } from '@/lib/trade-scopes'
+import { requirePermission, denied } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -14,15 +15,14 @@ const admin = () => createClient(
 // Built-ins ship so the first RFQ is already right; a company's own version
 // wins once they've edited it, because the second job should start from what
 // they learned on the first.
+//
+// Read by the scope builder on Request Quotes, which is the `bids` tab - so
+// that permission, and only ever the caller's own company's edits.
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
+  const gate = await requirePermission(db, request, 'bids', 'view')
+  if (denied(gate)) return gate.denied
+  const profile = { company_id: gate.actor.companyId }
 
   let overrides: any[] = []
   if (profile?.company_id) {
@@ -65,16 +65,16 @@ export async function GET(request: Request) {
 }
 
 // Save this company's version of a trade's defaults.
+//
+// Changes what every future RFQ at the company starts from, so it asks to EDIT
+// quote requests - and carries the billing lock with it.
 export async function PUT(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+  const gate = await requirePermission(db, request, 'bids', 'edit')
+  if (denied(gate)) return gate.denied
+  const companyId = gate.actor.companyId
+  if (!companyId) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })
+  const profile = { company_id: companyId }
 
   const body = await request.json()
   const trade = String(body.trade ?? '').trim()

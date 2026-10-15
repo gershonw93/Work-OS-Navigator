@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { asContractType } from '@/lib/contract-type'
 import { activationConcerns } from '@/lib/activation'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -24,12 +25,14 @@ const admin = () => createClient(
  * live having forgotten the deposit.
  */
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Any login, any job: the deposit taken, the payments asked for, the
+  // permits and subs counted. It is the pre-flight in the OWNER's status
+  // switch, so `projects: view` and the job is the caller's company's.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await requirePermission(db, request, 'projects', 'view')
+  if (denied(gate)) return gate.denied
+  const owned = await ownedProject(db, gate.actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const count = async (table: string, build?: (q: any) => any) => {
     try {

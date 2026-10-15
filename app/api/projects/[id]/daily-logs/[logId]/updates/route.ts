@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
+import { jobGate, logOnJob } from '@/lib/job-access'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -8,12 +9,14 @@ const admin = () => createClient(
 )
 
 export async function POST(request: Request, { params }: { params: { id: string; logId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Answered any login and wrote onto any log id. Now on this job, the log on
+  // this job, the billing lock - at `view`, because "Add an update" sits under
+  // every expanded log for everybody who can read it.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'daily-logs', 'view', { write: true })
+  if ('denied' in gate) return gate.denied
+  if (!(await logOnJob(db, params.id, params.logId))) return NextResponse.json({ error: 'Log not found' }, { status: 404 })
+  const user = { id: gate.actor.userId }
 
   const { body } = await request.json()
   if (!body || !body.trim()) return NextResponse.json({ error: 'Update text is required' }, { status: 400 })

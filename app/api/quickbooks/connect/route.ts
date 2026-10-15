@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
 import { admin, authorizeUrl, qboConfigured, redirectUri } from '@/lib/quickbooks'
 import { markState } from '@/lib/oauth-return'
+import { requirePermission, denied, billingLock } from '@/lib/api-guard'
+import { mayManageCompanySetting } from '@/lib/company-access'
 
 export const runtime = 'nodejs'
 
@@ -15,14 +17,20 @@ export async function GET(request: Request) {
   }
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
-  if (!['admin', 'manager'].includes(profile.role)) {
+  // The Integrations tab (settings_company: view), and then the narrower
+  // question the QuickBooks card already asks through `canManage`. Always the
+  // caller's OWN company's connection - the id comes off the actor.
+  const gate = await requirePermission(db, request, 'settings_company', 'view')
+  if (denied(gate)) return gate.denied
+  const user = { id: gate.actor.userId }
+  const companyId = gate.actor.companyId
+  if (!companyId) return NextResponse.json({ error: 'No company' }, { status: 400 })
+  const profile = { company_id: companyId, role: gate.actor.role }
+  if (!mayManageCompanySetting(gate.actor)) {
     return NextResponse.json({ error: 'Only an admin can connect QuickBooks.' }, { status: 403 })
   }
+  const locked = await billingLock(db, profile.company_id)
+  if (locked) return locked
 
   // The phone app asks with ?native=1. That has to be recorded NOW, because
   // by the time Intuit redirects back we are a different request in a

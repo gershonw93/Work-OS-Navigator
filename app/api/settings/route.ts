@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { hashKey } from '@/lib/delete-key'
+import { actorForUser, actorCan } from '@/lib/server-permissions'
+import { billingLock } from '@/lib/api-guard'
+import { mayManageCompanySetting } from '@/lib/company-access'
 
 const admin = () =>
   createClient(
@@ -165,9 +168,16 @@ export async function GET(request: Request) {
 
   const teammates = allMembers ?? []
 
+  // Pending invites are the Team & Users tab's, and only the people who can
+  // open it see them. Every screen in the app calls this route - the idle
+  // sign-out, the delete guard, the project form - so a Worker loading any page
+  // was being handed the addresses of everybody the company had invited.
+  const actor = await actorForUser(db, user.id, user.user_metadata?.role as string | undefined)
+  const seesInvites = actorCan(actor, 'settings_team', 'view')
+
   // Also fetch pending invites - select * to avoid column-not-found if role column missing
   let pendingInvites: unknown[] = []
-  if (profile.company_id) {
+  if (profile.company_id && seesInvites) {
     const { data: rawInvites } = await db
       .from('company_invites')
       .select('*')
@@ -216,12 +226,42 @@ export async function PATCH(request: Request) {
 
   const db = admin()
 
-  // Delete-protection: company-wide secret key. Admin/manager only.
-  if (delete_protection && typeof delete_protection === 'object') {
-    const { data: prof } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-    if (!prof?.company_id || !['admin', 'manager'].includes(prof.role ?? '')) {
+  // ── who may change what, asked BEFORE anything is written ──────────────────
+  //
+  // Your own name and phone need nothing but being you. The COMPANY half - its
+  // name, its type, its billing defaults, the sign-out timer, delete protection
+  // - is the company's, and this answered anybody signed in: a Worker, or an
+  // invited sub's account (whose company is their own, but still). Asked up
+  // front so a refused company change does not leave the profile half saved.
+  const wantsCompany = !!company && typeof company === 'object'
+  const wantsProtection = !!delete_protection && typeof delete_protection === 'object'
+  let companyId: string | null = null
+  if (wantsCompany || wantsProtection) {
+    const actor = await actorForUser(db, user.id, user.user_metadata?.role as string | undefined)
+    companyId = actor.companyId
+    if (wantsProtection && (!companyId || !mayManageCompanySetting(actor))) {
       return NextResponse.json({ error: 'Only an admin can change delete protection.' }, { status: 403 })
     }
+    if (wantsCompany) {
+      // `view`, not `edit`: the Company tab opens at view and its Save button is
+      // on it - a Project Manager, Office Staff and a manager all press it today.
+      // The sign-out timer is the Security tab's (edit), so it asks for more.
+      if (!actorCan(actor, 'settings_company', 'view')) {
+        return NextResponse.json({ error: 'You do not have permission to edit company settings.' }, { status: 403 })
+      }
+      if (company.auto_logout_minutes !== undefined && !mayManageCompanySetting(actor)) {
+        return NextResponse.json({ error: 'Only an admin can change the sign-out timer.' }, { status: 403 })
+      }
+    }
+    // A write to the company is a write; the lock is checked by hand because
+    // the gate above is at `view`.
+    const locked = await billingLock(db, companyId)
+    if (locked) return locked
+  }
+
+  // Delete-protection: company-wide secret key. Admin/manager only.
+  if (wantsProtection) {
+    const prof = { company_id: companyId }
     const updates: Record<string, unknown> = {}
     if (typeof delete_protection.enabled === 'boolean') updates.delete_protection_enabled = delete_protection.enabled
     if (typeof delete_protection.key === 'string') {
@@ -244,18 +284,15 @@ export async function PATCH(request: Request) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Update company fields
-  if (company && typeof company === 'object') {
-    // Get user's company_id from their profile
-    const { data: profile } = await db
-      .from('profiles')
-      .select('company_id')
-      .eq('id', user.id)
-      .single()
+  // Update company fields - only ever the caller's own company.
+  if (wantsCompany) {
+    const profile = { company_id: companyId }
 
-    if (profile?.company_id) {
+    if (profile.company_id) {
       const companyUpdates: Record<string, unknown> = {}
-      const allowed = ['name', 'type', 'contact_email', 'phone', 'address', 'license_number', 'default_payment_terms', 'default_billing_mode', 'default_contract_type', 'default_retainage_pct', 'auto_logout_minutes']
+      // NOT `type`: it decides the product and the billing, and changing it is a
+      // platform-console job (CLAUDE.md, "A SUBCONTRACTOR IS NOT A TENANT").
+      const allowed = ['name', 'contact_email', 'phone', 'address', 'license_number', 'default_payment_terms', 'default_billing_mode', 'default_contract_type', 'default_retainage_pct', 'auto_logout_minutes']
       for (const key of allowed) {
         if (company[key] !== undefined) companyUpdates[key] = company[key]
       }

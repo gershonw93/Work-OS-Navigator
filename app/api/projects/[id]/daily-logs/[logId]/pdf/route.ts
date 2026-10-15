@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 
 import { formatDate } from '@/lib/dates'
+import { jobGate } from '@/lib/job-access'
 export const runtime = 'nodejs'
 
 const admin = () => createClient(
@@ -20,13 +21,13 @@ const SURVEY_QUESTIONS: { key: string; label: string }[] = [
 ]
 
 export async function GET(request: Request, { params }: { params: { id: string; logId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-    || new URL(request.url).searchParams.get('token')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Any login used to get any job's log as a PDF - by URL, since the token may
+  // ride in `?token=`. Now `daily-logs: view` and on this job, like the list.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'daily-logs', 'view', {
+    token: new URL(request.url).searchParams.get('token'),
+  })
+  if ('denied' in gate) return gate.denied
 
   const [{ data: log }, { data: project }, { data: projectSubs }] = await Promise.all([
     db.from('daily_logs')

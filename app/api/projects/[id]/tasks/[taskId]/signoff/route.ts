@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
+import { jobGate } from '@/lib/job-access'
 
 export const runtime = 'nodejs'
 
@@ -14,11 +15,14 @@ const admin = () => createClient(
 // - JSON body { action: 'request' } → mark signoff requested + notify the assignee.
 // - FormData (signature file + name) → sign: store the signature and stamp the task.
 export async function POST(request: Request, { params }: { params: { id: string; taskId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Answered any login: anybody could request a sign-off (ringing the
+  // assignee's bell) or SIGN one, on any job. Now on this job, `tasks: view`
+  // and the billing lock - the sign-off controls sit in the task drawer for
+  // everybody who can open a task, so view is what the screen already asks.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'tasks', 'view', { write: true })
+  if ('denied' in gate) return gate.denied
+  const user = { id: gate.actor.userId }
 
   const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
   const actor = (profile as any)?.full_name ?? 'Someone'
@@ -35,7 +39,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
 
     const { data: updated, error } = await db.from('project_tasks')
       .update({ signoff_requested_at: new Date().toISOString(), signoff_requested_by: actor })
-      .eq('id', params.taskId).select().single()
+      .eq('id', params.taskId).eq('project_id', params.id).select().single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Notify the assignee that their signoff is wanted.
@@ -70,7 +74,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
 
   const { data: updated, error } = await db.from('project_tasks')
     .update({ signoff_signed_at: new Date().toISOString(), signoff_signed_by: name, signoff_signature_url: signed?.signedUrl ?? null })
-    .eq('id', params.taskId).select().single()
+    .eq('id', params.taskId).eq('project_id', params.id).select().single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   await logActivity(db, params.id, name, 'task_updated', `Signed off: "${task.title}"`, { task_id: task.id })

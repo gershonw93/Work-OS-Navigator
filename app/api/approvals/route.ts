@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { getActor, actorCan } from '@/lib/server-permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,8 +12,9 @@ export async function GET(request: Request) {
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const actor = await getActor(db, token)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const user = { id: actor.userId }
 
   const { data: profile } = await db
     .from('profiles')
@@ -84,6 +86,14 @@ export async function GET(request: Request) {
     ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
     return NextResponse.json({ items, isSub: true })
+  }
+
+  // GC: the Approvals screen, which is its own resource. The sub branch above
+  // is PERSONAL - only that company's own bills and RFIs - and needs none.
+  // This one is every pending bill and open RFI across the GC's jobs, and it
+  // answered anybody at the GC signed in, a Worker (approvals: N) included.
+  if (!actorCan(actor, 'approvals', 'view')) {
+    return NextResponse.json({ error: 'You do not have permission to view approvals.' }, { status: 403 })
   }
 
   // GC: pending invoices + open RFIs across their projects

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { jobGate } from '@/lib/job-access'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,11 +10,10 @@ const admin = () => createClient(
 // If this task was created from a plan pin, return the pin so the task can
 // link back to the exact spot on the sheet.
 export async function GET(request: Request, { params }: { params: { id: string; taskId: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Was any login, any job. Now `tasks: view` and on this job.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'tasks', 'view')
+  if ('denied' in gate) return gate.denied
 
   const { data: pin } = await db
     .from('plan_pins')

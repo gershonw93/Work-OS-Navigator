@@ -1,33 +1,37 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { createDirectoryContact } from '@/lib/writes/directory-contact'
+import { getActor, actorCan } from '@/lib/server-permissions'
+import { billingLock } from '@/lib/api-guard'
+import { directoryReadLevel, DIRECTORY_SHARE_FIELDS } from '@/lib/company-access'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-async function getUser(request: Request) {
+async function actorOf(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return null
-  const { data: { user } } = await admin().auth.getUser(token)
-  return user
+  return getActor(admin(), token)
 }
 
+const forbidden = () =>
+  NextResponse.json({ error: 'You do not have permission to view directory.' }, { status: 403 })
+
+// THE DIRECTORY, always the caller's own company's. `directory: view` reads it
+// whole. Without it, `files: view` gets the slice the Files page's "Share
+// documents" box reads (name, address, kind) - a Worker opens that box today
+// and must not lose its suggestions - and nobody else gets anything.
 export async function GET(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const actor = await actorOf(request)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const level = directoryReadLevel(actor)
+  if (!level) return forbidden()
 
   const db = admin()
 
-  // Get the user's company
-  const { data: profile } = await db
-    .from('profiles')
-    .select('company_id')
-    .eq('id', user.id)
-    .single()
-
-  const myCompanyId = profile?.company_id
+  const myCompanyId = actor.companyId
   if (!myCompanyId) return NextResponse.json({ companies: [], contacts: [] })
 
   // Find all company IDs this company has a relationship with:
@@ -123,20 +127,28 @@ export async function GET(request: Request) {
   // callers merged that empty array into their lists as though it meant
   // something. Removed rather than left as a fallback nobody can distinguish
   // from "there are no contacts".
+  if (level === 'share') {
+    const slim = companiesResult.map((c: Record<string, unknown>) =>
+      Object.fromEntries(DIRECTORY_SHARE_FIELDS.map(k => [k, c[k] ?? null])))
+    return NextResponse.json({ companies: slim, contacts: [] })
+  }
   return NextResponse.json({ companies: companiesResult, contacts: [] })
 }
 
+// QUICK ADD. Asked at `view`, deliberately: a Project Manager, Office Staff and
+// a Field Supervisor all hold `directory: view` only and add contacts from the
+// inspector and permit pickers today - `create` would take that away from
+// every one of them. So: view, the billing lock by hand (a write gated at view
+// does not get it from the gate), and the new row is tagged with the ACTOR's
+// company, never one from the body.
 export async function POST(request: Request) {
-  const user = await getUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  // Get user's company so we can tag the new entry as added by them
-  const { data: userProfile } = await admin()
-    .from('profiles')
-    .select('company_id')
-    .eq('id', user.id)
-    .single()
-  const myCompanyId = userProfile?.company_id ?? null
+  const actor = await actorOf(request)
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!actorCan(actor, 'directory', 'view')) return forbidden()
+  const myCompanyId = actor.companyId
+  if (!myCompanyId) return NextResponse.json({ error: 'No company on this account.' }, { status: 409 })
+  const locked = await billingLock(admin(), myCompanyId)
+  if (locked) return locked
 
   const body = await request.json()
   // Everything after reading the body is `createDirectoryContact`, which

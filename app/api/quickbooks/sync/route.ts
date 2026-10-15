@@ -2,6 +2,9 @@ import { NextResponse } from 'next/server'
 import { admin, getValidConnection, qboFetch } from '@/lib/quickbooks'
 import { pushBill, pushBillPayment, pushClientInvoice, pushPaymentForProject, reapplyPaymentInQbo, refreshBillInQbo, refreshPaymentInQbo, type PushContext, voidClientInvoiceInQbo } from '@/lib/quickbooks-push'
 
+import { requirePermission, denied, billingLock } from '@/lib/api-guard'
+import { mayManageCompanySetting } from '@/lib/company-access'
+
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
@@ -11,18 +14,20 @@ export const maxDuration = 60
 // Bills/payments auto-create the referenced vendor/customer if it isn't in QBO
 // yet. Body: { entity, ids? } (ids omitted = everything not yet synced).
 export async function POST(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id, role').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
-  if (!['admin', 'manager'].includes(profile.role)) {
+  // The Integrations tab (settings_company: view), and then the narrower
+  // question the QuickBooks card already asks through `canManage`. Always the
+  // caller's OWN company's connection - the id comes off the actor.
+  const gate = await requirePermission(db, request, 'settings_company', 'view')
+  if (denied(gate)) return gate.denied
+  const companyId = gate.actor.companyId
+  if (!companyId) return NextResponse.json({ error: 'No company' }, { status: 400 })
+  const profile = { company_id: companyId, role: gate.actor.role }
+  if (!mayManageCompanySetting(gate.actor)) {
     return NextResponse.json({ error: 'Only an admin can sync QuickBooks.' }, { status: 403 })
   }
+  const locked = await billingLock(db, profile.company_id)
+  if (locked) return locked
 
   const conn = await getValidConnection(db, profile.company_id)
   if (!conn) return NextResponse.json({ error: 'QuickBooks is not connected (or the connection expired - reconnect).' }, { status: 409 })

@@ -4,6 +4,7 @@ import { randomBytes } from 'crypto'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { shareProblem } from '@/lib/share-contents'
 import { billingLock } from '@/lib/api-guard'
+import { filesAccess } from '@/lib/files-access'
 
 export const runtime = 'nodejs'
 
@@ -22,15 +23,12 @@ function shareBase(request: Request) {
 }
 
 export async function GET(request: Request) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
-  if (!profile?.company_id) return NextResponse.json({ shares: [] })
+  // `files: view` - the Sharing tab's own gate (project-tabs maps sharing to
+  // files) and the Files page's. Only ever this company's shares.
+  const access = await filesAccess(db, request, { write: false, noCompany: () => NextResponse.json({ shares: [] }) })
+  if ('denied' in access) return access.denied
+  const profile = { company_id: access.companyId }
 
   // ?project_id= scopes to one job, for the Sharing tab inside a project.
   const projectId = new URL(request.url).searchParams.get('project_id')

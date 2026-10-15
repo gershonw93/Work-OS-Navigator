@@ -4,6 +4,7 @@ import { logActivity } from '@/lib/log-activity'
 import { punchLocation } from '@/lib/punch-location'
 import { projectSite } from '@/lib/project-site'
 import { lookUpAddress } from '@/lib/geocode'
+import { jobGate } from '@/lib/job-access'
 
 export const runtime = 'nodejs'
 
@@ -25,12 +26,15 @@ const admin = () => createClient(
 // pinned a job called "1 North St" to a street in east London.
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
+  // Answered any login for any job id: anybody could put a time entry - with a
+  // selfie in our storage - on a job they had never set foot on. Now
+  // `time: create` (every built-in role that sees a clock holds it) and ON
+  // this job: the GC's crew, a sub's crew, or somebody on its team.
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const gate = await jobGate(db, request, params.id, 'time', 'create')
+  if ('denied' in gate) return gate.denied
+  const { data: me } = await db.from('profiles').select('email').eq('id', gate.actor.userId).maybeSingle()
+  const user = { id: gate.actor.userId, email: ((me as any)?.email ?? null) as string | null }
 
   const { data: profile } = await db.from('profiles').select('full_name').eq('id', user.id).single()
 

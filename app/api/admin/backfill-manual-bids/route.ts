@@ -3,7 +3,10 @@
  * scope_categories / payment_terms columns were populated.
  *
  * POST /api/admin/backfill-manual-bids
- * Requires a valid user session (service role used internally).
+ * SUPER ADMIN ONLY. It walks every manual subcontract on the PLATFORM - every
+ * company's - and rewrites them, so it is a platform operation, gated the way
+ * every other /api/admin route is (`isSuperAdmin` on the verified token's
+ * email). It used to need only a session, which let any customer run it.
  *
  * Finds every subcontract where added_manually = true, looks up its matching
  * bid (via company_id + bid_package project_id), and writes the correct
@@ -11,6 +14,7 @@
  */
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { isSuperAdmin } from '@/lib/super-admin'
 
 const admin = () =>
   createClient(
@@ -25,6 +29,7 @@ export async function POST(request: Request) {
   const db = admin()
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!isSuperAdmin(user.email)) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
   // Fetch all manual subcontracts with their line items + payment schedule items
   const { data: subs, error: subsErr } = await db
