@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { BidThread, type ThreadState } from '@/components/quotes/bid-thread'
 import type { ClientMessage, ClientSubject } from '@/lib/client-thread'
+import { readThread } from '@/lib/thread-read'
 
 export function ClientThreadPanel({ projectId, subject, subjectId, clientName, onChanged, title }: {
   projectId: string
@@ -31,12 +32,14 @@ export function ClientThreadPanel({ projectId, subject, subjectId, clientName, o
   }
 
   async function read() {
-    try {
-      const res = await fetch(`/api/projects/${projectId}/client-messages?${query}`, { headers: { Authorization: `Bearer ${await bearer()}` } })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) { setState('failed'); return }
-      setMessages(d.messages ?? []); setState('ready')
-    } catch { setState('failed') }
+    // Asked twice before it says it failed, and a failure keeps whatever was
+    // already on screen (lib/thread-read.ts). The fresh bearer is fetched per
+    // attempt, so a session refreshed in between is the one sent.
+    const r = await readThread<ClientMessage>(async () =>
+      fetch(`/api/projects/${projectId}/client-messages?${query}`, { headers: { Authorization: `Bearer ${await bearer()}` } }))
+    if (r.ok) { setMessages(r.messages); setState('ready'); return }
+    console.error('[client-thread] read failed', { subject, subjectId, status: r.status, error: r.error })
+    setState('failed')
   }
   useEffect(() => { read() }, [projectId, query]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -58,6 +61,8 @@ export function ClientThreadPanel({ projectId, subject, subjectId, clientName, o
             ? 'Saved, but this job has not been shared with the client yet - share the client link so they can read it.'
             : `Saved, but the email to ${e.to} did not go. ${who} will still see it on their link.`)
       } else if (e?.sent) setNote(`Sent - ${who} was emailed at ${e.to}.`)
+      // The message is saved whatever the re-read says - show it either way.
+      if (d.message) setMessages(m => m.some(x => x.id === d.message.id) ? m : [...m, d.message])
       await read()
       onChanged?.()
       return null
