@@ -8,6 +8,7 @@ import { weightedProgress } from '@/lib/invoice-budget'
 import { HardHat } from 'lucide-react'
 import { PortalThread } from '@/components/client-thread/portal-thread'
 import { PortalChangeOrder } from '@/components/client-thread/portal-change-order'
+import { approvalCounts } from '@/lib/change-order-client'
 import { weatherIcon } from '@/lib/weather'
 import { formatDate } from '@/lib/dates'
 import { settlementLabel } from '@/lib/invoice-settlement'
@@ -124,9 +125,11 @@ export default async function PortalPage({ params }: { params: { token: string }
       .order('paid_date', { ascending: false }),
     // Change orders somebody SHARED, and nothing else: one tied to a
     // subcontract carries the sub's price, which is our cost. Review notes,
-    // the subcontract and who raised it stay out of the select on purpose.
+    // the subcontract and who raised it stay out of the page on purpose -
+    // `subcontract_id` is read only to say whether their yes approves it, and
+    // turned into that boolean before anything renders.
     db.from('change_orders')
-      .select('id, title, description, reason, amount, status, client_shared_at, client_response')
+      .select('id, title, description, reason, amount, status, client_shared_at, client_response, subcontract_id')
       .eq('project_id', project.id)
       .not('client_shared_at', 'is', null)
       .order('client_shared_at', { ascending: false }),
@@ -423,7 +426,8 @@ export default async function PortalPage({ params }: { params: { token: string }
         )}
 
         {/* Change orders somebody shared with them - with Approve / Decline,
-            which records their answer for the GC to approve against, and a
+            which approves one with no subcontract and records their answer on
+            one with a subcontract for the GC to approve against, and a
             question box. The anchor is where the share email lands. */}
         {(sharedChangeOrders?.length ?? 0) > 0 && (
           <div id="change-orders" className="rounded-xl border border-line bg-panel p-4 sm:p-6 space-y-3">
@@ -431,8 +435,8 @@ export default async function PortalPage({ params }: { params: { token: string }
               <h2 className="text-base font-semibold text-ink">Change orders</h2>
               <p className="text-sm text-muted-fg mt-0.5">Changes to the work and what they cost. Approve, decline, or ask us about any of them.</p>
             </div>
-            {(sharedChangeOrders ?? []).map((co: any) => (
-              <PortalChangeOrder key={co.id} token={params.token} co={co} />
+            {(sharedChangeOrders ?? []).map(({ subcontract_id, ...co }: any) => (
+              <PortalChangeOrder key={co.id} token={params.token} co={{ ...co, approval_counts: approvalCounts({ subcontract_id }) }} />
             ))}
           </div>
         )}

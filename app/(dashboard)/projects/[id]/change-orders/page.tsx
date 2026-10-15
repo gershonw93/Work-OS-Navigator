@@ -49,6 +49,8 @@ interface ChangeOrder {
   client_response_at?: string | null
   client_response_name?: string | null
   client_response_note?: string | null
+  /** The address they were signed in as when they answered - their approval needs a login. */
+  client_response_email?: string | null
   /** The client's thread on it, shape only - who spoke last. */
   client_messages?: { side: string; created_at: string }[]
 }
@@ -385,8 +387,11 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
                   {co.client_response ? (
                     <p className={cn('text-sm font-semibold', co.client_response === 'approved' ? 'text-success' : 'text-danger')}>
                       {responseLine(co as any, co.client_response_at ? formatDate(co.client_response_at) : null)}
+                      {co.client_response_email && (
+                        <span className="block text-xs font-normal text-muted-fg">Signed in as {co.client_response_email}.</span>
+                      )}
                       {co.client_response === 'approved' && co.status === 'pending' && (
-                        <span className="block text-xs font-normal text-muted-fg">Approve it below to add it to the contract - their yes does not do that on its own.</span>
+                        <span className="block text-xs font-normal text-muted-fg">It is tied to a subcontract, so approve it below to add it to the contract - their yes does not do that on its own.</span>
                       )}
                     </p>
                   ) : (
@@ -703,7 +708,13 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
             </div>
             <p className="text-sm text-muted-fg">
               Your client sees exactly this on their link - the title, the amount, the reason and the description -
-              and can approve it, decline it, or ask about it. Your review notes and the subcontract stay yours.
+              and can approve it, decline it, or ask about it, after signing in with a code we email to the address on
+              their customer record. Your review notes and the subcontract stay yours.
+            </p>
+            <p className="text-sm text-ink-soft">
+              {shareFor.subcontract_id
+                ? 'Because it is tied to a subcontract, their approval is a record - you still approve it here to add it to the contract.'
+                : 'Their approval approves it: it is added to the contract the moment they press Approve.'}
             </p>
             {shareFor.subcontract_id && (
               <p className="flex gap-2 rounded-lg bg-warn-tint px-3 py-2 text-sm text-warn">

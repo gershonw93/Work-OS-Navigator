@@ -2,10 +2,12 @@
 //
 // Half the change orders on file are tied to a subcontract, and their amount is
 // the SUB's price - our cost. So a change order reaches the client only when
-// somebody shares it, and the client's approve/decline is a record the GC
-// approves against, never the approval itself (that moves money).
+// somebody shares it. "let client approval count for non-sub change orders /
+// approvals must come with a free login": with no subcontract the client's
+// approval IS the approval, on a sub-linked one it stays a record the GC
+// approves against - and either way the answer needs the client signed in.
 
-import { clientResponseProblem, clientCoStatus, responseLine } from '../change-order-client'
+import { clientResponseProblem, clientCoStatus, responseLine, approvalCounts } from '../change-order-client'
 import { SUBJECTS, threadsWaitingOnGc } from '../client-thread'
 import { ok, done, code, read } from './_helpers'
 
@@ -37,8 +39,10 @@ ok(threadsWaitingOnGc([{ side: 'client', created_at: '2026-10-15', change_order_
 const portal = code('app/portal/[token]/page.tsx')
 ok(/from\('change_orders'\)[\s\S]{0,200}\.not\('client_shared_at', 'is', null\)/.test(portal),
   'the client\'s link shows ONLY change orders somebody shared')
-ok(!/from\('change_orders'\)\s*\.select\('[^']*(review_notes|subcontract_id|requested_by_type)/.test(portal),
-  '...and never the review notes, the subcontract or who raised it')
+ok(!/from\('change_orders'\)\s*\.select\('[^']*(review_notes|requested_by_type)/.test(portal),
+  '...and never the review notes or who raised it')
+ok(/map\(\(\{ subcontract_id, \.\.\.co \}: any\)/.test(portal) && /approval_counts: approvalCounts\(\{ subcontract_id \}\)/.test(portal),
+  '...and the subcontract id is turned into "does your yes approve it" before anything renders')
 const db = code('lib/client-thread-db.ts')
 ok(/forClient && !data\.client_shared_at/.test(db), 'a question about an unshared change order is refused like one that does not exist')
 
@@ -52,12 +56,28 @@ const page = code('app/(dashboard)/projects/[id]/change-orders/page.tsx')
 ok(/This change order is tied to \{getSubName\(shareFor\.subcontract_id\)\}/.test(page),
   'sharing a sub-linked change order warns that its amount is the sub\'s price')
 ok(/Your client sees exactly this on their link/.test(page), '...and the dialog shows exactly what they will see')
-ok(/their yes does not do that on its own/.test(page), 'the card says the client\'s approval is not the approval')
+ok(/tied to a subcontract, so approve it below[\s\S]{0,80}their yes does not do that on its own/.test(page),
+  'on a sub-linked one the card says the client\'s approval is not the approval')
+ok(/Their approval approves it/.test(page), '...and the share dialog says when it is')
 
-// ── the client's answer is a record ────────────────────────────────────────
+// ── when the client's yes is the approval ──────────────────────────────────
+ok(approvalCounts({ subcontract_id: null }) === true, 'a change order with no subcontract is approved by the client\'s yes')
+ok(approvalCounts({ subcontract_id: 's1' }) === false, '...one tied to a subcontract is not - it moves a SUB\'s contract')
+
 const respond = code('app/api/portal/[token]/change-orders/[coId]/route.ts')
-ok(!/\bstatus:\s*payload|\bstatus:\s*'approved'|update\(\{[^}]*\bstatus\b/.test(respond),
-  'the client\'s route never writes status - approving moves money and stays the GC\'s')
+ok(!/\bstatus:\s*payload/.test(respond) && (respond.match(/\{ status: 'approved' \}/g) ?? []).length === 1,
+  'the client\'s route writes ONE status, approved, and never a status out of the body')
+ok(/const counts = payload\.response === 'approved' && approvalCounts\(co as any\)/.test(respond)
+  && /\.\.\.\(counts \? \{ status: 'approved' \} : \{\}\)/.test(respond),
+  '...only when they APPROVED and the change order has no subcontract - a decline is a record')
+ok(/select\('id, title, amount, status, client_shared_at, subcontract_id'\)/.test(respond),
+  '...decided off the ROW, never off anything the page sent')
+ok(respond.indexOf('signedInClient(') > 0 && respond.indexOf('signedInClient(') < respond.indexOf('.update('),
+  'nothing is written until the person is signed in as the job\'s client')
+ok(/clientEmailFor\(db, \(project as any\)\.customer_id\)/.test(respond) && /needs_login: true/.test(respond) && /status: 401/.test(respond),
+  '...as the address on the customer record, and a page that is not signed in is told to sign in')
+ok(/client_response_email: who\.email/.test(respond), 'the signed-in address is stored with the answer')
+ok(/if \(!saved\?\.length\)/.test(respond), 'a race the GC won writes nothing and says so')
 ok(/\.eq\('status', 'pending'\)/.test(respond), '...and only answers a change order the GC has not decided yet, even racing them')
 ok(respond.indexOf('clientResponseProblem(') < respond.indexOf(".update("), 'the same rule the buttons ask is asked before anything is written')
 ok(/type: 'client_change_order'/.test(respond) && /audienceFor\(/.test(respond), 'the answer reaches whoever approves change orders')
