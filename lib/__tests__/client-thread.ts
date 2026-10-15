@@ -27,7 +27,8 @@ ok(SUBJECTS.invoice.permission === 'payments' && SUBJECTS.payment_request.permis
   'a billing question is answered by Billing the client - never by somebody denied it')
 ok(SUBJECTS.selection.permission === 'selections' && SUBJECTS.project.permission === 'client-portal',
   'a selection by whoever owns selections, the job by whoever handles the client link')
-ok(SUBJECTS.project.column === null && new Set(Object.values(SUBJECTS).map(s => s.column)).size === 4,
+ok(SUBJECTS.change_order.permission === 'change-orders', '...and a change order by whoever approves change orders')
+ok(SUBJECTS.project.column === null && new Set(Object.values(SUBJECTS).map(s => s.column)).size === 5,
   'each subject has its own column, and the job has none')
 
 const t = (side: string, at: string, extra: object = {}) => ({ side, created_at: at, ...extra })
@@ -53,13 +54,13 @@ ok(clientAuthor('  Sam  ', 'The Smiths') === 'Sam' && clientAuthor('', 'The Smit
 ok(!!messageProblem('   ') && messageProblem('Is the rough-in on this one?') === null, 'the same message rule as the quote thread')
 
 // ── the catalog ────────────────────────────────────────────────────────────
-for (const [key, perm] of [['selection_question', 'selections'], ['client_billing_question', 'payments'], ['client_question', 'client-portal']] as const) {
+for (const [key, perm] of [['selection_question', 'selections'], ['client_billing_question', 'payments'], ['client_change_order', 'change-orders'], ['client_question', 'client-portal']] as const) {
   const type = NOTIFICATION_TYPES.find(x => x.key === key)
   ok(type?.status === 'live' && type.audience === 'team' && type.defaultAudience?.[0] === perm,
     `${key}: a live, routable type, defaulting to the people who answer it (${perm})`)
   ok(!!demoNotification(key, '2026-10-15'), `${key}: the demo board can rehearse it`)
 }
-ok(new Set(Object.values(SUBJECTS).map(s => s.notifyType)).size === 3, 'every subject is told under a type the catalog has')
+ok(new Set(Object.values(SUBJECTS).map(s => s.notifyType)).size === 4, 'every subject is told under a type the catalog has')
 
 // ── one table ──────────────────────────────────────────────────────────────
 const sources = ['app', 'lib', 'components'].flatMap(d =>
@@ -86,7 +87,7 @@ ok(/author_id: side === 'gc' \? input\.authorId : null/.test(db), 'a client mess
 ok(db.indexOf("from('client_messages').insert") < db.indexOf('sendEmail('), 'the message is stored before anybody is told')
 ok(/emailed: \{ sent: false, reason: 'no_email'/.test(db), 'a reply with no client address is SAVED and says it was not emailed')
 ok(/if \(error\) \{[\s\S]*return \{ error: 'Could not load the messages\.' \}/.test(db), 'a failed thread read is an error, not an empty thread')
-ok(/\.is\('selection_id', null\)\.is\('client_invoice_id', null\)\.is\('payment_request_id', null\)/.test(db),
+ok(/\.is\('selection_id', null\)\.is\('client_invoice_id', null\)\.is\('payment_request_id', null\)\.is\('change_order_id', null\)/.test(db),
   'the job\'s own thread is exactly the messages about nothing in particular')
 
 // ── the GC's door ──────────────────────────────────────────────────────────
