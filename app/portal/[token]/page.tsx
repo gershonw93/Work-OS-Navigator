@@ -6,6 +6,7 @@ import { daysUntil, isOutstanding } from '@/lib/selections'
 import { weightedProgress } from '@/lib/invoice-budget'
 
 import { HardHat } from 'lucide-react'
+import { PortalThread } from '@/components/client-thread/portal-thread'
 import { weatherIcon } from '@/lib/weather'
 import { formatDate } from '@/lib/dates'
 import { settlementLabel } from '@/lib/invoice-settlement'
@@ -291,14 +292,17 @@ export default async function PortalPage({ params }: { params: { token: string }
             </div>
             <div className="mt-3 space-y-1.5">
               {dueFromClient.map((r: any) => (
-                <div key={r.id} className="flex flex-wrap items-baseline justify-between gap-2 border-t border-warn/20 pt-1.5">
-                  <span className="text-sm font-medium text-ink-soft">
-                    {r.label}
-                    {r.due_hint && <span className="ml-1.5 text-xs font-normal text-muted-fg">due {r.due_hint}</span>}
-                  </span>
-                  <span className="text-sm font-semibold text-ink">
-                    ${Number(r.amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                  </span>
+                <div key={r.id} className="border-t border-warn/20 pt-1.5 space-y-1.5">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <span className="text-sm font-medium text-ink-soft">
+                      {r.label}
+                      {r.due_hint && <span className="ml-1.5 text-xs font-normal text-muted-fg">due {r.due_hint}</span>}
+                    </span>
+                    <span className="text-sm font-semibold text-ink">
+                      ${Number(r.amount).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </span>
+                  </div>
+                  <PortalThread token={params.token} subject="payment_request" subjectId={r.id} prompt="Ask about this payment" />
                 </div>
               ))}
             </div>
@@ -331,7 +335,8 @@ export default async function PortalPage({ params }: { params: { token: string }
             </div>
             <div className="mt-3 space-y-1.5">
               {invoices.map((b: any) => (
-                <a key={b.id} href={`/bill/${b.token}`} target="_blank" rel="noreferrer"
+                <div key={b.id} className="space-y-1.5">
+                <a href={`/bill/${b.token}`} target="_blank" rel="noreferrer"
                   className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-line bg-panel px-3 py-2.5 transition-colors hover:border-accent">
                   <span className="min-w-0">
                     <span className="block text-sm font-semibold text-ink">Invoice {b.invoice_number}</span>
@@ -353,6 +358,12 @@ export default async function PortalPage({ params }: { params: { token: string }
                     </span>
                   </span>
                 </a>
+                {/* Outside the link on purpose: a question box inside an <a>
+                    would open the invoice on every tap. */}
+                <div className="px-1">
+                  <PortalThread token={params.token} subject="invoice" subjectId={b.id} prompt={`Ask about invoice ${b.invoice_number}`} />
+                </div>
+                </div>
               ))}
             </div>
             <p className="mt-3 text-xs text-muted-fg">
@@ -490,10 +501,17 @@ export default async function PortalPage({ params }: { params: { token: string }
           )}
         </div>
 
+        {/* Anything else. The footer used to say "For questions, contact your
+            project manager" - an instruction with no way to do it on the page. */}
+        <div className="bg-panel rounded-xl border border-line p-4 sm:p-6 space-y-2">
+          <h2 className="text-base font-semibold text-ink">Questions about the job?</h2>
+          <PortalThread token={params.token} subject="project" subjectId={null} prompt="Ask us anything" />
+        </div>
+
         {/* Footer */}
         <div className="text-center py-4 text-xs text-faint space-y-1">
           <p className="font-medium text-muted-fg">SyteNav</p>
-          <p>This is a read-only client portal. For questions, contact your project manager.</p>
+          <p>Ask about any invoice, payment or selection right on this page - we answer here and by email.</p>
         </div>
       </div>
     </div>

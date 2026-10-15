@@ -55,13 +55,13 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-15',
-    title: 'Clients can ask about a selection',
+    title: 'Clients can ask you questions from their link',
     items: [
       {
         kind: 'new',
-        title: 'Questions on selections, from the client\'s link',
-        text: 'Your client can ask a question on any selection right from their link - no account needed. You get it in the bell and by email, the row on your Selections board says the client is waiting, and your answer is saved on the selection and emailed back to them.',
-        help: 'selections',
+        title: 'Questions from the client\'s link',
+        text: 'Your client can ask about any selection, invoice or payment request - or the job in general - right from their link, no account needed. You get it in the bell and by email, the row says the client is waiting, the job\'s Overview counts every question still waiting on a reply, and your answer is saved there and emailed back to them.',
+        help: 'client-questions',
       },
     ],
   },

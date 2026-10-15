@@ -7,6 +7,8 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { TodayStrip } from '@/components/projects/today-strip'
+import { ClientThreadPanel } from '@/components/client-thread/client-thread-panel'
+import { usePermissions } from '@/lib/use-permissions'
 import type { TodayInput } from '@/lib/today'
 import {
   ArrowRight, Banknote, CalendarDays, CheckCircle2, ClipboardCheck,
@@ -88,6 +90,7 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
   const router = useRouter()
   const [data, setData] = useState<Overview | null>(null)
   const [loading, setLoading] = useState(true)
+  const { can } = usePermissions()
 
   const load = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession()
@@ -337,6 +340,16 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
               </div>
             ))}
           </dl>
+        </div>
+      )}
+
+      {/* The client's general questions about the job - the "anything else?"
+          box at the bottom of their link. Only for people who handle the
+          client link; a thread they cannot read is not shown as a failure. */}
+      {can('client-portal', 'view') && (
+        <div id="client-questions" className="rounded-2xl border border-line bg-panel px-4 py-3 lg:rounded-xl">
+          <ClientThreadPanel projectId={data.project.id} subject="project" subjectId={null} clientName={null}
+            title="Questions about the job from the client" />
         </div>
       )}
 

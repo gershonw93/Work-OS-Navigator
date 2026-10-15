@@ -35,7 +35,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // on `customers` and is resolved by /api/projects/[id]/client-email, which
     // ClientInvoices already uses.
     db.from('projects').select('payment_stages, quote_total, client_portal_token, client').eq('id', params.id).single(),
-    db.from('client_payment_requests').select('*').eq('project_id', params.id).order('created_at', { ascending: true }),
+    db.from('client_payment_requests').select('*, client_messages(side, created_at)').eq('project_id', params.id).order('created_at', { ascending: true }),
   ])
 
   const stages = resolveStages((project as any)?.payment_stages, (project as any)?.quote_total)

@@ -8,7 +8,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { InfoHint } from '@/components/ui/info-hint'
-import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, AlertTriangle } from 'lucide-react'
+import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, AlertTriangle, MessageSquare } from 'lucide-react'
+import { ClientThreadDialog } from '@/components/client-thread/client-thread-dialog'
+import { threadShape } from '@/lib/client-thread'
 import { useClientEmail } from '@/lib/use-client-email'
 // Promoted to a shared component when the quote-invite row needed the same
 // thing: one action reads as the action, the rest live behind the dots.
@@ -44,6 +46,8 @@ interface BillLine {
 
 interface Bill {
   id: string
+  /** The client's thread on this invoice, shape only - who spoke last. */
+  client_messages?: { side: string; created_at: string }[]
   invoice_number: string
   status: string
   issue_date: string
@@ -124,6 +128,8 @@ export function ClientInvoices({
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
   const [sendingId, setSendingId] = useState('')
+  // The invoice whose client thread is open, over the screen.
+  const [threadFor, setThreadFor] = useState<Bill | null>(null)
   const clientEmail = useClientEmail(projectId)
   const [clientName, setClientName] = useState<string | null>(null)
   const [projectName, setProjectName] = useState<string | null>(null)
@@ -524,6 +530,11 @@ export function ClientInvoices({
                     {b.due_date ? ` · due ${formatDate(b.due_date)}` : ''}
                   </span>
                   {paidLine && <span className="block text-[11px] font-medium text-warn">{paidLine}</span>}
+                  {threadShape(b.client_messages).waitingOnGc && (
+                    <button type="button" onClick={() => setThreadFor(b)} className="block text-[11px] font-semibold text-warn hover:underline">
+                      Client asked a question - reply
+                    </button>
+                  )}
                 </span>
                 {/* PARTLY PAID IS A STATE, not a flavour of sent. The stored status
                     stays 'sent' until the money covers the invoice; this is
@@ -579,6 +590,11 @@ export function ClientInvoices({
                       <MenuItem newTab href={`/projects/${projectId}/client-invoices/${b.id}/print`} onClick={close}>
                         <Printer className="h-3.5 w-3.5" /> View / Print
                       </MenuItem>
+                      {b.status !== 'draft' && (
+                        <MenuItem onClick={() => { close(); setThreadFor(b) }}>
+                          <MessageSquare className="h-3.5 w-3.5" /> Client questions{threadShape(b.client_messages).count ? ` (${threadShape(b.client_messages).count})` : ''}
+                        </MenuItem>
+                      )}
                       {shareable && (
                         <>
                           <MenuItem onClick={() => { copyLink(b); close() }}>
@@ -629,6 +645,11 @@ export function ClientInvoices({
             )
           })}
         </div>
+      )}
+      {threadFor && (
+        <ClientThreadDialog projectId={projectId} subject="invoice" subjectId={threadFor.id} clientName={null}
+          heading={`Invoice ${threadFor.invoice_number} - questions from the client`}
+          onClose={() => setThreadFor(null)} onChanged={load} />
       )}
     </div>
   )

@@ -4485,19 +4485,25 @@ CREATE TABLE IF NOT EXISTS weekly_summary_sends (
 
 ALTER TABLE weekly_summary_sends ENABLE ROW LEVEL SECURITY;
 
--- 146 selection messages
-CREATE TABLE IF NOT EXISTS selection_messages (
-  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  selection_id  uuid NOT NULL REFERENCES project_selections (id) ON DELETE CASCADE,
-  project_id    uuid NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
-  side          text NOT NULL CHECK (side IN ('client', 'gc')),
-  author_id     uuid REFERENCES profiles (id) ON DELETE SET NULL,
-  author_name   text,
-  body          text NOT NULL,
-  created_at    timestamptz NOT NULL DEFAULT now()
+-- 146 + 147 client messages. 146 created `selection_messages` and 147 renamed
+-- it and widened it to invoices, payment requests and the job itself; a fresh
+-- environment creates the final shape directly rather than replaying a rename.
+CREATE TABLE IF NOT EXISTS client_messages (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  selection_id        uuid REFERENCES project_selections (id) ON DELETE CASCADE,
+  client_invoice_id   uuid REFERENCES client_invoices (id) ON DELETE CASCADE,
+  payment_request_id  uuid REFERENCES client_payment_requests (id) ON DELETE CASCADE,
+  project_id          uuid NOT NULL REFERENCES projects (id) ON DELETE CASCADE,
+  side                text NOT NULL CHECK (side IN ('client', 'gc')),
+  author_id           uuid REFERENCES profiles (id) ON DELETE SET NULL,
+  author_name         text,
+  body                text NOT NULL,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  CONSTRAINT client_messages_one_subject CHECK (num_nonnulls(selection_id, client_invoice_id, payment_request_id) <= 1)
 );
-
-CREATE INDEX IF NOT EXISTS idx_selection_messages_selection ON selection_messages (selection_id, created_at);
-CREATE INDEX IF NOT EXISTS idx_selection_messages_project_client ON selection_messages (project_id, created_at) WHERE side = 'client';
-
-ALTER TABLE selection_messages ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_selection_messages_selection ON client_messages (selection_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_selection_messages_project_client ON client_messages (project_id, created_at) WHERE side = 'client';
+CREATE INDEX IF NOT EXISTS idx_client_messages_invoice ON client_messages (client_invoice_id, created_at) WHERE client_invoice_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_client_messages_request ON client_messages (payment_request_id, created_at) WHERE payment_request_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_client_messages_project ON client_messages (project_id, created_at);
+ALTER TABLE client_messages ENABLE ROW LEVEL SECURITY;
