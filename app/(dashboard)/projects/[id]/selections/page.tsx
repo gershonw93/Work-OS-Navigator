@@ -26,6 +26,8 @@ import {
 } from '@/lib/selections'
 import { clientAppOrigin } from '@/lib/app-url'
 import { SendLinkBox } from '@/components/ui/send-link-box'
+import { BidThread, type ThreadState } from '@/components/quotes/bid-thread'
+import { selectionThreadSummary, type SelectionMessage } from '@/lib/selection-thread'
 import { useClientEmail } from '@/lib/use-client-email'
 
 import { formatDate, formatDateShort } from '@/lib/dates'
@@ -58,6 +60,8 @@ interface Selection {
   line_finished?: boolean
   change_requested_at: string | null; change_request_note: string | null
   selection_options: Option[]
+  /** The client thread's SHAPE (who spoke last) - the open row reads the words. */
+  selection_messages?: { side: string; created_at: string }[]
 }
 
 export default function SelectionsPage({ params }: { params: { id: string } }) {
@@ -1130,6 +1134,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                   {nOpts ? `${nOpts} option${nOpts === 1 ? '' : 's'} for the client` : 'No options yet'}
                                   {sel.change_requested_at && <span className="text-warn"> · change requested</span>}
                                   {sel.client_reminded_at && isOutstanding(sel.status) && <span> · reminded {formatDateShort(sel.client_reminded_at)}</span>}
+                                  {selectionThreadSummary(sel.selection_messages).waitingOnGc && <span className="font-semibold text-warn"> · client asked a question</span>}
                                 </span>
                               </span>
                             </button>
@@ -1553,6 +1558,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                 </div>
                               </div>
                             </div>
+                            <ClientQuestions projectId={params.id} selectionId={sel.id}
+                              clientName={clientName} onChanged={load} />
                           </div>
                         )}
                       </div>
@@ -1649,3 +1656,79 @@ function BudgetDot({ linked, name }: { linked: boolean; name: string }) {
     </span>
   )
 }
+
+/**
+ * The client's questions about one selection, answered from the board. Reads
+ * its own thread when the row opens - the board only carries who spoke last -
+ * and keeps loading, failed and empty apart, so "no questions yet" is only
+ * said over a read that worked.
+ */
+function ClientQuestions({ projectId, selectionId, clientName, onChanged }: {
+  projectId: string
+  selectionId: string
+  clientName: string | null
+  onChanged: () => unknown
+}) {
+  const [messages, setMessages] = useState<SelectionMessage[]>([])
+  const [state, setState] = useState<ThreadState>('loading')
+  const [note, setNote] = useState<string | null>(null)
+  const who = clientName?.trim() || 'the client'
+
+  async function bearer() {
+    const { data: { session } } = await createClient().auth.getSession()
+    return session?.access_token ?? ''
+  }
+
+  async function read() {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/selections/${selectionId}/messages`, { headers: { Authorization: `Bearer ${await bearer()}` } })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { setState('failed'); return }
+      setMessages(d.messages ?? []); setState('ready')
+    } catch { setState('failed') }
+  }
+  useEffect(() => { read() }, [projectId, selectionId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function send(body: string): Promise<string | null> {
+    setNote(null)
+    try {
+      const res = await fetch(`/api/projects/${projectId}/selections/${selectionId}/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await bearer()}` },
+        body: JSON.stringify({ body }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) return d.error ?? 'Could not send that. Try again.'
+      // Saved is not the same as told - say which, since the client has no bell.
+      const e = d.emailed
+      if (e && !e.sent) {
+        setNote(e.reason === 'no_email'
+          ? `Saved. There is no email address on this client, so ${who} sees it next time they open their link.`
+          : e.reason === 'no_link'
+            ? 'Saved, but this job has not been shared with the client yet - use "Copy client link" so they can read it.'
+            : `Saved, but the email to ${e.to} did not go. ${who} will still see it on their link.`)
+      } else if (e?.sent) setNote(`Sent - ${who} was emailed at ${e.to}.`)
+      await read()
+      onChanged()
+      return null
+    } catch {
+      return 'We could not tell whether that went - reload before sending it again.'
+    }
+  }
+
+  return (
+    <div className="mt-6 rounded-xl border border-line bg-panel px-4 py-3 space-y-2">
+      <p className="text-sm font-semibold text-ink">Questions from {who}</p>
+      <BidThread
+        messages={messages}
+        state={state}
+        mine="gc"
+        otherName={who}
+        emptyText={`No questions yet. ${who} can ask from their selections link, and you can start the conversation here - they get it by email.`}
+        onSend={send}
+        onRefresh={read}
+      />
+      {note && <p className="text-xs text-muted-fg">{note}</p>}
+    </div>
+  )
+}
+

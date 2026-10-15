@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-15',
+    title: 'Clients can ask about a selection',
+    items: [
+      {
+        kind: 'new',
+        title: 'Questions on selections, from the client\'s link',
+        text: 'Your client can ask a question on any selection right from their link - no account needed. You get it in the bell and by email, the row on your Selections board says the client is waiting, and your answer is saved on the selection and emailed back to them.',
+        help: 'selections',
+      },
+    ],
+  },
+  {
+    date: '2026-10-15',
     title: 'A Friday summary of the week',
     items: [
       {

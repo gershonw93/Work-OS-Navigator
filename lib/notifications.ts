@@ -287,6 +287,17 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     defaults: { inApp: true, email: true }, status: 'live',
   },
 
+  {
+    // TO THE GC. The client asked about a selection on their portal link.
+    // Audience `selections: edit` - the people who can answer it and move the
+    // selection on. EMAIL AND PUSH ON: a homeowner waiting on an answer is a
+    // decision waiting on us, and the decide-by date is still running.
+    key: 'selection_question', label: 'Client asked about a selection', group: 'Work',
+    description: 'Your client sends a question about one of their selections from their portal link.',
+    audience: 'team', defaultAudience: ['selections', 'edit'],
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+
   // ── Bids ──────────────────────────────────────────────────────────────────
   {
     // TO THE GC. Was sharing the `new_bid` string with the invitation below,

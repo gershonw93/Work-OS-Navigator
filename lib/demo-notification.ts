@@ -190,6 +190,12 @@ export function demoNotification(type: string, today: string): DemoNotification 
         message: `${SUB} marked Framing ready on ${PROJECT}. The inspector is booked for ${inBusiness(2)}.`,
         link: '/projects',
       }
+    case 'selection_question':
+      return {
+        title: 'The client asked about Kitchen backsplash tile',
+        message: `${PROJECT}: "Does the white subway tile come in a matte finish? We need to decide by ${inDays(5)}."`,
+        link: '/projects',
+      }
     case 'weekly_summary':
       return {
         title: `Weekly summary: ${inDays(-6)} - ${inDays(0)}`,
