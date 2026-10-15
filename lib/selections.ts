@@ -39,6 +39,29 @@ export const STATUS_TINT: Record<SelectionStatus, string> = {
  */
 export const ACCEPTED_STATUSES = new Set<SelectionStatus>(['chosen', 'ordered', 'installed'])
 
+/**
+ * The status a selection SHOWS, which is not always the one stored.
+ *
+ * Reported as "lock down this dropdown": the status was a free select, so a
+ * row could read "Not started" with three options sitting under it and a
+ * portal link the client had already opened. Every stage but one is a fact
+ * something else writes - options put in front of the client, a choice
+ * recorded (by them on the portal or by you), an order placed - so the pill
+ * reads those facts instead of asking somebody to remember to change it.
+ * The one stage nothing can observe is Installed, and that is a row action.
+ *
+ * Only the two chasing stages are derived here: an accepted status is written
+ * by the code that accepts it and is taken as stored.
+ */
+export function selectionStage(
+  sel: { status: string; selection_options?: unknown[] | null },
+  sharedWithClient: boolean,
+): SelectionStatus {
+  if (!isOutstanding(sel.status)) return sel.status as SelectionStatus
+  if (sharedWithClient && (sel.selection_options?.length ?? 0) > 0) return 'waiting'
+  return sel.status as SelectionStatus
+}
+
 /** Everything before "chosen" is a decision you are still chasing. */
 export function isOutstanding(status: string): boolean {
   return status === 'pending' || status === 'waiting'

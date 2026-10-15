@@ -669,6 +669,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'change order', 'over allowance', 'upgrade', 'showroom', 'finishes', 'photo', 'sample',
       'order', 'supplier', 'budget line', 'brand', 'options', 'fan deck', 'delivery',
       'will not save', 'not saving', 'lost my typing', 'negative allowance', 'minus',
+      'status', 'not started', 'waiting on client', 'installed', 'mark installed', 'change status',
     ],
     summary: 'Every choice the client owes you, with an allowance and a date set by lead time - not by when the trade shows up.',
     blocks: [
@@ -684,7 +685,8 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
 
       { type: 'text', text: 'ALLOWANCES AND THE BUDGET. Link a selection to a line and the allowance fills in with whatever is left on that line, after the other selections already pointing at it, and tells you when you have gone over. Link one to a line with nothing budgeted and it offers to set the LINE to the allowance instead - usually the line is the thing nobody got round to filling in.' },
-      { type: 'warn', text: 'Chosen means a decision was made, so it needs one written down. Setting the status to Chosen, Ordered or Installed with "What they chose" empty opens the row and asks for it rather than saving - a status claiming a choice nobody can name is what the client\'s link then reads back to them. Typing the name moves it to Chosen on its own.' },
+      { type: 'text', text: 'THE STATUS MOVES ITSELF. It is not a dropdown, because a status somebody has to remember to change is one that says "Not started" with three options under it. Not started until there are options on a shared client link, then Waiting on client. Chosen once "What they chose" is filled in and the selection has a budget line. Ordered when you use "Order it". Installed is the one stage the app cannot see, so it is "Mark installed" in the row\'s ... menu (with "Not installed yet" to take it back). Clearing "What they chose" puts a Chosen selection back to Not started.' },
+      { type: 'warn', text: 'Chosen means a decision was made, so it needs one written down. A selection never reads Chosen, Ordered or Installed with "What they chose" empty - a status claiming a choice nobody can name is what the client\'s link then reads back to them. Typing the name moves it to Chosen on its own.' },
       { type: 'text', text: 'RECORDING THE CHOICE AND ACCEPTING IT ARE TWO THINGS. Click "Record a choice" under the options, type what they picked into "What they chose", and it saves straight away, budget line or not - knowing what somebody chose is worth having on its own. Moving the selection to Chosen is the part that needs a line, because that is the part that is money. When both are in place, typing the name moves it to Chosen for you.' },
       { type: 'warn', text: 'You cannot mark a selection chosen, ordered or installed until it has a budget line. An accepted selection is money, and money with nowhere to land is exactly what this board exists to prevent. (The client is never blocked by this on their own link - that would be holding up a homeowner over your bookkeeping.)' },
       { type: 'tip', text: 'When a pick lands over the allowance, the board shows the difference and offers to raise a change order for exactly that amount, against the same budget line. That is the whole reason allowances are tracked here rather than in someone\'s head - the difference is real money and it needs a paper trail, not a conversation.' },

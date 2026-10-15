@@ -8,7 +8,7 @@ import { ThemeToggle } from '@/components/ui/theme-toggle'
 import {
   CheckCircle2, AlertTriangle, Clock, ExternalLink, Loader2, ArrowLeft, Palette, Pencil, Truck,
 } from 'lucide-react'
-import { daysUntil, isOutstanding, STATUS_TINT, type SelectionStatus } from '@/lib/selections'
+import { daysUntil, isOutstanding, selectionStage, STATUS_TINT, type SelectionStatus } from '@/lib/selections'
 
 import { formatDate } from '@/lib/dates'
 const money = (n: number | null | undefined) =>
@@ -314,8 +314,8 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
 
                     <div className="flex items-center gap-2 shrink-0">
                       {/* The client should be able to see where each one is up to. */}
-                      <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_TINT[sel.status])}>
-                        {CLIENT_STATUS[sel.status] ?? sel.status}
+                      <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold', STATUS_TINT[selectionStage(sel, true)])}>
+                        {CLIENT_STATUS[selectionStage(sel, true)] ?? sel.status}
                       </span>
                       {canChange ? (
                         <button onClick={() => toggleReopen(sel.id)}
