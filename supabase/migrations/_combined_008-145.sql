@@ -4471,3 +4471,16 @@ ALTER TABLE mcp_actions ENABLE ROW LEVEL SECURITY;
 -- 144 selection reminders
 ALTER TABLE project_selections ADD COLUMN IF NOT EXISTS client_reminded_at timestamptz;
 ALTER TABLE project_selections ADD COLUMN IF NOT EXISTS client_reminded_to text;
+
+-- 145 weekly summary gate
+CREATE TABLE IF NOT EXISTS weekly_summary_sends (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id   uuid NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
+  week_ending  date NOT NULL,
+  recipients   integer,
+  emailed      integer,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  UNIQUE (company_id, week_ending)
+);
+
+ALTER TABLE weekly_summary_sends ENABLE ROW LEVEL SECURITY;

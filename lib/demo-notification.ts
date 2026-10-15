@@ -190,6 +190,12 @@ export function demoNotification(type: string, today: string): DemoNotification 
         message: `${SUB} marked Framing ready on ${PROJECT}. The inspector is booked for ${inBusiness(2)}.`,
         link: '/projects',
       }
+    case 'weekly_summary':
+      return {
+        title: `Weekly summary: ${inDays(-6)} - ${inDays(0)}`,
+        message: `4 jobs moved forward this week: 23 tasks done, 9 daily logs, 3 inspections passed. ${PROJECT} has 2 tasks overdue.`,
+        link: '/dashboard',
+      }
     case 'inspection_not_ready':
       return {
         title: 'Inspection not marked ready',

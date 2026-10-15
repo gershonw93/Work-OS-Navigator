@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-15',
+    title: 'A Friday summary of the week',
+    items: [
+      {
+        kind: 'new',
+        title: 'Weekly summary, every Friday',
+        text: 'Every Friday afternoon you get one letter covering all your running jobs: tasks done, daily logs, inspections passed and delays reported, which jobs moved forward, which need a look, and which had nothing recorded. Choose who gets it under Settings > Notifications > Who gets told.',
+        help: 'weekly-summary',
+      },
+    ],
+  },
+  {
+    date: '2026-10-15',
     title: 'Selections chase themselves',
     items: [
       {
