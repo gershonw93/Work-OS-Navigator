@@ -24,6 +24,7 @@
 // says so plainly instead of pretending mail went out.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { movedLine, type WeekSummary } from './weekly-summary'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import { dateWords, dayDelta } from '@/lib/dates'
 import { SUPPORT_EMAIL } from '@/lib/support-email'
@@ -220,6 +221,13 @@ export interface EmailLayout {
    * through data. The layout paints and escapes both halves itself.
    */
   attachments?: EmailAttachment[]
+  /**
+   * A row of numbers - "12 tasks done", "4 daily logs". TYPED like the blocks
+   * above: a value and a label, painted and escaped by the layout.
+   */
+  stats?: { value: string; label: string }[]
+  /** Titled lists of rows - "Moved forward", "Needs attention". Same rule. */
+  sections?: { title: string; rows: { label: string; detail: string }[] }[]
   cta?: { label: string; url: string }
   /** Small print under the card. */
   footNote?: string
@@ -298,6 +306,24 @@ ${d.because ? `<p style="margin:4px 0 0;font-size:12px;color:${BRAND.mutedFg}">$
     }</table>`
     : ''
 
+  const stats = (l.stats ?? []).length
+    ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px;border:1px solid ${BRAND.line};border-radius:10px"><tr>${
+      (l.stats ?? []).map(st => `<td align="center" style="padding:12px 4px;border-left:1px solid ${BRAND.line}">
+<p style="margin:0;font-size:22px;font-weight:800;color:${BRAND.ink}">${e(st.value)}</p>
+<p style="margin:2px 0 0;font-size:11px;color:${BRAND.mutedFg}">${e(st.label)}</p>
+</td>`).join('')
+    }</tr></table>`
+    : ''
+
+  const sections = (l.sections ?? []).filter(sec => sec.rows.length).map(sec =>
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:4px 0 18px">
+<tr><td style="padding:0 0 8px;font-size:12px;font-weight:700;letter-spacing:0.6px;text-transform:uppercase;color:${BRAND.mutedFg}">${e(sec.title)}</td></tr>${
+      sec.rows.map(r => `<tr><td style="padding:10px 0;border-top:1px solid ${BRAND.line}">
+<p style="margin:0 0 3px;font-size:14px;font-weight:700;color:${BRAND.ink}">${e(r.label)}</p>
+<p style="margin:0;font-size:14px;line-height:1.5;color:${BRAND.inkSoft}">${e(r.detail)}</p>
+</td></tr>`).join('')
+    }</table>`).join('')
+
   const cta = l.cta
     ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:22px 0 10px">
 <tr><td style="border-radius:10px;background:${BRAND.accent}">
@@ -329,7 +355,7 @@ ${d.because ? `<p style="margin:4px 0 0;font-size:12px;color:${BRAND.mutedFg}">$
 <p style="margin:0 0 8px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:${BRAND.accentFg}">${e(l.eyebrow)}</p>
 <h1 style="margin:0 0 ${l.subheading ? '6px' : '16px'};font-size:22px;line-height:1.3;font-weight:800;color:${BRAND.ink}">${e(l.heading)}</h1>
 ${l.subheading ? `<p style="margin:0 0 18px;font-size:14px;color:${BRAND.mutedFg}">${e(l.subheading)}</p>` : ''}
-${body}${dates}${attachments}${cta}
+${body}${stats}${sections}${dates}${attachments}${cta}
 </td></tr>
 
 ${l.footNote ? `<tr><td style="padding:16px 6px 0;font-family:${BRAND.font};font-size:12px;line-height:1.5;color:${BRAND.faint}">${e(l.footNote)}</td></tr>` : ''}
@@ -934,6 +960,74 @@ export function tokenLinkEmail({
   })
 
   return { subject: heading, text, html }
+}
+
+/**
+ * The Friday summary. Numbers first, then which jobs moved, then what slipped.
+ *
+ * Built from `WeekSummary` (lib/weekly-summary.ts) so the counting lives in one
+ * pure place and this only lays it out. NO MONEY in it - see that file.
+ */
+export function weeklySummaryEmail({
+  name, companyName, weekLabel, summary, url, settingsUrl,
+}: {
+  name: string | null | undefined
+  companyName: string | null | undefined
+  /** "Sat Oct 10 - Fri Oct 16", in words (lib/dates.ts). */
+  weekLabel: string
+  summary: WeekSummary
+  url: string
+  settingsUrl: string
+}) {
+  const t = summary.totals
+  const stats = [
+    { value: String(t.tasksDone), label: 'tasks done' },
+    { value: String(t.logs), label: 'daily logs' },
+    { value: String(t.inspectionsPassed), label: 'inspections passed' },
+    { value: String(t.delays), label: 'delays reported' },
+  ]
+  const moved = summary.moved.map(p => ({ label: p.name, detail: movedLine(p) }))
+  const attention = summary.attention.map(p => ({ label: p.name, detail: [...p.delays.map(d => `Delay: ${d}`), ...p.watch].join('. ') }))
+  const quiet = summary.quiet.length
+    ? [{ label: `${summary.quiet.length} job${summary.quiet.length === 1 ? '' : 's'}`, detail: summary.quiet.map(p => p.name).join(', ') }]
+    : []
+
+  const lead = summary.moved.length
+    ? `${summary.moved.length} job${summary.moved.length === 1 ? '' : 's'} moved forward this week${summary.attention.length ? `, and ${summary.attention.length} need${summary.attention.length === 1 ? 's' : ''} a look` : ''}.`
+    : 'Nothing was finished on any job this week.'
+  const extra = [t.rfisAnswered && `${t.rfisAnswered} RFI${t.rfisAnswered === 1 ? '' : 's'} answered`, t.selectionsDecided && `${t.selectionsDecided} selection${t.selectionsDecided === 1 ? '' : 's'} decided`].filter(Boolean).join(', ')
+
+  const text = [
+    `Hi ${firstName(name)},`,
+    '',
+    `Week of ${weekLabel}${companyName ? ` at ${companyName}` : ''}.`,
+    lead,
+    '',
+    stats.map(s => `${s.value} ${s.label}`).join(' | ') + (extra ? ` | ${extra}` : ''),
+    ...(moved.length ? ['', 'MOVED FORWARD', ...moved.map(r => `- ${r.label}: ${r.detail}`)] : []),
+    ...(attention.length ? ['', 'NEEDS ATTENTION', ...attention.map(r => `- ${r.label}: ${r.detail}`)] : []),
+    ...(quiet.length ? ['', 'NOTHING RECORDED', `- ${quiet[0].detail}`] : []),
+    '',
+    url,
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: lead,
+    eyebrow: 'Weekly summary',
+    heading: `Your week: ${weekLabel}`,
+    subheading: companyName?.trim() || undefined,
+    paragraphs: [`Hi ${firstName(name)},`, lead, ...(extra ? [`Also: ${extra}.`] : [])],
+    stats,
+    sections: [
+      { title: 'Moved forward', rows: moved },
+      { title: 'Needs attention', rows: attention },
+      { title: 'Nothing recorded this week', rows: quiet },
+    ],
+    cta: { label: 'Open SyteNav', url },
+    footNote: `Sent every Friday. Turn it off, or change who gets it, at ${settingsUrl}`,
+  })
+
+  return { subject: `Weekly summary: ${weekLabel}`, text, html }
 }
 
 /** Minimal escaping - these templates interpolate names and URLs, nothing more. */

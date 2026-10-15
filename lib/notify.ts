@@ -51,6 +51,13 @@ export interface NotifyInput {
    * hopes it did will silence a notification nobody ever received.
    */
   inAppOnly?: boolean
+  /**
+   * The letter itself, when a one-line notification is not the message - the
+   * Friday summary is a page of numbers, not a sentence. Built per recipient
+   * (it greets them), and sent ONLY to people whose email switch for this type
+   * is on: a custom body must not become a way round the preference.
+   */
+  email?: (person: { full_name: string | null; email: string }) => { subject: string; text: string; html: string }
 }
 
 export interface NotifyResult {
@@ -123,7 +130,7 @@ export async function notify(input: NotifyInput): Promise<NotifyResult> {
     const url = input.link ? `${appOrigin()}${input.link}` : null
 
     const results = await Promise.all(emailUsers.map(async (p: any) => {
-      const { subject, text, html } = notificationEmail({
+      const { subject, text, html } = input.email ? input.email(p) : notificationEmail({
         name: p.full_name,
         eyebrow: t?.group ?? 'SyteNav',
         heading: input.title || t?.label || 'Update',

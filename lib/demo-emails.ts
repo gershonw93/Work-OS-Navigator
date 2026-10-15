@@ -5,8 +5,9 @@ import {
   inviteEmail, platformInviteEmail, teamInviteEmail, vendorInviteEmail, subWelcomeEmail,
   passwordResetEmail, welcomeEmail, clientPortalEmail, tokenLinkEmail,
   awardEmail, scheduleShiftEmail, scheduleUnblockedEmail, scopeChangeEmail,
-  deletionRequestEmail,
+  deletionRequestEmail, weeklySummaryEmail,
 } from './email'
+import { summarizeWeek, weekEnding } from './weekly-summary'
 import { deletionPromise } from './account-deletion'
 import { SUPPORT_EMAIL } from './support-email'
 
@@ -122,6 +123,36 @@ export const DEMO_EMAILS: DemoEmail[] = [
     label: 'Account deletion request',
     when: 'Somebody presses Delete my account (Settings > Profile, or Me in Field Mode).',
     build: () => deletionRequestEmail({ name: PERSON, promise: deletionPromise('self'), supportEmail: SUPPORT_EMAIL }),
+  },
+  {
+    key: 'weekly-summary',
+    label: 'Weekly summary',
+    when: 'Every Friday afternoon, to whoever the company routes it to (Settings > Notifications). It IS a notification type - this entry previews its letter, which is a page of numbers rather than one line.',
+    build: today => {
+      const week = weekEnding(today)
+      const at = (n: number) => addDaysIso(today, -n)
+      const p1 = { id: 'p1', name: PROJECT }, p2 = { id: 'p2', name: 'Lot 14 Oakridge' }, p3 = { id: 'p3', name: 'Harbor St Fit-out' }
+      const summary = summarizeWeek({
+        week,
+        projects: [p1, p2, p3],
+        tasks: [
+          ...Array.from({ length: 6 }, () => ({ project_id: 'p1', status: 'completed', completed_at: `${at(2)}T15:00:00Z`, due_date: null })),
+          { project_id: 'p2', status: 'completed', completed_at: `${at(1)}T15:00:00Z`, due_date: null },
+          { project_id: 'p2', status: 'open', completed_at: null, due_date: at(4) },
+        ],
+        dailyLogs: [at(0), at(1), at(2), at(3)].map(d => ({ project_id: 'p1', log_date: d })),
+        inspections: [{ project_id: 'p1', status: 'passed', completed_date: at(3) }],
+        rfis: [{ project_id: 'p2', responded_at: `${at(2)}T12:00:00Z` }],
+        selections: [{ project_id: 'p1', status: 'chosen', selected_at: `${at(1)}T12:00:00Z`, needed_by: null }],
+        delayReports: [{ project_id: 'p2', days: 3, reason: 'Rain on the slab pour', created_at: `${at(2)}T09:00:00Z`, reported_by_name: SUB }],
+        scheduleLines: [],
+      })
+      return weeklySummaryEmail({
+        name: PERSON, companyName: GC,
+        weekLabel: `${say(week.start)} - ${say(week.end)}`,
+        summary, url: `${APP}/dashboard`, settingsUrl: `${APP}/settings?tab=notifications`,
+      })
+    },
   },
   {
     key: 'client-portal',

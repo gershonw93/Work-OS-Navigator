@@ -271,6 +271,22 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     platform: true,
   },
 
+  {
+    // THE FRIDAY SUMMARY. What was finished, which jobs moved, what slipped -
+    // in numbers, across every active job the company runs. A catalog type so
+    // it can be switched off per person and its audience set in Who gets told.
+    //
+    // DEFAULT AUDIENCE IS `projects: edit` - the people who run jobs (admin,
+    // manager, project manager). Not `projects: view`: that is every worker,
+    // and a company-wide digest would hand them every job's name and state.
+    // EMAIL ON, because a digest nobody reads in an inbox is a bell entry once
+    // a week; PUSH OFF, because Friday afternoon is not an interruption.
+    key: 'weekly_summary', label: 'Weekly summary', group: 'Work',
+    description: 'Every Friday: tasks done, daily logs, inspections, which jobs moved forward and what is behind or delayed.',
+    audience: 'team', defaultAudience: ['projects', 'edit'],
+    defaults: { inApp: true, email: true }, status: 'live',
+  },
+
   // ── Bids ──────────────────────────────────────────────────────────────────
   {
     // TO THE GC. Was sharing the `new_bid` string with the invitation below,
