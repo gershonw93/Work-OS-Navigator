@@ -3,7 +3,7 @@
 // was deploying. One read that did not come back blanked a conversation.
 
 import { readThread, retryable } from '../thread-read'
-import { ok, done, code } from './_helpers'
+import { ok, done, code, walk } from './_helpers'
 
 const res = (status: number, body: unknown) => ({ ok: status < 400, status, json: async () => body }) as unknown as Response
 const noWait = async () => {}
@@ -33,6 +33,19 @@ async function main() {
     ok(/readThread</.test(src) && /console\.error\(/.test(src), `${f} reads through the retry and logs a failure`)
     ok(/if \(d\.message\) setMessages/.test(src), `${f} shows a message it just saved even if the re-read fails`)
   }
+  // THE ACTUAL BUG: under /projects/[id]/ a `?id=` query param never reaches
+  // the handler on Vercel (it collides with the path segment), so every GC read
+  // answered "Which item?" while the client's route, with no [id], worked.
+  const gcRoute = code('app/api/projects/[id]/client-messages/route.ts')
+  ok(/searchParams\.get\('item'\)/.test(gcRoute) && !/searchParams\.get\('id'\)/.test(gcRoute),
+    'the GC thread route reads the record from `item`, never from an `id` that collides with [id]')
+  ok(/&item=\$\{subjectId\}/.test(code('components/client-thread/client-thread-panel.tsx')), '...and the panel sends `item`')
+  for (const f of walkRoutes()) {
+    ok(!/searchParams\.get\('id'\)/.test(code(f)), `${f} does not read a query param named after its own [id] segment`)
+  }
   done()
+}
+function walkRoutes(): string[] {
+  return walk('app/api').filter(f => /\[id\]/.test(f) && /route\.ts$/.test(f))
 }
 main()
