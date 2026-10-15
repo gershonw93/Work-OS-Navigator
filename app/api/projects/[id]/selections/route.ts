@@ -4,6 +4,7 @@ import { friendlyDbError } from '@/lib/db-error'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { actorCan } from '@/lib/server-permissions'
 import { createSelection } from '@/lib/writes/selection'
+import { withLineFinished } from '@/lib/selection-installed-db'
 
 export const runtime = 'nodejs'
 
@@ -52,13 +53,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   // Budget lines to hang an allowance off, and the portal link so the board can
   // offer "send this to the client" without a second place to look it up.
-  const [{ data: lines }, { data: project }] = await Promise.all([
+  const [{ data: lines }, { data: project }, selections] = await Promise.all([
     db.from('budget_line_items').select('id, category, description, budgeted_amount').eq('project_id', params.id).order('sort_order'),
     db.from('projects').select('client_portal_token, client, start_date, type').eq('id', params.id).single(),
+    withLineFinished(db, params.id, data ?? []),
   ])
 
   return NextResponse.json({
-    selections: data ?? [],
+    selections,
     budget_lines: lines ?? [],
     // The portal link is its own permission (`client-portal: view` - seeing it
     // IS the power to hand it out). Withheld here rather than merely not shown.

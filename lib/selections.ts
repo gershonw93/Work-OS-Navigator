@@ -48,15 +48,20 @@ export const ACCEPTED_STATUSES = new Set<SelectionStatus>(['chosen', 'ordered', 
  * something else writes - options put in front of the client, a choice
  * recorded (by them on the portal or by you), an order placed - so the pill
  * reads those facts instead of asking somebody to remember to change it.
- * The one stage nothing can observe is Installed, and that is a row action.
+ * Installed follows the schedule line the work is on reaching 100%; where no
+ * schedule line leads from the selection, "Mark installed" is the fallback.
  *
  * Only the two chasing stages are derived here: an accepted status is written
  * by the code that accepts it and is taken as stored.
  */
 export function selectionStage(
-  sel: { status: string; selection_options?: unknown[] | null },
+  sel: { status: string; selection_options?: unknown[] | null; line_finished?: boolean },
   sharedWithClient: boolean,
 ): SelectionStatus {
+  // Installed follows the schedule: chosen or ordered, and the line the work is
+  // on reads 100% (`lib/selection-installed.ts`). Never from a chasing stage -
+  // a finished line with nothing chosen is a missing decision, not an install.
+  if ((sel.status === 'chosen' || sel.status === 'ordered') && sel.line_finished) return 'installed'
   if (!isOutstanding(sel.status)) return sel.status as SelectionStatus
   if (sharedWithClient && (sel.selection_options?.length ?? 0) > 0) return 'waiting'
   return sel.status as SelectionStatus

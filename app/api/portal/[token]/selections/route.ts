@@ -1,5 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { withLineFinished } from '@/lib/selection-installed-db'
+import { selectionStage } from '@/lib/selections'
 
 export const runtime = 'nodejs'
 
@@ -27,14 +29,17 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     .select(`id, category, item, location, allowance_amount, needed_by, status,
       selected_option_id, selected_name, selected_price, selected_at, notes, sort_order,
       ordered_at, expected_delivery, change_requested_at, change_request_note,
-      reference_url, reference_label,
+      reference_url, reference_label, budget_line_item_id,
       selection_options (id, name, description, price, brand, model_number, color_hex, image_url, link_url, is_allowance, sort_order)`)
     .eq('project_id', project.id)
     .order('sort_order', { ascending: true })
 
   return NextResponse.json({
     project: { name: project.name, address: project.address, client_name: project.client },
-    selections: selections ?? [],
+    // budget_line_item_id is read to find the schedule line and not handed on:
+    // the client has no use for our budget's ids.
+    selections: (await withLineFinished(db, project.id, selections ?? []))
+      .map(({ budget_line_item_id: _b, ...s }) => s),
   })
 }
 
@@ -50,9 +55,13 @@ export async function POST(request: Request, { params }: { params: { token: stri
   const selectionId = String(body.selection_id ?? '')
   if (!selectionId) return NextResponse.json({ error: 'Which selection?' }, { status: 400 })
 
-  const { data: sel } = await db.from('project_selections')
-    .select('id, status, project_id').eq('id', selectionId).eq('project_id', project.id).single()
-  if (!sel) return NextResponse.json({ error: 'Selection not found' }, { status: 404 })
+  const { data: row } = await db.from('project_selections')
+    .select('id, status, project_id, budget_line_item_id').eq('id', selectionId).eq('project_id', project.id).single()
+  if (!row) return NextResponse.json({ error: 'Selection not found' }, { status: 404 })
+  // The stage the client was SHOWN, not only the stored one: a Chosen row whose
+  // schedule line reads 100% is installed, and a pick on it is a change request.
+  const [checked] = await withLineFinished(db, project.id, [row])
+  const sel = { ...row, status: selectionStage(checked, true) }
 
   // Already ordered. Not a silent edit - it's a request somebody has to answer,
   // and pretending otherwise would have the client believe a change happened
