@@ -61,7 +61,7 @@ interface Selection {
   change_requested_at: string | null; change_request_note: string | null
   selection_options: Option[]
   /** The client thread's SHAPE (who spoke last) - the open row reads the words. */
-  selection_messages?: { side: string; created_at: string }[]
+  client_messages?: { side: string; created_at: string }[]
 }
 
 export default function SelectionsPage({ params }: { params: { id: string } }) {
@@ -1134,7 +1134,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                   {nOpts ? `${nOpts} option${nOpts === 1 ? '' : 's'} for the client` : 'No options yet'}
                                   {sel.change_requested_at && <span className="text-warn"> · change requested</span>}
                                   {sel.client_reminded_at && isOutstanding(sel.status) && <span> · reminded {formatDateShort(sel.client_reminded_at)}</span>}
-                                  {selectionThreadSummary(sel.selection_messages).waitingOnGc && <span className="font-semibold text-warn"> · client asked a question</span>}
+                                  {selectionThreadSummary(sel.client_messages).waitingOnGc && <span className="font-semibold text-warn"> · client asked a question</span>}
                                 </span>
                               </span>
                             </button>
