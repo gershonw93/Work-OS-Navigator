@@ -6,9 +6,11 @@ import { cn } from '@/lib/utils'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import {
-  CheckCircle2, AlertTriangle, Clock, ExternalLink, Loader2, ArrowLeft, Palette, Pencil, Truck,
+  CheckCircle2, AlertTriangle, Clock, ExternalLink, Loader2, ArrowLeft, Palette, Pencil, Truck, MessageSquare,
 } from 'lucide-react'
 import { daysUntil, isOutstanding, selectionStage, STATUS_TINT, type SelectionStatus } from '@/lib/selections'
+import { selectionThreadSummary, type SelectionMessage } from '@/lib/selection-thread'
+import { BidThread } from '@/components/quotes/bid-thread'
 
 import { formatDate } from '@/lib/dates'
 const money = (n: number | null | undefined) =>
@@ -39,6 +41,8 @@ interface Selection {
   reference_url: string | null; reference_label: string | null
   change_requested_at: string | null
   selection_options: Option[]
+  /** The questions on this selection, both sides, oldest first not guaranteed. */
+  selection_messages?: SelectionMessage[]
 }
 
 export default function PortalSelectionsPage({ params }: { params: { token: string } }) {
@@ -88,28 +92,11 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
 
   const toggleReopen = (id: string) => setReopened(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n })
 
-  const Shell = ({ children }: { children: React.ReactNode }) => (
-    <div className="min-h-screen bg-surface">
-      <div className="bg-panel border-b border-line px-4 sm:px-8 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
-          <SyteNavLogo size={26} />
-          <div className="flex items-center gap-3">
-            <Link href={`/portal/${params.token}`} className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">
-              <ArrowLeft className="h-3.5 w-3.5" /> Project
-            </Link>
-            <ThemeToggle />
-          </div>
-        </div>
-      </div>
-      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8 space-y-5">{children}</div>
-    </div>
-  )
-
-  if (loading) return <Shell><p className="text-center text-muted-fg py-16">Loading…</p></Shell>
-  if (error && !project) return <Shell><div className="bg-panel rounded-xl border border-line p-8 text-center text-ink"><AlertTriangle className="h-8 w-8 text-warn mx-auto mb-3" />{error}</div></Shell>
+  if (loading) return <Shell token={params.token}><p className="text-center text-muted-fg py-16">Loading…</p></Shell>
+  if (error && !project) return <Shell token={params.token}><div className="bg-panel rounded-xl border border-line p-8 text-center text-ink"><AlertTriangle className="h-8 w-8 text-warn mx-auto mb-3" />{error}</div></Shell>
 
   return (
-    <Shell>
+    <Shell token={params.token}>
       <div>
         <h1 className="text-2xl font-bold text-ink">Your selections</h1>
         <p className="text-sm text-muted-fg mt-1">{project?.name}{project?.address ? ` · ${project.address}` : ''}</p>
@@ -267,6 +254,7 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
                       </button>
                     </div>
                   </div>
+                  <SelectionQuestions token={params.token} sel={sel} name={name} onPosted={load} />
                 </div>
               </div>
             )
@@ -369,3 +357,88 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
     </Shell>
   )
 }
+
+/**
+ * The page frame. AT MODULE LEVEL, not inside the page: declared inside, it was
+ * a new component type on every render, so React rebuilt the whole page on
+ * every keystroke - the "Or something else" box lost focus after one letter,
+ * and a half-typed question would have gone with it.
+ */
+function Shell({ token, children }: { token: string; children: React.ReactNode }) {
+  return (
+    <div className="min-h-screen bg-surface">
+      <div className="bg-panel border-b border-line px-4 sm:px-8 py-4">
+        <div className="max-w-3xl mx-auto flex items-center justify-between gap-4">
+          <SyteNavLogo size={26} />
+          <div className="flex items-center gap-3">
+            <Link href={`/portal/${token}`} className="inline-flex items-center gap-1 text-xs text-muted-fg hover:text-ink">
+              <ArrowLeft className="h-3.5 w-3.5" /> Project
+            </Link>
+            <ThemeToggle />
+          </div>
+        </div>
+      </div>
+      <div className="max-w-3xl mx-auto px-4 sm:px-8 py-8 space-y-5">{children}</div>
+    </div>
+  )
+}
+
+/**
+ * "Ask a question" on one selection - the client's half of the thread the GC
+ * answers from the Selections board. No account: the link is who they are, and
+ * the answer comes back by email as well as here.
+ */
+function SelectionQuestions({ token, sel, name, onPosted }: {
+  token: string
+  sel: Selection
+  name: string
+  onPosted: () => Promise<void> | void
+}) {
+  const messages = [...(sel.selection_messages ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  const { count, waitingOnClient } = selectionThreadSummary(messages)
+  // Open by default once there is a conversation - the answer is the thing they came back for.
+  const [open, setOpen] = useState(count > 0)
+
+  async function send(body: string): Promise<string | null> {
+    try {
+      const res = await fetch(`/api/portal/${token}/selections/${sel.id}/messages`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ body, name }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) return d.error ?? 'Could not send that. Try again.'
+      await onPosted()
+      return null
+    } catch {
+      return 'We could not tell whether that went - reload the page before sending it again.'
+    }
+  }
+
+  return (
+    <div className="border-t border-line-soft pt-3">
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)}
+          className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-fg hover:underline">
+          <MessageSquare className="h-4 w-4" /> Ask us a question about this
+        </button>
+      ) : (
+        <div className="space-y-2">
+          <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-faint font-semibold">
+            <MessageSquare className="h-3.5 w-3.5" /> Questions
+            {waitingOnClient && <span className="normal-case tracking-normal rounded-full bg-accent-tint px-2 py-0.5 text-[11px] text-accent-fg">We replied</span>}
+          </p>
+          <BidThread
+            messages={messages}
+            state="ready"
+            mine="client"
+            otherName="us"
+            emptyText="Not sure about something? Ask here - we get it straight away and answer here and by email."
+            onSend={send}
+            onRefresh={async () => { await onPosted() }}
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+

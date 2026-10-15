@@ -671,6 +671,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       'will not save', 'not saving', 'lost my typing', 'negative allowance', 'minus',
       'status', 'not started', 'waiting on client', 'installed', 'mark installed', 'change status',
       'remind', 'reminder', 'nudge', 'chase', 'email the client', 'waiting on them', 'follow up',
+      'question', 'questions', 'client question', 'message', 'messages', 'ask', 'conversation', 'thread', 'reply',
     ],
     summary: 'Every choice the client owes you, with an allowance and a date set by lead time - not by when the trade shows up.',
     blocks: [
@@ -698,6 +699,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'Brand and supplier are different things and are kept apart. The BRAND is the client\'s business - a Kohler faucet is not a Glacier Bay one, and that is the whole reason there is a choice - so it shows on their link. The SUPPLIER is yours, comes from your Directory, and never appears on the client\'s side.' },
 
       { type: 'text', text: 'CHASING A DECISION. Anything still waiting on the client has "Remind client" - in the row when you open it, and in the ... menu. It emails them what you need, how many options there are and the decide-by date, with a button straight to their selections page, and lets you add a line of your own. The row then says when you last reminded them, so nobody sends a third one the same afternoon. The job has to be shared first ("Copy client link" creates the link), because the reminder sends them to it.' },
+      { type: 'text', text: 'QUESTIONS FROM THE CLIENT. Every selection on the client\'s link has "Ask us a question about this". They need no account - they type the question on their link and it reaches whoever your company routes "Client asked about a selection" to (bell and email). On your board the row says "client asked a question" until somebody answers, and opening the selection shows the whole conversation under "Questions from" the client. Your reply is saved on the selection and emailed to the address on their customer record, with a button back to their selections page; if there is no address on file, or the job has not been shared yet, the board says so - the reply still waits for them on their link.' },
       { type: 'text', text: 'WHAT THE CLIENT SEES. Only what is still waiting on them, most urgent first, with the extra cost shown against your allowance before they commit. They pick an option or write in what they chose, and it lands on your board stamped with who decided and when. Everything already decided shows its status in their words: waiting on you, you chose this, ordered, installed.' },
       { type: 'tip', text: 'They can change anything that has not been ordered - it tells them you will be in touch if the change cannot be made. Once you mark something Ordered they can no longer change it outright; instead they send a REQUEST, which shows on your board as "Client asked to change this" for you to answer. At that point it is a change order, not a choice, and the app says so rather than pretending the change happened.' },
 

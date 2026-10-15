@@ -5,29 +5,47 @@
 // side has its own route and its own idea of who is allowed, so the caller
 // loads and sends and this only shows.
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { Loader2, RefreshCw, Send } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { messageProblem, MESSAGE_MAX, type BidMessage } from '@/lib/bid-thread'
+import { messageProblem, MESSAGE_MAX } from '@/lib/bid-thread'
 import { absoluteTime, timeAgo } from '@/lib/time-ago'
 
 export type ThreadState = 'loading' | 'ready' | 'failed'
 
+/**
+ * One message, whichever conversation it is in. The quote thread's sides are
+ * `gc` and `sub`; a client's selection thread is `gc` and `client` - the view
+ * only needs to know which side is the reader's own.
+ */
+export interface ThreadMessage {
+  id: string
+  side: string
+  author_name: string | null
+  body: string
+  created_at: string
+}
+
 export function BidThread({
-  messages, state, mine, otherName, onSend, onRefresh,
+  messages, state, mine, otherName, onSend, onRefresh, emptyText,
 }: {
-  messages: BidMessage[]
+  messages: ThreadMessage[]
   /** "No messages yet" is only ever said over a read that worked. */
   state: ThreadState
   /** Which side the person looking at it is on - theirs go on the right. */
-  mine: 'gc' | 'sub'
+  mine: string
   /** Who is at the other end, for the empty state and the placeholder. */
   otherName: string
   /** Resolves to an error sentence, or null when it went. */
   onSend: (body: string) => Promise<string | null>
   /** Re-read the thread - a reply arrives from somebody else's screen. */
   onRefresh?: () => Promise<void>
+  /** What an empty thread says. Defaults to the quote wording. */
+  emptyText?: string
 }) {
+  // A page can hold several threads (one per selection on the client's link),
+  // so the textarea's id cannot be a constant.
+  const draftId = useId()
   const [checking, setChecking] = useState(false)
   const [draft, setDraft] = useState('')
   const [sending, setSending] = useState(false)
@@ -55,7 +73,7 @@ export function BidThread({
         {state === 'loading' && <p className="py-3 text-sm text-muted-fg">Loading messages…</p>}
         {state === 'failed' && <p className="py-3 text-sm text-danger">Could not load the messages. Reload to try again.</p>}
         {state === 'ready' && messages.length === 0 && (
-          <p className="py-3 text-sm text-muted-fg">No messages yet. Ask {otherName} anything about this request.</p>
+          <p className="py-3 text-sm text-muted-fg">{emptyText ?? `No messages yet. Ask ${otherName} anything about this request.`}</p>
         )}
         {state === 'ready' && messages.map(m => {
           const own = m.side === mine
@@ -77,9 +95,9 @@ export function BidThread({
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="bid-thread-draft" className="sr-only">Message</label>
+        <label htmlFor={draftId} className="sr-only">Message</label>
         <textarea
-          id="bid-thread-draft"
+          id={draftId}
           rows={3}
           maxLength={MESSAGE_MAX}
           value={draft}

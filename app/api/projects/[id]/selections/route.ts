@@ -38,7 +38,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data, error } = await db
     .from('project_selections')
-    .select('*, selection_options(*)')
+    .select('*, selection_options(*), selection_messages(side, created_at)')
     .eq('project_id', params.id)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true })

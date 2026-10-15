@@ -24,15 +24,22 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   const project = await projectFor(db, params.token)
   if (!project) return NextResponse.json({ error: 'This link is no longer valid.' }, { status: 404 })
 
-  const { data: selections } = await db
+  const { data: selections, error: selErr } = await db
     .from('project_selections')
     .select(`id, category, item, location, allowance_amount, needed_by, status,
       selected_option_id, selected_name, selected_price, selected_at, notes, sort_order,
       ordered_at, expected_delivery, change_requested_at, change_request_note,
       reference_url, reference_label, budget_line_item_id,
-      selection_options (id, name, description, price, brand, model_number, color_hex, image_url, link_url, is_allowance, sort_order)`)
+      selection_options (id, name, description, price, brand, model_number, color_hex, image_url, link_url, is_allowance, sort_order),
+      selection_messages (id, side, author_name, body, created_at)`)
     .eq('project_id', project.id)
     .order('sort_order', { ascending: true })
+  // A refused read is not an empty board: "You're all caught up" over a query
+  // PostgREST rejected tells a homeowner they owe nothing when they do.
+  if (selErr) {
+    console.error('[portal selections] read failed', selErr)
+    return NextResponse.json({ error: 'Could not load your selections. Reload to try again.' }, { status: 500 })
+  }
 
   return NextResponse.json({
     project: { name: project.name, address: project.address, client_name: project.client },
