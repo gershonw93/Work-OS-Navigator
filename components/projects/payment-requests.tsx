@@ -6,7 +6,9 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { SendLinkBox } from '@/components/ui/send-link-box'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
-import { Plus, Check, Mail, AlertCircle, Loader2, X, Undo2 } from 'lucide-react'
+import { Plus, Check, Mail, AlertCircle, Loader2, X, Undo2, MessageSquare } from 'lucide-react'
+import { ClientThreadDialog } from '@/components/client-thread/client-thread-dialog'
+import { threadShape } from '@/lib/client-thread'
 import { cn } from '@/lib/utils'
 import { blockedReason, isRequestable, percentOfTotal, type ResolvedStage } from '@/lib/payment-stages'
 import { money as checkMoney, percent as checkPercent } from '@/lib/validate'
@@ -22,6 +24,8 @@ interface Req {
   status: 'pending' | 'paid' | 'cancelled'
   sent_at: string | null
   sent_to: string | null
+  /** The client's thread on this request, shape only - who spoke last. */
+  client_messages?: { side: string; created_at: string }[]
 }
 
 const money = (n: number) => `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
@@ -71,6 +75,9 @@ export function PaymentRequests({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<string | null>(null)
+  // The request whose client thread is open, over the screen.
+  const [threadFor, setThreadFor] = useState<Req | null>(null)
+  const [clientName, setClientName] = useState<string | null>(null)
   // A one-off ask, as dollars or as a percentage of the estimate. Both exist
   // because both are how people actually quote: "$5,000 to start" and "30% up
   // front" are the same sentence in two trades.
@@ -110,6 +117,7 @@ export function PaymentRequests({
       setRequests(d.requests ?? [])
       setQuoteTotal(d.quoteTotal ?? null)
       setPortalToken(d.portalToken ?? null)
+      setClientName(d.clientName ?? null)
     }
     setLoading(false)
   }, [projectId, token])
@@ -261,8 +269,16 @@ export function PaymentRequests({
                       ? `Sent to ${r.sent_to ?? 'the client'} on ${formatDate(r.sent_at)}`
                       : 'Not sent to the client yet'}
                   </p>
+                  {threadShape(r.client_messages).waitingOnGc && (
+                    <p className="text-xs font-semibold text-warn">Client asked a question about this</p>
+                  )}
                 </div>
                 <span className="text-sm font-bold text-ink">{money(r.amount)}</span>
+                {r.sent_at && (
+                  <Button size="sm" variant="secondary" className="h-8" onClick={() => setThreadFor(r)}>
+                    <MessageSquare className="h-3.5 w-3.5" /> Questions{threadShape(r.client_messages).count ? ` (${threadShape(r.client_messages).count})` : ''}
+                  </Button>
+                )}
                 <Button size="sm" variant="secondary" className="h-8"
                   onClick={() => setSendingId(sendingId === r.id ? null : r.id)}>
                   <Mail className="h-3.5 w-3.5" /> {r.sent_at ? 'Send again' : 'Send'}
@@ -410,6 +426,11 @@ export function PaymentRequests({
           className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline">
           <Plus className="h-3.5 w-3.5" /> Request a one-off amount
         </button>
+      )}
+      {threadFor && (
+        <ClientThreadDialog projectId={projectId} subject="payment_request" subjectId={threadFor.id} clientName={clientName}
+          heading={`${threadFor.label} (${money(threadFor.amount)}) - questions from the client`}
+          onClose={() => setThreadFor(null)} onChanged={load} />
       )}
     </div>
   )

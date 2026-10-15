@@ -1570,6 +1570,24 @@ export const HELP_ARTICLES: HelpArticle[] = [
     related: ['notification-preferences', 'custom-roles', 'invite-team-member', 'inspections'],
   },
   {
+    slug: 'client-questions',
+    title: 'Questions from your client',
+    category: 'money',
+    keywords: ['client question', 'questions', 'message', 'messages', 'ask', 'reply', 'conversation', 'thread', 'client portal', 'client link', 'homeowner', 'invoice question', 'payment question', 'what is this charge', 'selection question', 'chat', 'contact'],
+    summary: 'Your client can ask about any selection, invoice or payment request - or the job in general - from their link, and you answer from the app.',
+    blocks: [
+      { type: 'text', text: 'Everything on the client\'s link can be asked about: each selection ("Ask us a question about this"), each invoice and payment request, and the job itself ("Questions about the job?" at the bottom). They need no account - the link is who they are - and they can only ask about what their link already shows them, so a draft invoice or a request you have not sent is invisible to questions too.' },
+      { type: 'steps', items: [
+        'A question arrives in the bell and by email for whoever your company routes it to: selection questions to the people who handle selections, invoice and payment questions to Billing the client, general ones to whoever handles the client link. Change it under Settings > Notifications > Who gets told.',
+        'The row says the client is waiting - "client asked a question" on a selection, "Client asked a question - reply" on an invoice, a line on a payment request - and the job\'s Overview counts every question still waiting on a reply, so nothing sits on a tab nobody opened.',
+        'Answer where the question is: open the selection, use "Client questions" in an invoice\'s ... menu, "Questions" on a payment request, or the thread on the Overview for general questions.',
+        'Your reply is saved there and emailed to the address on the client\'s customer record, with a button back to their link. If there is no address, or the job has not been shared yet, the app says so - the reply still waits on their link.',
+      ] },
+      { type: 'tip', text: 'You can start a conversation too - type into any thread and the client gets it by email. A link that gets forwarded cannot be used to flood you: the client side is capped at 30 messages an hour per job.' },
+    ],
+    related: ['selections', 'who-gets-notified', 'notification-preferences'],
+  },
+  {
     slug: 'weekly-summary',
     title: 'The Friday weekly summary',
     category: 'settings',

@@ -1,3 +1,4 @@
+import { SUBJECTS, threadsWaitingOnGc, type ClientSubject } from '@/lib/client-thread'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { LOT_COLUMNS, lotFacts } from '@/lib/lot-details'
@@ -27,6 +28,11 @@ const RFI_OPEN = 'open'
 // cannot drift apart again; they already had.
 const INSPECTION_TO_BOOK = TO_BOOK
 const SELECTION_OPEN = new Set(['pending', 'waiting'])
+
+/** Where a waiting client question is, in words, for the Overview's line. */
+const CLIENT_TOPIC: Record<ClientSubject, string> = {
+  selection: 'selections', invoice: 'invoices', payment_request: 'payment requests', project: 'the job',
+}
 
 const days = (d: string | null | undefined): number | null => {
   if (!d) return null
@@ -89,6 +95,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     { data: tasks },
     { data: subcontracts },
     { data: budgetLines },
+    { data: clientMessages },
   ] = await Promise.all([
     db.from('invoices').select('id, amount, status, company_name, created_at, client_paid, escrow_paid').eq('project_id', params.id),
     db.from('rfis').select('id, subject, status, created_at, company_name').eq('project_id', params.id),
@@ -105,6 +112,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // For Committed. Fetched alongside everything else rather than after it -
     // this route runs before the Summary can draw.
     db.from('budget_line_items').select('subcontract_id, committed_amount').eq('project_id', params.id),
+    // Every client thread on the job, shape only - which ones the client spoke
+    // last on. A question on an invoice must not be findable only by somebody
+    // who happens to open Billing.
+    db.from('client_messages').select('side, created_at, selection_id, client_invoice_id, payment_request_id').eq('project_id', params.id),
   ])
 
   const inv = invoices ?? []
@@ -143,6 +154,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const signoffs = (tasks ?? []).filter((t: any) => t.signoff_requested_at && !t.signoff_signed_at)
   const unsentRequests = (paymentRequests ?? []).filter((r: any) => !r.sent_at)
 
+  const clientWaiting = threadsWaitingOnGc((clientMessages ?? []) as any[])
   const waitingOnYou = [
     awaitingApproval.length && {
       key: 'invoices', count: awaitingApproval.length, href: 'invoices',
@@ -163,6 +175,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
       key: 'signoffs', count: signoffs.length, href: 'tasks',
       label: `${signoffs.length} sign-off${signoffs.length === 1 ? '' : 's'} requested`,
       detail: signoffs.slice(0, 2).map((t: any) => t.title).join('; '),
+    },
+    clientWaiting.length && {
+      key: 'client-questions', count: clientWaiting.length,
+      // Straight to where the answer is written when every question is in one
+      // place; the Overview's own thread otherwise.
+      href: new Set(clientWaiting.map(t => SUBJECTS[t.subject].tab)).size === 1 ? SUBJECTS[clientWaiting[0].subject].tab : 'overview',
+      label: `${clientWaiting.length} client question${clientWaiting.length === 1 ? '' : 's'} waiting on a reply`,
+      detail: Array.from(new Set(clientWaiting.map(t => CLIENT_TOPIC[t.subject]))).join(', '),
     },
     unsentRequests.length && {
       key: 'unsent', count: unsentRequests.length, href: 'payments',

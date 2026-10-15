@@ -298,6 +298,25 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
 
+  {
+    // TO THE GC. The client asked about an invoice or a payment request on
+    // their portal link. `payments: edit` - Billing the client's own people,
+    // and nobody denied it: a billing question carries amounts.
+    key: 'client_billing_question', label: 'Client asked about a bill', group: 'Money',
+    description: 'Your client asks about an invoice or a payment request from their portal link.',
+    audience: 'team', defaultAudience: ['payments', 'edit'],
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
+    // TO THE GC. A question about the job itself, from the bottom of the
+    // client's link. `client-portal: edit` - the people who hand that link out
+    // and talk to the client.
+    key: 'client_question', label: 'Client sent a question', group: 'Work',
+    description: 'Your client asks a general question about the job from their portal link.',
+    audience: 'team', defaultAudience: ['client-portal', 'edit'],
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+
   // ── Bids ──────────────────────────────────────────────────────────────────
   {
     // TO THE GC. Was sharing the `new_bid` string with the invitation below,

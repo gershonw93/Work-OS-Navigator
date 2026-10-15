@@ -196,6 +196,18 @@ export function demoNotification(type: string, today: string): DemoNotification 
         message: `${PROJECT}: "Does the white subway tile come in a matte finish? We need to decide by ${inDays(5)}."`,
         link: '/projects',
       }
+    case 'client_billing_question':
+      return {
+        title: 'The client asked about Invoice INV-0012',
+        message: `${PROJECT}: "Is the electrical rough-in on this one, or was that on the last invoice? It is due ${inDays(7)}."`,
+        link: '/projects',
+      }
+    case 'client_question':
+      return {
+        title: 'The client sent a question',
+        message: `${PROJECT}: "Will anybody be on site ${inDays(2)}? We would like to walk through the kitchen."`,
+        link: '/projects',
+      }
     case 'weekly_summary':
       return {
         title: `Weekly summary: ${inDays(-6)} - ${inDays(0)}`,

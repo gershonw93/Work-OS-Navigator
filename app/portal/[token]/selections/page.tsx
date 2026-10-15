@@ -6,11 +6,11 @@ import { cn } from '@/lib/utils'
 import { SyteNavLogo } from '@/components/ui/logo'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import {
-  CheckCircle2, AlertTriangle, Clock, ExternalLink, Loader2, ArrowLeft, Palette, Pencil, Truck, MessageSquare,
+  CheckCircle2, AlertTriangle, Clock, ExternalLink, Loader2, ArrowLeft, Palette, Pencil, Truck,
 } from 'lucide-react'
 import { daysUntil, isOutstanding, selectionStage, STATUS_TINT, type SelectionStatus } from '@/lib/selections'
-import { selectionThreadSummary, type SelectionMessage } from '@/lib/selection-thread'
-import { BidThread } from '@/components/quotes/bid-thread'
+import type { ClientMessage } from '@/lib/client-thread'
+import { PortalThread } from '@/components/client-thread/portal-thread'
 
 import { formatDate } from '@/lib/dates'
 const money = (n: number | null | undefined) =>
@@ -42,7 +42,7 @@ interface Selection {
   change_requested_at: string | null
   selection_options: Option[]
   /** The questions on this selection, both sides, oldest first not guaranteed. */
-  client_messages?: SelectionMessage[]
+  client_messages?: ClientMessage[]
 }
 
 export default function PortalSelectionsPage({ params }: { params: { token: string } }) {
@@ -254,7 +254,10 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
                       </button>
                     </div>
                   </div>
-                  <SelectionQuestions token={params.token} sel={sel} name={name} onPosted={load} />
+                  <div className="border-t border-line-soft pt-3">
+                    <PortalThread token={params.token} subject="selection" subjectId={sel.id}
+                      prompt="Ask us a question about this" name={name} initial={sel.client_messages ?? []} />
+                  </div>
                 </div>
               </div>
             )
@@ -382,63 +385,3 @@ function Shell({ token, children }: { token: string; children: React.ReactNode }
     </div>
   )
 }
-
-/**
- * "Ask a question" on one selection - the client's half of the thread the GC
- * answers from the Selections board. No account: the link is who they are, and
- * the answer comes back by email as well as here.
- */
-function SelectionQuestions({ token, sel, name, onPosted }: {
-  token: string
-  sel: Selection
-  name: string
-  onPosted: () => Promise<void> | void
-}) {
-  const messages = [...(sel.client_messages ?? [])].sort((a, b) => a.created_at.localeCompare(b.created_at))
-  const { count, waitingOnClient } = selectionThreadSummary(messages)
-  // Open by default once there is a conversation - the answer is the thing they came back for.
-  const [open, setOpen] = useState(count > 0)
-
-  async function send(body: string): Promise<string | null> {
-    try {
-      const res = await fetch(`/api/portal/${token}/selections/${sel.id}/messages`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body, name }),
-      })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) return d.error ?? 'Could not send that. Try again.'
-      await onPosted()
-      return null
-    } catch {
-      return 'We could not tell whether that went - reload the page before sending it again.'
-    }
-  }
-
-  return (
-    <div className="border-t border-line-soft pt-3">
-      {!open ? (
-        <button type="button" onClick={() => setOpen(true)}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-fg hover:underline">
-          <MessageSquare className="h-4 w-4" /> Ask us a question about this
-        </button>
-      ) : (
-        <div className="space-y-2">
-          <p className="flex items-center gap-1.5 text-xs uppercase tracking-wide text-faint font-semibold">
-            <MessageSquare className="h-3.5 w-3.5" /> Questions
-            {waitingOnClient && <span className="normal-case tracking-normal rounded-full bg-accent-tint px-2 py-0.5 text-[11px] text-accent-fg">We replied</span>}
-          </p>
-          <BidThread
-            messages={messages}
-            state="ready"
-            mine="client"
-            otherName="us"
-            emptyText="Not sure about something? Ask here - we get it straight away and answer here and by email."
-            onSend={send}
-            onRefresh={async () => { await onPosted() }}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-

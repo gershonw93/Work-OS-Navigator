@@ -51,7 +51,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .select('id, store_name, category, amount, purchase_date, markup_pct, markup_excluded')
       .eq('project_id', params.id),
     db.from('client_invoices')
-      .select('*, client_invoice_lines(*)')
+      .select('*, client_invoice_lines(*), client_messages(side, created_at)')
       .eq('project_id', params.id)
       .order('created_at', { ascending: false }),
     // The money side of each invoice. Without this the list could say an
