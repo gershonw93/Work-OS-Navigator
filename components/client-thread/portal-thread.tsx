@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { MessageSquare } from 'lucide-react'
 import { BidThread, type ThreadState } from '@/components/quotes/bid-thread'
 import { threadShape, type ClientMessage, type ClientSubject } from '@/lib/client-thread'
+import { readThread } from '@/lib/thread-read'
 
 export function PortalThread({ token, subject, subjectId, prompt, name, initial }: {
   token: string
@@ -26,12 +27,11 @@ export function PortalThread({ token, subject, subjectId, prompt, name, initial 
   const query = `subject=${subject}${subjectId ? `&id=${subjectId}` : ''}`
 
   async function read() {
-    try {
-      const res = await fetch(`/api/portal/${token}/messages?${query}`)
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok) { setState('failed'); return }
-      setMessages(d.messages ?? []); setState('ready')
-    } catch { setState('failed') }
+    // Asked twice, and a failure keeps what is already on screen (lib/thread-read.ts).
+    const r = await readThread<ClientMessage>(() => fetch(`/api/portal/${token}/messages?${query}`))
+    if (r.ok) { setMessages(r.messages); setState('ready'); return }
+    console.error('[portal-thread] read failed', { subject, subjectId, status: r.status, error: r.error })
+    setState('failed')
   }
   useEffect(() => { if (open && !initial) read() }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -43,6 +43,7 @@ export function PortalThread({ token, subject, subjectId, prompt, name, initial 
       })
       const d = await res.json().catch(() => ({}))
       if (!res.ok) return d.error ?? 'Could not send that. Try again.'
+      if (d.message) setMessages(m => m.some(x => x.id === d.message.id) ? m : [...m, d.message])
       await read()
       return null
     } catch {

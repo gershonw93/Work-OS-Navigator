@@ -71,11 +71,16 @@ export function BidThread({
     <div className="space-y-3">
       <div className="max-h-80 space-y-2 overflow-y-auto">
         {state === 'loading' && <p className="py-3 text-sm text-muted-fg">Loading messages…</p>}
-        {state === 'failed' && <p className="py-3 text-sm text-danger">Could not load the messages. Reload to try again.</p>}
+        {state === 'failed' && (
+          <p className="py-2 text-sm text-danger">
+            {messages.length ? 'Could not check for new messages' : 'Could not load the messages'}
+            {onRefresh ? ' - press Check for replies to try again.' : ' - reload to try again.'}
+          </p>
+        )}
         {state === 'ready' && messages.length === 0 && (
           <p className="py-3 text-sm text-muted-fg">{emptyText ?? `No messages yet. Ask ${otherName} anything about this request.`}</p>
         )}
-        {state === 'ready' && messages.map(m => {
+        {state !== 'loading' && messages.map(m => {
           const own = m.side === mine
           return (
             <div key={m.id} className={cn('flex', own ? 'justify-end' : 'justify-start')}>
