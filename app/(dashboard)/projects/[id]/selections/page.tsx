@@ -9,7 +9,7 @@ import { Select } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import {
-  Palette, Plus, Trash2, Link2, CheckCircle2, Hammer, Undo2, AlertTriangle, Clock, X,
+  Palette, Plus, Trash2, Link2, CheckCircle2, Hammer, Undo2, Send, AlertTriangle, Clock, X,
   ChevronDown, ChevronRight, ExternalLink, Sparkles, GitPullRequest, Loader2,
   ClipboardPaste, Truck, MessageSquareWarning, ImagePlus, Search, ArrowRight,
   LayoutGrid, Home, Building2, PaintRoller, Warehouse, Droplets, Archive, Square, Refrigerator,
@@ -25,6 +25,8 @@ import {
   type SelectionStatus,
 } from '@/lib/selections'
 import { clientAppOrigin } from '@/lib/app-url'
+import { SendLinkBox } from '@/components/ui/send-link-box'
+import { useClientEmail } from '@/lib/use-client-email'
 
 import { formatDate, formatDateShort } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
@@ -50,6 +52,8 @@ interface Selection {
   change_order_id: string | null; notes: string | null
   reference_url: string | null; reference_label: string | null
   supplier_company_id: string | null; ordered_at: string | null; expected_delivery: string | null
+  /** The last confirmed reminder email, and who it went to. */
+  client_reminded_at?: string | null; client_reminded_to?: string | null
   /** Derived by the route: the schedule line this work is on reads 100%. */
   line_finished?: boolean
   change_requested_at: string | null; change_request_note: string | null
@@ -108,6 +112,9 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   const [suppliers, setSuppliers] = useState<{ id: string; name: string }[]>([])
   const [ordering, setOrdering] = useState<string | null>(null)
   const [orderFor, setOrderFor] = useState<Selection | null>(null)
+  // "We're waiting on you" - the selection a reminder email is being written for.
+  const [remindFor, setRemindFor] = useState<Selection | null>(null)
+  const clientEmail = useClientEmail(params.id)
   const [orderForm, setOrderForm] = useState({ supplier_company_id: '', expected_delivery: '', amount: '' })
   const [showLink, setShowLink] = useState(false)
   const [linkChoice, setLinkChoice] = useState<Record<string, string>>({})
@@ -794,6 +801,51 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
       {/* Placing the order. The amount is already known - it was priced when
           the option went in front of the client - so this is about who it goes
           to and when it lands, not retyping a number. */}
+      {/* Remind the client. Delivers the link they already have - never mints one -
+          and the route stamps the row only after a confirmed send. */}
+      {remindFor && (
+        <div className="overlay items-center justify-center bg-black/40" data-overlay onClick={() => setRemindFor(null)}>
+          <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <h3 className="text-base font-semibold text-ink">Remind {clientName || 'the client'}</h3>
+                <p className="text-xs text-muted-fg mt-0.5">
+                  {remindFor.item}{remindFor.location ? ` · ${remindFor.location}` : ''}
+                </p>
+              </div>
+              <button onClick={() => setRemindFor(null)} aria-label="Close" title="Close" className="p-1 rounded-lg text-faint hover:bg-surface"><X className="h-4 w-4" /></button>
+            </div>
+            {portalLink ? (
+              <>
+                <p className="text-sm text-muted-fg">
+                  An email saying you are waiting on their pick, with
+                  {remindFor.selection_options?.length ? ` the ${remindFor.selection_options.length} option${remindFor.selection_options.length === 1 ? '' : 's'}` : ' a way to tell you what they want'}
+                  {remindFor.needed_by ? ` and the date you need it by (${formatDateShort(remindFor.needed_by)})` : ''} - one tap to their selections page.
+                </p>
+                {remindFor.client_reminded_at && (
+                  <p className="text-xs text-faint">
+                    Last reminded {formatDate(remindFor.client_reminded_at)}{remindFor.client_reminded_to ? ` at ${remindFor.client_reminded_to}` : ''}.
+                  </p>
+                )}
+                <SendLinkBox
+                  endpoint={`/api/projects/${params.id}/selections/${remindFor.id}/remind`}
+                  url={portalLink}
+                  defaultTo={clientEmail}
+                  label="Email the reminder"
+                  placeholder="client@example.com"
+                  onSent={() => load()}
+                />
+              </>
+            ) : (
+              <p className="text-sm text-muted-fg">
+                This job has not been shared with the client yet, so there is no page to send them to.
+                &ldquo;Copy client link&rdquo; at the top creates their link - then come back and remind them.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {orderFor && (
         <div className="overlay items-center justify-center bg-black/40" data-overlay onClick={() => setOrderFor(null)}>
           <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
@@ -1041,6 +1093,9 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                             {sel.status === 'chosen' && (
                               <MenuItem onClick={() => { close(); openOrder(sel) }}><Truck className="h-3.5 w-3.5" /> Order it</MenuItem>
                             )}
+                            {isOutstanding(sel.status) && (
+                              <MenuItem onClick={() => { close(); setRemindFor(sel) }}><Send className="h-3.5 w-3.5" /> Remind the client</MenuItem>
+                            )}
                             {/* Installed follows the schedule line reaching 100%. This is the fallback
                                 for a selection no schedule line leads from (no sub on its budget line). */}
                             {sel.status === 'ordered' && !sel.line_finished && (
@@ -1074,6 +1129,7 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                 <span className="block text-xs text-faint mt-0.5">
                                   {nOpts ? `${nOpts} option${nOpts === 1 ? '' : 's'} for the client` : 'No options yet'}
                                   {sel.change_requested_at && <span className="text-warn"> · change requested</span>}
+                                  {sel.client_reminded_at && isOutstanding(sel.status) && <span> · reminded {formatDateShort(sel.client_reminded_at)}</span>}
                                 </span>
                               </span>
                             </button>
@@ -1484,9 +1540,14 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                       <p className="text-sm text-muted-fg">
                                         <span className="font-semibold text-ink">Client&apos;s pick:</span> nothing yet. You can also record a choice they told you in person.
                                       </p>
-                                      <Button size="sm" variant="outline" className="w-full lg:w-auto" onClick={() => addTo(setRecording, sel.id)}>
-                                        Record a choice
-                                      </Button>
+                                      <div className="row-even lg:flex lg:flex-wrap gap-2 w-full lg:w-auto">
+                                        <Button size="sm" variant="outline" onClick={() => setRemindFor(sel)}>
+                                          <Send className="h-3.5 w-3.5" /> Remind client
+                                        </Button>
+                                        <Button size="sm" variant="outline" onClick={() => addTo(setRecording, sel.id)}>
+                                          Record a choice
+                                        </Button>
+                                      </div>
                                     </div>
                                   )}
                                 </div>
