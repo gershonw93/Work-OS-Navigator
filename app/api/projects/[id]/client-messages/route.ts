@@ -38,7 +38,12 @@ async function resolve(request: Request, { params }: Params, action: 'view' | 'e
 
 export async function GET(request: Request, ctx: Params) {
   const url = new URL(request.url)
-  const r = await resolve(request, ctx, 'view', url.searchParams.get('subject'), url.searchParams.get('id'))
+  // `item`, NEVER `id`: this route sits under /projects/[id]/, and on Vercel a
+  // query parameter named like a path segment is dropped (the platform carries
+  // the segment through the query itself). `?id=` therefore never arrived, so
+  // every GC thread read answered "Which item?" while the POST - id in the
+  // body - and the client's route - no [id] in its path - worked.
+  const r = await resolve(request, ctx, 'view', url.searchParams.get('subject'), url.searchParams.get('item'))
   if ('denied' in r) return r.denied
   const thread = await readClientThread(r.db, r.project.id, r.subject, r.subjectId)
   if ('error' in thread) return NextResponse.json({ error: thread.error }, { status: 500 })

@@ -24,7 +24,8 @@ export function ClientThreadPanel({ projectId, subject, subjectId, clientName, o
   const [state, setState] = useState<ThreadState>('loading')
   const [note, setNote] = useState<string | null>(null)
   const who = clientName?.trim() || 'the client'
-  const query = `subject=${subject}${subjectId ? `&id=${subjectId}` : ''}`
+  // `item`, not `id` - the route is under /projects/[id]/, which swallows an `id` query param.
+  const query = `subject=${subject}${subjectId ? `&item=${subjectId}` : ''}`
 
   async function bearer() {
     const { data: { session } } = await createClient().auth.getSession()

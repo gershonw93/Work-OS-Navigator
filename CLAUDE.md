@@ -116,6 +116,14 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   that nobody logs is indistinguishable from an empty one. Pinned in
   `invoices-load.ts`.
 
+- **A QUERY PARAM NAMED LIKE A PATH SEGMENT NEVER ARRIVES ON VERCEL.** Under
+  `/api/projects/[id]/...`, `?id=` is dropped - the platform carries the
+  segment through the query itself - so the GC's client-thread read answered
+  "Which item?" on every call while the POST (id in the body) and the client's
+  route (no `[id]` in its path) worked, and the local build could not show it.
+  Name it for what it is (`item`). Pinned in `thread-read.ts`, which walks every
+  route under an `[id]` folder.
+
 ## What's new (KEEP CURRENT)
 - User-facing release notes live in `lib/whats-new.ts`, shown at `/whats-new`.
 - IMPORTANT: when you ship something a user would NOTICE, add an entry in the
