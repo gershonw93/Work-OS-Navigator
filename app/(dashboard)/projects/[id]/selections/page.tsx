@@ -50,6 +50,8 @@ interface Selection {
   change_order_id: string | null; notes: string | null
   reference_url: string | null; reference_label: string | null
   supplier_company_id: string | null; ordered_at: string | null; expected_delivery: string | null
+  /** Derived by the route: the schedule line this work is on reads 100%. */
+  line_finished?: boolean
   change_requested_at: string | null; change_request_note: string | null
   selection_options: Option[]
 }
@@ -1039,8 +1041,9 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                             {sel.status === 'chosen' && (
                               <MenuItem onClick={() => { close(); openOrder(sel) }}><Truck className="h-3.5 w-3.5" /> Order it</MenuItem>
                             )}
-                            {/* Installed is the one stage nothing in the app can observe, so it is the one a person says. */}
-                            {sel.status === 'ordered' && (
+                            {/* Installed follows the schedule line reaching 100%. This is the fallback
+                                for a selection no schedule line leads from (no sub on its budget line). */}
+                            {sel.status === 'ordered' && !sel.line_finished && (
                               <MenuItem onClick={() => { close(); changeStatus(sel, 'installed') }}><Hammer className="h-3.5 w-3.5" /> Mark installed</MenuItem>
                             )}
                             {sel.status === 'installed' && (

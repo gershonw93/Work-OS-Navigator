@@ -34,6 +34,8 @@ interface Selection {
   selected_option_id: string | null; selected_name: string | null; selected_price: number | null
   selected_at: string | null; notes: string | null
   ordered_at: string | null; expected_delivery: string | null
+  /** The schedule line this work is on reads 100% - see lib/selection-installed.ts. */
+  line_finished?: boolean
   reference_url: string | null; reference_label: string | null
   change_requested_at: string | null
   selection_options: Option[]
@@ -278,7 +280,8 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
           <div className="bg-panel rounded-xl border border-line divide-y divide-line-soft">
             {decided.map(sel => {
               const opt = sel.selection_options.find(o => o.id === sel.selected_option_id)
-              const canChange = sel.status === 'chosen'
+              const stage = selectionStage(sel, true)
+              const canChange = stage === 'chosen'
               return (
                 <div key={sel.id} className="px-4 py-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
@@ -337,7 +340,7 @@ export default function PortalSelectionsPage({ params }: { params: { token: stri
                   {reopened.has(sel.id) && !canChange && (
                     <div className="mt-2.5 rounded-lg border border-warn/40 bg-warn-tint p-3 space-y-2">
                       <p className="text-xs text-warn">
-                        This is already {sel.status === 'installed' ? 'installed' : 'on order'}. Tell us what you&apos;d
+                        This is already {stage === 'installed' ? 'installed' : 'on order'}. Tell us what you&apos;d
                         rather have and we&apos;ll let you know if we can still change it.
                       </p>
                       <div className="flex gap-2">
