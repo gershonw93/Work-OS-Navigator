@@ -10,8 +10,12 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import {
   Plus, X, ChevronDown, ChevronUp, ClipboardList,
-  CheckCircle2, XCircle, Clock, Trash2, Link2,
+  CheckCircle2, XCircle, Clock, Trash2, Link2, Share2, MessageSquare, EyeOff, AlertTriangle,
 } from 'lucide-react'
+import { ClientThreadDialog } from '@/components/client-thread/client-thread-dialog'
+import { threadShape } from '@/lib/client-thread'
+import { responseLine } from '@/lib/change-order-client'
+import { useNotice } from '@/components/ui/notice'
 import { readPrefill } from '@/lib/change-order-prefill'
 
 import { formatDate } from '@/lib/dates'
@@ -38,6 +42,15 @@ interface ChangeOrder {
   review_notes: string | null
   applied_to_contract?: boolean
   created_at: string
+  /** On the client's link since - written only by Share. */
+  client_shared_at?: string | null
+  /** The client's answer: a record beside the decision, never the decision. */
+  client_response?: 'approved' | 'declined' | null
+  client_response_at?: string | null
+  client_response_name?: string | null
+  client_response_note?: string | null
+  /** The client's thread on it, shape only - who spoke last. */
+  client_messages?: { side: string; created_at: string }[]
 }
 
 interface Subcontract {
@@ -75,6 +88,12 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
   const [submitting, setSubmitting] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
+  // Sharing with the client is a deliberate step with its own dialog: the
+  // amount on a sub-linked change order is the SUB's price, our cost.
+  const [shareFor, setShareFor] = useState<ChangeOrder | null>(null)
+  const [sharing, setSharing] = useState(false)
+  const [threadFor, setThreadFor] = useState<ChangeOrder | null>(null)
+  const notify = useNotice()
 
   // Form state
   const [title, setTitle] = useState('')
@@ -199,6 +218,34 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
     fetchData()
   }
 
+  async function share(co: ChangeOrder, email: boolean) {
+    setSharing(true)
+    try {
+      const res = await fetch(`/api/projects/${params.id}/change-orders/${co.id}/share`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await getToken()}` },
+        body: JSON.stringify({ email }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) { notify(d.error ?? 'Could not share it.'); return }
+      setShareFor(null)
+      const e = d.emailed
+      const ok = !email || !!e?.sent
+      notify(!email ? 'On the client\'s link now.'
+        : e?.sent ? `On the client's link, and emailed to ${e.to}.`
+        : e?.reason === 'no_email' ? 'On the client\'s link - but there is no email address on this client, so nobody was emailed.'
+        : `On the client's link, but the email to ${e?.to} did not go.`, { tone: ok ? 'success' : 'info' })
+      fetchData()
+    } finally { setSharing(false) }
+  }
+
+  async function unshare(co: ChangeOrder) {
+    const res = await fetch(`/api/projects/${params.id}/change-orders/${co.id}/share`, {
+      method: 'DELETE', headers: { Authorization: `Bearer ${await getToken()}` },
+    })
+    if (!res.ok) notify((await res.json().catch(() => ({}))).error ?? 'Could not take it off the client link.')
+    fetchData()
+  }
+
   function handleDelete(co: ChangeOrder) {
     guardDelete(async () => {
       const token = await getToken()
@@ -255,6 +302,17 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
               )}
               {co.requested_by_type === 'gc' && (
                 <span className="whitespace-nowrap text-xs bg-accent-tint text-accent-fg rounded-full px-2 py-0.5">GC</span>
+              )}
+              {co.client_response ? (
+                <span className={cn('whitespace-nowrap text-xs rounded-full px-2 py-0.5',
+                  co.client_response === 'approved' ? 'bg-success-tint text-success' : 'bg-danger-tint text-danger')}>
+                  Client {co.client_response}
+                </span>
+              ) : co.client_shared_at ? (
+                <span className="whitespace-nowrap text-xs bg-info-tint text-info rounded-full px-2 py-0.5">With client</span>
+              ) : null}
+              {threadShape(co.client_messages).waitingOnGc && (
+                <span className="whitespace-nowrap text-xs font-semibold text-warn">Client asked a question</span>
               )}
             </div>
             <p className="text-xs text-faint mt-0.5">
@@ -315,6 +373,44 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
                 <p className="text-sm text-muted-fg whitespace-pre-wrap break-words">{co.description}</p>
               </div>
             )}
+
+            {/* THE CLIENT'S SIDE. Shared on purpose or not at all; the client's
+                answer sits here as a record for the Approve button below, which
+                stays yours - approving moves money. */}
+            <div className="rounded-lg border border-line-soft bg-surface/50 px-3 py-3 space-y-2">
+              <p className="text-xs font-semibold uppercase tracking-wide text-faint">Client</p>
+              {co.client_shared_at ? (
+                <>
+                  <p className="text-sm text-ink-soft">On the client&apos;s link since {formatDate(co.client_shared_at)}.</p>
+                  {co.client_response ? (
+                    <p className={cn('text-sm font-semibold', co.client_response === 'approved' ? 'text-success' : 'text-danger')}>
+                      {responseLine(co as any, co.client_response_at ? formatDate(co.client_response_at) : null)}
+                      {co.client_response === 'approved' && co.status === 'pending' && (
+                        <span className="block text-xs font-normal text-muted-fg">Approve it below to add it to the contract - their yes does not do that on its own.</span>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-muted-fg">No answer from the client yet.</p>
+                  )}
+                  {co.client_response_note && <p className="text-sm text-muted-fg italic">&ldquo;{co.client_response_note}&rdquo;</p>}
+                  <div className="row-even lg:flex lg:flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => setThreadFor(co)}>
+                      <MessageSquare className="h-3.5 w-3.5" /> Client questions{threadShape(co.client_messages).count ? ` (${threadShape(co.client_messages).count})` : ''}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => unshare(co)}>
+                      <EyeOff className="h-3.5 w-3.5" /> Take off client link
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm text-muted-fg">Not on the client&apos;s link. Share it to let them read it, approve or decline it, and ask about it.</p>
+                  <Button size="sm" variant="outline" onClick={() => setShareFor(co)}>
+                    <Share2 className="h-3.5 w-3.5" /> Share with client
+                  </Button>
+                </>
+              )}
+            </div>
 
             <div className="space-y-1.5">
               <Label className="lg:text-xs text-faint">Review Notes</Label>
@@ -588,6 +684,49 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
             </div>
           )}
         </div>
+      )}
+
+      {/* Share with the client: says EXACTLY what they will see, and warns when
+          the amount is a sub's price rather than the client's. */}
+      {shareFor && (
+        <div className="overlay items-center justify-center bg-black/40" data-overlay onClick={() => setShareFor(null)}>
+          <div className="w-full max-w-md rounded-xl bg-panel border border-line shadow-xl p-5 space-y-4" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="min-w-0 text-base font-semibold text-ink">Share with the client</h3>
+              <button onClick={() => setShareFor(null)} aria-label="Close" title="Close" className="p-1 rounded-lg text-faint hover:bg-surface"><X className="h-4 w-4" /></button>
+            </div>
+            <div className="rounded-lg border border-line bg-surface px-3 py-2 text-sm space-y-1">
+              <p className="font-semibold text-ink">{shareFor.title}</p>
+              <p className="font-semibold text-ink">{fmt(shareFor.amount)}</p>
+              {shareFor.reason && <p className="text-muted-fg">{shareFor.reason}</p>}
+              {shareFor.description && <p className="text-muted-fg whitespace-pre-wrap">{shareFor.description}</p>}
+            </div>
+            <p className="text-sm text-muted-fg">
+              Your client sees exactly this on their link - the title, the amount, the reason and the description -
+              and can approve it, decline it, or ask about it. Your review notes and the subcontract stay yours.
+            </p>
+            {shareFor.subcontract_id && (
+              <p className="flex gap-2 rounded-lg bg-warn-tint px-3 py-2 text-sm text-warn">
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>This change order is tied to {getSubName(shareFor.subcontract_id)}&apos;s subcontract, so {fmt(shareFor.amount)} is probably what they charge you. If the client&apos;s price includes your markup, raise a separate change order at that price to share instead.</span>
+              </p>
+            )}
+            <div className="row-even lg:flex lg:flex-wrap gap-2">
+              <Button disabled={sharing} onClick={() => share(shareFor, true)}>
+                <Share2 className="h-4 w-4" /> Share and email them
+              </Button>
+              <Button variant="outline" disabled={sharing} onClick={() => share(shareFor, false)}>
+                Share without emailing
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {threadFor && (
+        <ClientThreadDialog projectId={params.id} subject="change_order" subjectId={threadFor.id} clientName={null}
+          heading={`${threadFor.title} - questions from the client`}
+          onClose={() => setThreadFor(null)} onChanged={fetchData} />
       )}
     </div>
   )

@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-15',
+    title: 'Change orders on the client\'s link',
+    items: [
+      {
+        kind: 'new',
+        title: 'Share a change order for the client to approve',
+        text: 'Open a change order and press Share with client - with or without an email. They see it on their link, can approve or decline it with a note, or ask about it. Their answer shows on the change order and you are told; it stays pending until you approve it, because approving is what adds it to the contract.',
+        help: 'change-order-basics',
+      },
+    ],
+  },
+  {
+    date: '2026-10-15',
     title: 'Clients can ask you questions from their link',
     items: [
       {

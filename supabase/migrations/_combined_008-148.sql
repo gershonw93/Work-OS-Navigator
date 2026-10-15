@@ -4507,3 +4507,21 @@ CREATE INDEX IF NOT EXISTS idx_client_messages_invoice ON client_messages (clien
 CREATE INDEX IF NOT EXISTS idx_client_messages_request ON client_messages (payment_request_id, created_at) WHERE payment_request_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_client_messages_project ON client_messages (project_id, created_at);
 ALTER TABLE client_messages ENABLE ROW LEVEL SECURITY;
+
+-- 148 change orders on the client link
+ALTER TABLE change_orders ADD COLUMN IF NOT EXISTS client_shared_at timestamptz;
+ALTER TABLE change_orders ADD COLUMN IF NOT EXISTS client_shared_by uuid REFERENCES profiles (id) ON DELETE SET NULL;
+ALTER TABLE change_orders ADD COLUMN IF NOT EXISTS client_response text;
+ALTER TABLE change_orders ADD COLUMN IF NOT EXISTS client_response_at timestamptz;
+ALTER TABLE change_orders ADD COLUMN IF NOT EXISTS client_response_name text;
+ALTER TABLE change_orders ADD COLUMN IF NOT EXISTS client_response_note text;
+ALTER TABLE change_orders DROP CONSTRAINT IF EXISTS change_orders_client_response_check;
+ALTER TABLE change_orders ADD CONSTRAINT change_orders_client_response_check
+  CHECK (client_response IS NULL OR client_response IN ('approved', 'declined'));
+
+-- And they can ask about one, in the same table as every other client question.
+ALTER TABLE client_messages ADD COLUMN IF NOT EXISTS change_order_id uuid REFERENCES change_orders (id) ON DELETE CASCADE;
+ALTER TABLE client_messages DROP CONSTRAINT IF EXISTS client_messages_one_subject;
+ALTER TABLE client_messages ADD CONSTRAINT client_messages_one_subject
+  CHECK (num_nonnulls(selection_id, client_invoice_id, payment_request_id, change_order_id) <= 1);
+CREATE INDEX IF NOT EXISTS idx_client_messages_change_order ON client_messages (change_order_id, created_at) WHERE change_order_id IS NOT NULL;

@@ -31,7 +31,7 @@ const SELECTION_OPEN = new Set(['pending', 'waiting'])
 
 /** Where a waiting client question is, in words, for the Overview's line. */
 const CLIENT_TOPIC: Record<ClientSubject, string> = {
-  selection: 'selections', invoice: 'invoices', payment_request: 'payment requests', project: 'the job',
+  selection: 'selections', invoice: 'invoices', payment_request: 'payment requests', change_order: 'change orders', project: 'the job',
 }
 
 const days = (d: string | null | undefined): number | null => {
@@ -115,7 +115,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     // Every client thread on the job, shape only - which ones the client spoke
     // last on. A question on an invoice must not be findable only by somebody
     // who happens to open Billing.
-    db.from('client_messages').select('side, created_at, selection_id, client_invoice_id, payment_request_id').eq('project_id', params.id),
+    db.from('client_messages').select('side, created_at, selection_id, client_invoice_id, payment_request_id, change_order_id').eq('project_id', params.id),
   ])
 
   const inv = invoices ?? []

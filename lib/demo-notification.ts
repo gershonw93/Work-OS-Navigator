@@ -202,6 +202,12 @@ export function demoNotification(type: string, today: string): DemoNotification 
         message: `${PROJECT}: "Is the electrical rough-in on this one, or was that on the last invoice? It is due ${inDays(7)}."`,
         link: '/projects',
       }
+    case 'client_change_order':
+      return {
+        title: 'The client approved Added closet framing',
+        message: `${PROJECT}: approved on ${inDays(0)} - "Go ahead, as long as it does not push the drywall date."`,
+        link: '/projects',
+      }
     case 'client_question':
       return {
         title: 'The client sent a question',

@@ -308,6 +308,16 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
+    // TO THE GC. The client approved, declined or asked about a change order
+    // somebody shared on their link. One switch for all three - they are one
+    // conversation about one decision. `change-orders: edit`, the people who
+    // approve it: the client's yes is a record in front of THAT decision.
+    key: 'client_change_order', label: 'Client answered a change order', group: 'Money',
+    description: 'Your client approves, declines or asks about a change order you shared on their link.',
+    audience: 'team', defaultAudience: ['change-orders', 'edit'],
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
     // TO THE GC. A question about the job itself, from the bottom of the
     // client's link. `client-portal: edit` - the people who hand that link out
     // and talk to the client.

@@ -19,7 +19,7 @@ import { messageProblem, MESSAGE_MAX } from './bid-thread'
 
 export { messageProblem, MESSAGE_MAX }
 
-export type ClientSubject = 'selection' | 'invoice' | 'payment_request' | 'project'
+export type ClientSubject = 'selection' | 'invoice' | 'payment_request' | 'change_order' | 'project'
 export type ClientSide = 'client' | 'gc'
 
 export interface ClientMessage {
@@ -32,16 +32,16 @@ export interface ClientMessage {
 
 export interface SubjectRule {
   /** The client_messages column naming the record, or null for the job itself. */
-  column: 'selection_id' | 'client_invoice_id' | 'payment_request_id' | null
+  column: 'selection_id' | 'client_invoice_id' | 'payment_request_id' | 'change_order_id' | null
   /**
    * The permission that answers it - the same one that owns the record. Billing
    * questions go to whoever can see Billing the client, never to the whole crew.
    */
-  permission: 'selections' | 'payments' | 'client-portal'
+  permission: 'selections' | 'payments' | 'change-orders' | 'client-portal'
   /** The catalog type the GC is told under. */
-  notifyType: 'selection_question' | 'client_billing_question' | 'client_question'
+  notifyType: 'selection_question' | 'client_billing_question' | 'client_change_order' | 'client_question'
   /** Where on the job the GC answers it. */
-  tab: 'selections' | 'payments' | 'overview'
+  tab: 'selections' | 'payments' | 'change-orders' | 'overview'
   /** The client's page that holds it, relative to /portal/<token>. */
   portalPath: '' | '/selections'
 }
@@ -50,6 +50,7 @@ export const SUBJECTS: Record<ClientSubject, SubjectRule> = {
   selection: { column: 'selection_id', permission: 'selections', notifyType: 'selection_question', tab: 'selections', portalPath: '/selections' },
   invoice: { column: 'client_invoice_id', permission: 'payments', notifyType: 'client_billing_question', tab: 'payments', portalPath: '' },
   payment_request: { column: 'payment_request_id', permission: 'payments', notifyType: 'client_billing_question', tab: 'payments', portalPath: '' },
+  change_order: { column: 'change_order_id', permission: 'change-orders', notifyType: 'client_change_order', tab: 'change-orders', portalPath: '' },
   project: { column: null, permission: 'client-portal', notifyType: 'client_question', tab: 'overview', portalPath: '' },
 }
 
@@ -106,6 +107,7 @@ export interface MessageRow {
   selection_id?: string | null
   client_invoice_id?: string | null
   payment_request_id?: string | null
+  change_order_id?: string | null
 }
 
 /** Which thread a row belongs to. */
@@ -113,6 +115,7 @@ export function subjectOf(m: MessageRow): { subject: ClientSubject; id: string |
   if (m.selection_id) return { subject: 'selection', id: m.selection_id }
   if (m.client_invoice_id) return { subject: 'invoice', id: m.client_invoice_id }
   if (m.payment_request_id) return { subject: 'payment_request', id: m.payment_request_id }
+  if (m.change_order_id) return { subject: 'change_order', id: m.change_order_id }
   return { subject: 'project', id: null }
 }
 

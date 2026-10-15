@@ -25,7 +25,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const { data: changeOrders, error } = await db
     .from('change_orders')
-    .select('*')
+    .select('*, client_messages(side, created_at)')
     .eq('project_id', params.id)
     .order('created_at', { ascending: false })
 

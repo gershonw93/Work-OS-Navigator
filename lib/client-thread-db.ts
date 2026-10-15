@@ -42,6 +42,13 @@ export async function resolveSubject(
     if (!data || (forClient && !['sent', 'paid'].includes(data.status))) return null
     return { label: `Invoice ${data.invoice_number}` }
   }
+  if (subject === 'change_order') {
+    // Only one somebody SHARED is the client's to ask about - the rest carry a
+    // sub's price, which is our cost.
+    const { data } = await db.from('change_orders').select('id, title, client_shared_at').eq('id', id).eq('project_id', projectId).maybeSingle()
+    if (!data || (forClient && !data.client_shared_at)) return null
+    return { label: `Change order: ${data.title}` }
+  }
   const { data } = await db.from('client_payment_requests').select('id, label, amount, sent_at').eq('id', id).eq('project_id', projectId).maybeSingle()
   if (!data || (forClient && !data.sent_at)) return null
   return { label: `${data.label} (${money(data.amount)})` }
@@ -52,7 +59,7 @@ function forThread(q: any, subject: ClientSubject, id: string | null) {
   const col = SUBJECTS[subject].column
   if (col) return q.eq(col, id)
   // The job itself: a message about nothing in particular.
-  return q.is('selection_id', null).is('client_invoice_id', null).is('payment_request_id', null)
+  return q.is('selection_id', null).is('client_invoice_id', null).is('payment_request_id', null).is('change_order_id', null)
 }
 
 export async function readClientThread(
