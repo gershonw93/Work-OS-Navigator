@@ -4467,3 +4467,7 @@ CREATE TABLE IF NOT EXISTS mcp_actions (
 CREATE INDEX IF NOT EXISTS idx_mcp_actions_profile ON mcp_actions (profile_id, created_at DESC);
 
 ALTER TABLE mcp_actions ENABLE ROW LEVEL SECURITY;
+
+-- 144 selection reminders
+ALTER TABLE project_selections ADD COLUMN IF NOT EXISTS client_reminded_at timestamptz;
+ALTER TABLE project_selections ADD COLUMN IF NOT EXISTS client_reminded_to text;

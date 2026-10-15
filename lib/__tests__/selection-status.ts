@@ -84,6 +84,25 @@ ok(/else if \(!name && sel\.status === 'chosen'\) body\.status = 'pending'/.test
 ok((page.match(/missingFor\(\{ \.\.\.sel, budget_line_item_id: (lineId|newId) \}, 'chosen'\)/g) ?? []).length === 2,
   'linking a budget line to a named choice moves it to Chosen, as the row promises - on both link paths')
 
+// "a button on each selection to email/notify the client that we are waiting on them"
+const remind = code('app/api/projects/[id]/selections/[selId]/remind/route.ts')
+ok(/requirePermission\(db, request, 'selections', 'edit'\)/.test(remind) && /ownedProject/.test(remind),
+  'the reminder asks the permission AND whose job it is - it emails the GC\'s client')
+ok(/if \(!project\.client_portal_token\)/.test(remind) && !/randomBytes|crypto/.test(remind),
+  '...delivers the link the client already has and never mints one')
+ok(/if \(!isOutstanding\(\(sel as any\)\.status\)\)/.test(remind),
+  '...and refuses one that is already decided')
+ok(/onSent: \(\) => db\.from\('project_selections'\)\.update\(\{\s*client_reminded_at/.test(remind),
+  'the stamp is written only after a confirmed send (deliverLink onSent)')
+ok(/dayWords\(s\.needed_by/.test(remind) && !/toLocaleDateString|formatDate\(/.test(remind),
+  'the decide-by date in the letter is words from fixed tables, not the server\'s locale')
+ok(/setRemindFor\(sel\)\}>\s*<Send/.test(page) && /Remind the client/.test(page),
+  'each open selection has the button, in the row and in its menu')
+ok(/selections\/\$\{remindFor\.id\}\/remind/.test(page) && /data-overlay onClick=\{\(\) => setRemindFor\(null\)\}/.test(page),
+  '...opening an overlay over the screen, not a box at the foot of the card')
+ok(/reminded \{formatDateShort\(sel\.client_reminded_at\)\}/.test(page),
+  'the row says when they were last reminded')
+
 // The client sees the same stage.
 const portal = code('app/portal/[token]/selections/page.tsx')
 ok(/CLIENT_STATUS\[selectionStage\(sel, true\)\]/.test(portal),

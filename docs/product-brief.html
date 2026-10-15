@@ -407,7 +407,7 @@
       ones where the answer is "not yet".
     </p>
     <div class="stamp">
-      <span><b>Updated</b> 11 Oct 2026</span>
+      <span><b>Updated</b> 15 Oct 2026</span>
       <span><b>Audience</b> prospects &amp; customers</span>
       <span><b>Status</b> live, in daily use</span>
     </div>
@@ -648,6 +648,13 @@
       already paid.
     </p>
     <p>
+      Selections chase themselves. Each one shows where it stands without anybody setting it -
+      waiting on the client once their options are on the link, chosen, ordered, and installed when
+      the schedule line for that work reaches 100%. Anything still waiting on them has a
+      <strong>Remind client</strong> button that emails the item, the options and the date you need
+      it by, with one tap to their selections page, and the row shows when they were last reminded.
+    </p>
+    <p>
       Nothing appears there until you have actually sent it - a draft invoice or an unsent payment
       request stays yours. And the moment money is recorded, their page says so: the request
       disappears and the payment is acknowledged. <em>"Did they even get my money?"</em> is the one
@@ -712,6 +719,16 @@
           to each of them, so it matches the single deposit on the bank statement. Only money that
           settles nothing in particular - a deposit taken before there is an invoice - books as a
           sales receipt instead.
+        </dd>
+      </div>
+      <div>
+        <dt>One check covering several houses in a development?</dt>
+        <dd>
+          Record it once on the development and split it house by house - against each house's
+          invoices, as a deposit or draw on a house, or both. Every house shows its own share. When
+          the whole check pays invoices billed to one customer, it goes to QuickBooks as one payment
+          applied across all of them, matching the single deposit; otherwise each house's share goes
+          across separately, all carrying the same check number.
         </dd>
       </div>
       <div>
@@ -823,8 +840,19 @@
         <li>
           <span class="tag">House models · applied, not linked</span>
           A model's plans, budget, inspections and punch items are copied onto each house when you
-          apply it. Changing the model changes no house until you apply again (which adds only what
-          is new), and taking something off the model does not take it off houses that already have it.
+          apply it. Changing the model changes no house until you apply again - that adds only what is
+          new, and can update a budget amount the template has changed on the houses still on the old
+          figure, while a figure somebody changed on one house is left alone. Taking something off the
+          model does not take it off houses that already have it.
+        </li>
+        <li>
+          <span class="tag">Claude · adds and edits, never deletes, pays, approves or sends</span>
+          If you allow it, Claude can add and change records right across SyteNav and file documents
+          you hand it. It cannot delete anything, record a payment, approve a bill or a change order,
+          send anything to a client or a sub, or change a markup, a payment schedule or a vendor's
+          details - a person still does those in SyteNav. It reads what a document says but often
+          cannot pass SyteNav the file itself, so it may hand you a link to drop the original on.
+          Roles that only see the jobs they are assigned to cannot connect it yet.
         </li>
         <li>
           <span class="tag">Sub-side experience</span>
@@ -864,6 +892,48 @@
       kinds of file their role can already open on the job.
     </p>
 
+    <h3>Reports you can save, share and print</h3>
+    <p>
+      Reports builds a report on one job or many, on everything for one customer or developer,
+      or on a sub or a supplier across every job they are on. Pick a period - this month, last
+      quarter, your own dates - and tick what goes in it: the money summary, subcontracts and
+      change orders, bills, material purchases, budget against actual, margin, client invoices
+      and payments, the schedule, permits, inspections, daily logs and hours. Save it and it runs
+      again with fresh numbers whenever you open it; save it as a PDF; or share it as a link - emailed for you if you like - that the developer or the sub opens
+      with no account.
+    </p>
+    <p>
+      A shared report is a copy as it read when you sent it, not a live window onto the job, and
+      you can turn the link off. A report about a sub or a supplier only ever carries their own
+      rows - never another vendor's, and never your client billing or margin - which is what makes
+      it safe to send them. Each section also follows your permissions: somebody who cannot see
+      margin cannot put it in a report.
+    </p>
+
+    <h3>Ask Claude about your jobs - and let it do the typing</h3>
+    <p>
+      Add SyteNav to Claude as a custom connector - paste one address, sign in to SyteNav, press
+      Allow - and you can ask it "what is overdue on the Henderson job?", "which inspections still
+      need booking?" or "what do we still owe subs on Lot 14?" - it reads the answer out of
+      SyteNav. It works in Claude on the web, the desktop app and Claude Code, with no setup file,
+      and it uses your own permissions: it sees exactly what you can see, only on jobs your company runs.
+    </p>
+    <p>
+      Tick "also let it add records" and it does the typing too, anywhere in the app: new jobs and
+      customers, budget lines, subcontracts, schedule items and date changes, tasks and task notes,
+      daily logs, bills from subs, pay applications, quote requests, permits, inspection bookings and
+      results, RFIs, submittal reviews, selections, change orders, compliance documents, material
+      receipts, equipment and contacts. Drop a document into the chat - a sub's bill, an insurance
+      certificate, a permit, a receipt - and it works out what it is, which job and whose, files it in
+      the right place, and asks you first if any of that is unclear. Anything a client, a sub or
+      QuickBooks would see waits for you: a bill waits for approval; invoices, payment requests, pay
+      applications and quote requests stay unsent drafts; a daily log waits for review; and moving a
+      date shows you who else moves and asks before any sub is emailed. It never deletes, approves or
+      records payments; asking twice does not enter twice; and everything it does is marked "via
+      Claude" in Job History. Each connection on Settings &rarr; Integrations says whether it can
+      add, can be switched either way, and can be revoked on its own.
+    </p>
+
     <h3>Equipment, including what is broken</h3>
     <p>
       Every tool and machine, who has it and which job it is on, checked out and back in from a
@@ -891,7 +961,8 @@
       Houses built to the same design share a <strong>model</strong>: its plans (with separate
       left- and right-garage sets where they differ), its budget, its required inspections and its
       punch list - each punch item with who does it, a teammate, a sub or any name - are set up once and applied to the houses you pick, after a preview of what each
-      one will get. The development keeps its own main budget for land, roads and sitework, added to the
+      one will get. Budget templates are edited line by line - add a line, change an amount - and applying the
+      model again carries the change to the houses you tick. The development keeps its own main budget for land, roads and sitework, added to the
       houses' budgets in the roll-up.
     </p>
   </section>

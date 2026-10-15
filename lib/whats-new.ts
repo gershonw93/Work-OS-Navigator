@@ -54,6 +54,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-15',
+    title: 'Selections chase themselves',
+    items: [
+      {
+        kind: 'new',
+        title: 'Remind the client about a selection',
+        text: 'Any selection still waiting on the client has a "Remind client" button. It emails them the item, the options and the date you need it by, with one tap to their selections page - and the row shows when you last reminded them.',
+        help: 'selections',
+      },
+      {
+        kind: 'improved',
+        title: 'The status moves on its own',
+        text: 'No more status dropdown. A selection goes to Waiting on client when its options are on their link, Chosen when the choice and budget line are in, Ordered when you order it, and Installed when the schedule line for that work reaches 100%.',
+        help: 'selections',
+      },
+    ],
+  },
+  {
     date: '2026-10-13',
     title: 'Ask Claude about your jobs',
     items: [
