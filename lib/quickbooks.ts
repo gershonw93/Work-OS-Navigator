@@ -1,29 +1,78 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// QuickBooks Online integration helper (phase 1: SyteNav -> QBO push).
+// QuickBooks Online integration helper (SyteNav -> QBO push).
 //
-// Requires an Intuit Developer app. Set these env vars (Vercel):
-//   QBO_CLIENT_ID, QBO_CLIENT_SECRET
-//   QBO_ENV               'sandbox' (default) | 'production'
-//   QBO_REDIRECT_URI      defaults to `${NEXT_PUBLIC_APP_URL}/api/quickbooks/callback`
+// Requires an Intuit Developer app. Env vars (Vercel):
+//   QBO_ENV                         'sandbox' (default) | 'production'
+//   QBO_SANDBOX_CLIENT_ID/_SECRET   the Development keys (QBO_CLIENT_ID/_SECRET
+//                                   are still read for sandbox, as before)
+//   QBO_PRODUCTION_CLIENT_ID/_SECRET the Production keys - read ONLY when
+//                                   QBO_ENV is 'production'
+//   QBO_TOKEN_KEY                   encrypts tokens at rest; REQUIRED on production
+//   QBO_REDIRECT_URI                defaults to `${NEXT_PUBLIC_APP_URL}/api/quickbooks/callback`
 // The redirect URI must exactly match one registered on the Intuit app.
+//
+// SANDBOX AND PRODUCTION KEYS NEVER MIX. There used to be one QBO_CLIENT_ID
+// and a QBO_ENV beside it, so flipping QBO_ENV to production with the sandbox
+// keys still in place sent sandbox credentials to the real Intuit endpoints -
+// and the reverse put real keys against the sandbox API. Production now reads
+// only variables whose NAME says production, and never falls back.
 
-export const QBO_ENV = process.env.QBO_ENV === 'production' ? 'production' : 'sandbox'
+import { openToken, sealToken, tokenKey } from '@/lib/qbo-token-crypto'
+
+export type QboEnvironment = 'sandbox' | 'production'
+export const QBO_ENV: QboEnvironment = process.env.QBO_ENV === 'production' ? 'production' : 'sandbox'
 const AUTH_BASE = 'https://appcenter.intuit.com/connect/oauth2'
 const TOKEN_URL = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer'
+const REVOKE_URL = 'https://developer.api.intuit.com/v2/oauth2/tokens/revoke'
 const API_BASE = QBO_ENV === 'production'
   ? 'https://quickbooks.api.intuit.com'
   : 'https://sandbox-quickbooks.api.intuit.com'
 const MINOR_VERSION = '73'
-// Accounting + company info. openid/profile/email keep the flow simple.
-const SCOPES = 'com.intuit.quickbooks.accounting'
+// Accounting only - the one scope the push needs, and what Intuit's review
+// asks an app to limit itself to. No openid/profile/email/payments.
+export const SCOPES = 'com.intuit.quickbooks.accounting'
 
 export function admin(): SupabaseClient {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
 }
 
+/** Which keys this deploy uses, by environment. Pure over its argument. */
+export function qboCredentials(
+  env: QboEnvironment = QBO_ENV,
+  vars: Record<string, string | undefined> = process.env,
+): { clientId: string; clientSecret: string } | null {
+  const pick = (id?: string, secret?: string) => (id && secret ? { clientId: id, clientSecret: secret } : null)
+  if (env === 'production') return pick(vars.QBO_PRODUCTION_CLIENT_ID, vars.QBO_PRODUCTION_CLIENT_SECRET)
+  return pick(vars.QBO_SANDBOX_CLIENT_ID, vars.QBO_SANDBOX_CLIENT_SECRET)
+    ?? pick(vars.QBO_CLIENT_ID, vars.QBO_CLIENT_SECRET)
+}
+
+/**
+ * What is missing before this deploy can connect, in words - or null. The
+ * card prints it, so "not set up" says WHICH variable rather than leaving
+ * somebody to guess between four.
+ */
+export function qboConfigProblem(
+  env: QboEnvironment = QBO_ENV,
+  vars: Record<string, string | undefined> = process.env,
+): string | null {
+  if (!qboCredentials(env, vars)) {
+    return env === 'production'
+      ? 'QBO_PRODUCTION_CLIENT_ID and QBO_PRODUCTION_CLIENT_SECRET are not set'
+      : 'No QuickBooks Development keys are set (QBO_SANDBOX_CLIENT_ID / QBO_SANDBOX_CLIENT_SECRET)'
+  }
+  // `?? ''`: an absent key must be absent, not fall through to tokenKey's
+  // own default of process.env - which would let a test, or a caller passing
+  // another environment's variables, borrow this process's key.
+  if (env === 'production' && !tokenKey(vars.QBO_TOKEN_KEY ?? '')) {
+    return 'QBO_TOKEN_KEY is not set, so tokens for a real QuickBooks file could not be stored encrypted'
+  }
+  return null
+}
+
 export function qboConfigured(): boolean {
-  return !!(process.env.QBO_CLIENT_ID && process.env.QBO_CLIENT_SECRET)
+  return qboConfigProblem() === null
 }
 
 export function redirectUri(request?: Request): string {
@@ -35,7 +84,7 @@ export function redirectUri(request?: Request): string {
 
 export function authorizeUrl(state: string, request?: Request): string {
   const params = new URLSearchParams({
-    client_id: process.env.QBO_CLIENT_ID!,
+    client_id: qboCredentials()!.clientId,
     response_type: 'code',
     scope: SCOPES,
     redirect_uri: redirectUri(request),
@@ -45,7 +94,8 @@ export function authorizeUrl(state: string, request?: Request): string {
 }
 
 function basicAuth(): string {
-  return Buffer.from(`${process.env.QBO_CLIENT_ID}:${process.env.QBO_CLIENT_SECRET}`).toString('base64')
+  const c = qboCredentials()
+  return Buffer.from(`${c?.clientId ?? ''}:${c?.clientSecret ?? ''}`).toString('base64')
 }
 
 interface TokenResponse {
@@ -53,6 +103,37 @@ interface TokenResponse {
   refresh_token: string
   expires_in: number            // seconds (~3600)
   x_refresh_token_expires_in: number // seconds (~8726400)
+}
+
+/** A token request Intuit answered with a refusal, kept apart from one that never got an answer. */
+export class QboTokenError extends Error {
+  status: number
+  oauthError: string | null
+  constructor(status: number, body: string) {
+    let oauthError: string | null = null
+    try { oauthError = JSON.parse(body)?.error ?? null } catch { /* not JSON */ }
+    super(`QuickBooks token request failed (${status}${oauthError ? `, ${oauthError}` : ''})`)
+    this.name = 'QboTokenError'
+    this.status = status
+    this.oauthError = oauthError
+  }
+}
+
+/**
+ * Is this refresh failure the END of the connection, or a bad minute?
+ *
+ * The old answer was "any failure ends it": one 503 from Intuit marked the
+ * connection expired, every push after that came back "not connected" - a
+ * NORMAL state, so nothing was logged - and the books quietly stopped
+ * receiving anything until somebody noticed. Only Intuit SAYING the grant is
+ * gone (invalid_grant, or a 400/401 on the token call) means reconnect. A
+ * network error or a 5xx is a failure to ask, and says nothing about the token
+ * - the same rule `lib/auth-outcome.ts` follows for a sign-in.
+ */
+export function refreshIsFatal(err: unknown): boolean {
+  if (!(err instanceof QboTokenError)) return false
+  if (err.oauthError === 'invalid_grant' || err.oauthError === 'invalid_client') return true
+  return err.status === 400 || err.status === 401
 }
 
 async function tokenRequest(body: URLSearchParams): Promise<TokenResponse> {
@@ -65,7 +146,7 @@ async function tokenRequest(body: URLSearchParams): Promise<TokenResponse> {
     },
     body: body.toString(),
   })
-  if (!res.ok) throw new Error(`QuickBooks token request failed (${res.status}): ${await res.text()}`)
+  if (!res.ok) throw new QboTokenError(res.status, await res.text())
   return res.json()
 }
 
@@ -81,6 +162,35 @@ export async function refreshTokens(refresh_token: string): Promise<TokenRespons
   return tokenRequest(new URLSearchParams({ grant_type: 'refresh_token', refresh_token }))
 }
 
+/**
+ * Tell Intuit to forget a token. Disconnecting used to delete our row and
+ * leave the grant alive at Intuit, so "Disconnect" in SyteNav did not remove
+ * SyteNav from the customer's QuickBooks Connected Apps. Never throws: a
+ * disconnect must work while Intuit is down, and the row goes either way.
+ */
+export async function revokeToken(token: string): Promise<boolean> {
+  try {
+    const res = await fetch(REVOKE_URL, {
+      method: 'POST',
+      headers: { Authorization: `Basic ${basicAuth()}`, 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ token }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** The stored columns for a fresh token pair - sealed, with the expiry Intuit gave. */
+export function tokenColumns(t: TokenResponse, now = Date.now()) {
+  return {
+    access_token: sealToken(t.access_token),
+    refresh_token: sealToken(t.refresh_token),
+    access_expires_at: new Date(now + t.expires_in * 1000).toISOString(),
+    refresh_expires_at: new Date(now + t.x_refresh_token_expires_in * 1000).toISOString(),
+  }
+}
+
 export interface Connection {
   company_id: string
   realm_id: string
@@ -91,30 +201,101 @@ export interface Connection {
   status: string
 }
 
-// Return a valid access token, refreshing (and persisting) if it's near expiry.
-export async function getValidConnection(db: SupabaseClient, companyId: string): Promise<Connection | null> {
-  const { data: conn } = await db.from('quickbooks_connections').select('*').eq('company_id', companyId).maybeSingle()
-  if (!conn) return null
+/**
+ * Statuses a connection row can hold. `expired` is the old word for
+ * `needs_reconnect` and is still read as it.
+ */
+export const RECONNECT_STATUSES = ['needs_reconnect', 'expired']
+
+/**
+ * Why a stored connection cannot be used by THIS deploy, or null.
+ *
+ * A row made against the sandbox carries a sandbox realm and sandbox tokens;
+ * handed to the production API it would be refused at best, and at worst its
+ * realm id names somebody else's company. It is never used - the card says to
+ * reconnect, and the realm lock in the callback decides what that means for
+ * the ids already pushed.
+ */
+export function connectionUnusable(conn: { environment?: string | null; status?: string | null }, env: QboEnvironment = QBO_ENV): string | null {
+  if ((conn.environment ?? 'sandbox') !== env) return 'wrong_environment'
+  if (RECONNECT_STATUSES.includes(String(conn.status))) return 'needs_reconnect'
+  return null
+}
+
+async function logConnection(db: SupabaseClient, companyId: string, realmId: string, message: string) {
+  try {
+    await db.from('quickbooks_sync_log').insert({
+      company_id: companyId, entity_type: 'connection', entity_id: null, action: 'update',
+      status: 'error', qbo_id: realmId, message,
+    })
+  } catch { /* the log must never take the caller down */ }
+}
+
+// Return a usable connection with a valid access token, refreshing (and
+// persisting, sealed) when it is near expiry. Null when there is none to use.
+export async function getValidConnection(
+  db: SupabaseClient, companyId: string,
+  opts: { forceRefresh?: boolean } = {},
+): Promise<Connection | null> {
+  const { data: row } = await db.from('quickbooks_connections').select('*').eq('company_id', companyId).maybeSingle()
+  if (!row || connectionUnusable(row)) return null
+
+  let conn: Connection
+  try {
+    conn = { ...(row as any), access_token: openToken(row.access_token), refresh_token: openToken(row.refresh_token) }
+  } catch (err: any) {
+    await logConnection(db, companyId, row.realm_id, err?.message ?? 'Stored QuickBooks tokens could not be read')
+    return null
+  }
 
   const expMs = conn.access_expires_at ? new Date(conn.access_expires_at).getTime() : 0
   const nearExpiry = expMs - Date.now() < 120_000 // refresh with 2 min headroom
-  if (!nearExpiry) return conn as Connection
+  if (!nearExpiry && !opts.forceRefresh) return conn
 
   try {
     const t = await refreshTokens(conn.refresh_token)
-    const now = Date.now()
+    const now = new Date()
     const updated = {
-      access_token: t.access_token,
-      refresh_token: t.refresh_token,
-      access_expires_at: new Date(now + t.expires_in * 1000).toISOString(),
-      refresh_expires_at: new Date(now + t.x_refresh_token_expires_in * 1000).toISOString(),
+      ...tokenColumns(t, now.getTime()),
       status: 'connected',
-      updated_at: new Date().toISOString(),
+      last_refreshed_at: now.toISOString(),
+      last_refresh_error: null,
+      updated_at: now.toISOString(),
     }
     await db.from('quickbooks_connections').update(updated).eq('company_id', companyId)
-    return { ...conn, ...updated } as Connection
-  } catch {
-    await db.from('quickbooks_connections').update({ status: 'expired' }).eq('company_id', companyId)
+    return { ...conn, access_token: t.access_token, refresh_token: t.refresh_token, access_expires_at: updated.access_expires_at }
+  } catch (err: any) {
+    // ANOTHER REQUEST MAY HAVE ROTATED IT FIRST. Two pushes landing in the same
+    // minute both see a stale access token and both refresh with the same
+    // refresh token; the loser is told invalid_grant about a connection that is
+    // perfectly healthy. Re-read before believing it.
+    const { data: again } = await db.from('quickbooks_connections').select('*').eq('company_id', companyId).maybeSingle()
+    if (again && again.refresh_token !== row.refresh_token && !connectionUnusable(again)) {
+      try {
+        return { ...(again as any), access_token: openToken(again.access_token), refresh_token: openToken(again.refresh_token) }
+      } catch { /* fall through to the failure below */ }
+    }
+    const message = err?.message ?? 'QuickBooks sign-in could not be renewed'
+    if (refreshIsFatal(err)) {
+      await db.from('quickbooks_connections')
+        .update({ status: 'needs_reconnect', last_refresh_error: message }).eq('company_id', companyId)
+      // Once, on the way from connected to dead - not on every push after.
+      if (row.status === 'connected') {
+        await logConnection(db, companyId, row.realm_id,
+          `${message}. QuickBooks no longer accepts SyteNav's sign-in - reconnect QuickBooks in Settings > Integrations. Nothing is pushed until then.`)
+      }
+    } else {
+      // A bad minute at Intuit. The connection stays; this push misses and the
+      // backlog picks it up. Written down at most every ten minutes, so an
+      // outage is visible without a row per push.
+      const lastAt = row.updated_at ? new Date(row.updated_at).getTime() : 0
+      if (!row.last_refresh_error || Date.now() - lastAt > 10 * 60_000) {
+        await logConnection(db, companyId, row.realm_id,
+          `${message} - QuickBooks could not be reached to renew the sign-in. It will try again on the next push.`)
+      }
+      await db.from('quickbooks_connections')
+        .update({ last_refresh_error: message, updated_at: new Date().toISOString() }).eq('company_id', companyId)
+    }
     return null
   }
 }

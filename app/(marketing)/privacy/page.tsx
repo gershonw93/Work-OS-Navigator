@@ -14,7 +14,7 @@ export default function PrivacyPage() {
   return (
     <LegalDoc
       title="Privacy Policy"
-      updated="October 12, 2026"
+      updated="October 19, 2026"
       intro="This Privacy Policy explains how SyteNav ('SyteNav', 'we', 'us') collects, uses, and protects information when you use our website and construction management software (the 'Service'). By using the Service you agree to this policy."
       sections={[
         { h: 'Information we collect', body: ['We collect information you provide directly, such as your name, email, company details, and the project data you enter (quotes, budgets, invoices, logs, documents, photos, and similar).', 'We also collect limited technical information automatically, such as device, browser, IP address, and usage events, to keep the Service secure and reliable.'] },
@@ -35,6 +35,20 @@ export default function PrivacyPage() {
           'We use this data only to show you those contacts and add the ones you choose. We do not sell it, use it for advertising, use it to train AI models, or share it with anyone except the service providers that host SyteNav. Nobody at SyteNav reads it unless you ask us to for support, or the law or a security investigation requires it.',
           'You can disconnect Google at any time from Directory > Imported contacts, which deletes the access we were given. You can also remove SyteNav\'s access from your Google account at myaccount.google.com/permissions. To have the imported contacts deleted as well, see sytenav.com/delete-account or email us.',
           'SyteNav\'s use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy (developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.',
+        ] },
+        // QUICKBOOKS DATA. Intuit's production review reads this section, and
+        // every sentence is a fact about the code: the one scope
+        // (lib/quickbooks.ts SCOPES), one-way push (lib/quickbooks-push.ts),
+        // what is read back (account/item/payment-method lookups, the records
+        // we created, same-name and same-number duplicate checks), tokens
+        // sealed with AES-256-GCM (lib/qbo-token-crypto.ts, required on
+        // production by qboConfigProblem), and Disconnect revoking the grant.
+        { h: 'QuickBooks data', body: [
+          'If your company connects SyteNav to QuickBooks Online (Settings, then Integrations), an administrator of your company signs in to QuickBooks and chooses one QuickBooks company to connect. We ask Intuit for the accounting permission only (com.intuit.quickbooks.accounting).',
+          'The connection is one way: SyteNav sends records into your QuickBooks company - your customers and subcontractors, the invoices you send your clients and the payments against them, the bills your subcontractors send you and the payments you make on them, and voids or deletions of those. We do not import your QuickBooks books into SyteNav.',
+          'To do that we read only what the sending needs: your QuickBooks company name; the accounts, items and payment methods to record against; the records SyteNav itself created, so they can be corrected or voided; and customers, vendors and transactions with the same name or number, so the same record is not entered twice. We store your QuickBooks company id and name, the QuickBooks id of each record we sent, and a log of what was sent and whether it succeeded.',
+          'The access tokens Intuit issues are stored encrypted (AES-256) and are never sent to your browser or device. We do not sell QuickBooks data, use it for advertising, or use it to train AI models, and nobody at SyteNav looks at it unless you ask us to for support or the law requires it.',
+          'You can disconnect at any time from Settings, then Integrations, which revokes SyteNav\'s access with Intuit, or from the Apps page in QuickBooks. Disconnecting does not change anything already in QuickBooks. To have the stored QuickBooks ids and log deleted as well, see sytenav.com/delete-account or email us.',
         ] },
         // THE SENTENCE THAT MATCHES WHAT THE CODE DOES. Campaigns are the one
         // kind of mail we send because we decided to, so the policy has to say

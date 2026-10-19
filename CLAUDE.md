@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-150.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-151.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -448,6 +448,30 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   answer; otherwise the badge is the retry. Every row in `quickbooks_sync_log`
   carries its real `action` (`create | update | void`) and, for anything that
   may be deleted, a `record_label`. Pinned in `quickbooks-void-all.ts`.
+- **PRODUCTION: KEYS, FILES AND TOKENS NEVER MIX.** Production reads ONLY
+  `QBO_PRODUCTION_CLIENT_ID/_SECRET` and never falls back to `QBO_CLIENT_ID`;
+  without `QBO_TOKEN_KEY` production is NOT CONFIGURED (`qboConfigProblem`).
+  Tokens are sealed (`lib/qbo-token-crypto.ts`) and read through `openToken`
+  only. A connection whose `environment` is not `QBO_ENV` is never used
+  (`connectionUnusable`). Every qbo id an account holds belongs to ONE file
+  (`companies.qbo_realm_id/qbo_environment`); the callback asks `realmDecision`
+  BEFORE storing and refuses another file (`other_file`) or one another account
+  holds (`file_taken`), revoking the grant either way. Moving files is Start
+  fresh: archive (`quickbooks_id_archive`), clear, `qbo_sync_from` cutoff on the
+  backlog. A SUB'S VENDOR ID IS PER FILE (`quickbooks_vendor_links`) - never
+  `companies.qbo_vendor_id`, which every GC the sub works for shares.
+- **A REFRESH FAILURE IS A VERDICT ONLY WHEN INTUIT GIVES ONE.** `invalid_grant`
+  / 400 / 401 -> `needs_reconnect`, logged once, card says Reconnect; a 5xx or
+  no answer leaves the connection alone and logs the miss (at most every ten
+  minutes). Re-read before believing invalid_grant: a concurrent request may
+  have rotated the token. A daily cron renews every sign-in.
+- **DUPLICATE CHECK BEFORE EVERY CREATE: number + party + amount**
+  (`findDuplicate`). All three or it is not a duplicate - adopting on the number
+  alone attaches this client's money to the GC's own INV-0004 for someone else.
+  Customers and vendors are adopted by exact display name. A check that could
+  not run never blocks the push and is written into its log line. Pinned and
+  mutation-checked in `quickbooks-production.ts`; runbook in
+  `docs/quickbooks-production.md`.
 
 ## Billing, the trial, and the meter (IMPORTANT)
 - **`lib/plans.ts` IS THE ONE HOME FOR A PRICE, A CAP AND `TRIAL_DAYS`.** A plan

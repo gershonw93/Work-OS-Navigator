@@ -362,19 +362,83 @@ async function logRow(
   } catch { /* the log must never take the push down with it */ }
 }
 
-async function ensureVendorId(db: SupabaseClient, conn: Connection, companyId: string, gcCompanyId: string): Promise<string> {
-  const { data: co } = await db.from('companies')
-    .select('id, name, contact_email, phone, address, qbo_vendor_id').eq('id', companyId).single()
-  if (!co) throw new Error('Vendor company not found')
-  if (co.qbo_vendor_id) return co.qbo_vendor_id
+/**
+ * A sub's vendor id IN THIS FILE. `companies.qbo_vendor_id` sat on the sub's
+ * own row, which every GC they work for shares - so the id one GC's push
+ * created in their QuickBooks was handed to the next GC's QuickBooks, where it
+ * names some other vendor or nothing. Keyed on the file (migration 151).
+ */
+export async function linkedVendorId(db: SupabaseClient, conn: Pick<Connection, 'realm_id' | 'environment'>, vendorCompanyId: string): Promise<string | null> {
+  const { data } = await db.from('quickbooks_vendor_links').select('qbo_vendor_id')
+    .eq('realm_id', conn.realm_id).eq('environment', conn.environment ?? 'sandbox')
+    .eq('vendor_company_id', vendorCompanyId).maybeSingle()
+  return (data as any)?.qbo_vendor_id ?? null
+}
+
+export async function linkVendor(db: SupabaseClient, conn: Pick<Connection, 'realm_id' | 'environment'>, vendorCompanyId: string, qboVendorId: string | null): Promise<void> {
+  const key = { realm_id: conn.realm_id, environment: conn.environment ?? 'sandbox', vendor_company_id: vendorCompanyId }
+  if (qboVendorId) {
+    await db.from('quickbooks_vendor_links').upsert({ ...key, qbo_vendor_id: qboVendorId, synced_at: new Date().toISOString() },
+      { onConflict: 'realm_id,environment,vendor_company_id' })
+  } else {
+    await db.from('quickbooks_vendor_links').delete()
+      .eq('realm_id', key.realm_id).eq('environment', key.environment).eq('vendor_company_id', vendorCompanyId)
+  }
+}
+
+/** QBO quotes a string literal with single quotes; one inside a name is escaped. */
+export function qboLiteral(v: string): string {
+  return `'${String(v).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`
+}
+
+/**
+ * The vendor or customer QuickBooks already holds under this exact name, if
+ * any. A real file already has most of a GC's subs and clients - the
+ * bookkeeper put them there - and QuickBooks refuses a second record with the
+ * same display name (6240), so creating blindly fails on the first push to a
+ * production company. Adopting the existing one is also what the bookkeeper
+ * wants: one vendor, not "ABC Plumbing" and "ABC Plumbing (1)".
+ */
+export async function existingNamedId(conn: Connection, entity: 'Vendor' | 'Customer', name: string): Promise<string | null> {
+  const n = String(name ?? '').trim()
+  if (!n) return null
+  try {
+    const q = await qboQuery(conn, `select Id from ${entity} where DisplayName = ${qboLiteral(n)} and Active = true`)
+    return q?.[entity]?.[0]?.Id ?? null
+  } catch {
+    return null
+  }
+}
+
+/** Create (or adopt) the sub as a Vendor in the connected file. Shared by the push and the Sync subs button. */
+export async function createOrAdoptVendor(
+  db: SupabaseClient, conn: Connection,
+  co: { id: string; name: string; contact_email?: string | null; phone?: string | null; address?: string | null },
+): Promise<{ qboId: string; adopted: boolean }> {
+  const existing = await existingNamedId(conn, 'Vendor', co.name)
+  if (existing) {
+    await linkVendor(db, conn, co.id, existing)
+    return { qboId: existing, adopted: true }
+  }
   const payload: any = { DisplayName: co.name }
   if (co.contact_email) payload.PrimaryEmailAddr = { Address: co.contact_email }
   if (co.phone) payload.PrimaryPhone = { FreeFormNumber: co.phone }
   if (co.address) payload.BillAddr = { Line1: co.address }
   const res = await qboFetch(conn, 'vendor', { method: 'POST', body: JSON.stringify(payload) })
   const qboId = res?.Vendor?.Id
-  await db.from('companies').update({ qbo_vendor_id: qboId, qbo_vendor_synced_at: new Date().toISOString() }).eq('id', co.id)
-  await logRow(db, gcCompanyId, 'vendor', co.id, 'success', qboId, 'Auto-created for a bill')
+  await linkVendor(db, conn, co.id, qboId)
+  return { qboId, adopted: false }
+}
+
+async function ensureVendorId(db: SupabaseClient, conn: Connection, companyId: string, gcCompanyId: string): Promise<string> {
+  const linked = await linkedVendorId(db, conn, companyId)
+  if (linked) return linked
+  const { data: co } = await db.from('companies')
+    .select('id, name, contact_email, phone, address').eq('id', companyId).single()
+  if (!co) throw new Error('Vendor company not found')
+  const { qboId, adopted } = await createOrAdoptVendor(db, conn, co as any)
+  await logRow(db, gcCompanyId, 'vendor', co.id, 'success', qboId,
+    adopted ? 'Matched to the vendor of the same name already in QuickBooks' : 'Auto-created for a bill', 'create', (co as any).name)
   return qboId
 }
 
@@ -383,15 +447,22 @@ async function ensureCustomerId(db: SupabaseClient, conn: Connection, customerId
     .select('id, name, contact_name, email, phone, billing_address, qbo_id').eq('id', customerId).single()
   if (!c) throw new Error('Customer not found')
   if (c.qbo_id) return c.qbo_id
-  const payload: any = { DisplayName: c.name }
-  if (c.email) payload.PrimaryEmailAddr = { Address: c.email }
-  if (c.phone) payload.PrimaryPhone = { FreeFormNumber: c.phone }
-  if (c.billing_address) payload.BillAddr = { Line1: c.billing_address }
-  const res = await qboFetch(conn, 'customer', { method: 'POST', body: JSON.stringify(payload) })
-  const qboId = res?.Customer?.Id
+  // A real file already has most of a GC's clients - adopt rather than refuse
+  // on 6240 (duplicate name) or, worse, make "Smith (1)".
+  const existing = await existingNamedId(conn, 'Customer', c.name)
+  let qboId = existing
+  if (!qboId) {
+    const payload: any = { DisplayName: c.name }
+    if (c.email) payload.PrimaryEmailAddr = { Address: c.email }
+    if (c.phone) payload.PrimaryPhone = { FreeFormNumber: c.phone }
+    if (c.billing_address) payload.BillAddr = { Line1: c.billing_address }
+    const res = await qboFetch(conn, 'customer', { method: 'POST', body: JSON.stringify(payload) })
+    qboId = res?.Customer?.Id
+  }
   await db.from('customers').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', c.id)
-  await logRow(db, gcCompanyId, 'customer', c.id, 'success', qboId, 'Auto-created for a payment')
-  return qboId
+  await logRow(db, gcCompanyId, 'customer', c.id, 'success', qboId ?? undefined,
+    existing ? 'Matched to the customer of the same name already in QuickBooks' : 'Auto-created for a payment', 'create', c.name)
+  return qboId!
 }
 
 /** The GC company whose QuickBooks file a project's money belongs in. */
@@ -482,23 +553,84 @@ async function releaseClaim(
   } catch { /* a stuck claim expires on its own; never fail the caller for this */ }
 }
 
+// ── The duplicate check: document number + party + amount ──────────────────
+//
+// Run before EVERY create. The claim (above) stops two SyteNav requests racing
+// each other; this covers what the claim cannot see - a push that created the
+// record over there and died before writing qbo_id back (the retry would make
+// a second one), and a record the bookkeeper already keyed in by hand.
+//
+// ALL THREE MUST MATCH. The invoice check this replaces adopted on the number
+// alone, which was harmless against a sandbox and wrong against real books: a
+// GC's QuickBooks already has its own INV-0004 for some other client, and
+// adopting it would apply this client's money to that stranger's receivable.
+// A record that only shares the number is not a duplicate - it is pushed, and
+// the log says the number is used twice. A voided record never matches.
+
+export type DupEntity = 'Invoice' | 'Bill' | 'BillPayment' | 'SalesReceipt' | 'Payment'
+
+export interface DupProbe {
+  entity: DupEntity
+  /** DocNumber (PaymentRefNum on a Payment). */
+  doc: string | null | undefined
+  partyId: string
+  amount: number
+  /** TxnDate, YYYY-MM-DD - how a Payment is looked up, since its reference is not queryable. */
+  txnDate?: string | null
+}
+
+const PARTY_REF: Record<DupEntity, 'CustomerRef' | 'VendorRef'> = {
+  Invoice: 'CustomerRef', SalesReceipt: 'CustomerRef', Payment: 'CustomerRef', Bill: 'VendorRef', BillPayment: 'VendorRef',
+}
+const cents = (n: unknown) => Math.round(Number(n ?? NaN) * 100)
+const docOf = (entity: DupEntity, row: any) => String((entity === 'Payment' ? row?.PaymentRefNum : row?.DocNumber) ?? '').trim().toLowerCase()
+
 /**
- * An Invoice QuickBooks already holds under this number, if any.
- *
- * The claim closes the window inside one deploy; this covers the rest - a
- * push that created in QBO and then died before writing qbo_id back would
- * otherwise create a second one on the retry. Adopting beats duplicating.
+ * Pure: which of these rows is the SAME document - or, failing that, whether
+ * one merely shares its number. Exported for the pin.
  */
-async function existingInvoiceIdByDocNumber(conn: Connection, docNumber?: string | null): Promise<string | null> {
-  const n = String(docNumber ?? '').trim()
-  if (!n) return null
+export function matchDuplicate(rows: any[], p: DupProbe): { id: string | null; numberClash: boolean } {
+  const doc = String(p.doc ?? '').trim().toLowerCase()
+  if (!doc) return { id: null, numberClash: false }
+  const live = (rows ?? []).filter(r => r?.Id && !isVoidedInQbo(r) && docOf(p.entity, r) === doc)
+  const same = live.find(r => String(r?.[PARTY_REF[p.entity]]?.value ?? '') === String(p.partyId) && cents(r?.TotalAmt) === cents(p.amount))
+  return { id: same ? String(same.Id) : null, numberClash: !same && live.length > 0 }
+}
+
+/** The query that finds the candidates. Pure, so the shape is pinned. */
+export function duplicateQuery(p: DupProbe): string | null {
+  if (!String(p.doc ?? '').trim()) return null
+  if (p.entity === 'Payment') {
+    if (!p.txnDate) return null
+    return `select * from Payment where CustomerRef = ${qboLiteral(p.partyId)} and TxnDate = ${qboLiteral(p.txnDate)}`
+  }
+  if (p.entity === 'BillPayment') {
+    if (!p.txnDate) return null
+    return `select * from BillPayment where VendorRef = ${qboLiteral(p.partyId)} and TxnDate = ${qboLiteral(p.txnDate)}`
+  }
+  return `select * from ${p.entity} where DocNumber = ${qboLiteral(String(p.doc).trim())}`
+}
+
+/**
+ * Ask QuickBooks. A check that could not run does NOT stop the push - the
+ * money is the work - but it is never silent either: `note` goes into the log
+ * line, so "pushed, unchecked" reads differently from "pushed, checked".
+ */
+export async function findDuplicate(conn: Connection, p: DupProbe): Promise<{ id: string | null; note: string | null }> {
+  const sql = duplicateQuery(p)
+  if (!sql) return { id: null, note: 'duplicate check skipped - no number or date to look it up by' }
   try {
-    const q = await qboQuery(conn, `select Id from Invoice where DocNumber = '${n.replace(/'/g, "\\'")}'`)
-    return q?.Invoice?.[0]?.Id ?? null
-  } catch {
-    return null
+    const q = await qboQuery(conn, sql)
+    const m = matchDuplicate(q?.[p.entity] ?? [], p)
+    if (m.id) return { id: m.id, note: `matched ${p.entity} ${m.id} already in QuickBooks (same number, ${PARTY_REF[p.entity] === 'VendorRef' ? 'vendor' : 'customer'} and amount) - linked, not created again` }
+    return { id: null, note: m.numberClash ? `QuickBooks already has another ${p.entity} numbered ${p.doc} for a different ${PARTY_REF[p.entity] === 'VendorRef' ? 'vendor' : 'customer'} or amount - this one was added beside it` : null }
+  } catch (err: any) {
+    return { id: null, note: `duplicate check could not run (${err?.message ?? 'unknown'})` }
   }
 }
+
+const withNote = (base: string | undefined, note: string | null) =>
+  [base, note].filter(Boolean).join(' - ') || undefined
 
 // ── The pushers ──────────────────────────────────────────────────────────────
 
@@ -552,9 +684,11 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
         if (ctx) ctx.itemId = itemId; else ctx = { conn, itemId }
       }
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
-      const res = await qboFetch(conn, 'salesreceipt', {
+      const payload = paymentPayload(p, customerQboId, ctx!.itemId!, projectName, await methodIdFor(conn, (p as any).method, ctx)) as any
+      const dup = await findDuplicate(conn, { entity: 'SalesReceipt', doc: payload.DocNumber, partyId: customerQboId, amount: Number(p.amount) })
+      const res = dup.id ? { SalesReceipt: { Id: dup.id } } : await qboFetch(conn, 'salesreceipt', {
         method: 'POST',
-        body: JSON.stringify(paymentPayload(p, customerQboId, ctx!.itemId!, projectName, await methodIdFor(conn, (p as any).method, ctx))),
+        body: JSON.stringify(payload),
       })
       const qboId = res?.SalesReceipt?.Id
       // qb_entered too: the hand-tick means "it is in QuickBooks", and now it is.
@@ -563,7 +697,7 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
         // Label which model wrote it, so nobody has to infer it later.
         qbo_txn_type: 'sales_receipt',
       }).eq('id', p.id)
-      await logRow(db, companyId, 'payment', p.id, 'success', qboId)
+      await logRow(db, companyId, 'payment', p.id, 'success', qboId, withNote(undefined, dup.note))
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
       await releaseClaim(db, 'client_payments', p.id)
@@ -606,13 +740,15 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
         if (ctx) ctx.expenseAccountId = expenseAccountId; else ctx = { conn, expenseAccountId }
       }
       const vendorQboId = await ensureVendorId(db, conn, vendorCompanyId, companyId)
-      const res = await qboFetch(conn, 'bill', {
+      const payload = billPayload({ ...inv, trade: (inv.subcontracts as any)?.trade }, vendorQboId, ctx!.expenseAccountId!, projectName) as any
+      const dup = await findDuplicate(conn, { entity: 'Bill', doc: payload.DocNumber, partyId: vendorQboId, amount: Number(inv.amount) })
+      const res = dup.id ? { Bill: { Id: dup.id } } : await qboFetch(conn, 'bill', {
         method: 'POST',
-        body: JSON.stringify(billPayload({ ...inv, trade: (inv.subcontracts as any)?.trade }, vendorQboId, ctx!.expenseAccountId!, projectName)),
+        body: JSON.stringify(payload),
       })
       const qboId = res?.Bill?.Id
       await db.from('invoices').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
-      await logRow(db, companyId, 'bill', inv.id, 'success', qboId)
+      await logRow(db, companyId, 'bill', inv.id, 'success', qboId, withNote(undefined, dup.note))
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
       await releaseClaim(db, 'invoices', inv.id)
@@ -678,15 +814,17 @@ export async function pushBillPayment(db: SupabaseClient, invoiceId: string, ctx
         if (ctx) ctx.bankAccountId = bankAccountId; else ctx = { conn, bankAccountId }
       }
       const vendorQboId = await ensureVendorId(db, conn, vendorCompanyId, companyId)
-      const res = await qboFetch(conn, 'billpayment', {
+      const payload = billPaymentPayload(inv as any, vendorQboId, inv.qbo_id!, ctx!.bankAccountId!, projectName) as any
+      const dup = await findDuplicate(conn, { entity: 'BillPayment', doc: payload.DocNumber, partyId: vendorQboId, amount: Number(payload.TotalAmt), txnDate: payload.TxnDate })
+      const res = dup.id ? { BillPayment: { Id: dup.id } } : await qboFetch(conn, 'billpayment', {
         method: 'POST',
-        body: JSON.stringify(billPaymentPayload(inv as any, vendorQboId, inv.qbo_id!, ctx!.bankAccountId!, projectName)),
+        body: JSON.stringify(payload),
       })
       const qboId = res?.BillPayment?.Id
       await db.from('invoices').update({
         qbo_payment_id: qboId, qbo_payment_synced_at: new Date().toISOString(),
       }).eq('id', inv.id)
-      await logRow(db, companyId, 'bill_payment', inv.id, 'success', qboId, `Settled bill ${inv.qbo_id}`)
+      await logRow(db, companyId, 'bill_payment', inv.id, 'success', qboId, withNote(`Settled bill ${inv.qbo_id}`, dup.note))
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
       await releaseClaim(db, 'invoices', inv.id, 'qbo_payment_claimed_at')
@@ -712,12 +850,12 @@ async function diagnoseBillPaymentRefs(
   billQboId: string,
 ): Promise<string> {
   try {
-    const { data: co } = await db.from('companies').select('qbo_vendor_id').eq('id', vendorCompanyId).maybeSingle()
+    const vendorId = await linkedVendorId(db, conn, vendorCompanyId)
     const refs: ReferenceRef[] = []
-    if (co?.qbo_vendor_id) {
+    if (vendorId) {
       refs.push({
-        label: `vendor ${co.qbo_vendor_id}`,
-        path: `vendor/${co.qbo_vendor_id}`,
+        label: `vendor ${vendorId}`,
+        path: `vendor/${vendorId}`,
         inspect: (o: any) => o?.Active === false ? 'the vendor is inactive in QuickBooks' : null,
       })
     }
@@ -731,8 +869,8 @@ async function diagnoseBillPaymentRefs(
     const probes = await probeReferences(conn, refs)
     // A vendor id QuickBooks does not have fails identically forever. Clear it
     // so the next push re-creates - MISSING only, never merely inactive.
-    if (co?.qbo_vendor_id && probes.find(x => x.label === `vendor ${co.qbo_vendor_id}`)?.missing) {
-      await db.from('companies').update({ qbo_vendor_id: null, qbo_vendor_synced_at: null }).eq('id', vendorCompanyId)
+    if (vendorId && probes.find(x => x.label === `vendor ${vendorId}`)?.missing) {
+      await linkVendor(db, conn, vendorCompanyId, null)
     }
     return describeProbe(probes)
   } catch (err: any) {
@@ -868,28 +1006,24 @@ export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?
     if (!await claimForPush(db, 'client_invoices', inv.id)) return { pushed: false, reason: 'already' }
 
     return await budgeted((async (): Promise<PushResult> => {
-      // Already over there under this number? Adopt it. A push that created in
-      // QuickBooks and then died before writing qbo_id back would otherwise
-      // create a second invoice on the retry.
-      const existing = await existingInvoiceIdByDocNumber(conn, inv.invoice_number)
-      if (existing) {
-        await db.from('client_invoices').update({ qbo_id: existing, qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
-        await logRow(db, companyId, 'client_invoice', inv.id, 'success', existing, 'Adopted the invoice already in QuickBooks')
-        return { pushed: true, qboId: existing }
-      }
-
       if (!ctx?.itemId) {
         const itemId = await defaultServiceItemId(conn)
         if (ctx) ctx.itemId = itemId; else ctx = { conn, itemId }
       }
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
-      const res = await qboFetch(conn, 'invoice', {
+      const payload = clientInvoicePayload(inv, lines, customerQboId, ctx!.itemId!, projectName) as any
+      // Already over there - same number, same customer, same total? Adopt it
+      // (a push that created and died before writing qbo_id back). The number
+      // alone is NOT enough: see findDuplicate.
+      const total = (payload.Line ?? []).reduce((sum: number, l: any) => sum + Number(l?.Amount ?? 0), 0)
+      const dup = await findDuplicate(conn, { entity: 'Invoice', doc: payload.DocNumber, partyId: customerQboId, amount: total })
+      const res = dup.id ? { Invoice: { Id: dup.id } } : await qboFetch(conn, 'invoice', {
         method: 'POST',
-        body: JSON.stringify(clientInvoicePayload(inv, lines, customerQboId, ctx!.itemId!, projectName)),
+        body: JSON.stringify(payload),
       })
       const qboId = res?.Invoice?.Id
       await db.from('client_invoices').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
-      await logRow(db, companyId, 'client_invoice', inv.id, 'success', qboId)
+      await logRow(db, companyId, 'client_invoice', inv.id, 'success', qboId, withNote(undefined, dup.note), 'create', inv.invoice_number)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
       await releaseClaim(db, 'client_invoices', inv.id)
@@ -1093,10 +1227,12 @@ async function pushPaymentRow(db: SupabaseClient, paymentId: string, ctx?: PushC
         body: JSON.stringify(appliedPaymentPayload(p, customerQboId, targets, projectName, mid, note)),
       })
 
+      const probe = appliedPaymentPayload(p, customerQboId, targets, projectName, methodQboId, null) as any
+      const dup = await findDuplicate(conn, { entity: 'Payment', doc: probe.PaymentRefNum, partyId: customerQboId, amount: Number(p.amount), txnDate: probe.TxnDate })
       let res: any
       let droppedMethod = false
       try {
-        res = await post(methodQboId, null)
+        res = dup.id ? { Payment: { Id: dup.id } } : await post(methodQboId, null)
       } catch (err: any) {
         // THE MONEY MATTERS MORE THAN THE COLUMN. QuickBooks answers a bad
         // reference with 610 and will not say which one, so drop the only
@@ -1118,7 +1254,7 @@ async function pushPaymentRow(db: SupabaseClient, paymentId: string, ctx?: PushC
       const how = droppedMethod
         ? `${targets.length ? `Applied to invoice${targets.length > 1 ? 's' : ''} ${applied}` : 'Held as credit on account'}. QuickBooks refused payment method "${(p as any).method}" (id ${methodQboId}), so it is written in the memo instead - the method needs fixing in QuickBooks.`
         : targets.length ? `Applied to invoice${targets.length > 1 ? 's' : ''} ${applied}` : 'Held as credit on account'
-      await logRow(db, companyId, 'payment', p.id, 'success', qboId, how)
+      await logRow(db, companyId, 'payment', p.id, 'success', qboId, withNote(how, dup.note))
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
       await releaseClaim(db, 'client_payments', p.id)
@@ -1196,8 +1332,10 @@ export async function pushPaymentGroup(db: SupabaseClient, groupId: string, ctx?
           method: 'POST',
           body: JSON.stringify(appliedPaymentPayload(grp as any, customerQboId, links, (dev as any)?.name ?? null, mid, note)),
         })
+        const probe = appliedPaymentPayload(grp as any, customerQboId, links, (dev as any)?.name ?? null, methodQboId, null) as any
+        const dup = await findDuplicate(conn, { entity: 'Payment', doc: probe.PaymentRefNum, partyId: customerQboId, amount: Number((grp as any).amount), txnDate: probe.TxnDate })
         let res: any
-        try { res = await post(methodQboId, null) } catch (err: any) {
+        try { res = dup.id ? { Payment: { Id: dup.id } } : await post(methodQboId, null) } catch (err: any) {
           // Same retry as a single payment: drop the one optional reference.
           if (err?.code !== QBO_OBJECT_NOT_FOUND || !methodQboId) throw err
           res = await post(null, methodNote((grp as any).method))
@@ -1208,7 +1346,7 @@ export async function pushPaymentGroup(db: SupabaseClient, groupId: string, ctx?
         await db.from('client_payments').update({ qbo_id: qboId, qbo_synced_at: now, qb_entered: true, qbo_txn_type: 'payment' })
           .eq('payment_group_id', groupId)
         await logRow(db, companyId!, 'payment', groupId, 'success', qboId,
-          `One payment across ${new Set(shares.map(r => r.project_id)).size} houses: ${links.map(l => l.label).join(', ')}`)
+          withNote(`One payment across ${new Set(shares.map(r => r.project_id)).size} houses: ${links.map(l => l.label).join(', ')}`, dup.note))
         return { pushed: true, qboId }
       })()).catch(async (err: any) => {
         await releaseClaim(db, 'client_payment_groups', groupId)
@@ -1358,12 +1496,15 @@ export async function pushCustomer(db: SupabaseClient, customerId: string, ctx?:
     if (!await claimForPush(db, 'customers', c.id)) return { pushed: false, reason: 'already' }
 
     return await budgeted((async (): Promise<PushResult> => {
-      const res = await qboFetch(conn, 'customer', {
+      // Same name already over there: link to it and leave the bookkeeper's
+      // record as they keep it, rather than overwrite it with ours.
+      const existing = await existingNamedId(conn, 'Customer', c.name)
+      const qboId = existing ?? (await qboFetch(conn, 'customer', {
         method: 'POST', body: JSON.stringify(customerPayload(c)),
-      })
-      const qboId = res?.Customer?.Id
+      }))?.Customer?.Id
       await db.from('customers').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', c.id)
-      await logRow(db, c.gc_company_id!, 'customer', c.id, 'success', qboId)
+      await logRow(db, c.gc_company_id!, 'customer', c.id, 'success', qboId,
+        existing ? 'Matched to the customer of the same name already in QuickBooks' : undefined, 'create', c.name)
       return { pushed: true, qboId }
     })()).catch(async (err: any) => {
       await releaseClaim(db, 'customers', c.id)

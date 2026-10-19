@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { admin, getValidConnection, qboFetch } from '@/lib/quickbooks'
-import { pushBill, pushBillPayment, pushClientInvoice, pushPaymentForProject, reapplyPaymentInQbo, refreshBillInQbo, refreshPaymentInQbo, type PushContext, voidBillPaymentInQbo, voidClientInvoiceInQbo } from '@/lib/quickbooks-push'
+import { pushBill, pushBillPayment, pushClientInvoice, pushPaymentForProject, reapplyPaymentInQbo, refreshBillInQbo, refreshPaymentInQbo, type PushContext, voidBillPaymentInQbo, voidClientInvoiceInQbo, linkedVendorId, createOrAdoptVendor, existingNamedId } from '@/lib/quickbooks-push'
 
 import { requirePermission, denied, billingLock } from '@/lib/api-guard'
 import { mayManageCompanySetting } from '@/lib/company-access'
@@ -44,6 +44,14 @@ export async function POST(request: Request) {
     })
   }
 
+  // START FRESH'S CUTOFF. After moving to a new QuickBooks file, the backlog
+  // sync leaves money recorded before the move alone: it is history the new
+  // file's bookkeeper already holds, or only ever existed in a sandbox. A
+  // record named by id (a retry from the log) is still pushed - that is a
+  // person choosing it.
+  const { data: coRow } = await db.from('companies').select('qbo_sync_from').eq('id', profile.company_id).maybeSingle()
+  const syncFrom: string = ids ? '1970-01-01' : ((coRow as any)?.qbo_sync_from ?? '1970-01-01')
+
   // Project ids owned by this company (GC or standalone), for scoping bills/payments.
   async function ownedProjectIds(): Promise<string[]> {
     const { data: projects } = await db.from('projects').select('id, customer_id')
@@ -63,11 +71,13 @@ export async function POST(request: Request) {
         if (c.email) payload.PrimaryEmailAddr = { Address: c.email }
         if (c.phone) payload.PrimaryPhone = { FreeFormNumber: c.phone }
         if (c.billing_address) payload.BillAddr = { Line1: c.billing_address }
-        const res = await qboFetch(conn, 'customer', { method: 'POST', body: JSON.stringify(payload) })
-        const qboId = res?.Customer?.Id
+        // Duplicate check: a customer of the same name already in the file is
+        // adopted, not created a second time.
+        const existing = await existingNamedId(conn, 'Customer', c.name)
+        const qboId = existing ?? (await qboFetch(conn, 'customer', { method: 'POST', body: JSON.stringify(payload) }))?.Customer?.Id
         await db.from('customers').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', c.id)
-        await logRow('customer', c.id, 'create', 'success', qboId)
-        results.push({ id: c.id, name: c.name, status: 'success', qbo_id: qboId })
+        await logRow('customer', c.id, 'create', 'success', qboId, existing ? 'Matched to the customer of the same name already in QuickBooks' : undefined)
+        results.push({ id: c.id, name: c.name, status: 'success', qbo_id: qboId, message: existing ? 'Matched an existing customer' : undefined })
       } catch (err: any) {
         await logRow('customer', c.id, 'create', 'error', undefined, err.message)
         results.push({ id: c.id, name: c.name, status: 'error', message: err.message })
@@ -89,21 +99,18 @@ export async function POST(request: Request) {
     vendorIds = vendorIds.filter(v => v !== profile.company_id)
 
     const { data: companies } = vendorIds.length
-      ? await db.from('companies').select('id, name, contact_name, contact_email, phone, address, qbo_vendor_id').in('id', vendorIds)
+      ? await db.from('companies').select('id, name, contact_name, contact_email, phone, address').in('id', vendorIds)
       : { data: [] as any[] }
 
     for (const co of companies ?? []) {
-      if (co.qbo_vendor_id) { results.push({ id: co.id, name: co.name, status: 'skipped', qbo_id: co.qbo_vendor_id, message: 'Already synced' }); continue }
+      // Per FILE (quickbooks_vendor_links), never off the sub's own row: the
+      // sub is shared by every GC it works for, and so was that one column.
+      const linked = await linkedVendorId(db, conn, co.id)
+      if (linked) { results.push({ id: co.id, name: co.name, status: 'skipped', qbo_id: linked, message: 'Already synced' }); continue }
       try {
-        const payload: any = { DisplayName: co.name }
-        if (co.contact_email) payload.PrimaryEmailAddr = { Address: co.contact_email }
-        if (co.phone) payload.PrimaryPhone = { FreeFormNumber: co.phone }
-        if (co.address) payload.BillAddr = { Line1: co.address }
-        const res = await qboFetch(conn, 'vendor', { method: 'POST', body: JSON.stringify(payload) })
-        const qboId = res?.Vendor?.Id
-        await db.from('companies').update({ qbo_vendor_id: qboId, qbo_vendor_synced_at: new Date().toISOString() }).eq('id', co.id)
-        await logRow('vendor', co.id, 'create', 'success', qboId)
-        results.push({ id: co.id, name: co.name, status: 'success', qbo_id: qboId })
+        const { qboId, adopted } = await createOrAdoptVendor(db, conn, co)
+        await logRow('vendor', co.id, 'create', 'success', qboId, adopted ? 'Matched to the vendor of the same name already in QuickBooks' : undefined)
+        results.push({ id: co.id, name: co.name, status: 'success', qbo_id: qboId, message: adopted ? 'Matched an existing vendor' : undefined })
       } catch (err: any) {
         await logRow('vendor', co.id, 'create', 'error', undefined, err.message)
         results.push({ id: co.id, name: co.name, status: 'error', message: err.message })
@@ -119,6 +126,7 @@ export async function POST(request: Request) {
     let q = db.from('invoices').select('id, qbo_id, status')
       .in('project_id', projectIds)
       .in('status', ['approved', 'paid'])
+      .gte('created_at', syncFrom)
     if (ids) q = q.in('id', ids)
     const { data: invoices } = await q
 
@@ -141,6 +149,7 @@ export async function POST(request: Request) {
       .in('project_id', projectIds)
       .eq('status', 'paid')
       .not('qbo_id', 'is', null)
+      .gte('created_at', syncFrom)
     if (ids) q = q.in('id', ids)
     const { data: paidBills, error: paidErr } = await q
 
@@ -176,6 +185,7 @@ export async function POST(request: Request) {
     let q = db.from('client_payments').select('id, qbo_id, qbo_reapply_needed')
       .in('project_id', projectIds)
       .or('qb_entered.is.null,qb_entered.eq.false')
+      .gte('created_at', syncFrom)
     if (ids) q = q.in('id', ids)
     const { data: payments } = await q
 
@@ -205,6 +215,7 @@ export async function POST(request: Request) {
     let q = db.from('client_invoices').select('id, invoice_number, qbo_id')
       .in('project_id', projectIds)
       .in('status', ['sent', 'paid'])
+      .gte('created_at', syncFrom)
     if (ids) q = q.in('id', ids)
     const { data: bills } = await q
 
