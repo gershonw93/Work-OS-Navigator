@@ -14,17 +14,24 @@ interface Connection {
   environment: string
   status: string
   connected_at: string
+  last_refreshed_at?: string | null
+  last_refresh_error?: string | null
 }
+type Retry = { kind: 'sync'; entity: string; ids: string[] } | { kind: 'hint'; text: string }
 interface LogRow {
-  entity_type: string; record_label?: string | null; action: string | null; status: string
+  entity_type: string; entity_id?: string | null; record_label?: string | null; action: string | null; status: string
   qbo_id: string | null; message: string | null; created_at: string
+  /** A later success for the same record put this failure right. */
+  resolved?: boolean
+  /** How to retry a failure that still stands (lib/qbo-log-retry.ts). */
+  retry?: Retry | null
 }
 
 /** One sync-log row in words: what happened to which record. */
 const ACTION_WORD: Record<string, string> = { create: 'Pushed', update: 'Updated', void: 'Voided' }
 const ENTITY_WORD: Record<string, string> = {
   client_invoice: 'client invoice', payment: 'client payment', client_payment: 'client payment',
-  bill: 'sub bill', bill_payment: 'bill payment', customer: 'customer', vendor: 'sub (vendor)',
+  bill: 'sub bill', bill_payment: 'bill payment', customer: 'customer', vendor: 'sub (vendor)', connection: 'QuickBooks connection',
 }
 function logLine(l: LogRow): string {
   const verb = l.status === 'error'
@@ -35,6 +42,13 @@ function logLine(l: LogRow): string {
 }
 interface Status {
   configured: boolean
+  configProblem?: string | null
+  redirectUri?: string
+  /** The QuickBooks file this account's ids belong to. */
+  boundFile?: { realm_id: string; environment: string } | null
+  /** Those ids are in the OTHER environment's file - connect is refused until Start fresh. */
+  boundElsewhere?: boolean
+  syncFrom?: string | null
   environment: string
   canManage: boolean
   connection: Connection | null
@@ -73,6 +87,9 @@ export function QuickBooksCard() {
     if (qbo === 'connected') setMsg({ ok: true, text: 'QuickBooks connected.' })
     else if (qbo === 'denied') setMsg({ ok: false, text: 'Connection cancelled.' })
     else if (qbo === 'error') setMsg({ ok: false, text: 'Could not complete the QuickBooks connection.' })
+    // The two refusals from the callback, in words that say what to do.
+    else if (qbo === 'other_file') setMsg({ ok: false, text: 'That is a different QuickBooks company from the one your records were sent to, so it was not connected. Reconnect the same company, or use Start fresh below to move to this one.' })
+    else if (qbo === 'file_taken') setMsg({ ok: false, text: 'That QuickBooks company is already connected to another SyteNav account. One company file can be connected to one account.' })
     if (qbo) {
       const url = new URL(window.location.href); url.searchParams.delete('qbo')
       window.history.replaceState({}, '', url.toString())
@@ -113,7 +130,7 @@ export function QuickBooksCard() {
     }, {
       label: 'this QuickBooks connection',
       title: 'Disconnect QuickBooks?',
-      body: 'Synced records keep their links, so reconnecting the same file will still recognize them.',
+      body: 'SyteNav is removed from your QuickBooks Connected Apps and stops sending. Nothing already in QuickBooks is changed. Synced records keep their links, so reconnecting the same company later recognises them.',
       confirmLabel: 'Disconnect',
     })
   }
@@ -161,9 +178,61 @@ export function QuickBooksCard() {
     } catch (e: any) { setMsg({ ok: false, text: fetchProblem(e, 'talking to QuickBooks') }) } finally { setBusy('') }
   }
 
+  /** Retry one failed record from the log - the same Sync branch, for that record alone. */
+  async function retryRow(l: LogRow) {
+    if (l.retry?.kind !== 'sync') return
+    setBusy(`retry:${l.entity_id}`); setMsg(null)
+    try {
+      const res = await fetch('/api/quickbooks/sync', {
+        method: 'POST', headers: await authHeaders(), body: JSON.stringify({ entity: l.retry.entity, ids: l.retry.ids }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Retry failed')
+      const r = data.results?.[0]
+      // No result is not a success: the record was not waiting to be sent
+      // (already there, or no longer pushable), and saying "Sent" would claim
+      // a push that never happened.
+      setMsg(!r
+        ? { ok: false, text: 'Nothing was resent for that record - it is not waiting to be sent. Check it in SyteNav.' }
+        : r.status === 'error'
+          ? { ok: false, text: `Still failing: ${r.message ?? 'no reason given'}` }
+          : { ok: true, text: r.status === 'skipped' ? 'Already in QuickBooks.' : 'Sent to QuickBooks.' })
+      await load()
+    } catch (e: any) { setMsg({ ok: false, text: fetchProblem(e, 'talking to QuickBooks') }) } finally { setBusy('') }
+  }
+
+  /**
+   * Move this account to a different QuickBooks file. Its ids belong to the
+   * old one; they are archived and cleared, and only money recorded from now
+   * on is pushed by Sync, so the new file is not filled with history.
+   */
+  function startFresh() {
+    guardDelete(async () => {
+      setBusy('fresh'); setMsg(null)
+      try {
+        const res = await fetch('/api/quickbooks/start-fresh', {
+          method: 'POST', headers: await authHeaders(), body: JSON.stringify({ confirm: true }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Could not start fresh')
+        await load()
+        setMsg({ ok: true, text: `Done - ${data.archived} record${data.archived === 1 ? '' : 's'} unlinked from the old QuickBooks company. Connect the new one now.` })
+      } catch (e: any) { setMsg({ ok: false, text: fetchProblem(e, 'starting fresh') }) } finally { setBusy('') }
+    }, {
+      label: 'the links to the old QuickBooks company',
+      title: 'Start fresh with a different QuickBooks company?',
+      body: 'Every record here forgets which QuickBooks record it was in the old company (a copy is kept). Nothing in either QuickBooks company is changed or deleted. After you connect the new company, only invoices, bills and payments recorded from now on are sent across by Sync - older ones are left for your bookkeeper.',
+      confirmLabel: 'Start fresh',
+    })
+  }
+
   if (loading) return <div className="flex h-32 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-fg" /></div>
 
   const connected = status?.connection?.status === 'connected'
+  // Connected once, and the push can no longer use it: Intuit refused the
+  // sign-in, or it was made against the other environment.
+  const needsReconnect = !!status?.connection && !connected
+  const elsewhere = !!status?.boundElsewhere
 
   return (
     <div className="space-y-6">
@@ -191,13 +260,49 @@ export function QuickBooksCard() {
             {!status?.configured && (
               <div className="mt-3 flex items-start gap-2 rounded-lg bg-warn-tint p-3 text-sm text-warn">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                <span>QuickBooks is not set up on the server yet. An Intuit Developer app (client ID/secret) needs to be added before you can connect.</span>
+                <span>
+                  QuickBooks is not set up on the server yet{status?.configProblem ? `: ${status.configProblem}` : ''}.
+                  {status?.canManage && status?.redirectUri && <> The redirect URI to register with Intuit is <code className="break-all">{status.redirectUri}</code>.</>}
+                </span>
               </div>
             )}
 
             {connected && (
               <p className="mt-2 text-sm text-muted-fg">
                 Linked to <strong className="text-ink">{status?.connection?.qbo_company_name || `Realm ${status?.connection?.realm_id}`}</strong>
+                {status?.connection?.last_refreshed_at && <> · sign-in renewed {formatDate(status.connection.last_refreshed_at)}</>}
+              </p>
+            )}
+
+            {/* A SIGN-IN THAT STOPPED WORKING SAYS SO, LOUDLY. It used to read
+                as "not connected" - a normal state - so pushes stopped and
+                nothing on screen changed. */}
+            {needsReconnect && !elsewhere && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-danger-tint p-3 text-sm text-danger">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  {status?.connection?.status === 'wrong_environment'
+                    ? 'This connection was made to a QuickBooks test company, and SyteNav now sends to real QuickBooks companies.'
+                    : `QuickBooks no longer accepts SyteNav's sign-in for ${status?.connection?.qbo_company_name ?? 'your company'}${status?.connection?.last_refresh_error ? ` (${status.connection.last_refresh_error})` : ''}.`}
+                  {' '}Nothing is being sent to QuickBooks until you reconnect. Records you add meanwhile are sent by Sync once you do.
+                </span>
+              </div>
+            )}
+
+            {/* THE IDS BELONG TO ANOTHER FILE. Connect would be refused by the
+                callback, so the card says why and offers the deliberate way. */}
+            {elsewhere && (
+              <div className="mt-3 flex items-start gap-2 rounded-lg bg-warn-tint p-3 text-sm text-warn">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  Your records were sent to a QuickBooks {status?.boundFile?.environment === 'sandbox' ? 'test (sandbox) ' : ''}company that this server no longer connects to.
+                  To use a different QuickBooks company, start fresh: the links to the old one are put aside and only money recorded from then on is sent across.
+                </span>
+              </div>
+            )}
+            {status?.syncFrom && (
+              <p className="mt-2 text-xs text-muted-fg">
+                Started fresh {formatDate(status.syncFrom)} - Sync sends invoices, bills and payments recorded since then.
               </p>
             )}
 
@@ -246,15 +351,29 @@ export function QuickBooksCard() {
 
         {status?.canManage && (
           <div className="mt-5 flex flex-wrap gap-2">
-            {!connected ? (
-              <button
-                onClick={connect}
-                disabled={!status?.configured || busy === 'connect'}
-                className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-50"
-              >
-                {busy === 'connect' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
-                Connect QuickBooks
+            {elsewhere ? (
+              <button onClick={startFresh} disabled={busy === 'fresh'}
+                className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-50">
+                {busy === 'fresh' ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                Start fresh with a new QuickBooks company
               </button>
+            ) : !connected ? (
+              <>
+                <button
+                  onClick={connect}
+                  disabled={!status?.configured || busy === 'connect'}
+                  className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-accent-ink disabled:opacity-50"
+                >
+                  {busy === 'connect' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plug className="h-4 w-4" />}
+                  {needsReconnect ? 'Reconnect QuickBooks' : 'Connect to QuickBooks'}
+                </button>
+                {needsReconnect && (
+                  <button onClick={disconnect} disabled={!!busy}
+                    className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-4 py-2 text-sm font-semibold text-danger disabled:opacity-50">
+                    Disconnect
+                  </button>
+                )}
+              </>
             ) : (
               <>
                 <button onClick={() => sync('customers')} disabled={!!busy}
@@ -315,7 +434,7 @@ export function QuickBooksCard() {
         </p>
       </div>
 
-      {connected && (status?.log?.length ?? 0) > 0 && (
+      {(status?.log?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-line bg-panel p-6">
           <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-ink">
             <RefreshCw className="h-4 w-4" /> Recent sync activity
@@ -327,15 +446,25 @@ export function QuickBooksCard() {
             {status!.log.map((l, i) => (
               <div key={i} className="flex items-start justify-between gap-3 text-sm">
                 <span className="flex min-w-0 items-start gap-2 text-ink">
-                  <span className={cn('mt-1.5 inline-flex h-2 w-2 shrink-0 rounded-full', l.status === 'success' ? 'bg-success' : 'bg-danger')} />
+                  <span className={cn('mt-1.5 inline-flex h-2 w-2 shrink-0 rounded-full', l.status === 'success' || l.resolved ? 'bg-success' : 'bg-danger')} />
                   <span className="min-w-0">
                     <span className="block">
                       {logLine(l)}
                       {l.qbo_id && <span className="ml-1.5 text-xs text-muted-fg">QBO #{l.qbo_id}</span>}
                     </span>
                     {l.message && (
-                      <span className={cn('block break-words text-xs', l.status === 'error' ? 'text-danger' : 'text-muted-fg')}>{l.message}</span>
+                      <span className={cn('block break-words text-xs', l.status === 'error' && !l.resolved ? 'text-danger' : 'text-muted-fg')}>{l.message}</span>
                     )}
+                    {/* A failure carries its way out; one already put right says so. */}
+                    {l.resolved && <span className="block text-xs text-success">Sent on a later try</span>}
+                    {l.retry?.kind === 'sync' && status?.canManage && connected && (
+                      <button type="button" onClick={() => retryRow(l)} disabled={busy === `retry:${l.entity_id}`}
+                        className="mt-1 inline-flex items-center gap-1 text-xs font-semibold text-accent-fg hover:underline">
+                        {busy === `retry:${l.entity_id}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                        Retry
+                      </button>
+                    )}
+                    {l.retry?.kind === 'hint' && <span className="block text-xs text-muted-fg">{l.retry.text}</span>}
                   </span>
                 </span>
                 <span className="shrink-0 whitespace-nowrap text-right text-xs text-muted-fg">

@@ -90,6 +90,22 @@ each one was written the day something shipped broken.*
   the action now (`create | update | void`) and a `record_label` (migration
   150), because a delete's `entity_id` points at nothing.
 
+- **GOING TO PRODUCTION FOUND FOUR WAYS TO WRITE INTO THE WRONG BOOKS.**
+  (Oct 2026, step 2.) None had bitten, because only one file - the sandbox -
+  had ever been connected. (1) One `QBO_CLIENT_ID` beside a `QBO_ENV` flag:
+  flip the flag and sandbox keys go to production. Production now reads only
+  variables named production. (2) No record of WHICH file a company's qbo ids
+  belong to: connecting the real company after the sandbox would have skipped
+  every "already synced" record and aimed voids at whatever the real file calls
+  292. The company is bound to its file and a different one is refused until
+  Start fresh. (3) `companies.qbo_vendor_id` sat on the SUB's row, shared by
+  every GC that sub works for - per FILE now. (4) Invoice adoption on the doc
+  number alone - harmless in a sandbox, wrong in real books where INV-0004
+  already exists for another client. And one 503 at refresh marked the
+  connection expired, after which every push said "not connected", a normal
+  state that logs nothing: the books would have stopped receiving with nothing
+  on screen. Tokens were plain text in the table.
+
 ## Two registries, and why a new thing goes IN them
 - **A NEW NOTIFICATION BELONGS IN THE CATALOG, OR ITS AUDIENCE IS NOT A
   SETTING.** `lib/notifications.ts` is the list of event types; an entry with

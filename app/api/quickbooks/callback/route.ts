@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { admin, exchangeCode, qboFetch, QBO_ENV } from '@/lib/quickbooks'
+import { admin, exchangeCode, qboConfigured, qboFetch, QBO_ENV, revokeToken, tokenColumns } from '@/lib/quickbooks'
+import { realmDecision } from '@/lib/qbo-realm'
 import { oauthReturnUrl } from '@/lib/oauth-return'
 
 export const runtime = 'nodejs'
@@ -31,9 +32,30 @@ export async function GET(request: Request) {
   if (!st?.company_id) return back('error')
   await db.from('quickbooks_oauth_states').delete().eq('state', state)
 
+  // Never store a real file's tokens on a deploy that cannot seal them.
+  if (!qboConfigured()) return back('error')
+
   try {
     const t = await exchangeCode(code, request)
     const now = Date.now()
+
+    // ONE FILE PER ACCOUNT, AND THE IDS ALREADY PUSHED BELONG TO ONE FILE.
+    // Asked before anything is stored: a refusal hands the grant straight back
+    // to Intuit, so a file we will not use is not left connected to SyteNav.
+    const [{ data: co }, { data: taken }] = await Promise.all([
+      db.from('companies').select('qbo_realm_id, qbo_environment').eq('id', st.company_id).maybeSingle(),
+      db.from('quickbooks_connections').select('company_id')
+        .eq('realm_id', realmId).eq('environment', QBO_ENV).neq('company_id', st.company_id).maybeSingle(),
+    ])
+    const decision = realmDecision({
+      bound: (co as any)?.qbo_realm_id ? { realmId: (co as any).qbo_realm_id, environment: (co as any).qbo_environment ?? 'sandbox' } : null,
+      incoming: { realmId, environment: QBO_ENV },
+      takenByOtherAccount: !!taken,
+    })
+    if (decision !== 'connect') {
+      await revokeToken(t.refresh_token)
+      return back(decision)
+    }
 
     // Pull the company name for a friendlier connected state.
     let qboName: string | null = null
@@ -45,22 +67,31 @@ export async function GET(request: Request) {
       qboName = info?.CompanyInfo?.CompanyName ?? null
     } catch { /* non-fatal */ }
 
-    await db.from('quickbooks_connections').upsert({
+    const { error: saveErr } = await db.from('quickbooks_connections').upsert({
       company_id: st.company_id,
       realm_id: realmId,
       qbo_company_name: qboName,
       environment: QBO_ENV,
-      access_token: t.access_token,
-      refresh_token: t.refresh_token,
-      access_expires_at: new Date(now + t.expires_in * 1000).toISOString(),
-      refresh_expires_at: new Date(now + t.x_refresh_token_expires_in * 1000).toISOString(),
+      ...tokenColumns(t, now),
       status: 'connected',
       connected_by: st.created_by,
-      updated_at: new Date().toISOString(),
+      connected_at: new Date(now).toISOString(),
+      last_refreshed_at: new Date(now).toISOString(),
+      last_refresh_error: null,
+      updated_at: new Date(now).toISOString(),
     }, { onConflict: 'company_id' })
+    if (saveErr) {
+      console.error('[quickbooks/callback] save', saveErr.message)
+      await revokeToken(t.refresh_token)
+      // 23505 on the realm index: another account connected this file first.
+      return back(saveErr.code === '23505' ? 'file_taken' : 'error')
+    }
+    // The file this account's QuickBooks ids now belong to.
+    await db.from('companies').update({ qbo_realm_id: realmId, qbo_environment: QBO_ENV }).eq('id', st.company_id)
 
     return back('connected')
-  } catch {
+  } catch (err: any) {
+    console.error('[quickbooks/callback]', err?.message)
     return back('error')
   }
 }

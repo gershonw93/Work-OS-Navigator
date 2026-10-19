@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { admin } from '@/lib/quickbooks'
+import { admin, revokeToken } from '@/lib/quickbooks'
+import { openToken } from '@/lib/qbo-token-crypto'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { mayManageCompanySetting } from '@/lib/company-access'
 
@@ -23,6 +24,16 @@ export async function POST(request: Request) {
   // No billing lock: letting go of a connection takes nothing, and a locked
   // account must still be able to stop pushing to its books.
 
+  // REVOKED AT INTUIT, THEN FORGOTTEN HERE. Deleting the row alone left the
+  // grant alive, so SyteNav stayed listed under the customer's Connected Apps
+  // in QuickBooks after they had pressed Disconnect - which is the first thing
+  // Intuit's review checks. The revoke is best-effort: the row goes either way.
+  const { data: row } = await db.from('quickbooks_connections')
+    .select('refresh_token').eq('company_id', profile.company_id).maybeSingle()
+  let revoked = false
+  if (row?.refresh_token) {
+    try { revoked = await revokeToken(openToken(row.refresh_token)) } catch { revoked = false }
+  }
   await db.from('quickbooks_connections').delete().eq('company_id', profile.company_id)
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, revoked })
 }
