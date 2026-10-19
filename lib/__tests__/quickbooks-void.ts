@@ -18,12 +18,15 @@ import { invoiceQbChip } from '../invoice-qb-state'
 import { ok, done, code } from './_helpers'
 
 const chip = (inv: any, connected = true) => invoiceQbChip(inv, connected)
+const confirmedRetry = () => { const c = chip({ status: 'void', qbo_id: '42', qbo_voided_at: '2026-09-08T10:00:00Z' }); return c.show && !!c.retry }
 
 // ── the reported case ────────────────────────────────────────────────────────
 const failed = chip({ status: 'void', qbo_id: '42', qbo_voided_at: null })
 ok(failed.show && failed.tone === 'warn',
   'a void QuickBooks never confirmed is a WARNING, not a green tick')
-ok(failed.show && /not sent/i.test(failed.label), `...and says so: "${failed.show && failed.label}"`)
+ok(failed.show && /void failed/i.test(failed.label) && /retry/i.test(failed.label), `...and says so: "${failed.show && failed.label}"`)
+ok(failed.show && failed.retry === 'void', '...and the badge IS the retry, not a pointer to an admin screen')
+ok(!(confirmedRetry()), 'a confirmed void offers no retry')
 ok(failed.show && /still open/i.test(failed.title),
   '...and the tooltip says the receivable is still open over there')
 ok(!(failed.show && failed.label === 'Voided in QB'),
@@ -69,12 +72,16 @@ const voidFn = push.slice(push.indexOf('export async function voidClientInvoiceI
 ok(/LinkedTxn/.test(voidFn),
   'the void looks for payments linked to the invoice')
 ok(/TxnType === 'Payment'/.test(voidFn), '...specifically Payments')
-ok(/voidQboRecord\(conn, 'payment'/.test(voidFn),
-  'and voids them FIRST - QuickBooks refuses to void an invoice a payment is linked to')
-ok(voidFn.indexOf("voidQboRecord(conn, 'payment'") < voidFn.indexOf("'invoice?operation=void'"),
+// Since step 1 of the QuickBooks work the linked payment is DETACHED (this
+// invoice's Lines removed) rather than voided: the money is still recorded
+// here, and one Payment can carry other invoices' money too.
+ok(/pay\.Line = \(pay\.Line/.test(voidFn),
+  'and takes them off the invoice FIRST - QuickBooks refuses to void an invoice a payment is linked to')
+ok(voidFn.indexOf('pay.Line =') < voidFn.indexOf("voidQboRecord(conn, 'invoice'"),
   '...before the invoice, not after, which is the whole point')
+ok(!/voidQboRecord\(conn, 'payment'/.test(voidFn), '...and never voids the payment, which would un-receive money still recorded here')
 ok(/markVoided\(/.test(voidFn), 'success is recorded, so the chip has a fact to read')
-ok(/TotalAmt\) === 0/.test(voidFn),
+ok(/isVoidedInQbo\(obj\)/.test(voidFn),
   'an invoice already voided over there is recognised rather than voided twice')
 ok(/QBO_OBJECT_NOT_FOUND/.test(voidFn),
   'an invoice QuickBooks no longer has counts as voided, not as a failure')

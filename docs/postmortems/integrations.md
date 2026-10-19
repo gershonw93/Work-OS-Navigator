@@ -63,6 +63,32 @@ each one was written the day something shipped broken.*
 - Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A
   check-then-act guard is NOT enough: a double-pressed button created two QBO
   invoices for one record, and the spare became an orphan receivable.
+- **A VOID OR DELETE HERE VOIDS THERE, FOR ALL FOUR RECORDS, AND QUICKBOOKS
+  GOES FIRST.** Reported (Oct 2026) as "void or delete a synced record and the
+  QB entry stays live". Checked against the code it was four stories, none of
+  them the same: the client invoice void DID reach QuickBooks (since #377), but
+  the Sep 8 sandbox voids of INV-0002/0003 came back 610 "made inactive" and
+  sat unretried; a client payment delete reached nothing; and the two that
+  "worked" called operations QuickBooks does not have - `billpayment?operation=void`
+  (a Payment, Sales Receipt or BillPayment voids by a SPARSE UPDATE with
+  `?operation=update&include=void`; `operation=void` is the Invoice's verb only)
+  and `bill?operation=void` (a Bill has no API void - it is DELETED). Neither had
+  ever run against the sandbox, so neither had ever been seen to fail.
+  `voidOperation` is the one table of verbs. AND THE BILL DELETE VOIDED AFTER
+  THE ROW WAS GONE, so a refusal left a live payable with nothing here to retry
+  it from - the ids went with the row. Every delete now voids FIRST and refuses
+  on a refusal (502, row kept, pressing Delete again is the retry); not being
+  connected still lets the delete through and logs the QuickBooks id that is
+  still live. A sent client invoice cannot be deleted at all - it is voided.
+  Voiding a paid invoice DETACHES its Payment's line rather than voiding the
+  Payment: the money is still recorded here, and one Payment can carry other
+  invoices' money. A 610 on a void probes the record's own references
+  (`voidReferences`) so the log names the inactive customer, vendor or item.
+  Pinned, end to end against a fake QuickBooks, in `quickbooks-void-all.ts`.
+- **THE SYNC LOG SAYS WHAT WAS DONE.** `logRow` wrote `action: 'create'` on
+  every row, so a void, a correction and a first push read the same. It takes
+  the action now (`create | update | void`) and a `record_label` (migration
+  150), because a delete's `entity_id` points at nothing.
 
 ## Two registries, and why a new thing goes IN them
 - **A NEW NOTIFICATION BELONGS IN THE CATALOG, OR ITS AUDIENCE IS NOT A

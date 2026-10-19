@@ -161,7 +161,13 @@ ok(/if \(p\.on_account\) return \{ kind: 'invoices', links: \[\] \}/.test(qbo),
   '...and never the oldest-open guess: "keep it as credit" is the opposite of "apply it to whatever is oldest"')
 ok(/\|\| \(p as any\)\.on_account\) return pushPaymentForProject/.test(qbo), 'the Sales Receipt pusher hands an on-account payment back')
 
-const reapply = qbo.slice(qbo.indexOf('export async function reapplyPaymentInQbo'), qbo.indexOf('// ── Customers'))
+// The END anchor is code, not the '// ── Customers' banner: `code()` strips
+// comments, so that banner never matched, indexOf answered -1, and this slice
+// quietly ran to the end of the file - passing only while nothing after it
+// happened to say "salesreceipt".
+const reapplyEnd = qbo.indexOf('export function customerPayload')
+ok(reapplyEnd > qbo.indexOf('export async function reapplyPaymentInQbo'), 'the reapply slice has a real end')
+const reapply = qbo.slice(qbo.indexOf('export async function reapplyPaymentInQbo'), reapplyEnd)
 ok(/qboFetch\(conn, `payment\/\$\{p\.qbo_id\}`\)/.test(reapply) && /obj\.Line = lines/.test(reapply),
   'applying credit later rewrites the SAME QuickBooks payment\'s lines')
 ok(!/appliedPaymentPayload\(/.test(reapply) && !/salesreceipt/.test(reapply), '...and never books a second record for money received once')

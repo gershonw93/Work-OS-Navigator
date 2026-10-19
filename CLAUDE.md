@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-149.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-150.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -435,6 +435,19 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   and misses land in `quickbooks_sync_log` for the backlog sync to pick up.
 - Pushes take an atomic claim (`qbo_claimed_at`) via a conditional UPDATE. A
   check-then-act guard is NOT enough.
+- **A VOID OR DELETE OF A SYNCED RECORD VOIDS IT IN QUICKBOOKS, AND
+  QUICKBOOKS GOES FIRST** - all four: client invoice, client payment, sub bill,
+  bill payment (including a paid bill moved back to unpaid). The verb differs
+  per entity and `voidOperation` is its one home: Invoice `operation=void`;
+  Payment / SalesReceipt / BillPayment a SPARSE `operation=update&include=void`;
+  a Bill has no API void and is DELETED. A delete voids BEFORE removing the row
+  and refuses (502, row kept) when QuickBooks refuses - a row deleted first
+  takes the only copy of the QuickBooks id with it. Not connected still lets it
+  through, and logs the id left live. A sent client invoice is voided, never
+  deleted. "Voided in QB" reads `qbo_voided_at`, written only on QuickBooks'
+  answer; otherwise the badge is the retry. Every row in `quickbooks_sync_log`
+  carries its real `action` (`create | update | void`) and, for anything that
+  may be deleted, a `record_label`. Pinned in `quickbooks-void-all.ts`.
 
 ## Billing, the trial, and the meter (IMPORTANT)
 - **`lib/plans.ts` IS THE ONE HOME FOR A PRICE, A CAP AND `TRIAL_DAYS`.** A plan

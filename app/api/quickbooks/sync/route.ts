@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { admin, getValidConnection, qboFetch } from '@/lib/quickbooks'
-import { pushBill, pushBillPayment, pushClientInvoice, pushPaymentForProject, reapplyPaymentInQbo, refreshBillInQbo, refreshPaymentInQbo, type PushContext, voidClientInvoiceInQbo } from '@/lib/quickbooks-push'
+import { pushBill, pushBillPayment, pushClientInvoice, pushPaymentForProject, reapplyPaymentInQbo, refreshBillInQbo, refreshPaymentInQbo, type PushContext, voidBillPaymentInQbo, voidClientInvoiceInQbo } from '@/lib/quickbooks-push'
 
 import { requirePermission, denied, billingLock } from '@/lib/api-guard'
 import { mayManageCompanySetting } from '@/lib/company-access'
@@ -242,6 +242,21 @@ export async function POST(request: Request) {
     for (const b of bills ?? []) {
       const label = `Invoice ${b.invoice_number ?? b.id.slice(0, 8)}`
       const r = await voidClientInvoiceInQbo(db, b.id, ctx)
+      if (r.pushed) results.push({ id: b.id, name: label, status: 'success', qbo_id: r.qboId })
+      else results.push({ id: b.id, name: label, status: 'error', message: (r as any).detail ?? r.reason })
+    }
+
+    // A sub bill moved back to unpaid whose BillPayment QuickBooks did not
+    // void. The id is kept on a miss for exactly this.
+    let bq = db.from('invoices').select('id, invoice_number, qbo_payment_id')
+      .in('project_id', projectIds)
+      .neq('status', 'paid')
+      .not('qbo_payment_id', 'is', null)
+    if (ids) bq = bq.in('id', ids)
+    const { data: unpaid } = await bq
+    for (const b of unpaid ?? []) {
+      const label = `Bill payment ${b.invoice_number ?? b.id.slice(0, 8)}`
+      const r = await voidBillPaymentInQbo(db, b.id, ctx)
       if (r.pushed) results.push({ id: b.id, name: label, status: 'success', qbo_id: r.qboId })
       else results.push({ id: b.id, name: label, status: 'error', message: (r as any).detail ?? r.reason })
     }

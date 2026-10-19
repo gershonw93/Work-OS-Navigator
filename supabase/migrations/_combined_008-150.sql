@@ -4543,3 +4543,21 @@ ALTER TABLE portal_login_codes ENABLE ROW LEVEL SECURITY;
 
 -- Who approved, as a login rather than a typed name.
 ALTER TABLE change_orders ADD COLUMN IF NOT EXISTS client_response_email text;
+
+-- 150 quickbooks sync log events
+ALTER TABLE quickbooks_sync_log ADD COLUMN IF NOT EXISTS record_label text;
+
+-- Rows written before the action was recorded, re-labelled from their message.
+-- Only rows still carrying the old hardcoded 'create' are touched.
+UPDATE quickbooks_sync_log SET action = 'void'
+ WHERE action = 'create'
+   AND (message ILIKE 'Void:%' OR message ILIKE 'Voided%' OR message ILIKE 'Already voided%'
+        OR message ILIKE 'Already gone%' OR message ILIKE 'Payment voided%');
+UPDATE quickbooks_sync_log SET action = 'update'
+ WHERE action = 'create'
+   AND (message ILIKE 'Refresh:%' OR message ILIKE 'Formatting refreshed%' OR message ILIKE 'Update:%'
+        OR message ILIKE 'Amount updated%' OR message ILIKE 'Details updated%'
+        OR message ILIKE 'Credit applied%' OR message ILIKE 'Applying credit:%');
+
+COMMENT ON COLUMN quickbooks_sync_log.action IS 'create | update | void';
+CREATE INDEX IF NOT EXISTS idx_qbo_sync_log_entity ON quickbooks_sync_log (entity_id, created_at DESC);

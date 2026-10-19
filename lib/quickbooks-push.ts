@@ -329,14 +329,36 @@ export function appliedPaymentPayload(
 
 // ── Internals ────────────────────────────────────────────────────────────────
 
+/**
+ * What a sync-log row says happened. It used to be hardcoded 'create', so a
+ * void, a correction and a first push all read the same in the log - and a
+ * failed void looked like a failed create of a record that was already there.
+ */
+export type SyncAction = 'create' | 'update' | 'void'
+
+/**
+ * One row of `quickbooks_sync_log`: the record, what was done, the QuickBooks
+ * id, success or error, and the message. Every push, void and failure lands
+ * here, which is what Settings > QuickBooks > Recent sync activity reads.
+ *
+ * `label` is the record's own name ("INV-0004", "Bill 1032"). A void on DELETE
+ * runs after nothing is left to look the id up in, so without the label the
+ * log could only ever say "bill" about a bill that no longer exists.
+ */
 async function logRow(
   db: SupabaseClient, companyId: string,
   entity_type: string, entity_id: string, status: string, qbo_id?: string, message?: string,
+  action: SyncAction = 'create', label?: string | null,
 ) {
   try {
-    await db.from('quickbooks_sync_log').insert({
-      company_id: companyId, entity_type, entity_id, action: 'create', status, qbo_id, message,
-    })
+    const row: Record<string, unknown> = { company_id: companyId, entity_type, entity_id, action, status, qbo_id, message }
+    if (label) row.record_label = label
+    const { error } = await db.from('quickbooks_sync_log').insert(row)
+    // A database without migration 150 must still log the event itself.
+    if (error?.code === '42703' && label) {
+      delete row.record_label
+      await db.from('quickbooks_sync_log').insert(row)
+    }
   } catch { /* the log must never take the push down with it */ }
 }
 
@@ -769,10 +791,10 @@ export async function refreshPaymentInQbo(db: SupabaseClient, paymentId: string,
       if (mid) obj.PaymentMethodRef = { value: mid }
       await qboFetch(conn, entity, { method: 'POST', body: JSON.stringify(obj) })
       await db.from('client_payments').update({ qbo_synced_at: new Date().toISOString() }).eq('id', p.id)
-      await logRow(db, companyId, 'payment', p.id, 'success', p.qbo_id, 'Formatting refreshed')
+      await logRow(db, companyId, 'payment', p.id, 'success', p.qbo_id, 'Formatting refreshed', 'update')
       return { pushed: true, qboId: p.qbo_id }
     })()).catch(async (err: any) => {
-      await logRow(db, companyId, 'payment', p.id, 'error', undefined, `Refresh: ${err?.message}`)
+      await logRow(db, companyId, 'payment', p.id, 'error', undefined, `Refresh: ${err?.message}`, 'update')
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
   } catch (err: any) {
@@ -803,10 +825,10 @@ export async function refreshBillInQbo(db: SupabaseClient, invoiceId: string, ct
       if (line) line.Description = composeBillDescription((inv.subcontracts as any)?.trade, projectName)
       await qboFetch(conn, 'bill', { method: 'POST', body: JSON.stringify(obj) })
       await db.from('invoices').update({ qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
-      await logRow(db, companyId, 'bill', inv.id, 'success', inv.qbo_id, 'Formatting refreshed')
+      await logRow(db, companyId, 'bill', inv.id, 'success', inv.qbo_id, 'Formatting refreshed', 'update')
       return { pushed: true, qboId: inv.qbo_id }
     })()).catch(async (err: any) => {
-      await logRow(db, companyId, 'bill', inv.id, 'error', undefined, `Refresh: ${err?.message}`)
+      await logRow(db, companyId, 'bill', inv.id, 'error', undefined, `Refresh: ${err?.message}`, 'update')
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
   } catch (err: any) {
@@ -1269,11 +1291,11 @@ export async function reapplyPaymentInQbo(db: SupabaseClient, paymentId: string,
       obj.Line = lines.map(l => ({ Amount: l.amount, LinkedTxn: [{ TxnId: l.qboId, TxnType: 'Invoice' }] }))
       await qboFetch(conn, 'payment', { method: 'POST', body: JSON.stringify(obj) })
       await db.from('client_payments').update({ qbo_reapply_needed: false, qbo_synced_at: new Date().toISOString() }).eq('id', p.id)
-      await logRow(db, companyId, 'payment', p.id, 'success', p.qbo_id, `Credit applied - now on ${lines.length} invoice${lines.length === 1 ? '' : 's'}`)
+      await logRow(db, companyId, 'payment', p.id, 'success', p.qbo_id, `Credit applied - now on ${lines.length} invoice${lines.length === 1 ? '' : 's'}`, 'update')
       return { pushed: true, qboId: p.qbo_id }
     })()).catch(async (err: any) => {
       await db.from('client_payments').update({ qbo_reapply_needed: true }).eq('id', p.id)
-      await logRow(db, companyId, 'payment', p.id, 'error', undefined, `Applying credit: ${err?.message}`)
+      await logRow(db, companyId, 'payment', p.id, 'error', undefined, `Applying credit: ${err?.message}`, 'update')
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
   } catch (err: any) {
@@ -1325,7 +1347,7 @@ export async function pushCustomer(db: SupabaseClient, customerId: string, ctx?:
         Object.assign(obj, customerPayload(c))
         await qboFetch(conn, 'customer', { method: 'POST', body: JSON.stringify(obj) })
         await db.from('customers').update({ qbo_synced_at: new Date().toISOString() }).eq('id', c.id)
-        await logRow(db, c.gc_company_id!, 'customer', c.id, 'success', c.qbo_id!, 'Details updated')
+        await logRow(db, c.gc_company_id!, 'customer', c.id, 'success', c.qbo_id!, 'Details updated', 'update')
         return { pushed: true, qboId: c.qbo_id! }
       })()).catch(async (err: any) => {
         await logRow(db, c.gc_company_id!, 'customer', c.id, 'error', undefined, err?.message)
@@ -1353,17 +1375,138 @@ export async function pushCustomer(db: SupabaseClient, customerId: string, ctx?:
   }
 }
 
+// ── Voids: undoing a record that already reached QuickBooks ─────────────────
+//
+// THE RULE: a void or delete here of any of the four records that push - a
+// client invoice, a client payment, a sub bill, a bill payment - voids the
+// matching record in QuickBooks and logs the result. Before this, only two of
+// the four did anything, and both called an operation QuickBooks does not have
+// for the record they were sent to:
+//
+//   * a Payment, Sales Receipt or BillPayment is voided by a SPARSE UPDATE
+//     with `?operation=update&include=void`. `?operation=void` is the
+//     Invoice's verb only, so every payment void was refused.
+//   * a Bill cannot be voided through the API at all - only deleted, with
+//     `?operation=delete`. That is also what "delete the bill" means here.
+//
+// `voidOperation` is the one answer to which verb goes to which entity, and
+// it is pure so it can be pinned without a network.
+
+export type QboVoidEntity = 'invoice' | 'payment' | 'salesreceipt' | 'billpayment' | 'bill'
+
+export function voidOperation(entity: QboVoidEntity): { path: string; body: (obj: { Id: string; SyncToken: string }) => Record<string, unknown> } {
+  switch (entity) {
+    case 'invoice':
+      return { path: 'invoice?operation=void', body: o => ({ Id: o.Id, SyncToken: o.SyncToken }) }
+    case 'bill':
+      return { path: 'bill?operation=delete', body: o => ({ Id: o.Id, SyncToken: o.SyncToken }) }
+    default:
+      return { path: `${entity}?operation=update&include=void`, body: o => ({ Id: o.Id, SyncToken: o.SyncToken, sparse: true }) }
+  }
+}
+
+/** The key a QuickBooks response carries the record under. */
+const QBO_KEY: Record<QboVoidEntity, string> = {
+  invoice: 'Invoice', payment: 'Payment', salesreceipt: 'SalesReceipt', billpayment: 'BillPayment', bill: 'Bill',
+}
+
 /**
- * Void the QuickBooks Invoice behind a voided client invoice.
- *
- * Voided, not deleted: an accountant expects a voided document to stay in the
- * books with its number and a zero value, not to vanish. QuickBooks agrees -
- * `?operation=void` zeroes the lines and stamps it VOIDED, leaving the audit
- * trail intact.
- *
- * Without this, voiding here would leave the invoice OPEN over there, and
- * receivables would keep counting money nobody is being asked for.
+ * Already voided over there. QuickBooks zeroes a voided record and prefixes
+ * its private note, so this is what an idempotent retry - or a void somebody
+ * did by hand in QuickBooks - looks like.
  */
+export function isVoidedInQbo(obj: any): boolean {
+  return Number(obj?.TotalAmt ?? NaN) === 0 && /voided/i.test(String(obj?.PrivateNote ?? ''))
+}
+
+/**
+ * The references a QuickBooks record carries, so a 610 on a void can be
+ * pinned to one of them.
+ *
+ * THE SEPTEMBER SANDBOX TESTS. INV-0002 and INV-0003 were voided on Sep 8 and
+ * QuickBooks answered both with code 610, "Something you're trying to use has
+ * been made inactive" - a sentence that names nothing. QuickBooks validates a
+ * record's references on a void as well as on a create, so an inactive
+ * customer or item blocks the void. Probing each one turns that into "the
+ * customer 58 is inactive in QuickBooks", which is a thing a person can fix.
+ */
+export function voidReferences(obj: any): ReferenceRef[] {
+  const refs: ReferenceRef[] = []
+  const seen = new Set<string>()
+  const add = (kind: string, entity: string, id: unknown) => {
+    const v = String(id ?? '').trim()
+    const path = `${entity}/${v}`
+    if (!v || seen.has(path)) return
+    seen.add(path)
+    refs.push({
+      label: `${kind} ${v}`,
+      path,
+      inspect: (o: any) => o?.Active === false ? `the ${kind} is inactive in QuickBooks - make it active again there, then retry` : null,
+    })
+  }
+  add('customer', 'customer', obj?.CustomerRef?.value)
+  add('vendor', 'vendor', obj?.VendorRef?.value)
+  add('account', 'account', obj?.DepositToAccountRef?.value)
+  add('account', 'account', obj?.ARAccountRef?.value)
+  add('account', 'account', obj?.APAccountRef?.value)
+  add('account', 'account', obj?.CheckPayment?.BankAccountRef?.value)
+  add('payment method', 'paymentmethod', obj?.PaymentMethodRef?.value)
+  for (const l of obj?.Line ?? []) {
+    add('item', 'item', l?.SalesItemLineDetail?.ItemRef?.value)
+    add('account', 'account', l?.AccountBasedExpenseLineDetail?.AccountRef?.value)
+  }
+  return refs
+}
+
+type VoidOutcome = 'voided' | 'already' | 'gone'
+
+/**
+ * Fetch for the SyncToken QBO demands, then void (or, for a Bill, delete).
+ *
+ * A record QuickBooks no longer has, or one already voided there, is not a
+ * failure - somebody did it by hand, which is the outcome we wanted. A refusal
+ * carries the record it was refused for, so the caller can probe its
+ * references and say which one QuickBooks objected to.
+ */
+async function voidQboRecord(conn: Connection, entity: QboVoidEntity, qboId: string): Promise<VoidOutcome> {
+  let obj: any
+  try {
+    obj = (await qboFetch(conn, `${entity}/${qboId}`))?.[QBO_KEY[entity]]
+  } catch (err: any) {
+    if (err?.code === QBO_OBJECT_NOT_FOUND) return 'gone'
+    throw err
+  }
+  if (!obj?.Id) return 'gone'
+  if (entity !== 'bill' && isVoidedInQbo(obj)) return 'already'
+  const op = voidOperation(entity)
+  try {
+    await qboFetch(conn, op.path, { method: 'POST', body: JSON.stringify(op.body(obj)) })
+  } catch (err: any) {
+    if (err && typeof err === 'object') err.qboRecord = obj
+    throw err
+  }
+  return 'voided'
+}
+
+/** The log line for a refused void: QuickBooks' sentence, plus which reference it meant. */
+async function voidFailure(conn: Connection, err: any): Promise<string> {
+  const message = err?.message ?? 'unknown'
+  if (err?.code !== QBO_OBJECT_NOT_FOUND || !err?.qboRecord) return message
+  const refs = voidReferences(err.qboRecord)
+  if (!refs.length) return message
+  const why = await briefly(
+    probeReferences(conn, refs).then(describeProbe),
+    'could not reach QuickBooks to work out which reference it rejected',
+  )
+  return `${message} - ${why}`
+}
+
+const VOID_WORD: Record<VoidOutcome, string> = {
+  voided: 'Voided in QuickBooks',
+  already: 'Already voided in QuickBooks',
+  gone: 'Already gone from QuickBooks',
+}
+
 /**
  * Record that QuickBooks confirmed the void.
  *
@@ -1381,72 +1524,137 @@ async function markVoided(db: SupabaseClient, id: string) {
   }
 }
 
+/**
+ * Void the QuickBooks Invoice behind a voided client invoice.
+ *
+ * Voided, not deleted: an accountant expects a voided document to stay in the
+ * books with its number and a zero value, not to vanish. QuickBooks agrees -
+ * `?operation=void` zeroes the lines and stamps it VOIDED, leaving the audit
+ * trail intact.
+ *
+ * Without this, voiding here would leave the invoice OPEN over there, and
+ * receivables would keep counting money nobody is being asked for.
+ */
 export async function voidClientInvoiceInQbo(db: SupabaseClient, billId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: inv } = await db.from('client_invoices')
-      .select('id, project_id, qbo_id').eq('id', billId).maybeSingle()
+      .select('id, project_id, invoice_number, qbo_id').eq('id', billId).maybeSingle()
     if (!inv?.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks' }
+    const label = (inv as any).invoice_number ?? null
 
     const { companyId } = await projectCompany(db, inv.project_id)
     if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
     const conn = await connectionFor(db, companyId, ctx)
-    if (!conn) return { pushed: false, reason: 'not_connected' }
+    if (!conn) {
+      await logRow(db, companyId, 'client_invoice', inv.id, 'error', inv.qbo_id,
+        'Voided here while QuickBooks was not connected - the invoice is still open there', 'void', label)
+      return { pushed: false, reason: 'not_connected' }
+    }
 
     return await budgeted((async (): Promise<PushResult> => {
       let obj: any
       try {
-        const cur = await qboFetch(conn, `invoice/${inv.qbo_id}`)
-        obj = cur?.Invoice
+        obj = (await qboFetch(conn, `invoice/${inv.qbo_id}`))?.Invoice
       } catch (err: any) {
-        // Somebody voided or deleted it by hand over there. That is the outcome
-        // we wanted, so record it rather than retrying forever.
-        if (err?.code === QBO_OBJECT_NOT_FOUND) {
-          await markVoided(db, inv.id)
-          await logRow(db, companyId, 'client_invoice', inv.id, 'success', inv.qbo_id!, 'Already gone from QuickBooks')
-          return { pushed: true, qboId: inv.qbo_id! }
-        }
-        throw err
+        // Somebody deleted it by hand over there. That is the outcome we
+        // wanted, so record it rather than retrying forever.
+        if (err?.code === QBO_OBJECT_NOT_FOUND) obj = null
+        else throw err
       }
-      if (!obj?.Id) throw new Error('Invoice no longer exists in QuickBooks')
-
-      // ALREADY VOIDED over there. QuickBooks zeroes the record and prefixes
-      // the private note on void, so this is what an idempotent retry looks
-      // like - and it is the path that heals every invoice voided before this
-      // outcome was recorded at all.
-      if (Number(obj.TotalAmt) === 0 && /voided/i.test(String(obj.PrivateNote ?? ''))) {
+      if (!obj?.Id || isVoidedInQbo(obj)) {
         await markVoided(db, inv.id)
-        await logRow(db, companyId, 'client_invoice', inv.id, 'success', inv.qbo_id!, 'Already voided in QuickBooks')
+        await logRow(db, companyId, 'client_invoice', inv.id, 'success', inv.qbo_id!,
+          VOID_WORD[obj?.Id ? 'already' : 'gone'], 'void', label)
         return { pushed: true, qboId: inv.qbo_id! }
       }
 
-      // THE PAYMENT COMES FIRST. QuickBooks refuses to void an Invoice while a
-      // Payment is linked to it, so voiding a PAID invoice - the case where
-      // money is actually involved - failed every time, silently, into the log.
-      // `voidBillInQbo` has always done payment-then-record for sub bills; this
-      // is the same rule on the money-in side, and the working agreement is
-      // explicit that both halves move together or the ledger overstates.
+      // THE PAYMENT COMES OFF FIRST. QuickBooks refuses to void an Invoice
+      // while a Payment is linked to it, so voiding a PAID invoice - the case
+      // where money is actually involved - failed every time.
+      //
+      // DETACHED, NOT VOIDED. The money is still recorded here - voiding the
+      // invoice does not un-receive the cheque - so voiding the Payment would
+      // tell QuickBooks the money never came. And one Payment can settle
+      // several invoices (one cheque, a Line per invoice): voiding it would
+      // take the OTHER invoices' money with it. So only this invoice's Lines
+      // come off, and what is left stays as credit on the customer's account,
+      // the same shape an on-account payment already has there.
       const linkedPayments: string[] = (obj.LinkedTxn ?? [])
         .filter((t: any) => t?.TxnType === 'Payment' && t?.TxnId)
         .map((t: any) => String(t.TxnId))
       for (const paymentId of linkedPayments) {
-        await voidQboRecord(conn, 'payment', 'Payment', paymentId)
-        await logRow(db, companyId, 'client_payment', inv.id, 'success', paymentId, 'Payment voided so the invoice could be')
-        // Re-read: voiding the payment moves the invoice's SyncToken, and a
-        // stale one is rejected outright.
-        obj = (await qboFetch(conn, `invoice/${inv.qbo_id}`))?.Invoice ?? obj
+        const pay = (await qboFetch(conn, `payment/${paymentId}`))?.Payment
+        if (!pay?.Id) continue
+        pay.Line = (pay.Line ?? []).filter((l: any) =>
+          !(l?.LinkedTxn ?? []).some((t: any) => t?.TxnType === 'Invoice' && String(t?.TxnId) === String(inv.qbo_id)))
+        await qboFetch(conn, 'payment', { method: 'POST', body: JSON.stringify(pay) })
+        await logRow(db, companyId, 'payment', inv.id, 'success', paymentId,
+          `Taken off ${label ?? 'the invoice'} so it could be voided - the money stays as credit in QuickBooks`, 'update', label)
       }
 
-      await qboFetch(conn, 'invoice?operation=void', {
-        method: 'POST',
-        body: JSON.stringify({ Id: obj.Id, SyncToken: obj.SyncToken }),
-      })
+      const outcome = await voidQboRecord(conn, 'invoice', inv.qbo_id!)
       await markVoided(db, inv.id)
       await logRow(db, companyId, 'client_invoice', inv.id, 'success', inv.qbo_id!,
-        linkedPayments.length ? `Voided in QuickBooks with ${linkedPayments.length} payment(s)` : 'Voided in QuickBooks')
+        linkedPayments.length ? `${VOID_WORD[outcome]} - ${linkedPayments.length} payment(s) left as credit` : VOID_WORD[outcome],
+        'void', label)
       return { pushed: true, qboId: inv.qbo_id! }
     })()).catch(async (err: any) => {
-      await logRow(db, companyId, 'client_invoice', inv.id, 'error', undefined, `Void: ${err?.message}`)
-      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+      const detail = await voidFailure(conn, err)
+      await logRow(db, companyId, 'client_invoice', inv.id, 'error', inv.qbo_id!, `Void: ${detail}`, 'void', label)
+      return { pushed: false, reason: 'failed' as const, detail }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/**
+ * Void QuickBooks records whose SyteNav row is about to be deleted.
+ *
+ * The caller passes what it read off the row, and DELETES ONLY ON SUCCESS.
+ * The order is the point: a row deleted first leaves nothing for a retry to
+ * read the QuickBooks id off, so a void that failed after the delete was a
+ * live record over there for ever, with only a log line to say so. Voiding
+ * first means a refusal keeps the row, and pressing Delete again IS the retry.
+ *
+ * Steps run in order and stop at the first refusal - a Bill cannot go while
+ * the BillPayment against it still stands.
+ */
+interface VoidStep { entity: QboVoidEntity; qboId: string; logAs: string }
+
+async function voidForDelete(
+  db: SupabaseClient, projectId: string, recordId: string, label: string | null,
+  steps: VoidStep[], ctx?: PushContext,
+): Promise<PushResult> {
+  try {
+    const todo = steps.filter(s => s.qboId)
+    if (!todo.length) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks' }
+    const { companyId } = await projectCompany(db, projectId)
+    if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) {
+      // Not connected is a normal state, so the delete goes ahead - but the
+      // record is still live over there, and the log is where that is said.
+      for (const s of todo) {
+        await logRow(db, companyId, s.logAs, recordId, 'error', s.qboId,
+          'Deleted here while QuickBooks was not connected - still live there, void it by hand', 'void', label)
+      }
+      return { pushed: false, reason: 'not_connected' }
+    }
+    let current: VoidStep | null = null
+    return await budgeted((async (): Promise<PushResult> => {
+      for (const s of todo) {
+        current = s
+        const outcome = await voidQboRecord(conn, s.entity, s.qboId)
+        const word = s.entity === 'bill' && outcome === 'voided' ? 'Deleted in QuickBooks' : VOID_WORD[outcome]
+        await logRow(db, companyId, s.logAs, recordId, 'success', s.qboId, `${word} (deleted here)`, 'void', label)
+      }
+      return { pushed: true, qboId: todo[todo.length - 1].qboId }
+    })()).catch(async (err: any) => {
+      const detail = await voidFailure(conn, err)
+      const s = (current ?? todo[0]) as VoidStep
+      await logRow(db, companyId, s.logAs, recordId, 'error', s.qboId, `Void: ${detail}`, 'void', label)
+      return { pushed: false, reason: 'failed' as const, detail }
     })
   } catch (err: any) {
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
@@ -1480,74 +1688,86 @@ export async function billQboRefs(db: SupabaseClient, invoiceId: string): Promis
 }
 
 /**
- * Deleting a sub bill voids it in QuickBooks - the payment first, then the bill.
+ * Deleting a sub bill takes it out of QuickBooks - the payment first, then
+ * the bill.
  *
- * THE GAP THIS CLOSES. Deleting a synced bill removed the row here and touched
- * nothing over there, so QuickBooks kept a payable for money that no longer
- * exists - and, since bill payments started syncing, possibly a PAYMENT for it
- * too. A/P overstated by every bill anyone had deleted. The receivable side got
- * this in #320 (`voidClientInvoiceInQbo`); the payable side never did.
+ * ORDER MATTERS. QuickBooks refuses to remove a Bill while a BillPayment still
+ * references it, so the payment is voided first. The Bill itself is DELETED,
+ * because a Bill has no void in the QuickBooks API - the old call to
+ * `bill?operation=void` was refused every time it ran.
  *
- * ORDER MATTERS. QuickBooks refuses to void a Bill while a BillPayment still
- * references it, so the payment goes first. Doing it the other way round fails
- * on the first call and leaves BOTH records standing.
- *
- * Void, not delete: the money moved and then was undone, and the books should
- * say so. `?operation=void` zeroes the record and stamps it VOIDED.
- *
- * The row is already gone by the time this runs, so the caller passes what it
- * captured rather than this re-reading a deleted row. Never throws - a delete
- * must not fail because Intuit had a bad minute.
+ * Runs BEFORE the row is deleted (see `voidForDelete`). Never throws.
  */
 export async function voidBillInQbo(
   db: SupabaseClient,
-  bill: { id: string; project_id: string } & Partial<BillQboRefs>,
+  bill: { id: string; project_id: string; invoice_number?: string | null } & Partial<BillQboRefs>,
   ctx?: PushContext,
 ): Promise<PushResult> {
-  try {
-    if (!bill.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks' }
+  return voidForDelete(db, bill.project_id, bill.id, bill.invoice_number ?? null, [
+    { entity: 'billpayment', qboId: bill.qbo_payment_id ?? '', logAs: 'bill_payment' },
+    { entity: 'bill', qboId: bill.qbo_id ?? '', logAs: 'bill' },
+  ], ctx)
+}
 
-    const { companyId } = await projectCompany(db, bill.project_id)
+/**
+ * Deleting a client payment voids it in QuickBooks.
+ *
+ * THE GAP THIS CLOSES. Deleting a synced payment removed the row here and
+ * touched nothing there, so QuickBooks kept the money - income counted for a
+ * payment that, as far as SyteNav knows, never arrived, and the invoice it
+ * settled still read paid over there while it read owing here.
+ *
+ * A payment row is one of TWO QuickBooks entities (`qbo_txn_type`), and the
+ * void goes to the one it is. A share of a split cheque carries the cheque's
+ * Payment id, so a development's group is voided once, through the group.
+ */
+export async function voidClientPaymentInQbo(
+  db: SupabaseClient,
+  payment: { id: string; project_id: string; qbo_id?: string | null; qbo_txn_type?: string | null; label?: string | null },
+  ctx?: PushContext,
+): Promise<PushResult> {
+  const entity: QboVoidEntity = payment.qbo_txn_type === 'payment' ? 'payment' : 'salesreceipt'
+  return voidForDelete(db, payment.project_id, payment.id, payment.label ?? null, [
+    { entity, qboId: payment.qbo_id ?? '', logAs: 'payment' },
+  ], ctx)
+}
+
+/**
+ * A paid sub bill moved back to unpaid voids the BillPayment against it.
+ *
+ * `pushBillPayment` creates one when a bill is marked paid; nothing undid it,
+ * so a payment marked in error stayed in QuickBooks as money out, and the
+ * bill read settled there while it read owing here. Voided first, and the id
+ * cleared only on success, so the next Mark Paid pushes a fresh one - and a
+ * failure leaves the id in place for the retry rather than orphaning it.
+ */
+export async function voidBillPaymentInQbo(db: SupabaseClient, invoiceId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: inv } = await db.from('invoices')
+      .select('id, project_id, invoice_number, qbo_payment_id').eq('id', invoiceId).maybeSingle()
+    if (!inv?.qbo_payment_id) return { pushed: false, reason: 'skipped', detail: 'Payment not in QuickBooks' }
+    const { companyId } = await projectCompany(db, inv.project_id)
     if (!companyId) return { pushed: false, reason: 'skipped', detail: 'Project has no company' }
     const conn = await connectionFor(db, companyId, ctx)
-    if (!conn) return { pushed: false, reason: 'not_connected' }
-
+    const label = (inv as any).invoice_number ?? null
+    if (!conn) {
+      await logRow(db, companyId, 'bill_payment', inv.id, 'error', inv.qbo_payment_id,
+        'Marked unpaid while QuickBooks was not connected - the payment is still there', 'void', label)
+      return { pushed: false, reason: 'not_connected' }
+    }
     return await budgeted((async (): Promise<PushResult> => {
-      if (bill.qbo_payment_id) {
-        await voidQboRecord(conn, 'billpayment', 'BillPayment', bill.qbo_payment_id)
-        await logRow(db, companyId, 'bill_payment', bill.id, 'success', bill.qbo_payment_id, 'Voided in QuickBooks')
-      }
-      await voidQboRecord(conn, 'bill', 'Bill', bill.qbo_id!)
-      await logRow(db, companyId, 'bill', bill.id, 'success', bill.qbo_id!, 'Voided in QuickBooks')
-      return { pushed: true, qboId: bill.qbo_id! }
+      const outcome = await voidQboRecord(conn, 'billpayment', inv.qbo_payment_id!)
+      await db.from('invoices').update({ qbo_payment_id: null, qbo_payment_synced_at: null }).eq('id', inv.id)
+      await logRow(db, companyId, 'bill_payment', inv.id, 'success', inv.qbo_payment_id!, `${VOID_WORD[outcome]} (marked unpaid here)`, 'void', label)
+      return { pushed: true, qboId: inv.qbo_payment_id! }
     })()).catch(async (err: any) => {
-      await logRow(db, companyId, 'bill', bill.id, 'error', undefined, `Void: ${err?.message}`)
-      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+      const detail = await voidFailure(conn, err)
+      await logRow(db, companyId, 'bill_payment', inv.id, 'error', inv.qbo_payment_id!, `Void: ${detail}`, 'void', label)
+      return { pushed: false, reason: 'failed' as const, detail }
     })
   } catch (err: any) {
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
   }
-}
-
-/**
- * Fetch for the SyncToken QBO demands, then void. A record QuickBooks no
- * longer has is not a failure - somebody voided it by hand, which is the
- * outcome we wanted.
- */
-async function voidQboRecord(conn: Connection, entity: string, key: string, qboId: string): Promise<void> {
-  let obj: any
-  try {
-    const cur = await qboFetch(conn, `${entity}/${qboId}`)
-    obj = cur?.[key]
-  } catch (err: any) {
-    if (err?.code === QBO_OBJECT_NOT_FOUND) return
-    throw err
-  }
-  if (!obj?.Id) return
-  await qboFetch(conn, `${entity}?operation=void`, {
-    method: 'POST',
-    body: JSON.stringify({ Id: obj.Id, SyncToken: obj.SyncToken }),
-  })
 }
 
 /**
@@ -1620,10 +1840,10 @@ export async function updateBillInQbo(db: SupabaseClient, invoiceId: string, ctx
       obj.TotalAmt = amount
       await qboFetch(conn, 'bill', { method: 'POST', body: JSON.stringify(obj) })
       await db.from('invoices').update({ qbo_synced_at: new Date().toISOString() }).eq('id', inv.id)
-      await logRow(db, companyId, 'bill', inv.id, 'success', inv.qbo_id!, `Amount updated to ${amount}`)
+      await logRow(db, companyId, 'bill', inv.id, 'success', inv.qbo_id!, `Amount updated to ${amount}`, 'update')
       return { pushed: true, qboId: inv.qbo_id! }
     })()).catch(async (err: any) => {
-      await logRow(db, companyId, 'bill', inv.id, 'error', undefined, `Update: ${err?.message}`)
+      await logRow(db, companyId, 'bill', inv.id, 'error', undefined, `Update: ${err?.message}`, 'update')
       return { pushed: false, reason: 'failed' as const, detail: err?.message }
     })
   } catch (err: any) {
