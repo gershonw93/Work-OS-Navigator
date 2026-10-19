@@ -583,7 +583,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
     // is not a surprise anyone should get afterwards.
     // The confirm reads "Are you sure you want to delete <label>?", so this
     // stays a noun phrase with no closing punctuation.
-    const qb = invoice.qbo_id ? ' - the bill in QuickBooks is voided with it' : ''
+    const qb = invoice.qbo_id ? ' - the bill (and any payment against it) comes out of QuickBooks with it' : ''
     const label = counted
       ? `this ${STATUS_CONFIG[invoice.status]?.label.toLowerCase() ?? ''} invoice (${amount}${who}) - it takes ${amount} back off the budget${line}${qb}`
       : `this invoice (${amount}${who})${qb}`

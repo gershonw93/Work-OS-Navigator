@@ -34,7 +34,7 @@ export async function GET(request: Request) {
   let unsyncedClientInvoices = 0
   let unsentVoids = 0
   if (projectIds.length) {
-    const [pay, bills, clientInv, voids] = await Promise.all([
+    const [pay, bills, clientInv, voids, billPayVoids] = await Promise.all([
       // Not "unsynced" if somebody entered it in QuickBooks themselves -
       // reporting those as waiting would nag forever about work already done.
       db.from('client_payments').select('id', { count: 'exact', head: true })
@@ -49,18 +49,22 @@ export async function GET(request: Request) {
       db.from('client_invoices').select('id', { count: 'exact', head: true })
         .in('project_id', projectIds).eq('status', 'void')
         .not('qbo_id', 'is', null).is('qbo_voided_at', null),
+      // A sub bill moved back to unpaid whose BillPayment QuickBooks has not
+      // voided - money still "paid out" there. Same retry, same count.
+      db.from('invoices').select('id', { count: 'exact', head: true })
+        .in('project_id', projectIds).neq('status', 'paid').not('qbo_payment_id', 'is', null),
     ])
     unsyncedPayments = pay.count ?? 0
     unsyncedBills = bills.count ?? 0
     unsyncedClientInvoices = clientInv.count ?? 0
-    unsentVoids = voids.count ?? 0
+    unsentVoids = (voids.count ?? 0) + (billPayVoids.count ?? 0)
   }
 
   const { data: log } = await db.from('quickbooks_sync_log')
-    .select('entity_type, entity_id, action, status, qbo_id, message, created_at')
+    .select('entity_type, entity_id, record_label, action, status, qbo_id, message, created_at')
     .eq('company_id', profile.company_id)
     .order('created_at', { ascending: false })
-    .limit(20)
+    .limit(50)
 
   return NextResponse.json({
     configured: qboConfigured(),

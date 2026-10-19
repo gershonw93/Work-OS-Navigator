@@ -54,6 +54,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-19',
+    title: 'Voids and deletes reach QuickBooks',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Deleting a payment or a bill now undoes it in QuickBooks',
+        text: 'Deleting a client payment left it standing in QuickBooks, so the money still counted there. It is now voided over there first. Deleting a sub bill removes the bill and the payment against it, and moving a paid bill back to unpaid voids that payment. If QuickBooks refuses, nothing is deleted and you are told which customer, vendor or item it objected to. A voided invoice reads "Voided in QB" only once QuickBooks has confirmed it; until then the badge says the void failed and pressing it tries again. Every push, void and failure is listed under Recent sync activity in Settings.',
+        help: 'connect-quickbooks',
+      },
+    ],
+  },
+  {
     date: '2026-10-15',
     title: 'Change orders on the client\'s link',
     items: [

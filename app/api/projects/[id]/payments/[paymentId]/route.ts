@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { allocationProblem, cents, dollars } from '@/lib/invoice-settlement'
 import { issuedInvoices, syncInvoiceStatus } from '@/lib/invoice-settlement-db'
+import { voidClientPaymentInQbo } from '@/lib/quickbooks-push'
 
 export const runtime = 'nodejs'
 
@@ -109,8 +110,32 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   // invoice reads "Paid" over a payment that no longer exists.
   const { data: shares } = await db.from('client_payment_allocations')
     .select('client_invoice_id').eq('payment_id', params.paymentId)
+
+  // QUICKBOOKS FIRST, THEN THE ROW. Deleting a synced payment used to remove
+  // it here and leave it standing over there - income counted for money that,
+  // as far as SyteNav knows, never came, and the invoice it settled read paid
+  // in QuickBooks while it read owing here. Voided before the delete, so a
+  // refusal keeps the payment and pressing Delete again is the retry. Not
+  // being connected does not block it; the sync log says what is still live.
+  const { data: pay } = await db.from('client_payments')
+    .select('id, amount, paid_date, reference, qbo_id, qbo_txn_type')
+    .eq('id', params.paymentId).eq('project_id', params.id).maybeSingle()
+  if (!pay) return NextResponse.json({ error: 'Not found on this project' }, { status: 404 })
+  const qb = await voidClientPaymentInQbo(db, {
+    id: pay.id, project_id: params.id, qbo_id: (pay as any).qbo_id, qbo_txn_type: (pay as any).qbo_txn_type,
+    label: (pay as any).reference || `Payment of $${Number((pay as any).amount ?? 0).toLocaleString('en-US')}${(pay as any).paid_date ? ` on ${(pay as any).paid_date}` : ''}`,
+  })
+  if (!qb.pushed && qb.reason === 'failed') {
+    return NextResponse.json({
+      error: `QuickBooks would not void this payment, so it has not been deleted here either (${qb.detail ?? 'no reason given'}). Fix that in QuickBooks, or void it there by hand, then delete it again here.`,
+    }, { status: 502 })
+  }
+
   const { error } = await db.from('client_payments').delete().eq('id', params.paymentId).eq('project_id', params.id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   await syncInvoiceStatus(db, (shares ?? []).map((s: any) => s.client_invoice_id))
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({
+    ok: true,
+    ...((pay as any).qbo_id ? { quickbooks: { voided: qb.pushed, detail: qb.pushed ? undefined : qb.reason === 'not_connected' ? 'QuickBooks is not connected, so the payment is still there - void it by hand' : qb.detail } } : {}),
+  })
 }

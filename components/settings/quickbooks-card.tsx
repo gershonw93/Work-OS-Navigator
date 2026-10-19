@@ -16,8 +16,22 @@ interface Connection {
   connected_at: string
 }
 interface LogRow {
-  entity_type: string; action: string | null; status: string
+  entity_type: string; record_label?: string | null; action: string | null; status: string
   qbo_id: string | null; message: string | null; created_at: string
+}
+
+/** One sync-log row in words: what happened to which record. */
+const ACTION_WORD: Record<string, string> = { create: 'Pushed', update: 'Updated', void: 'Voided' }
+const ENTITY_WORD: Record<string, string> = {
+  client_invoice: 'client invoice', payment: 'client payment', client_payment: 'client payment',
+  bill: 'sub bill', bill_payment: 'bill payment', customer: 'customer', vendor: 'sub (vendor)',
+}
+function logLine(l: LogRow): string {
+  const verb = l.status === 'error'
+    ? `${ACTION_WORD[l.action ?? 'create'] ?? 'Pushed'} failed`
+    : ACTION_WORD[l.action ?? 'create'] ?? 'Pushed'
+  const what = ENTITY_WORD[l.entity_type] ?? l.entity_type.replace(/_/g, ' ')
+  return `${verb}: ${what}${l.record_label ? ` ${l.record_label}` : ''}`
 }
 interface Status {
   configured: boolean
@@ -171,7 +185,7 @@ export function QuickBooksCard() {
               )}
             </div>
             <p className="mt-1 text-sm text-muted-fg">
-              Customers, subs, the bills they send you, the invoices you send your client, and the money that comes in - pushed into QuickBooks so nothing gets double-entered.
+              QuickBooks Online, one-way push. Four kinds of record go across: the invoices you send your client, the payments your client makes against them, the bills your subs send you, and the payments you make on those bills. Customers and subs are added as they are needed, so nothing gets double-entered.
             </p>
 
             {!status?.configured && (
@@ -206,7 +220,7 @@ export function QuickBooksCard() {
                     {(status.unsentVoids ?? 0) > 0 && (
                       <>
                         {(status.unsyncedPayments || status.unsyncedBills || status.unsyncedClientInvoices) ? '; ' : ''}
-                        {status.unsentVoids} void{status.unsentVoids === 1 ? '' : 's'} not sent, so those invoices are still open receivables in QuickBooks
+                        {status.unsentVoids} void{status.unsentVoids === 1 ? '' : 's'} QuickBooks has not confirmed, so those records still count there - use Retry voids
                       </>
                     )}
                   </span>
@@ -307,15 +321,25 @@ export function QuickBooksCard() {
             <RefreshCw className="h-4 w-4" /> Recent sync activity
           </h4>
           <div className="space-y-1.5">
+            {/* Every push, void and failure, newest first. An error shows
+                QuickBooks' own reason in full - truncating it to one line hid
+                the half that said which reference it refused. */}
             {status!.log.map((l, i) => (
-              <div key={i} className="flex items-center justify-between gap-3 text-sm">
-                <span className="flex items-center gap-2 text-ink">
-                  <span className={cn('inline-flex h-2 w-2 rounded-full', l.status === 'success' ? 'bg-success' : 'bg-danger')} />
-                  <span className="capitalize">{l.entity_type}</span>
-                  {l.qbo_id && <span className="inline-flex items-center gap-0.5 text-xs text-muted-fg">QBO #{l.qbo_id}</span>}
+              <div key={i} className="flex items-start justify-between gap-3 text-sm">
+                <span className="flex min-w-0 items-start gap-2 text-ink">
+                  <span className={cn('mt-1.5 inline-flex h-2 w-2 shrink-0 rounded-full', l.status === 'success' ? 'bg-success' : 'bg-danger')} />
+                  <span className="min-w-0">
+                    <span className="block">
+                      {logLine(l)}
+                      {l.qbo_id && <span className="ml-1.5 text-xs text-muted-fg">QBO #{l.qbo_id}</span>}
+                    </span>
+                    {l.message && (
+                      <span className={cn('block break-words text-xs', l.status === 'error' ? 'text-danger' : 'text-muted-fg')}>{l.message}</span>
+                    )}
+                  </span>
                 </span>
-                <span className="truncate text-right text-xs text-muted-fg">
-                  {l.status === 'error' ? l.message : new Date(l.created_at).toLocaleString()}
+                <span className="shrink-0 whitespace-nowrap text-right text-xs text-muted-fg">
+                  {new Date(l.created_at).toLocaleString()}
                 </span>
               </div>
             ))}

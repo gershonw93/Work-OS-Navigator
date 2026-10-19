@@ -166,6 +166,8 @@ export interface SubBillQboFollowUp {
   pushBill: boolean
   pushPayment: boolean
   correctAmount: boolean
+  /** A paid bill moved back to unpaid: the BillPayment over there is voided. */
+  voidPayment: boolean
 }
 
 export async function updateSubBill(
@@ -371,6 +373,7 @@ export async function updateSubBill(
     pushBill: status === 'approved' || status === 'paid',
     pushPayment: status === 'paid',
     correctAmount: amountChanged && !!invoice.qbo_id,
+    voidPayment: invoice.status === 'paid' && status !== undefined && status !== 'paid',
   }
 
   return { status: 200, body: { invoice: data, allocations: saved ?? [] }, qbo }

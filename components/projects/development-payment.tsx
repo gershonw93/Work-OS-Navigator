@@ -78,7 +78,7 @@ export function DevelopmentPayments({ developmentId, canEdit, reloadKey, onChang
                     guard(async () => {
                       const r = await call(`/api/projects/${developmentId}/development-payments/${g.id}`, { method: 'DELETE' })
                       if (!r.ok) { notify(r.data.error ?? 'Could not delete the payment.'); return }
-                      if (r.data.was_in_quickbooks) notify('Deleted here. It was already in QuickBooks - delete it there too, or the money is counted twice.')
+                      if (r.data.quickbooks && !r.data.quickbooks.voided) notify(`Deleted here, but not in QuickBooks${r.data.quickbooks.detail ? `: ${r.data.quickbooks.detail}` : ''}.`)
                       onChanged()
                     }, {
                       title: 'Delete this check?',

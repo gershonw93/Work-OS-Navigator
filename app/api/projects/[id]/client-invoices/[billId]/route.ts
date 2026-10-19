@@ -31,6 +31,25 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   const { db, user } = ctx
 
   const body = await request.json().catch(() => ({}))
+
+  // RETRY A VOID QUICKBOOKS NEVER CONFIRMED - the "QB void failed - retry"
+  // badge on the row. The same permission that voided it may retry it, rather
+  // than only an admin from Settings; nothing here is written but what
+  // QuickBooks answers. Idempotent: a void already done over there is
+  // recognised, not repeated.
+  if (body.retry_qbo_void === true) {
+    const { data: cur } = await db.from('client_invoices')
+      .select('id, status').eq('id', params.billId).eq('project_id', params.id).maybeSingle()
+    if (!cur) return NextResponse.json({ error: 'Not found on this project' }, { status: 404 })
+    if (cur.status !== 'void') return NextResponse.json({ error: 'This invoice is not void.' }, { status: 400 })
+    const res = await voidClientInvoiceInQbo(db, params.billId)
+    return NextResponse.json({
+      quickbooks: res.pushed
+        ? { voided: true }
+        : { voided: false, detail: res.reason === 'not_connected' ? 'QuickBooks is not connected' : (res as any).detail ?? res.reason },
+    })
+  }
+
   // AN INVOICE IS PAID WHEN THE MONEY COVERS IT, never because a request says
   // so. This route used to take `status: 'paid'` from the body, which is how
   // $5,000 against a $10,000 invoice read "Paid". Recording the payment is the
@@ -90,9 +109,13 @@ export async function PATCH(request: Request, { params }: { params: { id: string
   let quickbooks: { voided: boolean; detail?: string } | undefined
   if (body.status === 'void') {
     const res = await voidClientInvoiceInQbo(db, params.billId)
-    quickbooks = res.pushed
-      ? { voided: true }
-      : { voided: false, detail: res.reason === 'not_connected' ? undefined : (res as any).detail ?? res.reason }
+    // `skipped` is an invoice that never reached QuickBooks: nothing over
+    // there to void, so nothing to report.
+    if (res.pushed || res.reason !== 'skipped') {
+      quickbooks = res.pushed
+        ? { voided: true }
+        : { voided: false, detail: res.reason === 'not_connected' ? 'QuickBooks is not connected' : (res as any).detail ?? res.reason }
+    }
   }
 
   return NextResponse.json({ invoice: data, ...(quickbooks ? { quickbooks } : {}) })
@@ -104,6 +127,20 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
 
   const ctx = await auth(request)
   if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // ONLY A DRAFT IS DELETED. A sent invoice is in the client's inbox and, once
+  // issued, in QuickBooks as a receivable; deleting it here would remove the
+  // only record of the QuickBooks id and leave that receivable open for ever.
+  // Voiding is the way out for a sent one, and the void reaches QuickBooks.
+  // The screen only offers Delete on a draft; this is the same rule at the door.
+  const { data: current } = await ctx.db.from('client_invoices')
+    .select('status, qbo_id').eq('id', params.billId).eq('project_id', params.id).maybeSingle()
+  if (!current) return NextResponse.json({ error: 'Not found on this project' }, { status: 404 })
+  if (current.status !== 'draft' || current.qbo_id) {
+    return NextResponse.json({
+      error: 'Only a draft can be deleted. Void this invoice instead - it stays on the list for the record, and the void is sent to QuickBooks.',
+    }, { status: 409 })
+  }
 
   // Lines cascade, which releases their source costs to be billed again -
   // deleting a draft should hand those costs back, not strand them.

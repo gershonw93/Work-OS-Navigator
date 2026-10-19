@@ -22,7 +22,7 @@ export interface QbInvoice {
 
 export type QbChip =
   | { show: false }
-  | { show: true; tone: 'ok' | 'warn'; label: string; title: string }
+  | { show: true; tone: 'ok' | 'warn'; label: string; title: string; retry?: 'void' }
 
 export function invoiceQbChip(inv: QbInvoice, connected: boolean): QbChip {
   // No QuickBooks, nothing to say about QuickBooks. A "not synced" note on
@@ -48,9 +48,12 @@ export function invoiceQbChip(inv: QbInvoice, connected: boolean): QbChip {
     if (inv.qbo_voided_at) {
       return { show: true, tone: 'ok', label: 'Voided in QB', title: `Voided in QuickBooks (invoice ${inv.qbo_id})` }
     }
+    // THE BADGE SHOWS "Voided in QB" ONLY ONCE QUICKBOOKS HAS SAID SO; until
+    // then it says the void failed and is itself the retry - the person who
+    // pressed Void can finish it from the row, not only an admin in Settings.
     return {
-      show: true, tone: 'warn', label: 'Void not sent to QuickBooks',
-      title: `Voided here, but invoice ${inv.qbo_id} is still open in QuickBooks and its receivable still counts. Settings > QuickBooks > Retry voids.`,
+      show: true, tone: 'warn', label: 'QB void failed - retry', retry: 'void',
+      title: `Voided here, but QuickBooks has not confirmed it - invoice ${inv.qbo_id} is still open there and its receivable still counts. Press to try again; the reason is in Settings > QuickBooks > Recent sync activity.`,
     }
   }
 

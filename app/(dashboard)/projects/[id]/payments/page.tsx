@@ -291,7 +291,14 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
   function remove(p: Payment) {
     guardDelete(async () => {
       const t = await token()
-      await fetch(`/api/projects/${params.id}/payments/${p.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } })
+      const res = await fetch(`/api/projects/${params.id}/payments/${p.id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${t}` } })
+      const j = await res.json().catch(() => ({}))
+      // The answer was thrown away, so a refusal - the split-cheque one, or
+      // QuickBooks refusing the void - looked exactly like a delete that worked.
+      if (!res.ok) notify(j.error ?? 'Could not delete that payment')
+      else if (j.quickbooks && !j.quickbooks.voided) {
+        notify(`Deleted here, but not in QuickBooks${j.quickbooks.detail ? `: ${j.quickbooks.detail}` : ''}.`)
+      }
       // The invoices it paid go back to owing it, so their list has to reload too.
       load(); setRequestsKey(k => k + 1)
     }, { label: `the ${money(p.amount)} client payment`, protected: true })

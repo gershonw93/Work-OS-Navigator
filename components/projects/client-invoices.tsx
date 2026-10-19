@@ -238,8 +238,35 @@ export function ClientInvoices({
       if (d?.quickbooks && d.quickbooks.voided === false) {
         setError(
           `Voided here, but QuickBooks did not confirm it${d.quickbooks.detail ? ` (${d.quickbooks.detail})` : ''}. `
-          + 'The invoice is still an open receivable there - retry from Settings → QuickBooks.',
+          + 'The invoice is still an open receivable there - press "QB void failed - retry" on the row.',
         )
+      }
+      await load()
+    } catch {
+      setError('Could not reach the server - nothing was changed.')
+    } finally {
+      setStatusBusy('')
+    }
+  }
+
+  /**
+   * Retry a void QuickBooks never confirmed. Nothing changes here but what
+   * QuickBooks answers, so the badge turns green only on its say-so.
+   */
+  async function retryVoid(bill: Bill) {
+    if (statusBusy) return
+    setStatusBusy(bill.id); setError('')
+    try {
+      const t = await token()
+      const res = await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ retry_qbo_void: true }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) setError(d?.error ?? 'Could not retry the void.')
+      else if (d?.quickbooks?.voided === false) {
+        setError(`QuickBooks still did not void ${bill.invoice_number}${d.quickbooks.detail ? ` (${d.quickbooks.detail})` : ''}. It is still an open receivable there.`)
       }
       await load()
     } catch {
@@ -336,9 +363,10 @@ export function ClientInvoices({
   function remove(bill: Bill) {
     guardDelete(async () => {
       const t = await token()
-      await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
+      const res = await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
         method: 'DELETE', headers: { Authorization: `Bearer ${t}` },
       })
+      if (!res.ok) setError((await res.json().catch(() => ({})))?.error ?? 'Could not delete that invoice.')
       load()
     }, { label: `${bill.invoice_number} - the costs on it go back to being billable`, protected: true })
   }
@@ -542,7 +570,14 @@ export function ClientInvoices({
                 <span className={cn('whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium shrink-0', STATUS[shownStatus] ?? STATUS.draft)}>
                   {shownStatus}
                 </span>
-                {qb.show && (
+                {qb.show && qb.retry === 'void' && (
+                  <button type="button" title={qb.title} onClick={() => retryVoid(b)} disabled={statusBusy === b.id}
+                    className="shrink-0 inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-warn/40 bg-warn-tint px-2 py-0.5 text-[11px] font-medium text-warn hover:underline">
+                    {statusBusy === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
+                    {qb.label}
+                  </button>
+                )}
+                {qb.show && !qb.retry && (
                   <span title={qb.title}
                     className={cn(
                       'shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',

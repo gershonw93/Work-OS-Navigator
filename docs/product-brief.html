@@ -407,7 +407,7 @@
       ones where the answer is "not yet".
     </p>
     <div class="stamp">
-      <span><b>Updated</b> 15 Oct 2026</span>
+      <span><b>Updated</b> 19 Oct 2026</span>
       <span><b>Audience</b> prospects &amp; customers</span>
       <span><b>Status</b> live, in daily use</span>
     </div>
@@ -712,7 +712,10 @@
                 <tr><td>Paying a sub's bill</td><td>Bill Payment, applied to that bill</td><td>The moment you mark it paid</td></tr>
                 <tr><td>Invoices to your client</td><td>Invoice (A/R)</td><td>The moment you send it</td></tr>
                 <tr><td>Money received</td><td>Payment, applied to the invoices it settles - part or whole</td><td>As you record it</td></tr>
-                <tr><td>Voiding a sent invoice</td><td>The invoice is voided there too</td><td>As you void it</td></tr>
+                <tr><td>Voiding a sent invoice</td><td>The invoice is voided there too; a payment on it stays as the client's credit</td><td>As you void it</td></tr>
+                <tr><td>Deleting a client payment</td><td>The payment is voided there</td><td>Before it is deleted here</td></tr>
+                <tr><td>Deleting a sub's bill</td><td>Its bill payment is voided and the bill removed</td><td>Before it is deleted here</td></tr>
+                <tr><td>Marking a paid bill unpaid</td><td>The bill payment is voided</td><td>As you change it</td></tr>
               </tbody>
             </table>
           </div>
@@ -777,7 +780,11 @@
           miss is logged and swept up by the next sync, and the settings screen tells you plainly
           how many records are waiting. That includes voids: if a void does not get through, the
           invoice says so rather than showing a tick, because an invoice that is still an open
-          receivable over there is exactly the thing you need to know about.
+          receivable over there is exactly the thing you need to know about - and pressing that
+          badge tries again. A delete is the one exception to "saves regardless": if QuickBooks
+          refuses to void the matching record, nothing is deleted and you are told which customer,
+          vendor or item it objected to, so the two sets of books never quietly disagree. Every push,
+          void and failure is listed under Recent sync activity in Settings.
         </dd>
       </div>
       <div>
