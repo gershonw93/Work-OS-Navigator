@@ -36,7 +36,7 @@ import { ok, done, code, read } from './_helpers'
 const has = (hay: string, needle: string) => hay.toLowerCase().includes(needle.toLowerCase())
 
 // ── 1. the registry is internally consistent ─────────────────────────────────
-ok(GUIDES.length === 11, `eleven guides are published (${GUIDES.length})`)
+ok(GUIDES.length === 14, `fourteen guides are published (${GUIDES.length})`)
 
 const slugs = GUIDES.map(g => g.slug)
 ok(new Set(slugs).size === slugs.length, 'no two guides share a slug')

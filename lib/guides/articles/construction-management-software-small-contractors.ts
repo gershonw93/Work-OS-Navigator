@@ -108,5 +108,5 @@ export const guide: Guide = {
     { q: 'How long does it take to get running?', a: 'For a light system, entering your first live job is an afternoon - budget, awarded subs, costs to date. Getting the field to use it daily is the part that takes weeks, and it depends far more on picking one job and one foreman to start with than on the software.' },
     { q: 'What about subs who refuse to use anything?', a: 'Assume that is most of them. Choose a system where subs participate through links - upload a certificate, accept a bid invitation, open an invoice - rather than accounts. Anything that requires them to learn software will be done by phone instead, and the record ends up nowhere.' },
   ],
-  related: ['procore-alternatives-small-gcs', 'construction-spreadsheet-vs-software', 'construction-job-cost-tracking'],
+  related: ['procore-alternatives-small-gcs', 'buildertrend-alternatives', 'construction-spreadsheet-vs-software', 'construction-job-cost-tracking'],
 }

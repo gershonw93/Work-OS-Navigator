@@ -6,15 +6,18 @@ export const guide: Guide = {
   cardTitle: 'How to stop subs from overbilling',
   metaTitle: 'Construction Invoice Verification: How to Stop Subcontractor Overbilling | SyteNav',
   description:
-    'Construction invoice verification that catches overbilling before you pay: the four checks that matter, and why the invoice total is the weakest of them.',
+    'Construction invoice verification - or validation - that catches sub overbilling before you approve: the checks that matter, and why the total is the weakest one.',
   keyword: 'construction invoice verification',
   keywords: [
     'construction invoice verification', 'subcontractor overbilling', 'verify sub invoices',
     'how to stop subs overbilling', 'invoice audit construction', 'billed over contract',
     'front loading construction billing', 'check sub invoice against quote',
+    'contractor invoice validation', 'construction invoice validation', 'invoice validation construction projects',
+    'construction cost validation', 'validate subcontractor invoice',
   ],
   category: 'billing',
   published: '2026-09-15',
+  updated: '2026-10-20',
   lede:
     'Almost nobody gets overbilled by an invoice that is obviously too big. You get overbilled by an invoice that is entirely reasonable, under the contract total, and includes one rate nobody ever agreed to.',
   takeaways: [
@@ -24,6 +27,8 @@ export const guide: Guide = {
     'Do the check before approval, not before payment. Approval is the moment the cost becomes real.',
   ],
   blocks: [
+    { type: 'p', text: 'Some offices call this invoice verification, some call it contractor invoice validation, and lenders tend to say cost validation. It is the same job under three names: before a sub’s bill becomes a cost on your job, prove that every line on it was agreed, priced and actually built.' },
+
     { type: 'h2', text: 'The four ways a sub invoice is wrong' },
     { type: 'p', text: 'In rough order of how often they cost money, and inverse order of how visible they are.' },
     { type: 'h3', text: '1. A rate nobody agreed to' },
@@ -44,7 +49,7 @@ export const guide: Guide = {
       'DO THE RATES MATCH THE QUOTE? Line by line against the awarded quote or the priced contract. This is the check that finds money.',
       'IS EVERY LINE ON THE QUOTE? Anything that is not needs a change order behind it before it is approved, not after. Use the change order tracking process to capture, price and approve it.',
       'DOES THE RUNNING TOTAL STILL FIT THE CONTRACT? This invoice plus everything already billed by this sub, against their contract as revised by approved change orders.',
-      'IS THE PERCENT COMPLETE REAL? Compare it to the daily logs, the photos and the schedule. A schedule that has not been updated in three weeks is not evidence of anything, which is why keeping the schedule true is work in its own right. On progress billing this is the whole check.',
+      'IS THE PERCENT COMPLETE REAL? Compare it to the daily logs, the photos and the schedule. A schedule that has not been updated in three weeks is not evidence of anything, which is why keeping the schedule true is work in its own right. On progress billing this is the whole check, and reviewing a subcontractor pay application line by line is how it is done.',
     ] },
 
     { type: 'callout', tone: 'tip', title: 'Never block a sub over this', text: 'A hard rule that refuses invoices simply pushes billing off the system and into email, where nothing is checked at all. A sub being owed money for genuine extra work is normal. The point of verification is that you see the discrepancy before you approve, not that the software argues with your trade partner.' },
@@ -89,14 +94,16 @@ export const guide: Guide = {
     { text: 'keeping the schedule true is work in its own right', href: '/guides/construction-scheduling-software' },
     { text: 'Use the change order tracking process to capture, price and approve it', href: '/guides/how-to-track-change-orders' },
     { text: 'Build the evidence record so the late documentation can still hold up', href: '/guides/change-order-documentation' },
+    { text: 'reviewing a subcontractor pay application line by line', href: '/guides/subcontractor-pay-application-review' },
     { text: '"Scan an invoice"', href: '/ai' },
     { text: 'which budget line the money will land on, what is budgeted, what has been billed, and what is left', href: '/money' },
   ],
   faqs: [
+    { q: 'Is invoice validation different from invoice verification?', a: 'Not in practice. The words get used for the same checks - rates against the quote, lines against the contract, the running total against the contract value, and percent complete against the site. If a lender or an owner asks for your invoice validation process, these checks are what they mean.' },
     { q: 'How do I verify an invoice when the sub never gave a line-item quote?', a: 'You cannot, properly - which is the argument for insisting on priced lines at bid stage. In the meantime, verify against the schedule of values in their contract and against what is physically built. And make line pricing a condition of the next award: the cost of that conversation is one awkward email.' },
     { q: 'Is retainage the same as holding money back for a bad invoice?', a: 'No, and mixing them up causes disputes. Retainage is a contractual percentage held on all billing until completion. Disputing a line is a separate act with its own reason, and it should be communicated separately so the sub can correct the invoice rather than assume you are short-paying.' },
     { q: 'What if a sub bills for extra work that we did ask for?', a: 'Then it is a change order that never got written. Write it now, get it approved on your side, attach it to the right budget line and the sub’s contract, and let the invoice land against it. Build the evidence record so the late documentation can still hold up. The point is not to refuse the money - it is that it stops being an unexplained overage in your numbers.' },
     { q: 'How much does overbilling actually cost a small GC?', a: 'It varies too much to put a number on honestly, and any published figure you see is somebody’s estimate. The useful measure is your own: take the last completed job, pull every sub invoice, and check the rates against the quotes. Whatever you find there is your annual number, multiplied by how many jobs you run.' },
   ],
-  related: ['construction-invoice-approval', 'construction-job-cost-tracking', 'how-to-track-change-orders'],
+  related: ['construction-invoice-approval', 'subcontractor-pay-application-review', 'construction-job-cost-tracking', 'how-to-track-change-orders'],
 }
