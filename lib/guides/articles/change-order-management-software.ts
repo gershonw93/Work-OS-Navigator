@@ -107,7 +107,7 @@ export const guide: Guide = {
       'GENERIC PROJECT MANAGEMENT TOOLS bolt a change order onto a task list. They capture well and connect to no money at all, so the fourth leak stays wide open.',
       'ACCOUNTING-FIRST SYSTEMS get the flow-through right and are usually weakest at capture - the site cannot reach them, so extras arrive late and second-hand.',
       'ENTERPRISE CONSTRUCTION PLATFORMS do both properly, with the configuration burden and the annual commitment that go with them. If you are running concurrent large commercial jobs, that is the right trade.',
-      'LIGHTER FIELD-FIRST SYSTEMS aim at the small-to-mid GC: capture on a phone, money in the same system, less to configure, and a narrower ceiling. Check the money half carefully, because it is the half that is usually thin.',
+      'LIGHTER FIELD-FIRST SYSTEMS aim at GCs who want less to configure: capture on a phone, money in the same system, less to configure, and a narrower ceiling. Check the money half carefully, because it is the half that is usually thin.',
     ] },
 
     { type: 'h2', text: 'How SyteNav handles it' },

@@ -1,21 +1,21 @@
 import type { Guide } from '../schema'
-import { PLANS, TRIAL_DAYS } from '../../plans'
-
-const FROM = PLANS[0].monthly
+import { TRIAL_DAYS } from '../../plans'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'buildertrend-alternatives',
-  title: 'Buildertrend alternatives for small GCs (2026)',
-  metaTitle: 'Buildertrend Alternatives for Small GCs (2026) | SyteNav',
+  title: 'Buildertrend alternatives for GCs (2026): when the homeowner is not the hard part',
+  cardTitle: 'Buildertrend alternatives (2026)',
+  metaTitle: 'Buildertrend Alternatives for GCs (2026) | SyteNav',
   description:
-    'What Buildertrend is built for, when a small GC is better served by something else, and how to compare the alternatives on the things that cost you money.',
+    'What Buildertrend is built for, when a GC is better served by something else, and how to compare the alternatives on the things that cost you money.',
   keyword: 'buildertrend alternative',
   keywords: [
     'buildertrend alternative', 'buildertrend alternatives', 'buildertrend competitors',
     'cheaper alternative to buildertrend', 'buildertrend too expensive', 'buildertrend pricing',
     'buildertrend for commercial', 'software like buildertrend', 'replace buildertrend',
   ],
-  category: 'choosing',
+  category: 'compare',
   published: '2026-10-20',
   lede:
     'Buildertrend is built around the homeowner: selections, a client portal, a sales pipeline before the job and warranty work after it. If that is your business, it is hard to beat. If your money leaks somewhere else, a Buildertrend alternative may fit better.',
@@ -33,7 +33,7 @@ export const guide: Guide = {
     { type: 'p', text: 'That is a coherent shape. A remodeler selling twenty kitchens a year spends real time on the homeowner - choices, approvals, questions, payments - and a system that organises the homeowner is worth a great deal to them.' },
     { type: 'p', text: 'On price, Buildertrend’s pricing page describes a custom quote set by builder type, annual revenue and business needs, with unlimited users and every feature included rather than sold as add-ons, paid quarterly or annually. Because the quote scales with revenue, two companies of similar size can be quoted very differently, so any figure in a blog post is somebody else’s deal.' },
 
-    { type: 'h2', text: 'Why small GCs look for a Buildertrend alternative' },
+    { type: 'h2', text: 'Why GCs look for a Buildertrend alternative' },
     { type: 'p', text: 'The reasons we hear are rarely "it does not work". They are about fit.' },
     { type: 'list', items: [
       'THE CLIENT SIDE IS NOT WHERE THE MONEY LEAKS. A GC doing light commercial or spec work may have one owner contact and no selections at all. The pain is subs billing past contract, change orders that never reach the budget line, and a job cost picture that is a month old.',
@@ -92,8 +92,8 @@ export const guide: Guide = {
     ] },
 
     { type: 'h2', text: 'Where SyteNav fits' },
-    { type: 'p', text: `SyteNav is built for small-to-mid GCs whose money leaks between the quote and the invoice: quotes scanned in by AI so line items are not retyped, budgets that receive sub bills directly, sub invoices checked against the quote they were awarded on, change orders that raise the budget line and the subcontract they belong to, and client invoices built from costs already recorded. Subs and clients get links rather than logins. Plans start at $${FROM} a month with unlimited team members, subs and clients - you buy project capacity, not seats - and SyteNav is invite-only, with your first ${TRIAL_DAYS} days free.` },
-    { type: 'p', text: 'What it does not do, and where Buildertrend is ahead: it has no sales pipeline or lead tracking, no warranty module, and its QuickBooks integration is a one-way push from SyteNav into QuickBooks Online rather than a two-way sync. If those are what you need, Buildertrend is the better fit and we would rather say so here.' },
+    { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT}: quotes scanned in by AI so line items are not retyped, budgets that receive sub bills directly, sub invoices checked against the quote they were awarded on, change orders that raise the budget line and the subcontract they belong to, and client invoices built from costs already recorded. Subs and clients get links rather than logins. ${PLANS_SENTENCE}` },
+    { type: 'p', text: `What it does not do, and where Buildertrend is ahead: it has no sales pipeline or lead tracking, no warranty module, and ${QBO_ONE_WAY}. If those are what you need, Buildertrend is the better fit and we would rather say so here.` },
   ],
   links: [
     { text: 'Buildertrend’s own comparison page', href: 'https://buildertrend.com/buildertrend-vs-procore/' },
@@ -102,7 +102,7 @@ export const guide: Guide = {
     { text: 'Our Procore guide covers when that trade is worth it', href: '/guides/procore-alternatives-small-gcs' },
     { text: 'quotes scanned in by AI', href: '/ai' },
     { text: 'sub invoices checked against the quote they were awarded on', href: '/guides/construction-invoice-verification' },
-    { text: `Plans start at $${FROM} a month with unlimited team members, subs and clients`, href: '/pricing' },
+    plansLink,
   ],
   faqs: [
     { q: 'How much does Buildertrend cost?', a: 'Buildertrend does not publish a price list. It describes a custom quote based on builder type, annual revenue and business needs, with unlimited users, rather than a fixed price list. The only reliable number is the quote you are given for your own revenue, so get it before you compare.' },

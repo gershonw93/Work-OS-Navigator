@@ -1,34 +1,25 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Who writes the guides.
+// Who the guides are credited to.
 //
 // ONE HOME, because this fact is stated in two places that must not disagree:
-// the byline a reader sees, and the Person node in the Article structured data.
-// A byline that names a person while the markup credits the organisation is a
-// page telling a reader and a crawler two different things about who wrote it.
+// the byline a reader sees, and the `author` of the Article structured data.
+// A byline that says one thing while the markup credits another is a page
+// telling a reader and a crawler two different things about who wrote it.
 //
-// The `@id` is a fragment on the canonical origin, so the Person is a stable
-// node every guide's graph can point at - the same way the Organization node in
-// the marketing layout is pointed at rather than repeated.
+// THE COMPANY, NOT A PERSON - the owner's decision. The guides first carried a
+// named founder as a Person node; that name was taken off the site on request.
+// So the byline and the markup both credit SyteNav, and the author IS the
+// Organization node the marketing layout already defines - pointed at, never
+// repeated, so there is no second description of the company to drift.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 
 export const GUIDE_AUTHOR = {
-  id: `${CANONICAL_ORIGIN}/#gershon-weisblum`,
-  name: 'Gershon Weisblum',
-  jobTitle: 'Founder',
+  /** The Organization node in the marketing layout's graph. */
+  id: `${CANONICAL_ORIGIN}/#organization`,
   /** The byline, as printed. */
-  byline: 'By Gershon Weisblum, founder of SyteNav',
-  /** One line, used under the byline AND as the Person description. */
-  bio: 'Gershon Weisblum builds SyteNav around the job-cost, billing, and field-record problems small contractors face every day.',
+  byline: 'By the SyteNav team',
+  /** One line, under the byline. */
+  bio: 'SyteNav builds construction management software around the job-cost, billing and field-record problems small contractors face every day.',
 } as const
-
-/** The Person node for a guide's JSON-LD graph. */
-export const authorNode = {
-  '@type': 'Person',
-  '@id': GUIDE_AUTHOR.id,
-  name: GUIDE_AUTHOR.name,
-  jobTitle: GUIDE_AUTHOR.jobTitle,
-  worksFor: { '@id': `${CANONICAL_ORIGIN}/#organization` },
-  description: GUIDE_AUTHOR.bio,
-}

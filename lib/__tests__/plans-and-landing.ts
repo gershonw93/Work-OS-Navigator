@@ -182,6 +182,15 @@ const PUBLIC_COPY: [string, string][] = [
   ['the Procore guide', code('lib/guides/articles/procore-alternatives-small-gcs.ts')],
   ['the Buildertrend alternatives guide', code('lib/guides/articles/buildertrend-alternatives.ts')],
   ['the Buildertrend vs Procore guide', code('lib/guides/articles/buildertrend-vs-procore.ts')],
+  ['the jobtread-alternatives guide', code('lib/guides/articles/jobtread-alternatives.ts')],
+  ['the crux-construction-software-alternatives guide', code('lib/guides/articles/crux-construction-software-alternatives.ts')],
+  ['the contractor-foreman-alternatives guide', code('lib/guides/articles/contractor-foreman-alternatives.ts')],
+  ['the houzz-pro-alternatives guide', code('lib/guides/articles/houzz-pro-alternatives.ts')],
+  ['the knowify-alternatives guide', code('lib/guides/articles/knowify-alternatives.ts')],
+  ['the projul-alternatives guide', code('lib/guides/articles/projul-alternatives.ts')],
+  ['the fieldwire-alternatives guide', code('lib/guides/articles/fieldwire-alternatives.ts')],
+  ['the coconstruct-alternatives guide', code('lib/guides/articles/coconstruct-alternatives.ts')],
+  ['the guides\' shared SyteNav facts', code('lib/guides/sytenav.ts')],
 ]
 for (const [name, src] of PUBLIC_COPY) {
   const wrong: number[] = []
@@ -209,8 +218,20 @@ for (const [name, src] of PUBLIC_COPY) {
   ok(!SPELLED.test(src),
     `${name} spells no trial length out in words - a word cannot be read from TRIAL_DAYS`)
 }
-ok(/\b15 days free|first 15 days\b/i.test(code('lib/guides/articles/procore-alternatives-small-gcs.ts')),
-  'and a guide that names the price names the trial beside it')
+// A guide that names the price names the trial beside it - and since the
+// guides stopped typing either, through ONE sentence that reads both constants.
+ok(/\$\{TRIAL_DAYS\} days free/.test(code('lib/guides/sytenav.ts')) && /\$\{PLANS\[0\]\.monthly\}/.test(code('lib/guides/sytenav.ts')),
+  'the guides\' pricing sentence reads the price and the trial from lib/plans')
+const COMPARISONS = [
+  'procore-alternatives-small-gcs', 'buildertrend-alternatives', 'buildertrend-vs-procore', 'jobtread-alternatives',
+  'crux-construction-software-alternatives', 'contractor-foreman-alternatives', 'houzz-pro-alternatives',
+  'knowify-alternatives', 'projul-alternatives', 'fieldwire-alternatives', 'coconstruct-alternatives',
+]
+for (const f of COMPARISONS) {
+  const src = code(`lib/guides/articles/${f}.ts`)
+  ok(/PLANS_SENTENCE/.test(src) && !/\$\d{2,}\b a month/.test(src),
+    `${f} prints the shared pricing sentence rather than typing a price`)
+}
 
 ok(PLAN_CTA_WEB === 'Request access' && PLAN_CTA_WEB_HREF === '/signup',
   'the website button still names the door that exists, and points at it')

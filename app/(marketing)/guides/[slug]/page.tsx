@@ -11,7 +11,7 @@ import { GuideByline } from '@/components/marketing/guide-byline'
 import { GuideCard } from '@/components/marketing/guide-card'
 import { GUIDES, GUIDE_CATEGORIES, guideBySlug, guidePath, relatedTo } from '@/lib/guides'
 import { readMinutes, tocFor } from '@/lib/guides/schema'
-import { authorNode, GUIDE_AUTHOR } from '@/lib/guides/author'
+import { GUIDE_AUTHOR } from '@/lib/guides/author'
 import { CANONICAL_ORIGIN, canonicalUrl } from '@/lib/canonical'
 import { formatDate } from '@/lib/dates'
 
@@ -82,10 +82,6 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
   const jsonLd = {
     '@context': 'https://schema.org',
     '@graph': [
-      // The PERSON wrote it; the organisation published it. Crediting the
-      // organisation as author is what a page does when nobody will put their
-      // name to it, and it is the half of the byline a crawler reads.
-      authorNode,
       {
         '@type': 'Article',
         '@id': `${url}#article`,
@@ -98,6 +94,7 @@ export default function GuidePage({ params }: { params: { slug: string } }) {
         dateModified: guide.updated ?? guide.published,
         inLanguage: 'en-US',
         mainEntityOfPage: url,
+        // The company, as the byline says - see lib/guides/author.ts.
         author: { '@id': GUIDE_AUTHOR.id },
         publisher: { '@id': `${CANONICAL_ORIGIN}/#organization` },
         articleSection: category?.label,

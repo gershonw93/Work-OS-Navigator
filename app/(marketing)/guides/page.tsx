@@ -12,7 +12,7 @@ import { CANONICAL_ORIGIN } from '@/lib/canonical'
 export const metadata: Metadata = marketingMeta({
   title: 'Guides · SyteNav',
   description:
-    'Practical construction management guides for small contractors and GCs: choosing software, change orders, invoice approval, job costing, and daily logs.',
+    'Practical construction management guides for general contractors: choosing and comparing software, change orders, invoice approval, job costing, and daily logs.',
   path: '/guides',
 })
 
@@ -40,11 +40,11 @@ export default function GuidesIndexPage() {
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 pt-16 sm:pt-24 pb-12 sm:pb-16 text-center">
           <Eyebrow className="justify-center">Guides</Eyebrow>
           <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-ink leading-[1.04]">
-            Construction management guides for small contractors
+            Construction management guides for general contractors
           </h1>
           <p className="mt-6 text-lg text-muted-fg leading-relaxed max-w-2xl mx-auto">
-            Practical construction management guides for small contractors and GCs running a handful of jobs. Get clear
-            advice on software, change orders, billing, job costs, daily logs, and field operations.
+            Practical guides for general contractors, whether you run a few jobs or a few dozen. Get clear advice on
+            choosing and comparing software, change orders, billing, job costs, daily logs, and field operations.
           </p>
         </div>
       </section>
