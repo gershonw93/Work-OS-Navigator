@@ -108,5 +108,5 @@ export const guide: Guide = {
     { q: 'Should approval be blocked until compliance documents are current?', a: 'Blocking approval is heavy-handed; blocking payment is common practice and easier to defend. Either way, decide the rule once and apply it to every sub, because selective enforcement of insurance requirements is a problem of its own.' },
     { q: 'How do we handle an invoice we partly disagree with?', a: 'Approve what is agreed and query the rest, with the reason recorded on the invoice, or return the whole thing for reissue. Whichever you choose, do it the same way every time - partial approvals with no written reason are the origin of most year-end reconciliation arguments.' },
   ],
-  related: ['construction-invoice-verification', 'construction-job-cost-tracking', 'change-order-management-software'],
+  related: ['construction-invoice-verification', 'subcontractor-pay-application-review', 'construction-job-cost-tracking', 'change-order-management-software'],
 }

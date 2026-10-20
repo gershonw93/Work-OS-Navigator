@@ -112,5 +112,5 @@ export const guide: Guide = {
     { q: 'Can we run Procore on one job and something else on the others?', a: 'Yes, and plenty of GCs do exactly this when one owner mandates a platform. The cost is that your company-wide view - what every job has committed, what every sub is owed - lives in neither system. Decide up front which one is your book of record for money.' },
     { q: 'What is the hardest part of switching construction software?', a: 'Jobs that are already running. A new job starts clean; a job at 60% complete needs its budget, its awarded subs, its spent costs and its permits entered before anything the system says is true. Do one job first, all the way, before moving the rest.' },
   ],
-  related: ['construction-management-software-small-contractors', 'construction-spreadsheet-vs-software', 'construction-job-cost-tracking'],
+  related: ['buildertrend-vs-procore', 'buildertrend-alternatives', 'construction-management-software-small-contractors', 'construction-job-cost-tracking'],
 }

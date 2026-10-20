@@ -180,6 +180,8 @@ const PUBLIC_COPY: [string, string][] = [
   ['the billing panel', settings],
   ['the small-contractor guide', code('lib/guides/articles/construction-management-software-small-contractors.ts')],
   ['the Procore guide', code('lib/guides/articles/procore-alternatives-small-gcs.ts')],
+  ['the Buildertrend alternatives guide', code('lib/guides/articles/buildertrend-alternatives.ts')],
+  ['the Buildertrend vs Procore guide', code('lib/guides/articles/buildertrend-vs-procore.ts')],
 ]
 for (const [name, src] of PUBLIC_COPY) {
   const wrong: number[] = []

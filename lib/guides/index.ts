@@ -28,15 +28,21 @@ import { guide as dailyLogApp } from './articles/construction-daily-log-app'
 import { guide as changeOrderDocumentation } from './articles/change-order-documentation'
 import { guide as spreadsheetVsSoftware } from './articles/construction-spreadsheet-vs-software'
 import { guide as schedulingSoftware } from './articles/construction-scheduling-software'
+import { guide as payApplicationReview } from './articles/subcontractor-pay-application-review'
+import { guide as buildertrendAlternatives } from './articles/buildertrend-alternatives'
+import { guide as buildertrendVsProcore } from './articles/buildertrend-vs-procore'
 
 /** Every published guide, in the order the index lists them. */
 export const GUIDES: Guide[] = [
   procoreAlternatives,
+  buildertrendAlternatives,
+  buildertrendVsProcore,
   softwareForSmallContractors,
   trackChangeOrders,
   changeOrderSoftware,
   invoiceVerification,
   invoiceApproval,
+  payApplicationReview,
   jobCostTracking,
   dailyLogApp,
   changeOrderDocumentation,
