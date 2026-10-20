@@ -70,7 +70,7 @@ ok(/\.select\('company_id'\)/.test(route), 'trialStarted is read off the inserte
 const cookies = code('app/(marketing)/cookies/page.tsx')
 ok(!/We do not run Google Analytics/.test(cookies), 'the cookie policy no longer denies running it')
 ok(/Google Analytics/.test(cookies) && /<AnalyticsOptOut \/>/.test(cookies), 'it names it and offers the off switch')
-ok(/Google Analytics/.test(code('app/(marketing)/privacy/page.tsx')), 'the privacy policy names it')
+ok(/Google Analytics/.test(code('lib/legal/privacy.ts')), 'the privacy policy names it')
 
 // ── the event schema: only declared keys, only declared values ───────────────
 ok(cleanParams('nope', { a: 1 }) === null, 'an undeclared event sends nothing')

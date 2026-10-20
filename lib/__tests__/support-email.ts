@@ -63,8 +63,8 @@ console.log('\nsupport-email')
     'app/(marketing)/security/page.tsx',
     'app/(marketing)/acceptable-use/page.tsx',
     'app/(marketing)/cookies/page.tsx',
-    'app/(marketing)/privacy/page.tsx',
-    'app/(marketing)/terms/page.tsx',
+    'lib/legal/privacy.ts',
+    'lib/legal/terms.ts',
     'components/marketing/contact-form.tsx',
     'components/marketing/legal-doc.tsx',
   ]

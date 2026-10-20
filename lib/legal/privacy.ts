@@ -1,0 +1,60 @@
+import { SUPPORT_EMAIL } from '@/lib/support-email'
+import type { LegalSection } from '@/components/marketing/legal-doc'
+
+// The Privacy Policy's text, in ONE place. The marketing page renders it, and
+// so does the bare copy at /auth/legal/privacy that the signup and login
+// screens link to - the marketing page carries a Pricing link in its header,
+// and the iOS app may not show a path to one (CLAUDE.md, Selling). Two copies
+// of a legal document is "one fact, one home" broken where it costs most.
+
+export const PRIVACY_UPDATED = 'October 19, 2026'
+
+export const PRIVACY_INTRO = "This Privacy Policy explains how SyteNav ('SyteNav', 'we', 'us') collects, uses, and protects information when you use our website and construction management software (the 'Service'). By using the Service you agree to this policy."
+
+export const PRIVACY_SECTIONS: LegalSection[] = [
+        { h: 'Information we collect', body: ['We collect information you provide directly, such as your name, email, company details, and the project data you enter (quotes, budgets, invoices, logs, documents, photos, and similar).', 'We also collect limited technical information automatically, such as device, browser, IP address, and usage events, to keep the Service secure and reliable.'] },
+        { h: 'How we use information', list: ['Provide, maintain, and improve the Service', 'Authenticate users and secure accounts', 'Process transactions and send service-related communications', 'Provide support and respond to requests', 'Detect, prevent, and address fraud, abuse, or technical issues'] },
+        { h: 'How we share information', body: ['We do not sell your personal information. We share it only with service providers who help us operate the Service (for example hosting, database, storage, and AI document-processing providers), under contracts that require them to protect it, and when required by law.'] },
+        { h: 'AI document processing', body: ['When you upload documents (such as quotes or invoices) for scanning, the file contents may be processed by a third-party AI provider to extract structured data. We send only what is needed to perform the extraction and do not use your data to train third-party models.'] },
+        // GOOGLE USER DATA. Google will not verify an app that reads Contacts
+        // without this section, and the Limited Use sentence has to appear in
+        // Google's own words. Every other sentence here is a fact about the
+        // code: read-only scopes (lib/google-contacts.ts GOOGLE_SCOPES), a
+        // staging table (migration 112) nothing leaves unless somebody picks
+        // it, no AI call anywhere on the path, and Disconnect deleting the
+        // stored tokens while leaving the staged list (which is why deleting
+        // that list is by request).
+        { h: 'Google user data', body: [
+          'SyteNav can import contacts from your Google account, if you choose to connect it (Directory > Imported contacts). Each person connects their own account. We ask Google for read-only access to that account\'s contacts and to its email address, and nothing else. We never add, change or delete anything in your Google account.',
+          'From each contact we read the name, email address, phone number, company and job title. They are kept in an import list that only you can see - not your colleagues, and not your company\'s admins. A contact is shared with your company only when you add it to your company\'s Directory; the rest stay in your private import list, where you can dismiss them.',
+          'We use this data only to show you those contacts and add the ones you choose. We do not sell it, use it for advertising, use it to train AI models, or share it with anyone except the service providers that host SyteNav. Nobody at SyteNav reads it unless you ask us to for support, or the law or a security investigation requires it.',
+          'You can disconnect Google at any time from Directory > Imported contacts, which deletes the access we were given. You can also remove SyteNav\'s access from your Google account at myaccount.google.com/permissions. To have the imported contacts deleted as well, see sytenav.com/delete-account or email us.',
+          'SyteNav\'s use and transfer to any other app of information received from Google APIs will adhere to the Google API Services User Data Policy (developers.google.com/terms/api-services-user-data-policy), including the Limited Use requirements.',
+        ] },
+        // QUICKBOOKS DATA. Intuit's production review reads this section, and
+        // every sentence is a fact about the code: the one scope
+        // (lib/quickbooks.ts SCOPES), one-way push (lib/quickbooks-push.ts),
+        // what is read back (account/item/payment-method lookups, the records
+        // we created, same-name and same-number duplicate checks), tokens
+        // sealed with AES-256-GCM (lib/qbo-token-crypto.ts, required on
+        // production by qboConfigProblem), and Disconnect revoking the grant.
+        { h: 'QuickBooks data', body: [
+          'If your company connects SyteNav to QuickBooks Online (Settings, then Integrations), an administrator of your company signs in to QuickBooks and chooses one QuickBooks company to connect. We ask Intuit for the accounting permission only (com.intuit.quickbooks.accounting).',
+          'The connection is one way: SyteNav sends records into your QuickBooks company - your customers and subcontractors, the invoices you send your clients and the payments against them, the bills your subcontractors send you and the payments you make on them, and voids or deletions of those. We do not import your QuickBooks books into SyteNav.',
+          'To do that we read only what the sending needs: your QuickBooks company name; the accounts, items and payment methods to record against; the records SyteNav itself created, so they can be corrected or voided; and customers, vendors and transactions with the same name or number, so the same record is not entered twice. We store your QuickBooks company id and name, the QuickBooks id of each record we sent, and a log of what was sent and whether it succeeded.',
+          'The access tokens Intuit issues are stored encrypted (AES-256) and are never sent to your browser or device. We do not sell QuickBooks data, use it for advertising, or use it to train AI models, and nobody at SyteNav looks at it unless you ask us to for support or the law requires it.',
+          'You can disconnect at any time from Settings, then Integrations, which revokes SyteNav\'s access with Intuit, or from the Apps page in QuickBooks. Disconnecting does not change anything already in QuickBooks. To have the stored QuickBooks ids and log deleted as well, see sytenav.com/delete-account or email us.',
+        ] },
+        // THE SENTENCE THAT MATCHES WHAT THE CODE DOES. Campaigns are the one
+        // kind of mail we send because we decided to, so the policy has to say
+        // it, say how to stop it, and say what stopping it does NOT stop.
+        { h: 'Email we send you', body: ['Most email from SyteNav is about your own account and your own jobs - invoices, bid requests, schedule changes, reminders and anything to do with signing in. Those are part of the Service and cannot be turned off, though you can choose which of them reach you by email under Settings then Notifications.', 'Separately, we occasionally send announcements about SyteNav itself. Every one of those carries an unsubscribe link in its footer that works without signing in, and we keep a record of the addresses that have unsubscribed so they are not sent again. Unsubscribing from announcements does not stop the account and job emails above.'] },
+        { h: 'Data storage and security', body: ['Your data is stored with reputable cloud infrastructure providers. We use industry-standard safeguards including encryption in transit and access controls. No method of transmission or storage is 100% secure, but we work to protect your information.'] },
+        { h: 'Data retention', body: ['We retain your information for as long as your account is active or as needed to provide the Service, comply with legal obligations, resolve disputes, and enforce agreements. You may request deletion as described below.'] },
+        { h: 'Your rights', body: ['Depending on your location, you may have rights to access, correct, export, or delete your personal information, and to object to or restrict certain processing. To exercise these rights, contact us at the email below.'] },
+        { h: 'Analytics', body: ['We use Google Analytics, through Google Tag Manager, on sytenav.com and the SyteNav web app to understand how the site and the Service are used: which pages are visited, how people arrive, and whether a visit led to an account or a trial, and which features are used (signing in, creating a project, sending a quote request, inviting a subcontractor, searching and downloading a report), described only by fixed categories and counts - never what was typed into a search. Google receives page addresses reduced to a template (never a record id or query string), your browser and device type, an approximate location derived from your IP address, and a random identifier stored in a cookie. We do not send names, email addresses, or any project, customer or document data, Google signals and advertising features are off, and the data is not used for advertising. Analytics does not run in our mobile apps or on client portal, bid, bill or shared links.', 'Analytics is on by default. You can turn it off on our Cookie Policy page, and a browser sending a Global Privacy Control signal is not measured.'] },
+        { h: 'Cookies', body: ['We use cookies and similar technologies as described in our Cookie Policy.'] },
+        { h: 'Children', body: ['The Service is not directed to children under 16, and we do not knowingly collect their personal information.'] },
+        { h: 'Changes to this policy', body: ['We may update this policy from time to time. Material changes will be posted here with an updated date.'] },
+        { h: 'Contact', body: [`For privacy questions or requests, contact ${SUPPORT_EMAIL}.`] },
+]

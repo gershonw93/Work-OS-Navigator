@@ -6,7 +6,7 @@
 import { GOOGLE_SCOPES } from '../google-contacts'
 import { ok, done, read } from './_helpers'
 
-const policy = read('app/(marketing)/privacy/page.tsx')
+const policy = read('lib/legal/privacy.ts')
 ok(/h: 'Google user data'/.test(policy), 'the privacy policy has a Google user data section')
 ok(/will adhere to the Google API Services User Data Policy/.test(policy) && /Limited Use requirements/.test(policy),
   '...with the Limited Use disclosure, worded as Google requires')

@@ -4623,3 +4623,7 @@ CREATE TABLE IF NOT EXISTS quickbooks_id_archive (
 );
 ALTER TABLE quickbooks_id_archive ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_qbo_id_archive_company ON quickbooks_id_archive (company_id, archived_at DESC);
+
+-- 152 terms acceptance
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS terms_version text;
