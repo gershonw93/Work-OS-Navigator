@@ -155,9 +155,9 @@ const cron = vercel.crons.find((c: any) => c.path === '/api/cron/quickbooks-refr
 ok(!!cron && !/\*\//.test(cron.schedule), 'the sign-ins are renewed by a DAILY cron (no sub-daily step the Hobby plan refuses)')
 ok(/forceRefresh: true/.test(code('app/api/cron/quickbooks-refresh/route.ts')), '...which renews even a token that is not near expiry')
 
-const privacy = read('app/(marketing)/privacy/page.tsx')
+const privacy = read('lib/legal/privacy.ts')
 ok(/com\.intuit\.quickbooks\.accounting/.test(privacy) && /encrypted \(AES-256\)/.test(privacy), 'the privacy policy names the one scope and the encryption')
-ok(/QuickBooks Online/.test(read('app/(marketing)/terms/page.tsx')), 'the terms cover the QuickBooks connection')
+ok(/QuickBooks Online/.test(read('lib/legal/terms.ts')), 'the terms cover the QuickBooks connection')
 ok(/robots: \{ index: false/.test(read('app/auth/quickbooks/disconnected/page.tsx')), 'the Disconnect URL page exists and is not indexed')
 
 // ── the refresh, run against a fake Intuit ───────────────────────────────────

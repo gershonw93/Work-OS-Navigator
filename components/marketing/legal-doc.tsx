@@ -4,7 +4,9 @@ import Link from 'next/link'
 export interface LegalSection { h: string; body?: string[]; list?: string[] }
 
 // Shared renderer for legal pages, consistent, readable, theme-aware.
-export function LegalDoc({ title, updated, intro, sections, children }: { title: string; updated: string; intro?: string; sections: LegalSection[]; children?: React.ReactNode }) {
+// `bare` is the copy the auth screens link to: no link onward into the
+// marketing site, whose header carries Pricing (the iOS app may not show one).
+export function LegalDoc({ title, updated, intro, sections, children, bare }: { title: string; updated: string; intro?: string; sections: LegalSection[]; children?: React.ReactNode; bare?: boolean }) {
   return (
     <article className="max-w-3xl mx-auto px-4 sm:px-6 py-14 sm:py-16">
       <p className="text-xs font-semibold uppercase tracking-wide text-accent-fg mb-2">Legal</p>
@@ -31,7 +33,8 @@ export function LegalDoc({ title, updated, intro, sections, children }: { title:
       {children}
 
       <div className="mt-10 rounded-xl border border-line bg-panel p-4 text-sm text-muted-fg">
-        Questions about this policy? Contact us at <a href={`mailto:${SUPPORT_EMAIL}`} className="text-accent-fg hover:underline">{SUPPORT_EMAIL}</a> or via our <Link href="/contact" className="text-accent-fg hover:underline">contact page</Link>.
+        Questions about this policy? Contact us at <a href={`mailto:${SUPPORT_EMAIL}`} className="text-accent-fg hover:underline">{SUPPORT_EMAIL}</a>
+        {bare ? '.' : <> or via our <Link href="/contact" className="text-accent-fg hover:underline">contact page</Link>.</>}
       </div>
     </article>
   )

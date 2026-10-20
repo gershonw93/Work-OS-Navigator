@@ -178,12 +178,16 @@ function CreateAccountForm({ inviteToken, prefill }: { inviteToken: string; pref
   const [companyType, setCompanyType] = useState<'gc' | 'subcontractor'>(prefill?.company_type === 'subcontractor' ? 'subcontractor' : 'gc')
   const [email, setEmail] = useState(prefill?.email ?? '')
   const [password, setPassword] = useState('')
+  const [agreed, setAgreed] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    // Asked BEFORE the auth account exists: refusing after signUp would leave
+    // a login with no company behind it. The route refuses too.
+    if (!agreed) { setError('Please agree to the Terms of Service and Privacy Policy to create your account.'); return }
     setLoading(true)
 
     const { data: authData, error: authError } = await supabase.auth.signUp({ email, password })
@@ -202,7 +206,7 @@ function CreateAccountForm({ inviteToken, prefill }: { inviteToken: string; pref
     const res = await fetch('/api/complete-signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${signInData.session.access_token}` },
-      body: JSON.stringify({ companyName, companyType, fullName, email, userId, inviteToken }),
+      body: JSON.stringify({ companyName, companyType, fullName, email, userId, inviteToken, acceptedTerms: agreed }),
     })
     if (!res.ok) {
       const body = await res.json()
@@ -269,6 +273,21 @@ function CreateAccountForm({ inviteToken, prefill }: { inviteToken: string; pref
           <PasswordInput id="password" toggleClassName="text-muted-fg hover:text-ink" placeholder="••••••••"
             value={password} onChange={e => setPassword(e.target.value)} required minLength={6} autoComplete="new-password"  />
         </div>
+
+        {/* AGREED, NOT ASSUMED - the box is the agreement, and complete-signup
+            records it (terms_accepted_at, terms_version). The links go to the
+            bare copies under /auth/legal: the marketing pages carry a Pricing
+            link, and this form also opens inside the iOS app from an invite. */}
+        <label className="flex items-start gap-3 text-sm text-faint">
+          <input type="checkbox" checked={agreed} onChange={e => setAgreed(e.target.checked)}
+            className="mt-0.5 h-5 w-5 shrink-0 accent-[#C9F24A]" />
+          <span>
+            I agree to the{' '}
+            <a href="/auth/legal/terms" target="_blank" rel="noopener" className="font-medium text-accent-fg hover:text-accent">Terms of Service</a>
+            {' '}and the{' '}
+            <a href="/auth/legal/privacy" target="_blank" rel="noopener" className="font-medium text-accent-fg hover:text-accent">Privacy Policy</a>.
+          </span>
+        </label>
 
         {error && (
           <div className="rounded-md bg-red-900/40 border border-red-700 px-4 py-2.5">

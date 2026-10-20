@@ -91,7 +91,10 @@ ok(!/Not invited to this package/.test(pkg), '...and nothing says "not invited" 
 const signup = code('app/api/complete-signup/route.ts')
 ok(!/\buserId\b/.test(signup) && /const targetId = user\.id/.test(signup),
   'complete-signup: the profile is written for the signed-in account, never an id from the body')
-ok(/const \{ companyName, companyType, fullName, inviteToken \} = await request\.json\(\)/.test(signup) &&
+// The body's fields, read off the destructure: `acceptedTerms` joined them
+// (migration 152). What matters is that `email` and `userId` never do.
+const bodyFields = (signup.match(/const \{([^}]*)\} = await request\.json\(\)/)?.[1] ?? '').split(',').map(f => f.trim())
+ok(bodyFields.includes('companyName') && !bodyFields.includes('email') && !bodyFields.includes('userId') &&
    /const email = \(user\.email \?\? ''\)\.trim\(\)/.test(signup),
   '...and the address that picks an existing company to join is the verified one, not the body\'s')
 ok(/\.ilike\('contact_email', escapeLike\(email\)\)/.test(signup),

@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { TERMS_VERSION } from '@/lib/legal/terms'
 import { NextResponse } from 'next/server'
 import { trialEnd } from '@/lib/billing-state'
 import { welcomeEmail, sendEmail } from '@/lib/email'
@@ -37,7 +38,13 @@ export async function POST(request: Request) {
   // `companies.contact_email`. A valid invite of your own plus somebody else's
   // contact address was a seat as admin of their company. The token answers
   // both questions, and it is the only thing here that cannot be typed.
-  const { companyName, companyType, fullName, inviteToken } = await request.json()
+  const { companyName, companyType, fullName, inviteToken, acceptedTerms } = await request.json()
+  // THE TERMS ARE AGREED TO, NOT ASSUMED. The form will not submit without the
+  // box; this is the same rule at the door. The version recorded is the
+  // server's (TERMS_VERSION), never one the body names.
+  if (acceptedTerms !== true) {
+    return NextResponse.json({ error: 'Please agree to the Terms of Service and Privacy Policy to create your account.' }, { status: 400 })
+  }
   const email = (user.email ?? '').trim()
   if (!email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -126,7 +133,10 @@ export async function POST(request: Request) {
   // Create profile
   const { error: profileError } = await admin
     .from('profiles')
-    .insert({ id: targetId, company_id: company.id, email, full_name: fullName, role: 'admin' })
+    .insert({
+      id: targetId, company_id: company.id, email, full_name: fullName, role: 'admin',
+      terms_accepted_at: new Date().toISOString(), terms_version: TERMS_VERSION,
+    })
 
   if (profileError) {
     return NextResponse.json({ error: profileError.message }, { status: 500 })

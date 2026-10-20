@@ -109,6 +109,15 @@ export default function LoginPage() {
         <Button type="submit" className="w-full" disabled={loading}>
           {loading ? 'Signing in...' : 'Sign In'}
         </Button>
+        {/* Every existing account predates the signup box, so this is where
+            they are told what governs the Service. The bare /auth/legal
+            copies, never the marketing pages - see the signup form. */}
+        <p className="text-center text-xs text-faint">
+          By signing in you agree to the{' '}
+          <a href="/auth/legal/terms" target="_blank" rel="noopener" className="text-accent-fg hover:text-accent">Terms of Service</a>
+          {' '}and{' '}
+          <a href="/auth/legal/privacy" target="_blank" rel="noopener" className="text-accent-fg hover:text-accent">Privacy Policy</a>.
+        </p>
       </form>
 
       {/* Hidden until we know the platform, so the link never flashes on iOS. */}
