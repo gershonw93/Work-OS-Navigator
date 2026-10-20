@@ -80,7 +80,7 @@ export const guide: Guide = {
     { type: 'callout', tone: 'tip', title: 'Do not migrate your whole company', text: 'Pick one live job, ideally a messy one, and run it fully in the new system for a month while the sheet stays as a shadow. You get a genuine comparison, and if the tool is wrong for you, you have lost a month on one job rather than a quarter across the business.' },
 
     { type: 'h2', text: 'Keep the sheet where it earns its place' },
-    { type: 'p', text: 'The best setup for most small GCs is not one or the other. Estimate in the spreadsheet, because that is where the sheet is unbeatable. Then let the accepted estimate become the budget in the system, and run the job - commitments, costs, billing, the field record - there. Keep a sheet for deal modelling and one-off questions.' },
+    { type: 'p', text: 'The best setup for most GCs is not one or the other. Estimate in the spreadsheet, because that is where the sheet is unbeatable. Then let the accepted estimate become the budget in the system, and run the job - commitments, costs, billing, the field record - there. Keep a sheet for deal modelling and one-off questions.' },
     { type: 'p', text: 'The only rule that matters is that there is one book of record for money, and everybody knows which one it is. Two systems where either might be right is worse than either system alone.' },
 
     { type: 'h2', text: 'How SyteNav handles it' },

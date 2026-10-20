@@ -31,12 +31,28 @@ import { guide as schedulingSoftware } from './articles/construction-scheduling-
 import { guide as payApplicationReview } from './articles/subcontractor-pay-application-review'
 import { guide as buildertrendAlternatives } from './articles/buildertrend-alternatives'
 import { guide as buildertrendVsProcore } from './articles/buildertrend-vs-procore'
+import { guide as jobtreadAlternatives } from './articles/jobtread-alternatives'
+import { guide as cruxAlternatives } from './articles/crux-construction-software-alternatives'
+import { guide as contractorForemanAlternatives } from './articles/contractor-foreman-alternatives'
+import { guide as houzzProAlternatives } from './articles/houzz-pro-alternatives'
+import { guide as knowifyAlternatives } from './articles/knowify-alternatives'
+import { guide as projulAlternatives } from './articles/projul-alternatives'
+import { guide as fieldwireAlternatives } from './articles/fieldwire-alternatives'
+import { guide as coconstructAlternatives } from './articles/coconstruct-alternatives'
 
 /** Every published guide, in the order the index lists them. */
 export const GUIDES: Guide[] = [
   procoreAlternatives,
   buildertrendAlternatives,
   buildertrendVsProcore,
+  jobtreadAlternatives,
+  cruxAlternatives,
+  contractorForemanAlternatives,
+  houzzProAlternatives,
+  knowifyAlternatives,
+  projulAlternatives,
+  fieldwireAlternatives,
+  coconstructAlternatives,
   softwareForSmallContractors,
   trackChangeOrders,
   changeOrderSoftware,

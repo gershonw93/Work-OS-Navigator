@@ -29,7 +29,7 @@ export const guide: Guide = {
     { type: 'list', items: [
       'EVIDENCE. Six months from now, somebody asks what the weather was on the 14th, how many men were on site, or whether that wall was already out of plumb before the tile went on. A contemporaneous record answers it; a reconstruction does not.',
       'COORDINATION. What happened yesterday, what is blocked, who did not turn up. This is what makes the log worth reading rather than just worth keeping.',
-      'CLIENT REPORTING. A weekly PDF of what happened on site is one of the highest-value things a small GC can send, and it is nearly free if the logs exist.',
+      'CLIENT REPORTING. A weekly PDF of what happened on site is one of the highest-value things a GC can send, and it is nearly free if the logs exist.',
     ] },
     { type: 'p', text: 'Design the habit around the first one and the other two come for free. Design it around the third and you get a marketing document that nobody trusts in a dispute.' },
 

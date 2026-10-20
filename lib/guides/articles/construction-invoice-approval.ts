@@ -49,7 +49,7 @@ export const guide: Guide = {
     } },
     { type: 'p', text: 'In a small company one person answers both, and that is fine - what matters is that both questions are asked. The failure mode is not "we only have one approver", it is "we only ever asked one of the two questions".' },
 
-    { type: 'h2', text: 'A workflow that fits a small GC' },
+    { type: 'h2', text: 'A workflow that works at any size' },
     { type: 'steps', items: [
       'RECEIVE IT INTO ONE PLACE. Not an inbox. Every invoice lands on the job it belongs to, with the original PDF attached, the moment it arrives.',
       'MATCH IT. To the sub, to their contract, and to the budget line. An invoice that cannot be matched is the first thing to resolve, because it is usually a sub who was never properly awarded or a line nobody created.',
@@ -103,7 +103,7 @@ export const guide: Guide = {
     { text: 'Approving is what moves the budget', href: '/money' },
   ],
   faqs: [
-    { q: 'Do we need a formal three-way match in construction?', a: 'Not in the purchase-order sense, for most small GCs - construction’s equivalent is contract, progress and invoice. Match the invoice to the subcontract, confirm the progress from the field record, and check the arithmetic. That is the same control with different documents.' },
+    { q: 'Do we need a formal three-way match in construction?', a: 'Not in the purchase-order sense, for most GCs - construction’s equivalent is contract, progress and invoice. Match the invoice to the subcontract, confirm the progress from the field record, and check the arithmetic. That is the same control with different documents.' },
     { q: 'Who should approve invoices if the owner is the only one who knows the job?', a: 'The owner, for now - but write the checklist down anyway. The checklist is the thing that transfers when you hire a project manager, and a process that exists only in one head is the reason many small contractors cannot delegate the office work.' },
     { q: 'Should approval be blocked until compliance documents are current?', a: 'Blocking approval is heavy-handed; blocking payment is common practice and easier to defend. Either way, decide the rule once and apply it to every sub, because selective enforcement of insurance requirements is a problem of its own.' },
     { q: 'How do we handle an invoice we partly disagree with?', a: 'Approve what is agreed and query the rest, with the reason recorded on the invoice, or return the whole thing for reissue. Whichever you choose, do it the same way every time - partial approvals with no written reason are the origin of most year-end reconciliation arguments.' },

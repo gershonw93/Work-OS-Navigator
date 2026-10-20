@@ -141,7 +141,7 @@ export interface Guide {
   related: string[]
 }
 
-export type GuideCategoryKey = 'choosing' | 'change-orders' | 'billing' | 'field'
+export type GuideCategoryKey = 'choosing' | 'compare' | 'change-orders' | 'billing' | 'field'
 
 export interface GuideCategory {
   key: GuideCategoryKey
@@ -151,6 +151,7 @@ export interface GuideCategory {
 
 export const GUIDE_CATEGORIES: GuideCategory[] = [
   { key: 'choosing', label: 'Choosing software', description: 'What to look for, what to ignore, and when a spreadsheet is still the right answer.' },
+  { key: 'compare', label: 'Comparisons', description: 'Named products, compared from their own pages - including when they are the better answer.' },
   { key: 'change-orders', label: 'Change orders', description: 'Getting extra work priced, approved and paid for - and documented well enough to hold up.' },
   { key: 'billing', label: 'Billing and job costs', description: 'Invoices in, invoices out, and knowing where a job stands while you can still do something about it.' },
   { key: 'field', label: 'The field', description: 'Daily logs, inspections and the record the site actually produces.' },

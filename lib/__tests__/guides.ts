@@ -27,7 +27,7 @@ import {
   cardLabel, headingId, headingText, isExternal, linkableText, linkify, readMinutes, tocFor,
   guideText, type Guide,
 } from '../guides/schema'
-import { GUIDE_AUTHOR, authorNode } from '../guides/author'
+import { GUIDE_AUTHOR } from '../guides/author'
 import { isMarketingPath, isAppPath, MARKETING_PATHS } from '../hosts'
 import { crumbsFor } from '../breadcrumbs'
 import sitemap from '../../app/sitemap'
@@ -36,7 +36,7 @@ import { ok, done, code, read } from './_helpers'
 const has = (hay: string, needle: string) => hay.toLowerCase().includes(needle.toLowerCase())
 
 // ── 1. the registry is internally consistent ─────────────────────────────────
-ok(GUIDES.length === 14, `fourteen guides are published (${GUIDES.length})`)
+ok(GUIDES.length === 22, `twenty-two guides are published (${GUIDES.length})`)
 
 const slugs = GUIDES.map(g => g.slug)
 ok(new Set(slugs).size === slugs.length, 'no two guides share a slug')
@@ -191,23 +191,54 @@ ok(spans.map(s => s.text).join('') === 'It carries the budget line it raises, an
 ok(linkify('nothing to link here', LINKS).length === 1, 'prose with no match comes back as one span')
 ok(linkify('the budget line', []).length === 1, '...and so does prose with no links declared')
 
-// ── 3e. a person wrote it, and the page says so ──────────────────────────────
-// An Article whose author is the Organization is a page nobody put their name
-// to. The byline a reader sees and the Person node a crawler reads come from
-// one module, so they cannot name different people.
+// ── 3e. the company is credited, and the page and the markup agree ───────────
+// The owner took the founder's name off the guides. The byline a reader sees
+// and the Article author a crawler reads come from one module, so they cannot
+// credit different authors - and no person's name is left in either.
 const byline = code('components/marketing/guide-byline.tsx')
 ok(/GUIDE_AUTHOR\.byline/.test(byline) && /GUIDE_AUTHOR\.bio/.test(byline),
   'the visible byline and bio are printed from the author module')
-ok(authorNode['@type'] === 'Person' && authorNode.description === GUIDE_AUTHOR.bio,
-  '...and the Person node is built from the same one')
+ok(/SyteNav/.test(GUIDE_AUTHOR.byline) && !/Weisblum|Gershon|founder/i.test(GUIDE_AUTHOR.byline + GUIDE_AUTHOR.bio),
+  '...and they credit SyteNav, naming no person')
 const articlePage = code('app/(marketing)/guides/[slug]/page.tsx')
 ok(/<GuideByline \/>/.test(articlePage), 'every guide prints the byline, not just the markup')
-ok(/author: \{ '@id': GUIDE_AUTHOR\.id \}/.test(articlePage),
-  'the Article credits the PERSON as author')
+ok(/author: \{ '@id': GUIDE_AUTHOR\.id \}/.test(articlePage) && GUIDE_AUTHOR.id.endsWith('/#organization'),
+  'the Article credits the Organization node the byline names')
 ok(/publisher: \{ '@id': `\$\{CANONICAL_ORIGIN\}\/#organization` \}/.test(articlePage),
   '...and the organisation as publisher')
-ok(!/author: \{ '@id': `\$\{CANONICAL_ORIGIN\}\/#organization` \}/.test(articlePage),
-  '...and never the organisation as author again (fault check)')
+ok(!/'@type': 'Person'|authorNode/.test(articlePage),
+  '...and no Person node is left in the graph to name somebody the byline does not')
+
+// ── 3g. positioning: SyteNav is not a small-GC tool ─────────────────────────
+// The owner's decision, after the library had drifted into saying it: the
+// Procore and Buildertrend pages were titled "for small GCs" and the index
+// called itself guides for small contractors "running a handful of jobs". Each
+// sentence was chasing a search phrase; together they told every reader the
+// product stops at a few jobs, which the plans (up to unlimited) do not. ONE
+// page is written for the "small contractors" search and may say it.
+const SMALL_HOME = 'construction-management-software-small-contractors'
+const smallFramed = GUIDES.filter(g => g.slug !== SMALL_HOME &&
+  /\bsmall\b/i.test([g.title, g.metaTitle, g.description, cardLabel(g), g.lede].join(' ')))
+ok(smallFramed.length === 0,
+  `no guide but the small-contractors one frames itself as for small firms${smallFramed.length ? ` - ${smallFramed[0].slug}` : ''}`)
+ok(GUIDES.every(g => g.slug === SMALL_HOME || !guideText(g).some(t => /small-to-mid/i.test(t))),
+  '...and none sizes SyteNav as "small-to-mid" in the body either')
+ok(/small/i.test(guideBySlug(SMALL_HOME)!.title), '...while the one page written for that search still says it (fault check)')
+ok(!/small contractors/i.test(code('app/(marketing)/guides/page.tsx')),
+  'the guides index does not describe the whole library as being for small contractors')
+
+// ── 3h. a comparison cites its subject, and says what SyteNav does not do ─────
+// A claim about another product links to that product's own page (the rule
+// that removed "with implementation on top" from the Procore guide). Counted
+// per guide, because one well-sourced comparison satisfies an aggregate check.
+const comparisons = GUIDES.filter(g => g.category === 'compare')
+ok(comparisons.length >= 11, `the comparisons are in their own section (${comparisons.length})`)
+const unsourced = comparisons.filter(g => (g.links ?? []).filter(l => isExternal(l.href)).length < 3)
+ok(unsourced.length === 0,
+  `every comparison links at least three of its subject's own pages${unsourced.length ? ` - ${unsourced[0].slug}` : ''}`)
+const noLimits = comparisons.filter(g => !guideText(g).some(t => /^What it does not do/.test(t)))
+ok(noLimits.length === 0,
+  `every comparison ends by saying what SyteNav does not do${noLimits.length ? ` - ${noLimits[0].slug}` : ''}`)
 
 // ── 3f. dateModified is CONTENT, not the build clock ─────────────────────────
 // A dateModified generated at build time restamps all ten articles on every

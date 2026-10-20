@@ -266,10 +266,39 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   written for a phrase nobody is searching. An H1 may be long because of that,
   so a card and a breadcrumb print `cardTitle` instead - one short name, capped,
   asked for by `cardLabel()`.
-- **A PERSON IS THE AUTHOR, NOT THE ORGANISATION.** `lib/guides/author.ts` is
-  the one home for that fact: the byline a reader sees and the Person node in
-  the Article JSON-LD are built from it, so the page and the markup cannot name
-  different authors. The Organization stays the publisher.
+- **THE GUIDES ARE CREDITED TO THE COMPANY, AND NO PERSON IS NAMED.** The
+  owner's decision: the founder's name was taken off the byline and out of the
+  markup. `lib/guides/author.ts` is still the one home for who wrote them - the
+  byline ("By the SyteNav team") and the Article's `author` (the Organization
+  node the marketing layout defines) both come from it, so the page and the
+  markup cannot disagree. Pinned in `guides.ts`, which also refuses a Person
+  node coming back into the graph.
+- **SYTENAV IS NOT POSITIONED AS A SMALL-GC TOOL, AND THE GUIDES DRIFTED INTO
+  SAYING IT.** Each "for small GCs" title was chasing a search phrase; together
+  they told every reader the product stops at a few jobs, which the plans (up to
+  unlimited) do not. Describe the KIND of company - money that leaks between the
+  quote and the invoice - never its size. ONE guide
+  (`construction-management-software-small-contractors`) is written for that
+  search and may say small. Pinned in `guides.ts` over every title, meta title,
+  description, card label and lede, and the index page.
+- **WHAT A GUIDE SAYS ABOUT SYTENAV LIVES IN `lib/guides/sytenav.ts`** - who it
+  is for, the pricing sentence (price and trial read from `lib/plans.ts`), and
+  the one-way QuickBooks clause. Eleven comparisons each typing those out is
+  "one fact, one home" broken eleven times, and it is how one of them was still
+  calling the product "free during its invite-only beta" a release after that
+  stopped being true.
+- **A COMPARISON GUIDE (`category: 'compare'`) CITES ITS SUBJECT'S OWN PAGES.**
+  At least three external links each, worded as what that page says and dated
+  ("as of October 2026"); where the vendor's own pages disagree on a price, the
+  guide describes the model and links the source rather than picking a number.
+  Never source a fact about one vendor from a competitor's page - several of them
+  publish attack pages about each other. Each ends "What it does not do", naming
+  where the other product is ahead. Pinned per guide in `guides.ts`.
+- **THE DATE ON A GUIDE IS THE DAY IT WENT LIVE.** It is printed and written into
+  `datePublished`. Ten guides really did ship on 2026-09-15 (#451, #455); a
+  "spread out" set of earlier dates would be a claim a crawler can check and a
+  reader cannot. A substantive edit sets `updated`, which is the honest way a
+  date moves.
 - `dateModified` is CONTENT DATA (`updated ?? published`), never `new Date()`.
   A build-time date restamps all ten articles on every deploy and tells a
   crawler the library was rewritten because a dependency changed. **AND THAT
