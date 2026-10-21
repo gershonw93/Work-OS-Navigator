@@ -3,7 +3,8 @@ import { NextResponse } from 'next/server'
 import { isSuperAdmin } from '@/lib/super-admin'
 import { billingAccess, trialEnd } from '@/lib/billing-state'
 import { PLANS, planByKey, TRIAL_DAYS } from '@/lib/plans'
-import { stripeConfigured, stripeMode, webhookConfigured } from '@/lib/stripe'
+import { stripe, stripeConfigured, stripeMode, webhookConfigured } from '@/lib/stripe'
+import { syncPlansToStripe } from '@/lib/stripe-plans'
 
 export const runtime = 'nodejs'
 
@@ -188,6 +189,30 @@ export async function POST(request: Request) {
       { onConflict: 'plan_key,interval' })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ ok: true })
+  }
+
+  // ── create every plan's prices in Stripe, from lib/plans.ts ───────────────
+  // The amounts are derived, never typed - see lib/stripe-plans.ts. Nothing is
+  // written to billing_plan_prices unless all of them came back.
+  if (action === 'sync_prices') {
+    const s = stripe()
+    if (!s) return NextResponse.json({ error: 'No Stripe key on this environment.' }, { status: 503 })
+    let synced
+    try {
+      synced = await syncPlansToStripe(s)
+    } catch (e: any) {
+      console.error('[stripe] plan sync failed', e?.message)
+      return NextResponse.json({ error: `Stripe refused: ${e?.message ?? 'no answer'}. Nothing was mapped.` }, { status: 502 })
+    }
+    const now = new Date().toISOString()
+    const { error } = await db.from('billing_plan_prices').upsert(
+      synced.map(p => ({ plan_key: p.planKey, interval: p.interval, stripe_price_id: p.priceId, updated_at: now })),
+      { onConflict: 'plan_key,interval' })
+    if (error) {
+      console.error('[stripe] plan sync could not save', error.message)
+      return NextResponse.json({ error: 'The prices exist in Stripe but could not be saved here. Press it again.' }, { status: 500 })
+    }
+    return NextResponse.json({ ok: true, mode: stripeMode(), prices: synced })
   }
 
   return NextResponse.json({ error: 'Unknown action.' }, { status: 400 })

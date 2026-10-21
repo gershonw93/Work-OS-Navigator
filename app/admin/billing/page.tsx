@@ -151,9 +151,25 @@ export default function AdminBillingPage() {
       <section>
         <h2 className="mb-1 text-sm font-semibold text-ink">Which Stripe price is which plan</h2>
         <p className="mb-3 text-xs text-muted-fg">
-          Create the prices in Stripe, then paste the ids here - no deploy needed. A plan with no price
-          cannot be bought, and the app says so rather than failing at the till.
+          Create the prices in Stripe from the plans with one press - the amounts come from the same list
+          the pricing page prints, monthly and ten months for a year. Pressing it again is safe: what
+          already matches is reused, and a price that moved is replaced for new checkouts only. A plan
+          with no price cannot be bought, and the app says so rather than failing at the till.
         </p>
+        {stripe?.configured && (
+          <div className="mb-3">
+            <Button
+              variant="outline"
+              disabled={busy}
+              className="gap-2"
+              onClick={() => post({ action: 'sync_prices' },
+                `Prices created in Stripe (${stripe.mode === 'live' ? 'LIVE' : 'TEST'} mode) and mapped.`)}
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Create the prices in Stripe
+            </Button>
+          </div>
+        )}
         <div className="space-y-3">
           {plans.map(plan => (
             <div key={plan.key} className="rounded-xl border border-line bg-panel p-4">
@@ -163,6 +179,9 @@ export default function AdminBillingPage() {
                   <div key={interval}>
                     <Label className="lg:text-xs">{interval === 'month' ? 'Monthly' : 'Yearly'} price id (optional)</Label>
                     <Input
+                      // Keyed on the saved id so a sync re-renders the box -
+                      // defaultValue alone would keep showing the old one.
+                      key={priceFor(plan.key, interval)}
                       defaultValue={priceFor(plan.key, interval)}
                       placeholder="price_..."
                       onBlur={e => {

@@ -28,7 +28,21 @@ export async function GET(request: Request) {
   }
 
   const db = admin()
-  const { row, access, entitlement, usage } = await billingPicture(db, companyId)
+  const [{ row, access, entitlement, usage }, { data: priceRows, error: priceError }] = await Promise.all([
+    billingPicture(db, companyId),
+    db.from('billing_plan_prices').select('plan_key, interval'),
+  ])
+  if (priceError) console.error('[billing] plan prices read failed', priceError.message)
+
+  // Which plan + interval pairs a checkout can actually start on. A plan with
+  // no price behind it is offered as "Book a setup", never "Choose this plan" -
+  // the checkout route would only answer that no price is set up.
+  const priced: Record<string, string[]> = {}
+  if (stripeConfigured()) {
+    for (const r of (priceRows ?? []) as { plan_key: string; interval: string }[]) {
+      (priced[r.plan_key] ??= []).push(r.interval)
+    }
+  }
 
   return NextResponse.json({
     access: {
@@ -67,6 +81,7 @@ export async function GET(request: Request) {
     // Whether there is anywhere to send them. A "Choose a plan" button with no
     // Stripe behind it is a verb the product cannot honour.
     stripeReady: stripeConfigured(),
+    priced,
     hasSubscription: !!row?.stripe_subscription_id,
   })
 }
