@@ -45,6 +45,8 @@ interface Picture {
   cancelAtPeriodEnd: boolean
   comped: { reason: string | null; by: string | null; until: string | null } | null
   stripeReady: boolean
+  /** plan key -> the intervals with a Stripe price behind them. */
+  priced: Record<string, string[]>
   hasSubscription: boolean
 }
 
@@ -97,6 +99,7 @@ export function BillingPanel({ canBuy }: { canBuy: boolean }) {
   const [picture, setPicture] = useState<Picture | null>(null)
   const [problem, setProblem] = useState('')
   const [busy, setBusy] = useState('')
+  const [interval, setBillingInterval] = useState<'month' | 'year'>('month')
   // Read here rather than taken as a prop beside `canBuy`: the two answer
   // different questions through the unready window (see lib/use-native.ts), and
   // a single prop would make one of them wrong.
@@ -255,6 +258,20 @@ export function BillingPanel({ canBuy }: { canBuy: boolean }) {
         {/* THE NUMBERS AND WHAT THEY MEAN TRAVEL TOGETHER - one sentence, from
             lib/plans.ts, so the app and the website cannot drift. */}
         <p className="mb-4 text-sm text-muted-fg">{PRICING_STATUS.line}</p>
+        {/* Only offered when a yearly price really exists - a toggle onto
+            an interval nothing can be bought on is a control that lies. */}
+        {canBuy && Object.values(picture.priced ?? {}).some(i => i.includes('year')) && (
+          <div role="radiogroup" aria-label="Billing period"
+            className="mb-4 flex w-fit items-center gap-1 rounded-full border border-line bg-panel p-1">
+            {(['month', 'year'] as const).map(i => (
+              <button key={i} type="button" role="radio" aria-checked={interval === i}
+                onClick={() => setBillingInterval(i)}
+                className={`whitespace-nowrap rounded-full px-4 py-1.5 text-sm font-semibold transition-colors ${interval === i ? 'bg-accent text-accent-ink' : 'text-muted-fg hover:text-ink'}`}>
+                {i === 'month' ? 'Monthly' : 'Yearly'}
+              </button>
+            ))}
+          </div>
+        )}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {PLANS.map(plan => (
             <div key={plan.key}
@@ -289,10 +306,11 @@ export function BillingPanel({ canBuy }: { canBuy: boolean }) {
               <PlanAction
                 plan={plan}
                 canBuy={canBuy}
-                stripeReady={picture.stripeReady}
+                stripeReady={picture.stripeReady && !!picture.priced?.[plan.key]?.includes(interval)}
+                interval={interval}
                 current={access.planKey === plan.key}
                 busy={busy}
-                onChoose={() => go('/api/billing/checkout', { plan: plan.key, interval: 'month' })}
+                onChoose={() => go('/api/billing/checkout', { plan: plan.key, interval })}
               />
             </div>
           ))}
@@ -329,10 +347,12 @@ export function BillingPanel({ canBuy }: { canBuy: boolean }) {
  * nothing to press. Only the last case can say "Choose this plan" - and it
  * says so because pressing it really opens a checkout.
  */
-function PlanAction({ plan, canBuy, stripeReady, current, busy, onChoose }: {
+function PlanAction({ plan, canBuy, stripeReady, interval, current, busy, onChoose }: {
   plan: Plan
   canBuy: boolean
+  /** A Stripe key AND a price for this plan on this interval. */
   stripeReady: boolean
+  interval: 'month' | 'year'
   current: boolean
   busy: string
   onChoose: () => void
@@ -356,7 +376,7 @@ function PlanAction({ plan, canBuy, stripeReady, current, busy, onChoose }: {
     <Button onClick={onChoose} disabled={busy !== ''} variant={plan.featured ? 'default' : 'outline'}
       className="mt-4 w-full gap-2">
       {busy === '/api/billing/checkout' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-      Choose this plan
+      {interval === 'year' ? `Choose yearly - ${planPrice(annualTotal(plan))}` : 'Choose this plan'}
     </Button>
   )
 }
