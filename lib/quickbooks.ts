@@ -41,10 +41,25 @@ export const QBO_ENV: QboEnvironment = parseQboEnv(process.env.QBO_ENV)
  * shown as read (JSON-quoted, so a stray space is visible); the three secrets
  * are reported as set or missing, never their values.
  */
+/**
+ * QBO_ENV as the card may print it. The first version printed the first 40
+ * characters of whatever was there - and the first real reading was the TOKEN
+ * KEY, pasted into the wrong box, on screen and in a screenshot. A setting is
+ * a short word; anything longer, or shaped like a key, is described rather
+ * than shown, because the one time it is not a setting is the time it is a
+ * secret.
+ */
+export function describeEnvValue(raw: string | undefined | null): string | null {
+  if (raw === undefined || raw === null) return null
+  const v = String(raw)
+  if (v.trim().length <= 12 && !/[0-9a-f]{12,}/i.test(v)) return JSON.stringify(v)
+  return `a ${v.length}-character value - looks like a key or secret pasted into the wrong variable, not "production"`
+}
+
 export function qboEnvSetting(vars: Record<string, string | undefined> = process.env) {
   const raw = vars.QBO_ENV
   return {
-    qboEnvRaw: raw === undefined ? null : JSON.stringify(String(raw).slice(0, 40)),
+    qboEnvRaw: describeEnvValue(raw),
     resolvesTo: parseQboEnv(raw),
     productionClientId: !!vars.QBO_PRODUCTION_CLIENT_ID,
     productionClientSecret: !!vars.QBO_PRODUCTION_CLIENT_SECRET,
