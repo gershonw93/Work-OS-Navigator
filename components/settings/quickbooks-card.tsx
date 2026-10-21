@@ -50,6 +50,7 @@ interface Status {
   boundElsewhere?: boolean
   syncFrom?: string | null
   environment: string
+  envSetting?: { qboEnvRaw: string | null; resolvesTo: string; productionClientId: boolean; productionClientSecret: boolean; tokenKey: boolean; vercelEnv: string | null }
   canManage: boolean
   connection: Connection | null
   unsyncedPayments: number
@@ -271,6 +272,18 @@ export function QuickBooksCard() {
               <p className="mt-2 text-sm text-muted-fg">
                 Linked to <strong className="text-ink">{status?.connection?.qbo_company_name || `Realm ${status?.connection?.realm_id}`}</strong>
                 {status?.connection?.last_refreshed_at && <> · sign-in renewed {formatDate(status.connection.last_refreshed_at)}</>}
+              </p>
+            )}
+
+            {/* WHAT THE SERVER READS, for an admin. "It still says Sandbox"
+                was unanswerable from the screen: the variable was set
+                somewhere, and the deploy read something else. */}
+            {status?.canManage && status?.envSetting && (
+              <p className="mt-2 text-xs text-muted-fg break-words">
+                Server setting ({status.envSetting.vercelEnv ?? 'unknown'} deploy): QBO_ENV = {status.envSetting.qboEnvRaw ?? 'not set'} (reads as {status.envSetting.resolvesTo})
+                {' · '}production client ID {status.envSetting.productionClientId ? 'set' : 'missing'}
+                {' · '}production secret {status.envSetting.productionClientSecret ? 'set' : 'missing'}
+                {' · '}token key {status.envSetting.tokenKey ? 'set' : 'missing'}
               </p>
             )}
 

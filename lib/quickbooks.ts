@@ -21,7 +21,37 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { openToken, sealToken, tokenKey } from '@/lib/qbo-token-crypto'
 
 export type QboEnvironment = 'sandbox' | 'production'
-export const QBO_ENV: QboEnvironment = process.env.QBO_ENV === 'production' ? 'production' : 'sandbox'
+/**
+ * Which environment a raw QBO_ENV value means. Pure.
+ *
+ * It was `=== 'production'`, so "Production", " production" or a pasted value
+ * with quotes silently meant SANDBOX - the card kept its Sandbox badge after
+ * the variable was "set", with nothing to say why. Case, spaces and quotes are
+ * forgiven; anything else is still sandbox, and `qboEnvSetting` reports it.
+ */
+export function parseQboEnv(raw: string | undefined | null): QboEnvironment {
+  return String(raw ?? '').trim().replace(/^["']|["']$/g, '').trim().toLowerCase() === 'production' ? 'production' : 'sandbox'
+}
+
+export const QBO_ENV: QboEnvironment = parseQboEnv(process.env.QBO_ENV)
+
+/**
+ * What this deploy actually sees, for the Settings card - so "it still says
+ * Sandbox" can be answered from the screen. QBO_ENV is not a secret and is
+ * shown as read (JSON-quoted, so a stray space is visible); the three secrets
+ * are reported as set or missing, never their values.
+ */
+export function qboEnvSetting(vars: Record<string, string | undefined> = process.env) {
+  const raw = vars.QBO_ENV
+  return {
+    qboEnvRaw: raw === undefined ? null : JSON.stringify(String(raw).slice(0, 40)),
+    resolvesTo: parseQboEnv(raw),
+    productionClientId: !!vars.QBO_PRODUCTION_CLIENT_ID,
+    productionClientSecret: !!vars.QBO_PRODUCTION_CLIENT_SECRET,
+    tokenKey: !!String(vars.QBO_TOKEN_KEY ?? '').trim(),
+    vercelEnv: vars.VERCEL_ENV ?? null,
+  }
+}
 const AUTH_BASE = 'https://appcenter.intuit.com/connect/oauth2'
 const TOKEN_URL = 'https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer'
 const REVOKE_URL = 'https://developer.api.intuit.com/v2/oauth2/tokens/revoke'
