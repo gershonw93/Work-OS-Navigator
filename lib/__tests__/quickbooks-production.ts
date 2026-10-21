@@ -18,6 +18,7 @@ process.env.QBO_CLIENT_SECRET = 'sandbox-secret'
 
 import { sealToken, openToken, tokenKey, isEncryptedToken } from '../qbo-token-crypto'
 import {
+  parseQboEnv, qboEnvSetting,
   qboCredentials, qboConfigProblem, refreshIsFatal, QboTokenError, connectionUnusable, getValidConnection, SCOPES,
 } from '../quickbooks'
 import { realmDecision } from '../qbo-realm'
@@ -48,6 +49,15 @@ ok(/QBO_TOKEN_KEY/.test(qboConfigProblem('production', { QBO_PRODUCTION_CLIENT_I
   'production without a token key is NOT configured - a real file\'s token is never stored in clear')
 ok(qboConfigProblem('sandbox', vars) === null, 'sandbox with its keys is configured')
 ok(SCOPES === 'com.intuit.quickbooks.accounting', 'the only scope asked for is accounting')
+
+// ── QBO_ENV is read forgivingly, and the card can say what it read ────────
+ok(parseQboEnv('production') === 'production' && parseQboEnv(' Production ') === 'production' && parseQboEnv('"production"') === 'production',
+  'production is production whatever its case, spaces or quotes')
+ok(parseQboEnv('sandbox') === 'sandbox' && parseQboEnv(undefined) === 'sandbox' && parseQboEnv('prod') === 'sandbox', 'anything else is still sandbox')
+const seen = qboEnvSetting({ QBO_ENV: 'Production ', QBO_PRODUCTION_CLIENT_SECRET: 'shh', QBO_TOKEN_KEY: 'k' })
+ok(seen.qboEnvRaw === '"Production "' && seen.resolvesTo === 'production', 'the card shows the raw value, quoted, so a stray space is visible')
+ok(!JSON.stringify(seen).includes('shh') && seen.productionClientSecret && !seen.productionClientId, 'secrets are reported as set or missing, never their values')
+ok(/mayManageCompanySetting\(gate\.actor\) \? \{ envSetting/.test(code('app/api/quickbooks/status/route.ts')), '...and only an admin is shown it')
 
 // ── a dead grant vs a bad minute ─────────────────────────────────────────────
 ok(refreshIsFatal(new QboTokenError(400, '{"error":"invalid_grant"}')), 'invalid_grant ends the connection')

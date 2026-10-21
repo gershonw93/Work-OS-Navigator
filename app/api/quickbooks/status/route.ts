@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { admin, connectionUnusable, qboConfigProblem, qboConfigured, QBO_ENV, redirectUri } from '@/lib/quickbooks'
+import { admin, connectionUnusable, qboConfigProblem, qboConfigured, QBO_ENV, qboEnvSetting, redirectUri } from '@/lib/quickbooks'
 import { isResolved, retryFor } from '@/lib/qbo-log-retry'
 
 import { requirePermission, denied } from '@/lib/api-guard'
@@ -106,6 +106,9 @@ export async function GET(request: Request) {
     boundElsewhere,
     syncFrom,
     environment: QBO_ENV,
+    // Admins only: what this deploy reads, so a card still saying Sandbox can
+    // say WHY. No secret values - set/missing only (qboEnvSetting).
+    ...(mayManageCompanySetting(gate.actor) ? { envSetting: qboEnvSetting() } : {}),
     // The SAME predicate connect, disconnect and sync ask, so a button the
     // card shows is one the route will honour.
     canManage: mayManageCompanySetting(gate.actor),
