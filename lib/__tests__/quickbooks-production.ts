@@ -57,6 +57,10 @@ ok(parseQboEnv('sandbox') === 'sandbox' && parseQboEnv(undefined) === 'sandbox' 
 const seen = qboEnvSetting({ QBO_ENV: 'Production ', QBO_PRODUCTION_CLIENT_SECRET: 'shh', QBO_TOKEN_KEY: 'k' })
 ok(seen.qboEnvRaw === '"Production "' && seen.resolvesTo === 'production', 'the card shows the raw value, quoted, so a stray space is visible')
 ok(!JSON.stringify(seen).includes('shh') && seen.productionClientSecret && !seen.productionClientId, 'secrets are reported as set or missing, never their values')
+const key64 = '88f51ccb3904128b11bbc7ac46ff247dcacc1402' + 'a'.repeat(24)
+const pasted = qboEnvSetting({ QBO_ENV: key64 })
+ok(!JSON.stringify(pasted).includes('88f51ccb') && /64-character value/.test(pasted.qboEnvRaw ?? ''),
+  'a KEY pasted into QBO_ENV is described, never printed - the first real reading put 40 characters of the token key on screen')
 ok(/mayManageCompanySetting\(gate\.actor\) \? \{ envSetting/.test(code('app/api/quickbooks/status/route.ts')), '...and only an admin is shown it')
 
 // ── a dead grant vs a bad minute ─────────────────────────────────────────────
