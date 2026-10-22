@@ -630,12 +630,15 @@ export function ClientInvoices({
                     cheque is exactly when it is needed - and opens on the
                     balance, not the total. */}
                 {b.status === 'sent' && onSettle && (
-                  <button
+                  // A BUTTON, NOT A BADGE. It was a pale green pill with green text -
+                  // the same shape and colours as a status - and was reported as
+                  // "doesnt look like a button". The primary action on the row gets
+                  // the primary Button, like Mark paid on a deposit.
+                  <Button size="sm" className="h-8 shrink-0"
                     onClick={() => onSettle({ id: b.id, label: `Invoice ${b.invoice_number}`, amount: owed })}
-                    disabled={!!statusBusy}
-                    className="whitespace-nowrap shrink-0 inline-flex items-center gap-1 rounded-md border border-success/30 bg-success-tint px-2 py-1 text-xs font-medium text-success disabled:opacity-50 disabled:cursor-not-allowed">
-                    <Check className="h-3 w-3" /> {partly ? 'Record another payment' : 'Record payment'}
-                  </button>
+                    disabled={!!statusBusy}>
+                    <Check className="h-3.5 w-3.5" /> {partly ? 'Record another payment' : 'Record payment'}
+                  </Button>
                 )}
 
                 <RowMenu label={`More for invoice ${b.invoice_number}`}>

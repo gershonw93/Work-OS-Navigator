@@ -25,4 +25,22 @@ ok(/onClick=\{\(\) => \{ close\(\); emailInvoice\(b\) \}\}/.test(inv) && /sendLi
   'emailing an invoice to the client on file is one press too')
 ok(/Email it to somebody else/.test(inv), '...with somebody else as its own choice')
 
+// "do the same for change orders and selections reminders"
+const sels = code('app/(dashboard)/projects/[id]/selections/page.tsx')
+ok(/if \(!clientEmail \|\| !portalToken\) \{ setRemindFor\(sel\); return \}/.test(sels)
+  && /sendLinkNow\(`\/api\/projects\/\$\{params\.id\}\/selections\/\$\{sel\.id\}\/remind`, clientEmail\)/.test(sels),
+  'a selection reminder goes to the client on file in one press; the dialog only when there is no address or link')
+ok(/Reminder sent to \$\{out\.to\}/.test(sels) && /Remind somebody else/.test(sels), '...says who it went to, and somebody else is its own choice')
+ok(/notify\(out\.message\)\s*setRemindFor\(sel\)/.test(sels), '...and a refused send opens the dialog on the reason, never a silent nothing')
+
+const cos = code('app/(dashboard)/projects/[id]/change-orders/page.tsx')
+ok(/co\.subcontract_id \? \(\s*<Button size="sm" variant="outline" onClick=\{\(\) => setShareFor\(co\)\}>/.test(cos),
+  'a change order tied to a subcontract still opens the dialog - its amount is probably our cost, and that warning is the step')
+ok(/onClick=\{\(\) => share\(co, true\)\}/.test(cos) && /Share without emailing/.test(cos),
+  '...every other one shares and emails in one press, with sharing quietly as the second choice')
+
+// "record payment doesnt look like a button"
+ok(/<Button size="sm" className="h-8 shrink-0"\s*onClick=\{\(\) => onSettle\(/.test(inv),
+  'Record payment on an invoice is a real Button, not a status-coloured pill')
+
 done()
