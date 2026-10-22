@@ -33,14 +33,16 @@ export const PRIVACY_SECTIONS: LegalSection[] = [
         ] },
         // QUICKBOOKS DATA. Intuit's production review reads this section, and
         // every sentence is a fact about the code: the one scope
-        // (lib/quickbooks.ts SCOPES), one-way push (lib/quickbooks-push.ts),
+        // (lib/quickbooks.ts SCOPES), the push (lib/quickbooks-push.ts), the
+        // optional pull of changes to records we sent (lib/quickbooks-pull.ts),
         // what is read back (account/item/payment-method lookups, the records
         // we created, same-name and same-number duplicate checks), tokens
         // sealed with AES-256-GCM (lib/qbo-token-crypto.ts, required on
         // production by qboConfigProblem), and Disconnect revoking the grant.
         { h: 'QuickBooks data', body: [
           'If your company connects SyteNav to QuickBooks Online (Settings, then Integrations), an administrator of your company signs in to QuickBooks and chooses one QuickBooks company to connect. We ask Intuit for the accounting permission only (com.intuit.quickbooks.accounting).',
-          'The connection is one way: SyteNav sends records into your QuickBooks company - your customers and subcontractors, the invoices you send your clients and the payments against them, the bills your subcontractors send you and the payments you make on them, and voids or deletions of those. We do not import your QuickBooks books into SyteNav.',
+          'SyteNav sends records into your QuickBooks company - your customers and subcontractors, the invoices you send your clients and the payments against them, the bills your subcontractors send you and the payments you make on them, and voids or deletions of those. We do not import your QuickBooks books into SyteNav.',
+          'If an administrator turns on bringing changes back (off unless they do), SyteNav also reads what changes in QuickBooks to the records it sent: a payment recorded there against one of its invoices or bills is added to the job, and a void, deletion or amount change made there is noted on that record. To learn of changes, QuickBooks notifies SyteNav and SyteNav checks once a day; we store which QuickBooks record changed and when. Records created only in QuickBooks are not read into SyteNav.',
           'To do that we read only what the sending needs: your QuickBooks company name; the accounts, items and payment methods to record against; the records SyteNav itself created, so they can be corrected or voided; and customers, vendors and transactions with the same name or number, so the same record is not entered twice. We store your QuickBooks company id and name, the QuickBooks id of each record we sent, and a log of what was sent and whether it succeeded.',
           'The access tokens Intuit issues are stored encrypted (AES-256) and are never sent to your browser or device. We do not sell QuickBooks data, use it for advertising, or use it to train AI models, and nobody at SyteNav looks at it unless you ask us to for support or the law requires it.',
           'You can disconnect at any time from Settings, then Integrations, which revokes SyteNav\'s access with Intuit, or from the Apps page in QuickBooks. Disconnecting does not change anything already in QuickBooks. To have the stored QuickBooks ids and log deleted as well, see sytenav.com/delete-account or email us.',

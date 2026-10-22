@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/quickbooks-refresh",
       "schedule": "20 9 * * *"
+    },
+    {
+      "path": "/api/cron/quickbooks-pull",
+      "schedule": "40 9 * * *"
     }
   ]
 }

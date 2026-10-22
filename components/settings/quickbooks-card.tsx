@@ -9,6 +9,7 @@ import { formatDate } from '@/lib/dates'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { fetchProblem } from '@/lib/fetch-error'
 import { QuickBooksAccounts } from '@/components/settings/quickbooks-accounts'
+import { QuickBooksPull } from '@/components/settings/quickbooks-pull'
 interface Connection {
   realm_id: string
   qbo_company_name: string | null
@@ -22,6 +23,8 @@ type Retry = { kind: 'sync'; entity: string; ids: string[] } | { kind: 'hint'; t
 interface LogRow {
   entity_type: string; entity_id?: string | null; record_label?: string | null; action: string | null; status: string
   qbo_id: string | null; message: string | null; created_at: string
+  /** 'pull' when the change came BACK from QuickBooks (lib/quickbooks-pull.ts). */
+  direction?: string | null
   /** A later success for the same record put this failure right. */
   resolved?: boolean
   /** How to retry a failure that still stands (lib/qbo-log-retry.ts). */
@@ -37,6 +40,10 @@ const ENTITY_WORD: Record<string, string> = {
   bill: 'sub bill', bill_payment: 'bill payment', customer: 'customer', vendor: 'sub (vendor)', connection: 'QuickBooks connection',
 }
 function logLine(l: LogRow): string {
+  if (l.direction === 'pull') {
+    const what = ENTITY_WORD[l.entity_type] ?? l.entity_type.replace(/_/g, ' ')
+    return `${l.status === 'error' ? 'Could not bring back' : 'From QuickBooks'}: ${what}${l.record_label ? ` ${l.record_label}` : ''}`
+  }
   const verb = l.status === 'error'
     ? `${FAIL_WORD[l.action ?? 'create'] ?? 'Push'} failed`
     : ACTION_WORD[l.action ?? 'create'] ?? 'Pushed'
@@ -446,11 +453,12 @@ export function QuickBooksCard() {
         )}
 
         <p className="mt-4 text-xs text-muted-fg">
-          Pushes one way into QuickBooks: customers, subs (vendors), the bills they send you and the payments settling them, the invoices you send your client, and the money that comes in - applied against the invoice it settles, or as a sales receipt when it settles nothing. Bills, invoices and payments auto-create their vendor/customer if needed. Voids and amount corrections follow through too. Re-running skips anything already synced.
+          Pushes one way into QuickBooks: customers, subs (vendors), the bills they send you and the payments settling them, the invoices you send your client, and the money that comes in - applied against the invoice it settles, or as a sales receipt when it settles nothing. Bills, invoices and payments auto-create their vendor/customer if needed. Voids and amount corrections follow through too. Re-running skips anything already synced. Nothing comes back from QuickBooks unless you turn on Bring changes back below.
         </p>
       </div>
 
       {connected && status?.canManage && <QuickBooksAccounts headers={authHeaders} onSaved={load} />}
+      {connected && status?.canManage && <QuickBooksPull headers={authHeaders} onChanged={load} />}
 
       {(status?.log?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-line bg-panel p-6">

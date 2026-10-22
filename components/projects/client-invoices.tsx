@@ -22,6 +22,7 @@ import { invoiceQbChip, openedLabel } from '@/lib/invoice-qb-state'
 import { formatDate } from '@/lib/dates'
 import { settlementLabel, type Settlement } from '@/lib/invoice-settlement'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { QboExternalFlag } from '@/components/quickbooks/external-flag'
 const money = (n: unknown) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`
 
 interface Billable {
@@ -48,6 +49,9 @@ interface BillLine {
 
 interface Bill {
   id: string
+  /** What QuickBooks says about this invoice since it was sent (lib/quickbooks-pull.ts). */
+  qbo_external_state?: string | null
+  qbo_external_note?: string | null
   /** The client's thread on this invoice, shape only - who spoke last. */
   client_messages?: { side: string; created_at: string }[]
   invoice_number: string
@@ -716,6 +720,7 @@ export function ClientInvoices({
                       {b.due_date ? ` · due ${formatDate(b.due_date)}` : ''}
                     </span>
                     {paidLine && <span className="block text-xs font-medium text-warn">{paidLine}</span>}
+                    <QboExternalFlag state={b.qbo_external_state} note={b.qbo_external_note} table="client_invoices" id={b.id} onCleared={load} />
                     {threadShape(b.client_messages).waitingOnGc && (
                       <button type="button" onClick={() => setThreadFor(b)}
                         className="pointer-events-auto relative z-10 block min-h-11 text-xs font-semibold text-warn hover:underline lg:min-h-0">

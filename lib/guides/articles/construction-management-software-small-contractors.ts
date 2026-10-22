@@ -14,6 +14,7 @@ export const guide: Guide = {
   ],
   category: 'choosing',
   published: '2026-09-15',
+  updated: '2026-10-22',
   lede:
     'There is no best construction management software for small contractors. There is a best one for a four-job remodeler whose problem is change orders, and a different one for a ten-job builder whose problem is job costing. This is how to work out which you are before you sign anything.',
   takeaways: [
@@ -93,7 +94,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: 'SyteNav is built for contractors running roughly two to twenty live jobs who need the money and the field in one place: AI scanning for quotes, sub invoices and inspector cards; budgets that show committed, actual and remaining as costs land; change orders that raise the budget line and the sub contract together; client invoices built from costs already recorded, with markup applied per invoice; daily logs, time clock with a location check, permits, inspections and compliance tracking; and links rather than logins for subs and clients.' },
-    { type: 'p', text: 'Plans start at $99 a month, with unlimited team members, subs and clients rather than per-seat licences, and it is invite-only, with your first 15 days free. It does not do document control at enterprise scale, it does not run payroll, and its QuickBooks Online integration pushes one way - out of SyteNav. If you need any of those, say so on the call and we will tell you straight whether it is a fit.' },
+    { type: 'p', text: 'Plans start at $99 a month, with unlimited team members, subs and clients rather than per-seat licences, and it is invite-only, with your first 15 days free. It does not do document control at enterprise scale, it does not run payroll, and its QuickBooks Online integration is not a full two-way sync - payments and voids made in QuickBooks come back, but records created only in QuickBooks do not. If you need any of those, say so on the call and we will tell you straight whether it is a fit.' },
   ],
   links: [
     { text: 'Plans start at $99 a month, with unlimited team members, subs and clients rather than per-seat licences', href: '/pricing' },

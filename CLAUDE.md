@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-153.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-154.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -508,6 +508,22 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   `default*Id` directly. The route checks an id against a FRESH QuickBooks list
   before storing it, and a settings read that fails falls back to Automatic
   rather than stopping a push. Pinned in `qbo-accounts.ts`.
+- **TWO-WAY IS PHASE 1 AND OFF BY DEFAULT: ONLY CHANGES TO RECORDS SYTENAV
+  SENT COME BACK** (`lib/quickbooks-pull.ts`, `-bills.ts`, pure half
+  `lib/qbo-pull.ts`). Webhook (`/api/quickbooks/webhook`, SIGNED with
+  `QBO_WEBHOOK_VERIFIER` or refused) plus a daily Change Data Capture read
+  (cron, once a day - Hobby) and "Check QuickBooks now". Every change is
+  written to `quickbooks_inbound_events` BEFORE it is acted on (unique key, a
+  retry is a no-op) and claimed by one conditional update. NO ECHO: a change
+  matching what SyteNav holds is ignored, and a payment carrying an SN- id is
+  ours. An imported payment is BORN WITH ITS `qbo_id` so the push skips it, and
+  goes through `allocationProblem` - a payment that would pay an already-paid
+  invoice is REFUSED, never added (the double-count). A bill paid there claims
+  `qbo_payment_id` BEFORE `updateSubBill` (never `via`, which refuses status
+  moves). A void / delete / amount change FLAGS the row
+  (`qbo_external_state`), never deletes or rewrites it. Turning it on starts
+  from now - history is never imported. Records created only in QuickBooks are
+  phase 2. Pinned and mutation-checked in `quickbooks-pull.ts`.
 - **DUPLICATE CHECK BEFORE EVERY CREATE: number + party + amount**
   (`findDuplicate`). All three or it is not a duplicate - adopting on the number
   alone attaches this client's money to the GC's own INV-0004 for someone else.

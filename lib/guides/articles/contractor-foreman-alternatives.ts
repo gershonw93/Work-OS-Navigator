@@ -1,5 +1,5 @@
 import type { Guide } from '../schema'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'contractor-foreman-alternatives',
@@ -16,6 +16,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'Contractor Foreman’s pitch is breadth at a low price: scheduling, daily logs, estimates, job costing, time cards, safety meetings, RFIs, submittals, a client portal and a lead manager, from one subscription. Nobody leaves it for lack of modules. They leave when a module exists and the money still does not reconcile.',
   takeaways: [
@@ -80,7 +81,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT}, and it is deliberately narrower than Contractor Foreman. The path it cares about is one line: a quote scanned into the budget, sub bills checked against that quote before approval, change orders that raise the budget line and the subcontract together, and a client invoice built from the approved costs. The field side - daily logs, photos, inspections, the schedule - writes to the same job. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do, and where Contractor Foreman is ahead: SyteNav has no lead manager, no service tickets, no takeoff and no safety meeting module, and ${QBO_ONE_WAY}. If those are on your list of five, Contractor Foreman covers them and SyteNav does not.` },
+    { type: 'p', text: `What it does not do, and where Contractor Foreman is ahead: SyteNav has no lead manager, no service tickets, no takeoff and no safety meeting module, and ${QBO_SYNC_LIMIT}. If those are on your list of five, Contractor Foreman covers them and SyteNav does not.` },
   ],
   links: [
     { text: 'its features page reads like a catalogue of the whole industry', href: 'https://contractorforeman.com/features/' },

@@ -1,6 +1,6 @@
 import type { Guide } from '../schema'
 import { TRIAL_DAYS } from '../../plans'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'procore-alternatives-small-gcs',
@@ -17,7 +17,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-09-15',
-  updated: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'Most GCs who go looking for a Procore alternative are not unhappy with Procore. Their jobs do not generate the paperwork Procore is built to manage, their money leaks somewhere Procore is not looking, or their crew will not open it - and they cannot work out how to buy their way out of that.',
   takeaways: [
@@ -101,7 +101,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT}: quotes scanned in by AI so line items are not retyped, budgets that receive sub bills directly, change orders that raise the budget line and the sub contract they belong to, client invoices generated from costs already recorded, and a field view a crew can use with gloves on. Subs and clients get links rather than logins. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do: it is not a document-control platform for large commercial work, it does not model a development pro-forma, and ${QBO_ONE_WAY}. If those are your requirements, one of the categories above is a better fit and we would rather say so here than in week three of an implementation.` },
+    { type: 'p', text: `What it does not do: it is not a document-control platform for large commercial work, it does not model a development pro-forma, and ${QBO_SYNC_LIMIT}. If those are your requirements, one of the categories above is a better fit and we would rather say so here than in week three of an implementation.` },
   ],
   links: [
     plansLink,

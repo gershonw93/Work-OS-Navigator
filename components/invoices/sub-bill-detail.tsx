@@ -7,6 +7,7 @@ import {
   Undo2,
 } from 'lucide-react'
 import { Button, buttonClasses } from '@/components/ui/button'
+import { QboExternalFlag } from '@/components/quickbooks/external-flag'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/dates'
@@ -52,6 +53,9 @@ export interface SubBill {
   retainage?: number | null
   quote_check?: (QuoteCheck & { summary?: string }) | null
   qbo_id?: string | null
+  /** What QuickBooks says about this bill since (lib/quickbooks-pull.ts). */
+  qbo_external_state?: string | null
+  qbo_external_note?: string | null
   markup_pct?: number | null
   markup_excluded?: boolean | null
   client_billed?: boolean
@@ -90,6 +94,8 @@ export interface SubBillDetailProps {
    * paid by mistake could only be deleted. Found in the first real pilot.
    */
   onUnpay: () => void
+  /** A QuickBooks flag on the bill was dismissed - reload it. */
+  onFlagCleared?: () => void
   onDelete: () => void
   onBack: () => void
 }
@@ -172,6 +178,7 @@ export function SubBillDetail(p: SubBillDetailProps) {
             </div>
             <h1 className="break-words text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">{invoice.company_name}</h1>
             <div className="text-[13px] tabular-nums text-muted-fg lg:hidden">{invoice.invoice_number}</div>
+            <QboExternalFlag state={invoice.qbo_external_state} note={invoice.qbo_external_note} table="invoices" id={invoice.id} onCleared={p.onFlagCleared} />
           </div>
           <div className="flex items-end justify-between gap-3 border-t border-line-soft pt-3.5 lg:flex-col lg:items-end lg:gap-1 lg:border-0 lg:pt-0">
             <div className="lg:text-right">

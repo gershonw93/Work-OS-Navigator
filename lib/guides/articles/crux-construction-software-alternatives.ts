@@ -1,5 +1,5 @@
 import type { Guide } from '../schema'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'crux-construction-software-alternatives',
@@ -16,6 +16,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'Crux is not a project management app with a finance tab. It describes itself as a financial control layer for general contractors who run on QuickBooks: bills come in, get approved by the right PM, land on the right job, and go to QuickBooks. That is a narrower product than most on this list, and closer to the problem most GCs actually have.',
   takeaways: [
@@ -80,7 +81,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT}, and it starts where Crux does - with the sub’s bill. Scan the PDF and SyteNav reads it, matches it to the sub’s contract and a budget line, and checks it against the quote that sub was awarded on, flagging a rate above the quote, a line never quoted, and a running total past the contract. The difference is where the record lives: the job holds the budget, the bills, the change orders, the client invoices and the daily logs, and approved bills and invoices go to QuickBooks. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do: ${QBO_ONE_WAY}, so changes made in QuickBooks do not come back; it does not sync company card purchases; and it is invite-only rather than delivered with a done-for-you onboarding. If keeping QuickBooks as the system of record is the point, Crux is designed around that and SyteNav is not.` },
+    { type: 'p', text: `What it does not do: ${QBO_SYNC_LIMIT}; it does not sync company card purchases; and it is invite-only rather than delivered with a done-for-you onboarding. If keeping QuickBooks as the system of record is the point, Crux is designed around that and SyteNav is not.` },
   ],
   links: [
     { text: 'Crux’s homepage calls it the financial control layer', href: 'https://crux.build/' },

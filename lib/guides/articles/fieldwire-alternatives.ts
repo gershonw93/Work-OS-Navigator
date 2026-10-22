@@ -1,5 +1,5 @@
 import type { Guide } from '../schema'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'fieldwire-alternatives',
@@ -15,6 +15,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'Fieldwire is very good at the thing it is for: the drawings, the tasks pinned to them, the punch list and the forms a crew fills in on site. The reason GCs look for a Fieldwire alternative is rarely the field. It is that the field and the money are in two systems, and the two never quite agree.',
   takeaways: [
@@ -74,7 +75,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT}, which is the half of the job Fieldwire receives rather than runs. A sub’s bill is scanned, matched to their contract and a budget line, and checked against the quote they were awarded on before anybody approves it. Change orders raise the budget line and the subcontract together, client invoices are built from approved costs, and daily logs, photos and inspections sit on the same job as the money. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do, and where Fieldwire is ahead: SyteNav is not a drawing-management platform. You can open a plan set, pin a task to a spot on a sheet and send the trades a scope update when a drawing changes, but there is no version control or sheet compare across revisions, no form builder, and no offline mode - it needs a connection - and ${QBO_ONE_WAY}. Plenty of GCs would be right to run Fieldwire for the drawings and something else for the money.` },
+    { type: 'p', text: `What it does not do, and where Fieldwire is ahead: SyteNav is not a drawing-management platform. You can open a plan set, pin a task to a spot on a sheet and send the trades a scope update when a drawing changes, but there is no version control or sheet compare across revisions, no form builder, and no offline mode - it needs a connection - and ${QBO_SYNC_LIMIT}. Plenty of GCs would be right to run Fieldwire for the drawings and something else for the money.` },
   ],
   links: [
     { text: 'Fieldwire’s homepage calls it real-time jobsite management software', href: 'https://www.fieldwire.com/' },

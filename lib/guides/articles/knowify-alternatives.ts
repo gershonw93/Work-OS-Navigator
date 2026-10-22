@@ -1,5 +1,5 @@
 import type { Guide } from '../schema'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'knowify-alternatives',
@@ -15,6 +15,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'Knowify is unusually clear about who it is for: trade contractors - the electrician, the plumber, the concrete crew - running project and service work on QuickBooks. A lot of general contractors try it anyway, because the billing is good. The question is what happens when your job is managing the trades rather than being one.',
   takeaways: [
@@ -80,7 +81,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT} - the GC on the other side of the subcontract Knowify’s customers sign. Quote requests go to subs, quotes are scanned and compared, awards become subcontracts and budget lines, sub bills are checked against the award, and change orders raise the subcontract and the budget together. Pay applications run in both directions: a sub billing you against their scope, and you billing the owner on a G702 and G703. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do, and where Knowify is ahead: SyteNav has no service dispatch, no time-and-materials contract type built for a trade, no QuickBooks Desktop, and ${QBO_ONE_WAY}. If you are the trade rather than the GC, Knowify is built for you and we are not.` },
+    { type: 'p', text: `What it does not do, and where Knowify is ahead: SyteNav has no service dispatch, no time-and-materials contract type built for a trade, no QuickBooks Desktop, and ${QBO_SYNC_LIMIT}. If you are the trade rather than the GC, Knowify is built for you and we are not.` },
   ],
   links: [
     { text: 'Knowify’s homepage describes it as construction management software for trade contractors', href: 'https://knowify.com/' },

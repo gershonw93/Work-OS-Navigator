@@ -1,5 +1,5 @@
 import type { Guide } from '../schema'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'jobtread-alternatives',
@@ -15,6 +15,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'JobTread is one of the products closest to SyteNav: both put the budget at the centre of the job and hang everything else off it. So a JobTread alternative is less about a different philosophy and more about how you pay, what you type, and what reaches your books.',
   takeaways: [
@@ -83,7 +84,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT}. A sub quote is scanned by AI into budget lines, so nothing is retyped. Sub bills land on those lines and are checked against the quote they were awarded on: a line above the quoted rate, a line that was never quoted, or a running total past the contract is flagged before you approve. Change orders raise both the budget line and the subcontract, and client invoices are built from costs already recorded. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do, and where JobTread is ahead: SyteNav has no CRM or lead pipeline, no takeoff from plans and no supplier ordering, it is invite-only rather than sign-up-and-go, and ${QBO_ONE_WAY}. If those are deciding factors, JobTread is the better fit.` },
+    { type: 'p', text: `What it does not do, and where JobTread is ahead: SyteNav has no CRM or lead pipeline, no takeoff from plans and no supplier ordering, it is invite-only rather than sign-up-and-go, and ${QBO_SYNC_LIMIT}. If those are deciding factors, JobTread is the better fit.` },
   ],
   links: [
     { text: 'JobTread’s who-we-serve page', href: 'https://www.jobtread.com/who-we-serve' },

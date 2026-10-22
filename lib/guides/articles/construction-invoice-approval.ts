@@ -14,6 +14,7 @@ export const guide: Guide = {
   ],
   category: 'billing',
   published: '2026-09-15',
+  updated: '2026-10-22',
   lede:
     'Most construction invoice approval processes are one person and a memory. That works until it does not - and what it fails at is not paying twice, it is paying things that were never checked against anything.',
   takeaways: [
@@ -93,7 +94,7 @@ export const guide: Guide = {
     { type: 'h2', text: 'How SyteNav handles it' },
     { type: 'p', text: 'Invoices live on the job, under Financials, and money out is kept strictly separate from money in - a sub’s bill can never turn up as client billing. Scanning the PDF fills the form, attaches the file, matches the sub and the payment schedule line, and shows which budget line the money will land on with what is budgeted, billed and remaining on it. If the sub has no budget line at all, it says the invoice will not show up on the budget and offers to create the line right there.' },
     { type: 'p', text: 'Approving is what moves the budget - uploading the document alone does not - and once an invoice is approved a "Bill the client" button appears on it showing what the client owes with your markup applied, which opens a client invoice with that cost already on it. A cost can only ever appear on one client invoice, so the same bill cannot go out twice. Markup is set per invoice, or inherited from the budget line, or from the project rate, most specific first.' },
-    { type: 'p', text: 'What it does not do: it is not an accounts payable system with multi-level approval routing and delegation rules, and it does not run your payment run. It pushes one way into QuickBooks Online, where the money side is settled.' },
+    { type: 'p', text: 'What it does not do: it is not an accounts payable system with multi-level approval routing and delegation rules, and it does not run your payment run. It pushes into QuickBooks Online, where the money side is settled, and brings back payments made there against what it sent.' },
   ],
   links: [
     { text: 'If not, use the change order tracking process before approval', href: '/guides/how-to-track-change-orders' },

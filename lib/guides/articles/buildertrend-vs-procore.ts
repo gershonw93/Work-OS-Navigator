@@ -1,5 +1,5 @@
 import type { Guide } from '../schema'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'buildertrend-vs-procore',
@@ -16,6 +16,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'Buildertrend vs Procore is less a contest than a fork in the road. One is built around the homeowner, the other around the commercial project team. The useful question is which of those your business looks like - and whether it looks like either.',
   takeaways: [
@@ -81,7 +82,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for that third shape - ${SYTENAV_FIT}: quotes scanned in by AI so line items are not retyped, budgets that receive sub bills directly, sub invoices checked against the quote they were awarded on, change orders that raise both the budget line and the subcontract, and client invoices built from costs already recorded. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do: it has no sales pipeline or warranty module like Buildertrend, it is not a document-control platform for large commercial work like Procore, and ${QBO_ONE_WAY}. If you need those, one of the two is the better fit.` },
+    { type: 'p', text: `What it does not do: it has no sales pipeline or warranty module like Buildertrend, it is not a document-control platform for large commercial work like Procore, and ${QBO_SYNC_LIMIT}. If you need those, one of the two is the better fit.` },
   ],
   links: [
     { text: 'Buildertrend’s comparison page', href: 'https://buildertrend.com/buildertrend-vs-procore/' },

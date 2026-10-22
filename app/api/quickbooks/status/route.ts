@@ -83,17 +83,22 @@ export async function GET(request: Request) {
   }
 
   const { data: rawLog } = await db.from('quickbooks_sync_log')
-    .select('entity_type, entity_id, record_label, action, status, qbo_id, message, created_at')
+    .select('entity_type, entity_id, record_label, action, status, qbo_id, message, created_at, direction')
     .eq('company_id', profile.company_id)
     .order('created_at', { ascending: false })
     .limit(50)
   // Every failure carries its way out, and one a later success put right is
   // marked so - the card lists what still needs attention, not history.
-  const log = (rawLog ?? []).map((l: any) => ({
+  // A change that came BACK from QuickBooks has no Sync to re-run: its way
+  // out is the record itself, or reading QuickBooks again.
+  const log = (rawLog ?? []).map((l: any) => l.direction === 'pull' ? {
+    ...l, resolved: false,
+    retry: l.status === 'error' ? { kind: 'hint', text: 'Fix it in SyteNav or QuickBooks, then press Check QuickBooks now below.' } : null,
+  } : {
     ...l,
     resolved: isResolved(l, rawLog ?? []),
     retry: isResolved(l, rawLog ?? []) ? null : retryFor(l),
-  }))
+  })
 
   return NextResponse.json({
     configured: qboConfigured(),
