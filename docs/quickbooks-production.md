@@ -105,7 +105,10 @@ without their yes. A spare QuickBooks Online trial company works.
      sends money recorded from that moment on.
 2. **Connect.** Settings → Integrations → Connect to QuickBooks, sign in, and
    pick the company. The card should read "Linked to <company> · sign-in renewed <today>".
-3. **Push the four records** on one job:
+3. **Choose accounts** (optional). Under Where things go in QuickBooks, pick a
+   bank account for bill payments and a deposit account for client payments.
+   Each change is a line in Recent sync activity.
+4. **Push the four records** on one job:
    - **Client invoice:** send a client invoice. In QuickBooks, an Invoice with
      the SyteNav number, the customer, the due date and the line amounts.
    - **Client payment:** record a payment against that invoice. In QuickBooks,
@@ -114,20 +117,21 @@ without their yes. A spare QuickBooks Online trial company works.
    - **Sub bill:** approve a bill from a sub. In QuickBooks, a Bill with the
      vendor, the amount, an `SN-` number and the job in the line description.
    - **Bill payment:** mark that bill paid. In QuickBooks, a Bill Payment from
-     the default bank account, applied to that Bill, which then shows paid.
+     the bank account chosen under Where things go in QuickBooks (or the first
+     Bank account on Automatic), applied to that Bill, which then shows paid.
    - **Duplicates:** if the customer or sub already existed in QuickBooks under
      the same name, it is linked rather than duplicated. The log says "Matched to …".
-4. **Void each one:**
+5. **Void each one:**
    - void the client invoice (its payment comes off and stays as credit);
    - delete the client payment;
    - mark the bill unpaid (voids the Bill Payment);
    - delete the bill (deletes the Bill).
    Check each in QuickBooks, then read Settings → Recent sync activity.
-5. **Survive a day.** The next morning (the cron runs at 09:20 UTC) the card
+6. **Survive a day.** The next morning (the cron runs at 09:20 UTC) the card
    should show the sign-in renewed that day, and a new push should still work
    with nobody touching anything. To check in the database:
    `select last_refreshed_at, last_refresh_error, status from quickbooks_connections`.
-6. **Disconnect and reconnect.**
+7. **Disconnect and reconnect.**
    - Disconnect in SyteNav. SyteNav should disappear from QuickBooks →
      Settings → Apps (or Connected apps).
    - Reconnect the same company. Nothing should be re-created.

@@ -4627,3 +4627,17 @@ CREATE INDEX IF NOT EXISTS idx_qbo_id_archive_company ON quickbooks_id_archive (
 -- 152 terms acceptance
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS terms_accepted_at timestamptz;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS terms_version text;
+
+-- 153 quickbooks account choices
+CREATE TABLE IF NOT EXISTS quickbooks_account_choices (
+  company_id  uuid NOT NULL REFERENCES companies (id) ON DELETE CASCADE,
+  realm_id    text NOT NULL,
+  environment text NOT NULL,
+  kind        text NOT NULL CHECK (kind IN ('bill_expense', 'bill_payment_bank', 'invoice_item', 'payment_deposit')),
+  qbo_id      text NOT NULL,
+  qbo_name    text,
+  updated_by  uuid REFERENCES profiles (id) ON DELETE SET NULL,
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (company_id, realm_id, environment, kind)
+);
+ALTER TABLE quickbooks_account_choices ENABLE ROW LEVEL SECURITY;

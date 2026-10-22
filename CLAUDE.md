@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-152.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-153.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -494,6 +494,15 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   no answer leaves the connection alone and logs the miss (at most every ten
   minutes). Re-read before believing invalid_grant: a concurrent request may
   have rotated the token. A daily cron renews every sign-in.
+- **WHICH ACCOUNT IS THE COMPANY'S CHOICE, ASKED THROUGH `accountFor`.** Bill
+  expense, bill-payment bank, invoice item and payment deposit
+  (`lib/qbo-accounts.ts`). A choice is stored PER QUICKBOOKS COMPANY
+  (`quickbooks_account_choices`, realm + environment) like a vendor link; NO
+  ROW IS AUTOMATIC and choosing Automatic deletes it, because storing the first
+  Bank account freezes a guess into a decision. A push never calls a
+  `default*Id` directly. The route checks an id against a FRESH QuickBooks list
+  before storing it, and a settings read that fails falls back to Automatic
+  rather than stopping a push. Pinned in `qbo-accounts.ts`.
 - **DUPLICATE CHECK BEFORE EVERY CREATE: number + party + amount**
   (`findDuplicate`). All three or it is not a duplicate - adopting on the number
   alone attaches this client's money to the GC's own INV-0004 for someone else.

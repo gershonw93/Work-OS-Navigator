@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/dates'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { fetchProblem } from '@/lib/fetch-error'
+import { QuickBooksAccounts } from '@/components/settings/quickbooks-accounts'
 interface Connection {
   realm_id: string
   qbo_company_name: string | null
@@ -446,6 +447,8 @@ export function QuickBooksCard() {
           Pushes one way into QuickBooks: customers, subs (vendors), the bills they send you and the payments settling them, the invoices you send your client, and the money that comes in - applied against the invoice it settles, or as a sales receipt when it settles nothing. Bills, invoices and payments auto-create their vendor/customer if needed. Voids and amount corrections follow through too. Re-running skips anything already synced.
         </p>
       </div>
+
+      {connected && status?.canManage && <QuickBooksAccounts headers={authHeaders} onSaved={load} />}
 
       {(status?.log?.length ?? 0) > 0 && (
         <div className="rounded-xl border border-line bg-panel p-6">

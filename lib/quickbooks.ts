@@ -421,8 +421,9 @@ export async function qboQuery(conn: Connection, sql: string): Promise<any> {
 }
 
 // A default expense account to book a Bill line against. Prefers Cost of Goods
-// Sold, then any Expense account. Bills need an AccountRef and QBO has no
-// per-line mapping UI yet - this keeps phase 1 push working out of the box.
+// Sold, then any Expense account. Bills need an AccountRef. This is the
+// AUTOMATIC pick - a company that chose an account on Settings > QuickBooks
+// gets that instead (lib/qbo-accounts.ts `accountFor`).
 export async function defaultExpenseAccountId(conn: Connection): Promise<string> {
   const cogs = await qboQuery(conn, "select Id, AccountType from Account where AccountType = 'Cost of Goods Sold' and Active = true")
   if (cogs?.Account?.[0]?.Id) return cogs.Account[0].Id
@@ -436,10 +437,9 @@ export async function defaultExpenseAccountId(conn: Connection): Promise<string>
  *
  * QBO will not accept a BillPayment without one - PayType Check needs
  * CheckPayment.BankAccountRef, and there is no sensible default it can infer.
- * SyteNav has no per-company account mapping yet, so this picks the company's
- * first active Bank account; a bookkeeper can move it inside QuickBooks, which
- * is the same bargain bills and receipts already make with their default
- * expense account and service item.
+ * This is the AUTOMATIC pick, the company's first active Bank account - used
+ * only until somebody chooses one on Settings > QuickBooks
+ * (lib/qbo-accounts.ts `accountFor`).
  */
 export async function defaultBankAccountId(conn: Connection): Promise<string> {
   const bank = await qboQuery(conn, "select Id from Account where AccountType = 'Bank' and Active = true")

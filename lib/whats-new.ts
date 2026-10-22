@@ -54,6 +54,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-22',
+    title: 'Choose your QuickBooks accounts',
+    items: [
+      {
+        kind: 'new',
+        title: 'Pick the bank account bill payments come out of, and where everything else lands',
+        text: 'Settings > Integrations now has Where things go in QuickBooks: the account sub bills are booked to, the bank account you pay subs from, the product/service on client invoices, and where client payments are deposited. Each is listed from your own QuickBooks company and starts on Automatic, which is what SyteNav did before. A change applies to what is sent from then on.',
+        help: 'connect-quickbooks',
+      },
+    ],
+  },
+  {
     date: '2026-10-19',
     title: 'Voids and deletes reach QuickBooks',
     items: [
