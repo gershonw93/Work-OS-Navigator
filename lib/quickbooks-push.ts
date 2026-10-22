@@ -169,6 +169,17 @@ export function composeBillDescription(trade?: string | null, projectName?: stri
   return [trade ?? 'Subcontractor work', projectName].filter(Boolean).join(' - ')
 }
 
+/** The payer's own reference (check number), or nothing - never our tracking id. */
+export function ownReference(p: { reference?: string | null }): string | undefined {
+  const own = String(p.reference ?? '').trim().slice(0, QBO_REF_MAX)
+  return own || undefined
+}
+
+/** A Sales Receipt's own number: our tracking id, falling back to the composed ref. */
+export function receiptDocNumber(p: { id?: string }, ref?: string): string | undefined {
+  return p.id ? snRef(p.id) : ref
+}
+
 export function paymentPayload(
   p: { id?: string; amount: unknown; paid_date?: string | null; memo?: string | null; reference?: string | null },
   customerQboId: string,
@@ -184,7 +195,15 @@ export function paymentPayload(
     // How the money arrived - the column a bookkeeper reconciles a bank
     // statement against. Omitted entirely when unknown rather than guessed.
     ...(methodQboId ? { PaymentMethodRef: { value: methodQboId } } : {}),
-    ...(id.ref ? { DocNumber: id.ref } : {}),
+    // A Sales Receipt has BOTH fields, and they are different columns: "Sales
+    // Receipt no." (DocNumber) is the document's own number and "Reference
+    // no." (PaymentRefNum) is the payer's - the check number. The first pilot
+    // on a real company showed TEST-DEP-1 sitting in Sales Receipt no. with
+    // Reference no. empty. So the payer's number goes to PaymentRefNum, and
+    // DocNumber carries our tracking number, which is also what the duplicate
+    // check searches on (unique per payment, unlike a check number).
+    ...(receiptDocNumber(p, id.ref) ? { DocNumber: receiptDocNumber(p, id.ref) } : {}),
+    ...(ownReference(p) ? { PaymentRefNum: ownReference(p) } : {}),
     // The memo answers "which job?" before it says anything else - the
     // customer name is already on the record, the project is what was missing.
     PrivateNote: id.memo,
@@ -937,9 +956,15 @@ export async function refreshPaymentInQbo(db: SupabaseClient, paymentId: string,
       obj.PrivateNote = ident.memo ?? ''
       // A Payment's reference field is PaymentRefNum; DocNumber belongs to the
       // Sales Receipt. Writing the wrong one silently does nothing.
-      if (ident.ref) {
-        if (applied) obj.PaymentRefNum = ident.ref
-        else obj.DocNumber = ident.ref
+      // A Sales Receipt carries both: the payer's number in PaymentRefNum,
+      // ours in DocNumber (see paymentPayload).
+      if (applied) {
+        if (ident.ref) obj.PaymentRefNum = ident.ref
+      } else {
+        const own = ownReference(p)
+        if (own) obj.PaymentRefNum = own
+        const doc = receiptDocNumber(p, ident.ref)
+        if (doc) obj.DocNumber = doc
       }
       // Backfill how the money arrived onto records pushed before methods
       // were carried at all. Only set it - never blank an existing one, which
