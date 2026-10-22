@@ -11,13 +11,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import Link from 'next/link'
-import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check, Landmark, ArrowRight } from 'lucide-react'
+import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check, Landmark, ArrowRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toAmountInput } from '@/lib/validate'
 import { usePermissions } from '@/lib/use-permissions'
 
 import { formatDate, todayDateInput } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
+import { fetchProblem } from '@/lib/fetch-error'
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
   memo: string | null; retainer: boolean; qb_entered: boolean
@@ -25,6 +26,8 @@ interface Payment {
   reference: string | null
   /** Set by the real QuickBooks sync. When present, the chip is a fact, not a claim. */
   qbo_id: string | null
+  /** QuickBooks refused the latest push of this payment, and why (from the sync log). */
+  qb_error?: string | null
   /**
    * A share of one check split across a development's houses. Changed or
    * deleted with the whole check, on the development - the route refuses it here.
@@ -56,7 +59,8 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
   const [feePct, setFeePct] = useState(0)
   const [loading, setLoading] = useState(true)
   const [adding, setAdding] = useState(false)
-  const [saving, setSaving] = useState(false)
+  /** A payment on its way to the server (and QuickBooks), shown on the page while the dialog is already closed. */
+  const [pendingPayment, setPendingPayment] = useState<string | null>(null)
   const [form, setForm] = useState({ ...blank })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ ...blank })
@@ -227,43 +231,80 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
       id: p.id, invoice_number: p.invoice_number, status: 'sent', balanceCents: cents(p.balance),
     })), { onAccount: form.on_account })
     if (problem) { notify(problem); return }
-    setSaving(true)
-    const t = await token()
-    const res = await fetch(`/api/projects/${params.id}/payments`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-      body: JSON.stringify({
-        ...form,
-        amount: Number(form.amount),
-        // Which invoices this money pays, and how much of it went to each.
-        // The server marks an invoice paid once its payments cover it - this
-        // page no longer says "paid" itself, which is how $5,000 against a
-        // $10,000 invoice used to read Paid.
-        allocations,
-      }),
-    })
-    if (!res.ok) {
-      setSaving(false)
-      notify((await res.json().catch(() => ({}))).error ?? 'Could not add')
-      return
-    }
 
-    // Settle the deposit request this payment answers, and point it at the
-    // payment. Only after the payment is safely written: marking a request
-    // paid against money that failed to save is the lie this flow exists to
-    // avoid.
-    if (settling?.kind === 'request') {
-      const created = await res.json().catch(() => ({} as any))
-      await fetch(`/api/projects/${params.id}/payment-requests/${settling.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
-        body: JSON.stringify({ status: 'paid', client_payment_id: created?.payment?.id ?? null }),
-      }).catch(() => {})
-    }
-    setRequestsKey(k => k + 1)
-
-    setSaving(false)
+    // THE DIALOG DOES NOT WAIT FOR QUICKBOOKS. Saving pushes to QuickBooks in
+    // the same request (up to 8s), and the pilot sat behind a "Saving..."
+    // dialog for all of it. It closes now; the page shows the payment as
+    // saving and stays scrollable. A refusal reopens the form with exactly
+    // what was typed - the snapshot - so nothing has to be entered twice.
+    const snap = { form, settling, picked, shares, sharesTouched }
+    const label = `$${Number(form.amount).toLocaleString('en-US', { maximumFractionDigits: 2 })}`
     closePaymentForm()
-    load()
+    setPendingPayment(label)
+    let created: any = null
+    try {
+      const t = await token()
+      const res = await fetch(`/api/projects/${params.id}/payments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({
+          ...snap.form,
+          amount: Number(snap.form.amount),
+          // Which invoices this money pays, and how much of it went to each.
+          // The server marks an invoice paid once its payments cover it - this
+          // page no longer says "paid" itself, which is how $5,000 against a
+          // $10,000 invoice used to read Paid.
+          allocations,
+        }),
+      })
+      if (!res.ok) {
+        notify((await res.json().catch(() => ({}))).error ?? 'Could not add the payment.')
+        setForm(snap.form); setSettling(snap.settling); setPicked(snap.picked)
+        setShares(snap.shares); setSharesTouched(snap.sharesTouched); setAdding(true)
+        return
+      }
+      created = await res.json().catch(() => ({} as any))
+
+      // Settle the deposit request this payment answers, and point it at the
+      // payment. Only after the payment is safely written: marking a request
+      // paid against money that failed to save is the lie this flow exists to
+      // avoid.
+      if (snap.settling?.kind === 'request') {
+        await fetch(`/api/projects/${params.id}/payment-requests/${snap.settling.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+          body: JSON.stringify({ status: 'paid', client_payment_id: created?.payment?.id ?? null }),
+        }).catch(() => {})
+      }
+    } catch (e) {
+      // The request did not come back: it may or may not have saved, so the
+      // form is NOT reopened (that is how a payment gets entered twice).
+      notify(fetchProblem(e, 'saving the payment'))
+    } finally {
+      setPendingPayment(null)
+      setRequestsKey(k => k + 1)
+      load()
+    }
+    // Saved here, refused by QuickBooks: said now, to the person who pressed
+    // Add, not left for somebody to find under Settings.
+    if (created?.quickbooks && created.quickbooks.pushed === false) {
+      notify(`Payment saved. QuickBooks did not take it${created.quickbooks.detail ? `: ${created.quickbooks.detail}` : ''}. Fix that in QuickBooks, then press "QB failed - retry" on the payment.`)
+    }
+  }
+
+  async function retryQb(p: Payment) {
+    const t = await token()
+    try {
+      const res = await fetch('/api/quickbooks/sync', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({ entity: 'payments', ids: [p.id] }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok) notify(d?.error ?? 'Could not retry. An admin can retry it from Settings -> Integrations.')
+    } catch {
+      notify('Could not reach the server. Reload to see whether it went through before retrying.')
+    } finally {
+      load()
+    }
   }
 
   async function saveEdit(id: string) {
@@ -470,7 +511,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
 
       {/* Add form - modal so it's front-and-center, not buried at the bottom */}
       {adding && (
-        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={() => !saving && closePaymentForm()}>
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={closePaymentForm}>
         <div className="bg-panel rounded-xl border border-accent/40 shadow-xl w-full max-w-lg p-4 sm:p-5 space-y-3" onClick={e => e.stopPropagation()}>
           <div className="flex items-center justify-between">
             <div>
@@ -518,15 +559,21 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
             <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.qb_entered} onChange={e => setForm({ ...form, qb_entered: e.target.checked })} /> Already in QuickBooks - don&apos;t sync</label>
             <div className="row-even ml-auto lg:flex gap-2">
               <Button variant="secondary" onClick={closePaymentForm}>Cancel</Button>
-              <Button onClick={addPayment} disabled={saving || !form.amount}>{saving ? 'Saving…' : 'Add'}</Button>
+              <Button onClick={addPayment}>Add</Button>
             </div>
           </div>
         </div>
         </div>
       )}
 
+      {pendingPayment && (
+        <div className="flex items-center gap-2 rounded-xl border border-line bg-panel px-4 py-3 text-sm text-ink-soft" role="status">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-fg" /> Saving the {pendingPayment} payment and sending it to QuickBooks - you can keep working.
+        </div>
+      )}
+
       {/* Ledger */}
-      {payments.length === 0 ? (
+      {payments.length === 0 && !pendingPayment ? (
         <div className="bg-panel rounded-xl border border-line p-10 text-center"><Wallet className="h-8 w-8 text-faint mx-auto mb-3" /><p className="text-sm text-muted-fg">No client payments recorded yet.</p></div>
       ) : (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
@@ -582,6 +629,11 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                   </span>
                 ) : p.payment_group_id ? (
                   <span className="text-xs text-faint">-</span>
+                ) : p.qb_error ? (
+                  <button onClick={() => retryQb(p)} title={`QuickBooks refused it: ${p.qb_error} - fix that, then press to retry`}
+                    className="whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-danger/40 bg-danger-tint px-2 py-0.5 text-danger">
+                    QB failed - retry
+                  </button>
                 ) : (
                   <button onClick={() => toggleQb(p)} title="Mark as entered in QuickBooks by hand"
                     className={cn('whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
