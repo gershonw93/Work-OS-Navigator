@@ -88,9 +88,25 @@ const client = code('components/projects/client-invoices.tsx')
 ok(/onOpen\(b\.id\)/.test(client) && /<ClientInvoiceDetail/.test(client), 'a client invoice opens as its own screen too')
 ok(/onRecordPayment=\{onSettle \? \(\) => onSettle\(/.test(client),
   "...and Record payment there opens the page's one payment box, never a status flip")
+// "i wanna select the whole line not just the invoice number"
+ok(/aria-label=\{`Open invoice \$\{b\.invoice_number\}`\}\s*className="absolute inset-0/.test(client),
+  'THE WHOLE ROW opens the invoice - a button stretched under it, not just the number')
+ok(/pointer-events-none flex min-w-0 flex-1/.test(client) && /relative z-10 ml-auto flex shrink-0 items-center gap-2/.test(client),
+  '...the text lets the tap through, and the row\'s own buttons sit above it and keep their clicks')
+ok(!/<section className="[^"]*overflow-hidden/.test(client),
+  '...and the card does not clip with overflow-hidden, or the last row\'s ... menu is cut off')
 const payments = code('app/(dashboard)/projects/[id]/payments/page.tsx')
 ok(/openId=\{isAia \? null : openInvoice\}/.test(payments), 'Billing the client holds the open invoice in the URL')
 ok(/\{paymentDialog\}/.test(payments) && (payments.match(/\{paymentDialog\}/g) ?? []).length === 2,
   '...and the payment box is reachable from the invoice screen as well as the page')
 
+// "search cant find a invoice number?" - INV-0001 was a client invoice, a
+// table search had never queried.
+const search = code('app/api/search/route.ts')
+ok(/only\('client-invoices', async \(\) => \{[\s\S]{0,200}from\('client_invoices'\)[\s\S]{0,200}invoice_number\.ilike/.test(search),
+  'search finds invoices TO the client by number')
+ok(/payments\?open=\$\{i\.id\}/.test(search) && /invoices\?open=\$\{i\.id\}/.test(search),
+  '...and both kinds of invoice open the record itself, not the top of a list')
+ok(/useSearchParams\(\)\.get\(param\)/.test(code('lib/use-open-record.ts')),
+  'the open record follows the URL, so a search result on the same page opens it')
 done()

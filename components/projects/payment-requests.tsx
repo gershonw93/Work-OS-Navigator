@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { Pill } from '@/components/bills/detail-parts'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -133,10 +134,63 @@ export function PaymentRequests({
   // second email to the same person is a decision, not a reflex.
   async function sendNow(r: Req) {
     setSendNowId(r.id)
+    // NO LINK YET IS NOT A REASON TO STOP. "it tells me error and then i need
+    // to create the link and then i can send" - so Send makes the link first.
+    // Its own request, asked of the portal-token route WITHOUT `regenerate`:
+    // that hands back the link a job already has and only mints one where
+    // there is none, so a press here can never replace a link the client is
+    // already using. Creating one is its own permission and is refused on
+    // its own, in words, rather than folded into the send.
+    const link = portalToken ? { token: portalToken } : await ensurePortalLink()
+    if ('error' in link) {
+      setSendNowId(null)
+      setSendResult(m => ({ ...m, [r.id]: { error: link.error } }))
+      return
+    }
     const out = await sendLinkNow(`/api/projects/${projectId}/payment-requests/${r.id}/send`, clientEmail)
     setSendNowId(null)
     setSendResult(m => ({ ...m, [r.id]: out.ok ? { to: out.to } : { error: out.message } }))
     if (out.ok) load()
+  }
+
+  /** The job's client link: the existing one, or a new one where there is none - or why not. */
+  async function ensurePortalLink(): Promise<{ token: string } | { error: string }> {
+    try {
+      const t = await token()
+      const res = await fetch(`/api/projects/${projectId}/portal-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${t}` },
+        body: JSON.stringify({}),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (!res.ok || !d?.token) {
+        const error = d?.error
+          ? `${d.error} The client's link could not be created, so nothing was sent.`
+          : 'Could not create the client\'s link, so nothing was sent.'
+        // Read in the UI AND logged.
+        console.error(`[payment-requests] portal link: ${error}`)
+        return { error }
+      }
+      setPortalToken(d.token)
+      return { token: d.token as string }
+    } catch {
+      return { error: 'Could not reach the server to create the client\'s link - nothing was sent.' }
+    }
+  }
+
+  /** Send to somebody else: the box needs the link in it, so make it first. */
+  async function openSendBox(r: Req) {
+    if (sendingId === r.id) { setSendingId(null); return }
+    if (!portalToken) {
+      setSendNowId(r.id)
+      const link = await ensurePortalLink()
+      setSendNowId(null)
+      if ('error' in link) {
+        setSendResult(m => ({ ...m, [r.id]: { error: link.error } }))
+        return
+      }
+    }
+    setSendingId(r.id)
   }
 
   // "this should also be 2 step - are you sure": the X sat beside Mark paid and
@@ -218,18 +272,16 @@ export function PaymentRequests({
   if (loading) return null
 
   return (
-    <div className="bg-panel rounded-xl border border-line p-4 space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
+    <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-5 lg:p-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <p className="font-semibold text-ink">Deposits &amp; stage payments</p>
-          <p className="text-sm text-muted-fg">
+          <h2 className="text-base font-semibold text-ink lg:text-[17px]">Deposits &amp; stage payments</h2>
+          <p className="mt-0.5 text-sm text-muted-fg">
             Money you ask the client for up front, before there are costs to bill against.
           </p>
         </div>
         {outstanding > 0 && (
-          <span className="whitespace-nowrap rounded-full bg-warn-tint px-2.5 py-1 text-xs font-semibold text-warn">
-            {money(outstanding)} outstanding
-          </span>
+          <Pill tone="warn">{money(outstanding)} outstanding</Pill>
         )}
       </div>
 
@@ -277,7 +329,7 @@ export function PaymentRequests({
       )}
 
       {stages.length === 0 && (
-        <p className="text-sm text-faint">
+        <p className="text-sm text-muted-fg">
           No payment stages on this job&apos;s estimate yet. Add them on the Estimate tab and they show up
           here ready to request - or ask for a one-off amount below.
         </p>
@@ -308,10 +360,10 @@ export function PaymentRequests({
                   </Button>
                 )}
                 <Button size="sm" variant="secondary" className="h-8" disabled={sendNowId === r.id}
-                  title={!r.sent_at && clientEmail && portalToken ? `Email it to ${clientEmail}` : undefined}
-                  onClick={() => (!r.sent_at && clientEmail && portalToken)
+                  title={!r.sent_at && clientEmail ? `Email it to ${clientEmail}` : undefined}
+                  onClick={() => (!r.sent_at && clientEmail)
                     ? sendNow(r)
-                    : setSendingId(sendingId === r.id ? null : r.id)}>
+                    : openSendBox(r)}>
                   {sendNowId === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
                   {sendNowId === r.id ? 'Sending...' : r.sent_at ? 'Send again' : 'Send'}
                 </Button>
@@ -361,10 +413,7 @@ export function PaymentRequests({
                       onSent={() => load()}
                     />
                   ) : (
-                    <p className="text-sm text-warn">
-                      This job has no client portal link yet. Use Share with Client once at the top of the
-                      page to create one, then send this.
-                    </p>
+                    <p className="text-sm text-muted-fg">Creating the client&apos;s link…</p>
                   )}
                 </div>
               )}
@@ -379,31 +428,31 @@ export function PaymentRequests({
 
       {/* Settled */}
       {settled.length > 0 && (
-        <div className="space-y-1">
+        <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-faint">Settled</p>
+          <div className="mt-1 divide-y divide-line-soft">
           {settled.map(r => (
-            <div key={r.id} className="flex flex-wrap items-center gap-2 px-1 py-1 text-sm">
-              <span className={cn('flex-1 min-w-0 truncate', r.status === 'cancelled' ? 'text-faint line-through' : 'text-muted-fg')}>
+            <div key={r.id} className="flex items-center gap-2 py-2 text-sm">
+              <span className={cn('flex-1 min-w-0 truncate', r.status === 'cancelled' ? 'text-faint line-through' : 'text-ink')}>
                 {r.label}
               </span>
-              <span className={cn('font-medium', r.status === 'cancelled' ? 'text-faint' : 'text-success')}>
+              <span className={cn('font-semibold tabular-nums', r.status === 'cancelled' ? 'text-faint' : 'text-ink')}>
                 {money(r.amount)}
               </span>
-              <span className={cn('text-xs font-medium', r.status === 'cancelled' ? 'text-faint' : 'text-success')}>
-                {r.status === 'cancelled' ? 'Withdrawn' : 'Paid'}
-              </span>
-              <button type="button" title="Put this back to outstanding"
+              <Pill tone={r.status === 'cancelled' ? 'muted' : 'success'}>{r.status === 'cancelled' ? 'Withdrawn' : 'Paid'}</Pill>
+              <button type="button" title="Put this back to outstanding" aria-label="Put this back to outstanding"
                 onClick={() => setStatus(r, 'pending')}
-                className="rounded p-1 text-faint hover:bg-surface hover:text-muted-fg">
-                <Undo2 className="h-3.5 w-3.5" />
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:bg-surface hover:text-muted-fg lg:h-8 lg:w-8">
+                <Undo2 className="h-4 w-4" />
               </button>
-              <button type="button" title="Delete this request"
+              <button type="button" title="Delete this request" aria-label="Delete this request"
                 onClick={() => remove(r)}
-                className="rounded p-1 text-faint hover:bg-danger-tint hover:text-danger">
-                <X className="h-3.5 w-3.5" />
+                className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:bg-danger-tint hover:text-danger lg:h-8 lg:w-8">
+                <X className="h-4 w-4" />
               </button>
             </div>
           ))}
+          </div>
         </div>
       )}
 
@@ -476,8 +525,8 @@ export function PaymentRequests({
         </div>
       ) : (
         <button type="button" onClick={() => setManual({ label: 'Deposit', mode: 'amount', value: '' })}
-          className="inline-flex items-center gap-1 text-sm font-medium text-accent-fg hover:underline">
-          <Plus className="h-3.5 w-3.5" /> Request a one-off amount
+          className="inline-flex min-h-11 items-center gap-1 self-start text-sm font-semibold text-accent-fg hover:underline lg:min-h-0">
+          <Plus className="h-4 w-4" /> Request a one-off amount
         </button>
       )}
       {threadFor && (
@@ -485,6 +534,6 @@ export function PaymentRequests({
           heading={`${threadFor.label} (${money(threadFor.amount)}) - questions from the client`}
           onClose={() => setThreadFor(null)} onChanged={load} />
       )}
-    </div>
+    </section>
   )
 }
