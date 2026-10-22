@@ -7,36 +7,36 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, Receipt, CheckCircle2, Clock, Send, DollarSign, ChevronDown, ChevronUp, Printer, Upload, AlertTriangle, Pencil, Trash2, FileText, ScanLine, Loader2, Wallet, HelpCircle } from 'lucide-react'
+import { Plus, X, Receipt, CheckCircle2, Clock, DollarSign, ChevronRight, AlertTriangle, FileText, ScanLine, Loader2, Wallet, HelpCircle } from 'lucide-react'
 import Link from 'next/link'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
-import { InvoiceSplit, type SplitLineOption, type AllocationRow } from '@/components/projects/invoice-split'
+import type { SplitLineOption, AllocationRow } from '@/components/projects/invoice-split'
 import { BudgetDestinationBox } from '@/components/projects/budget-destination'
 import { ACTUAL_STATUSES, type BudgetDestination } from '@/lib/invoice-budget'
 import type { QuoteCheck } from '@/lib/invoice-check'
-import { markUp, markupLabel, markupTotals } from '@/lib/markup'
-import {
-  reconcile, reconciliationNote, lineAmount, linesTotal,
-  type InvoiceLine as InvoiceLineItem,
-} from '@/lib/invoice-lines'
+import { markupTotals } from '@/lib/markup'
+import type { InvoiceLine as InvoiceLineItem } from '@/lib/invoice-lines'
 import { HARD_COST_CATEGORIES } from '@/lib/budget-categories'
 import { contractAmount, contractAmountLabel, isUnpriced } from '@/lib/contract-amount'
-import { parseDate, formatDate } from '@/lib/dates'
+import { formatDate } from '@/lib/dates'
 import { toAmountInput } from '@/lib/validate'
 
 import { LineEditor } from '@/components/invoices/line-editor'
+import { SubBillDetail } from '@/components/invoices/sub-bill-detail'
+import type { PillTone } from '@/components/bills/detail-parts'
+import { useOpenRecord } from '@/lib/use-open-record'
 import { useNotice } from '@/components/ui/notice'
-const STATUS_CONFIG: Record<string, { label: string; color: string }> = {
-  pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn' },
-  approved: { label: 'Approved', color: 'bg-info-tint border-info/30 text-info' },
+const STATUS_CONFIG: Record<string, { label: string; color: string; tone: PillTone }> = {
+  pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn', tone: 'warn' },
+  approved: { label: 'Approved', color: 'bg-info-tint border-info/30 text-info', tone: 'info' },
   // The sub sent this invoice TO you - it is a bill you owe, not something you
   // send them. "Sent for Payment" read as though it went somewhere, and the
   // first question everyone asked was "sent to who?". Nothing is sent: the
   // bill has been handed to bookkeeping or put in the next payment run, and
   // the money has not moved yet. The db value stays 'sent' - ACTUAL_STATUSES
   // depends on it, and renaming a column for a label is rewriting history.
-  sent: { label: 'Queued for payment', color: 'bg-special-tint border-special/30 text-special' },
-  paid: { label: 'Paid', color: 'bg-success-tint border-success/30 text-success' },
+  sent: { label: 'Queued for payment', color: 'bg-special-tint border-special/30 text-special', tone: 'special' },
+  paid: { label: 'Paid', color: 'bg-success-tint border-success/30 text-success', tone: 'success' },
 }
 
 interface Subcontract { id: string; trade: string; contract_amount: number | null; company_id: string; companies?: { name: string } }
@@ -113,7 +113,9 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
    * gated on what this page IS. One request, one failure, one reason.
    */
   const [loadError, setLoadError] = useState('')
-  const [expanded, setExpanded] = useState<string | null>(null)
+  // The bill open as a screen of its own. It used to unfold inside the list;
+  // in the URL now, so Back and a refresh both land where they should.
+  const { id: openId, open: openBill, close: closeBill } = useOpenRecord()
   // "How this works", reopened by hand. See showExplainer below.
   const [explainerOpen, setExplainerOpen] = useState(false)
   const [showForm, setShowForm] = useState(false)
@@ -594,6 +596,7 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         headers: { Authorization: `Bearer ${token}` },
       })
       const j = await res.json().catch(() => ({}))
+      if (res.ok && openId === invoice.id) closeBill()
       if (!res.ok) {
         notify(j.error ?? 'Could not delete that invoice')
       } else if (j.quickbooks && !j.quickbooks.voided) {
@@ -644,402 +647,12 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
 
   // A group of bills is ONE card of divided rows on the phone; on a desktop
   // the wrapper vanishes and each bill keeps its own card.
+  // The open bill, once the list has it. An id the list does not hold (a
+  // deleted bill, a stale link) shows the list rather than a blank screen.
+  const shownBill = openId ? invoices.find(i => i.id === openId) ?? null : null
+  const shownSub = shownBill?.subcontract_id ? subcontracts.find(s => s.id === shownBill.subcontract_id) : undefined
+
   const GROUP = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0 lg:space-y-2 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent'
-
-  function InvoiceCard({ invoice }: { invoice: Invoice }) {
-    const isExpanded = expanded === invoice.id
-    const cfg = STATUS_CONFIG[invoice.status] ?? STATUS_CONFIG.pending_approval
-    return (
-      // PHONE: a row in the group's one card - no icon column, no tint, the
-      // card border lives on the group. DESKTOP (lg+): the bordered card it was.
-      <div className={cn('lg:rounded-xl lg:border lg:bg-panel lg:overflow-hidden', invoice.status === 'pending_approval' ? 'lg:border-warn/30' : 'lg:border-line')}>
-        <button className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface transition-colors text-left lg:gap-4 lg:px-5 lg:py-4"
-          onClick={() => setExpanded(isExpanded ? null : invoice.id)}>
-          <Receipt className="hidden h-5 w-5 text-faint shrink-0 lg:block" />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-mono text-muted-fg">{invoice.invoice_number}</span>
-              <span className="font-semibold text-ink break-words">{invoice.company_name}</span>
-              <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
-              {/* Which line it hits, readable without expanding the card. */}
-              {invoice.budget_line ? (
-                <span className="inline-flex items-center gap-1 text-xs text-faint min-w-0">
-                  <Wallet className="h-3 w-3 shrink-0" />
-                  <span className="truncate">{invoice.budget_line.category}</span>
-                </span>
-              ) : invoice.subcontract_id ? (
-                <span className="whitespace-nowrap inline-flex items-center gap-1 text-xs font-medium rounded-full border border-warn/30 bg-warn-tint text-warn px-2 py-0.5">
-                  <AlertTriangle className="h-3 w-3 shrink-0" /> Not on the budget
-                </span>
-              ) : null}
-            </div>
-            <p className="text-xs text-faint mt-0.5 break-words">
-              ${Number(invoice.amount).toLocaleString()}
-              {invoice.description && ` · ${invoice.description}`}
-              {invoice.due_date && ` · Due ${formatDate(invoice.due_date)}`}
-            </p>
-          </div>
-          <div className="hidden sm:block text-sm font-bold text-ink shrink-0">${Number(invoice.amount).toLocaleString()}</div>
-          {isExpanded ? <ChevronUp className="h-4 w-4 text-faint shrink-0" /> : <ChevronDown className="h-4 w-4 text-faint shrink-0" />}
-        </button>
-
-        {isExpanded && (
-          <div className="border-t border-line-soft px-4 py-4 space-y-4 lg:px-5 lg:py-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-              <div><p className="text-xs text-faint">Invoice #</p><p className="font-mono font-medium text-ink-soft">{invoice.invoice_number}</p></div>
-              <div><p className="text-xs text-faint">Amount</p><p className="font-bold text-ink">${Number(invoice.amount).toLocaleString()}</p></div>
-              {invoice.due_date && <div><p className="text-xs text-faint">Due Date</p><p className="font-medium text-ink-soft">{formatDate(invoice.due_date)}</p></div>}
-              <div><p className="text-xs text-faint">Created</p><p className="font-medium text-ink-soft">{formatDate(invoice.created_at)}</p></div>
-              {invoice.approved_by_name && <div><p className="text-xs text-faint">Approved By</p><p className="font-medium text-ink-soft">{invoice.approved_by_name}</p></div>}
-              {invoice.approved_at && <div><p className="text-xs text-faint">Approved</p><p className="font-medium text-ink-soft">{formatDate(invoice.approved_at)}</p></div>}
-              {invoice.sent_at && <div><p className="text-xs text-faint">Sent for payment</p><p className="font-medium text-ink-soft">{formatDate(invoice.sent_at)}</p></div>}
-            </div>
-            {invoice.description && <p className="text-sm text-muted-fg break-words">{invoice.description}</p>}
-
-            {/* Cost-plus: what to bill the client for this one. The electrician
-                invoices $35,000, your 15% goes on, the client owes $40,250.
-                Always on a cost-plus job; otherwise only once a rate is in use,
-                so a fixed-price job never sees it. */}
-            {(costPlus || projectMarkup > 0 || invoice.markup_pct != null || invoice.markup_excluded) && (() => {
-              const m = markUp(invoice.amount, invoice, projectMarkup)
-              return (
-                <div className="rounded-lg border border-accent/30 bg-accent-tint/30 px-4 py-3 space-y-2">
-                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-sm">
-                    <span className="text-muted-fg">Cost</span>
-                    <span className="font-semibold text-ink-soft tabular-nums">${Number(m.cost).toLocaleString()}</span>
-                    <span className="text-faint">+</span>
-                    <span className="text-muted-fg">{m.excluded ? 'no markup' : `${m.pct}%`}</span>
-                    <span className="font-semibold text-ink-soft tabular-nums">${m.markup.toLocaleString()}</span>
-                    <span className="text-faint">=</span>
-                    <span className="text-muted-fg">bill the client</span>
-                    <span className="text-lg font-bold text-accent-fg tabular-nums">${m.clientPrice.toLocaleString()}</span>
-                    <span className="ml-auto text-[11px] text-faint">{markupLabel(m)}</span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs">
-                    <label className="inline-flex items-center gap-1.5 cursor-pointer text-muted-fg">
-                      <input type="checkbox" className="accent-[#C9F24A]"
-                        checked={!!invoice.markup_excluded}
-                        disabled={savingMarkup === invoice.id}
-                        onChange={e => saveMarkup(invoice, { markup_excluded: e.target.checked })} />
-                      Bill this at cost - no markup
-                    </label>
-                    {!invoice.markup_excluded && (
-                      <span className="inline-flex items-center gap-1.5 text-muted-fg">
-                        Markup on this one
-                        <input
-                          type="number" min="0" step="0.5"
-                          defaultValue={invoice.markup_pct ?? ''}
-                          placeholder={String(projectMarkup)}
-                          disabled={savingMarkup === invoice.id}
-                          onBlur={e => {
-                            const raw = e.target.value.trim()
-                            const next = raw === '' ? null : Number(raw)
-                            if (next !== (invoice.markup_pct ?? null)) saveMarkup(invoice, { markup_pct: next })
-                          }}
-                          className="w-16 rounded-md border border-muted2 bg-panel px-2 py-1 text-xs text-ink tabular-nums focus:border-accent focus:outline-none"
-                        />
-                        %
-                        {/* Empty is not zero. Empty follows the project rate, so
-                            changing that rate still moves this invoice. */}
-                        <span className="text-faint">
-                          {projectMarkup > 0
-                            ? <>leave blank to follow the project&apos;s {projectMarkup}%</>
-                            : <>no project rate set - give this one its own</>}
-                        </span>
-                      </span>
-                    )}
-                    {savingMarkup === invoice.id && <span className="text-faint">saving…</span>}
-                  </div>
-                  {/* The step that kept getting dropped: a sub's bill is
-                      approved, and then nobody passes it on. Offer it here,
-                      where the cost is, instead of expecting someone to go and
-                      find it again in a list of billable costs. */}
-                  {billingMode !== 'aia' && ACTUAL_STATUSES.has(invoice.status) && (
-                    <div className="border-t border-accent/20 pt-2 text-xs">
-                      {invoice.client_billed ? (
-                        <span className="inline-flex items-center gap-1.5 text-success">
-                          <CheckCircle2 className="h-3.5 w-3.5" /> Already billed to the client
-                        </span>
-                      ) : (
-                        // A filled button, not green text among green text.
-                        // This is the most valuable thing to do with an
-                        // approved bill and it read as a footnote.
-                        <div className="flex flex-wrap items-center gap-2">
-                          <a href={`/projects/${params.id}/payments?bill=${invoice.id}`}
-                            className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-semibold text-accent-ink hover:opacity-90 transition-opacity">
-                            <DollarSign className="h-3.5 w-3.5" />
-                            Bill the client ${m.clientPrice.toLocaleString()}
-                          </a>
-                          <span className="text-muted-fg">on a new client invoice</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-
-            {/* The breakdown, on every invoice that has one. */}
-            {(() => {
-              const lines = Array.isArray(invoice.line_items) ? invoice.line_items : []
-              const rec = reconcile({
-                lines, tax: invoice.tax, retainage: invoice.retainage, amount: invoice.amount,
-              })
-              const note = reconciliationNote(rec)
-              if (rec.noBreakdown) {
-                return (
-                  <div className="rounded-lg border border-line bg-surface px-4 py-3">
-                    <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Breakdown</p>
-                    <p className="text-xs text-faint mt-1">
-                      No breakdown on this one - just the total. Scanning the vendor&apos;s PDF reads the
-                      lines off it, or you can add them with Edit.
-                    </p>
-                  </div>
-                )
-              }
-              return (
-                <div className="rounded-lg border border-line bg-surface overflow-hidden">
-                  <div className="flex items-center justify-between px-4 py-2 border-b border-line-soft">
-                    <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Breakdown</p>
-                    <span className={cn('text-xs font-medium', rec.balanced ? 'text-success' : 'text-warn')}>
-                      {rec.balanced ? 'Adds up to the total' : 'Does not add up'}
-                    </span>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <tbody className="divide-y divide-line-soft">
-                        {lines.map((li, i) => {
-                          const amt = lineAmount(li)
-                          // A line the quote check flagged, matched by its text.
-                          const flag = invoice.quote_check?.findings?.find(f => f.description === li.description)
-                          return (
-                            <tr key={i} className={flag ? 'bg-warn-tint/40' : undefined}>
-                              <td className="px-4 py-2 text-ink-soft">
-                                <span className="break-words">{li.description || '-'}</span>
-                                {flag && (
-                                  <span className="block text-[11px] text-warn mt-0.5">
-                                    {flag.kind === 'over_quoted_line'
-                                      ? `Quoted $${Number(flag.quoted).toLocaleString()} - $${Math.round(flag.over ?? 0).toLocaleString()} more`
-                                      : 'Not on their quote'}
-                                  </span>
-                                )}
-                              </td>
-                              <td className="px-4 py-2 text-right text-xs text-faint whitespace-nowrap tabular-nums">
-                                {li.qty != null && li.unit_price != null
-                                  ? `${li.qty}${li.unit ? ` ${li.unit}` : ''} × $${Number(li.unit_price).toLocaleString()}`
-                                  : ''}
-                              </td>
-                              <td className="px-4 py-2 text-right text-ink whitespace-nowrap tabular-nums">
-                                {amt != null ? `$${amt.toLocaleString()}` : <span className="text-faint">-</span>}
-                              </td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                      <tfoot className="border-t border-line text-xs">
-                        <tr>
-                          <td className="px-4 py-1.5 text-muted-fg" colSpan={2}>Lines</td>
-                          <td className="px-4 py-1.5 text-right text-ink-soft tabular-nums">${rec.linesTotal.toLocaleString()}</td>
-                        </tr>
-                        {invoice.tax != null && Number(invoice.tax) !== 0 && (
-                          <tr>
-                            <td className="px-4 py-1.5 text-muted-fg" colSpan={2}>Tax</td>
-                            <td className="px-4 py-1.5 text-right text-ink-soft tabular-nums">${Number(invoice.tax).toLocaleString()}</td>
-                          </tr>
-                        )}
-                        {invoice.retainage != null && Number(invoice.retainage) !== 0 && (
-                          <tr>
-                            <td className="px-4 py-1.5 text-muted-fg" colSpan={2}>Retainage withheld</td>
-                            <td className="px-4 py-1.5 text-right text-ink-soft tabular-nums">−${Number(invoice.retainage).toLocaleString()}</td>
-                          </tr>
-                        )}
-                        <tr className="font-semibold">
-                          <td className="px-4 py-2 text-ink" colSpan={2}>Invoice total</td>
-                          <td className={cn('px-4 py-2 text-right tabular-nums', rec.balanced ? 'text-ink' : 'text-warn')}>
-                            ${Number(invoice.amount).toLocaleString()}
-                          </td>
-                        </tr>
-                      </tfoot>
-                    </table>
-                  </div>
-                  {note && <p className="px-4 py-2 text-xs text-warn border-t border-line-soft">{note}</p>}
-                </div>
-              )
-            })()}
-
-            {/* The budget line this invoice moves, and what's left on it. */}
-            {invoice.subcontract_id && (() => {
-              const sub = subcontracts.find(s => s.id === invoice.subcontract_id)
-              return (
-                <BudgetDestinationBox
-                  destination={invoice.budget_line}
-                  subName={invoice.company_name}
-                  onCreateLine={sub ? () => createBudgetLine(sub) : undefined}
-                  creating={creatingLineFor === invoice.subcontract_id}
-                />
-              )
-            })()}
-
-            {/* Splitting this bill across lines. Offered on every invoice, not
-                only contract-linked ones - a supplier bill covering two trades
-                usually has no subcontract at all. */}
-            {budgetLines.length > 0 && (
-              <InvoiceSplit
-                invoiceAmount={Number(invoice.amount) || 0}
-                lines={budgetLines}
-                value={splits[invoice.id] ?? []}
-                onChange={rows => setSplits(prev => ({ ...prev, [invoice.id]: rows }))}
-                onSave={() => saveSplit(invoice)}
-                saving={savingSplit === invoice.id}
-                hasContractRoute={!!invoice.budget_line}
-              />
-            )}
-
-            {/* Vendor's invoice file - the sub has no account, so the GC attaches it here */}
-            <div className="rounded-lg border border-line bg-surface px-4 py-3 flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Vendor Invoice File</p>
-                {invoice.document_url
-                  ? <a href={invoice.document_url} target="_blank" rel="noopener noreferrer" className="text-sm text-accent-fg hover:underline inline-flex items-center gap-1 mt-1"><FileText className="h-3.5 w-3.5" /> {invoice.document_name || 'View file'}</a>
-                  : <p className="text-xs text-faint mt-1">No file attached. Upload the invoice the sub emailed or handed you.</p>}
-              </div>
-              <input type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" className="hidden"
-                ref={el => { invoiceDocRefs.current[invoice.id] = el }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleInvoiceDocUpload(invoice, f); e.target.value = '' }} />
-              <button type="button" disabled={uploadingDoc === invoice.id} onClick={() => invoiceDocRefs.current[invoice.id]?.click()}
-                className="flex items-center gap-2 rounded-md border border-muted2 bg-panel px-3 py-2 text-sm font-medium text-ink-soft hover:bg-surface hover:border-accent transition-colors disabled:opacity-50">
-                <Upload className="h-4 w-4 text-faint" />
-                {uploadingDoc === invoice.id ? 'Uploading…' : invoice.document_url ? 'Replace' : 'Upload invoice'}
-              </button>
-            </div>
-
-            {/* Lien Waiver Section */}
-            <div className="rounded-lg border border-line bg-surface px-4 py-3 space-y-3">
-              <p className="text-xs font-semibold text-muted-fg uppercase tracking-wide">Lien Waiver</p>
-
-              {invoice.status === 'paid' && !invoice.lien_waiver_url && (
-                <div className="flex items-start gap-2 rounded-md border border-warn/30 bg-warn-tint px-3 py-2 text-sm text-warn">
-                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-                  <span>Payment released - unconditional lien waiver required</span>
-                </div>
-              )}
-
-              {invoice.lien_waiver_url ? (
-                <div className="flex items-center gap-3 flex-wrap">
-                  <span className="whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-success-tint border border-success/30 text-success text-xs font-medium px-3 py-1">
-                    <CheckCircle2 className="h-3.5 w-3.5" />
-                    {invoice.lien_waiver_type === 'conditional' ? 'Conditional' : 'Unconditional'} Lien Waiver
-                  </span>
-                  {invoice.lien_waiver_uploaded_at && (
-                    <span className="text-xs text-faint">
-                      Uploaded {formatDate(invoice.lien_waiver_uploaded_at)}
-                    </span>
-                  )}
-                  <a
-                    href={invoice.lien_waiver_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs font-medium text-accent-fg hover:text-accent-fg underline underline-offset-2"
-                  >
-                    View Document
-                  </a>
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {/* Hidden file inputs */}
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                    className="hidden"
-                    ref={el => { conditionalInputRefs.current[invoice.id] = el }}
-                    onChange={e => {
-                      const file = e.target.files?.[0]
-                      if (file) handleLienWaiverUpload(invoice, 'conditional', file)
-                      e.target.value = ''
-                    }}
-                  />
-                  <input
-                    type="file"
-                    accept=".pdf,.doc,.docx,.png,.jpg,.jpeg"
-                    className="hidden"
-                    ref={el => { unconditionalInputRefs.current[invoice.id] = el }}
-                    onChange={e => {
-                      const file = e.target.files?.[0]
-                      if (file) handleLienWaiverUpload(invoice, 'unconditional', file)
-                      e.target.value = ''
-                    }}
-                  />
-                  <button
-                    type="button"
-                    disabled={uploadingWaiver === invoice.id}
-                    onClick={() => conditionalInputRefs.current[invoice.id]?.click()}
-                    className="flex items-center justify-center gap-2 rounded-md border border-muted2 bg-panel px-3 py-2 text-sm font-medium text-ink-soft hover:bg-surface hover:border-accent transition-colors disabled:opacity-50"
-                  >
-                    <Upload className="h-4 w-4 text-faint" />
-                    {uploadingWaiver === invoice.id ? 'Uploading...' : 'Upload Conditional Waiver'}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={uploadingWaiver === invoice.id}
-                    onClick={() => unconditionalInputRefs.current[invoice.id]?.click()}
-                    className="flex items-center justify-center gap-2 rounded-md border border-muted2 bg-panel px-3 py-2 text-sm font-medium text-ink-soft hover:bg-surface hover:border-accent transition-colors disabled:opacity-50"
-                  >
-                    <Upload className="h-4 w-4 text-faint" />
-                    {uploadingWaiver === invoice.id ? 'Uploading...' : 'Upload Unconditional Waiver'}
-                  </button>
-                </div>
-              )}
-            </div>
-
-            <div className="row-even lg:flex items-center gap-2 lg:flex-wrap">
-              <Link href={`/projects/${params.id}/invoices/${invoice.id}/print`} target="_blank">
-                <Button size="sm" variant="outline"><Printer className="h-3.5 w-3.5" /> View / Print</Button>
-              </Link>
-              {invoice.status === 'pending_approval' && (
-                <Button size="sm" disabled={updating === invoice.id} onClick={() => updateStatus(invoice, 'approved')}>
-                  <CheckCircle2 className="h-3.5 w-3.5" />{updating === invoice.id ? '...' : 'Approve'}
-                </Button>
-              )}
-              {invoice.status === 'approved' && (
-                <Button size="sm" variant="outline" disabled={updating === invoice.id} onClick={() => updateStatus(invoice, 'sent')}>
-                  <Send className="h-3.5 w-3.5" />{updating === invoice.id ? '...' : 'Queue for payment'}
-                </Button>
-              )}
-              {/* Paying straight from Approved is normal - plenty of shops
-                  approve a bill and cut the check the same day, and forcing a
-                  middle step just to record that made the status a lie. */}
-              {(invoice.status === 'approved' || invoice.status === 'sent') && (
-                <Button size="sm" disabled={updating === invoice.id} onClick={() => updateStatus(invoice, 'paid')}>
-                  <DollarSign className="h-3.5 w-3.5" />{updating === invoice.id ? '...' : 'Mark Paid'}
-                </Button>
-              )}
-              <button onClick={() => openEditInvoice(invoice)}
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-muted-fg hover:text-ink hover:bg-surface transition-colors">
-                <Pencil className="h-3.5 w-3.5" /> Edit
-              </button>
-              {/* Deletable at every status. A duplicate you already marked paid
-                  is exactly the one you need to remove, and hiding the button
-                  there just meant the wrong number stayed on the budget. The
-                  confirm says what it will do to the budget. */}
-              <button onClick={() => handleDeleteInvoice(invoice)}
-                className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-muted-fg hover:text-danger hover:bg-danger-tint transition-colors">
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </button>
-            </div>
-            {/* Said once, in the open. The first question anyone asked about
-                this step was "sent to who?" - which a tooltip nobody hovers
-                was never going to answer. */}
-            {invoice.status === 'approved' && (
-              <p className="mt-2 text-xs text-faint">
-                Queueing is optional - it records that the bill has gone to bookkeeping or into the
-                next payment run. Nothing is sent to the sub. You can mark it paid straight from here.
-              </p>
-            )}
-          </div>
-        )}
-      </div>
-    )
-  }
 
   return (
     <div className="p-0 lg:p-6 space-y-5">
@@ -1347,6 +960,37 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {shownBill ? (
+        <SubBillDetail
+          projectId={params.id}
+          invoice={shownBill}
+          status={STATUS_CONFIG[shownBill.status] ?? STATUS_CONFIG.pending_approval}
+          // Cost-plus always gets the markup controls; otherwise only once a
+          // rate is in use, so a fixed-price job never sees them.
+          showMarkup={costPlus || projectMarkup > 0 || shownBill.markup_pct != null || !!shownBill.markup_excluded}
+          projectMarkup={projectMarkup}
+          canBillClient={billingMode !== 'aia' && ACTUAL_STATUSES.has(shownBill.status)}
+          busy={updating === shownBill.id}
+          onStatus={next => updateStatus(shownBill, next)}
+          savingMarkup={savingMarkup === shownBill.id}
+          onMarkup={patch => saveMarkup(shownBill, patch)}
+          onCreateLine={shownSub ? () => createBudgetLine(shownSub) : undefined}
+          creatingLine={creatingLineFor === shownBill.subcontract_id}
+          budgetLines={budgetLines}
+          split={splits[shownBill.id] ?? []}
+          onSplit={rows => setSplits(prev => ({ ...prev, [shownBill.id]: rows }))}
+          onSaveSplit={() => saveSplit(shownBill)}
+          savingSplit={savingSplit === shownBill.id}
+          uploadingDoc={uploadingDoc === shownBill.id}
+          onUploadDoc={f => handleInvoiceDocUpload(shownBill, f)}
+          uploadingWaiver={uploadingWaiver === shownBill.id}
+          onUploadWaiver={(type, f) => handleLienWaiverUpload(shownBill, type, f)}
+          onEdit={() => openEditInvoice(shownBill)}
+          onDelete={() => handleDeleteInvoice(shownBill)}
+          onBack={closeBill}
+        />
+      ) : (
+      <>
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Bills from subs</h1>
@@ -1506,23 +1150,68 @@ export default function InvoicesPage({ params }: { params: { id: string } }) {
           {pending.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">Pending Approval ({pending.length})</p>
-              <div className={GROUP}>{pending.map(i => <InvoiceCard key={i.id} invoice={i} />)}</div>
+              <div className={GROUP}>{pending.map(i => <BillRow key={i.id} invoice={i} onOpen={() => openBill(i.id)} />)}</div>
             </div>
           )}
           {active.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">Active ({active.length})</p>
-              <div className={GROUP}>{active.map(i => <InvoiceCard key={i.id} invoice={i} />)}</div>
+              <div className={GROUP}>{active.map(i => <BillRow key={i.id} invoice={i} onOpen={() => openBill(i.id)} />)}</div>
             </div>
           )}
           {paid.length > 0 && (
             <div className="space-y-2">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">Paid ({paid.length})</p>
-              <div className={GROUP}>{paid.map(i => <InvoiceCard key={i.id} invoice={i} />)}</div>
+              <div className={GROUP}>{paid.map(i => <BillRow key={i.id} invoice={i} onOpen={() => openBill(i.id)} />)}</div>
             </div>
           )}
         </div>
       )}
+      </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * One bill in the list. Opens the bill as a screen of its own.
+ *
+ * PHONE: a row in the group's one card - no icon column, no tint, the card
+ * border lives on the group. DESKTOP (lg+): the bordered card it was.
+ */
+function BillRow({ invoice, onOpen }: { invoice: Invoice; onOpen: () => void }) {
+  const cfg = STATUS_CONFIG[invoice.status] ?? STATUS_CONFIG.pending_approval
+  return (
+    <div className={cn('lg:rounded-xl lg:border lg:bg-panel lg:overflow-hidden', invoice.status === 'pending_approval' ? 'lg:border-warn/30' : 'lg:border-line')}>
+      <button type="button" className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface transition-colors text-left lg:gap-4 lg:px-5 lg:py-4"
+        onClick={onOpen}>
+        <Receipt className="hidden h-5 w-5 text-faint shrink-0 lg:block" />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-mono text-muted-fg">{invoice.invoice_number}</span>
+            <span className="font-semibold text-ink break-words">{invoice.company_name}</span>
+            <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
+            {/* Which line it hits, readable without opening the bill. */}
+            {invoice.budget_line ? (
+              <span className="inline-flex items-center gap-1 text-xs text-faint min-w-0">
+                <Wallet className="h-3 w-3 shrink-0" />
+                <span className="truncate">{invoice.budget_line.category}</span>
+              </span>
+            ) : invoice.subcontract_id ? (
+              <span className="whitespace-nowrap inline-flex items-center gap-1 text-xs font-medium rounded-full border border-warn/30 bg-warn-tint text-warn px-2 py-0.5">
+                <AlertTriangle className="h-3 w-3 shrink-0" /> Not on the budget
+              </span>
+            ) : null}
+          </div>
+          <p className="text-xs text-faint mt-0.5 break-words">
+            ${Number(invoice.amount).toLocaleString()}
+            {invoice.description && ` · ${invoice.description}`}
+            {invoice.due_date && ` · Due ${formatDate(invoice.due_date)}`}
+          </p>
+        </div>
+        <div className="hidden sm:block text-sm font-bold text-ink shrink-0">${Number(invoice.amount).toLocaleString()}</div>
+        <ChevronRight className="h-4 w-4 text-faint shrink-0" />
+      </button>
     </div>
   )
 }

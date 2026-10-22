@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-22',
+    title: 'A bill is a screen of its own',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Bills from subs and client invoices open on their own page',
+        text: 'Tap a sub\'s bill and it opens: who and how much at the top, when it is due and how many days are left, a track of where it has got to (Received, Approved, Queued, Paid), and one big button for the next step. Its documents, what to bill the client, the budget line and the line items each have a card of their own. Invoices to your client open the same way - what is still owed, when they opened their link, and Record payment. On a phone the main button stays at the bottom of the screen.',
+        help: 'approve-invoice',
+      },
+    ],
+  },
+  {
+    date: '2026-10-22',
     title: 'Choose your QuickBooks accounts',
     items: [
       {

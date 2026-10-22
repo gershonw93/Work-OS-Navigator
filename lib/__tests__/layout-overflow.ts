@@ -358,7 +358,8 @@ for (const f of tsx) {
 // The floor is not zero and the test should not pretend it is: a vendor-by-
 // vendor quote comparison, the permissions matrix and an AIA schedule of values
 // are tables because the DATA is a grid, and those scroll inside themselves.
-ok(phoneTables.length <= 9,
+// 7: a sub's bill lists its line items as rows now, not a table.
+ok(phoneTables.length <= 7,
   `${phoneTables.length} tables still render on a phone (was 16, and this may only go down)`)
 // Compliance, Settings and the Directory keep their tables FOR THE DESKTOP,
 // which was not asked to change, under `hidden lg:block`; the phone gets the
