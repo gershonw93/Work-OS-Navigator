@@ -1,17 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ClientInvoices } from '@/components/projects/client-invoices'
 import { PaymentRequests } from '@/components/projects/payment-requests'
 import { PaymentAllocations, type PayableInvoice } from '@/components/projects/payment-allocations'
 import { allocationProblem, cents, dollars, spreadPayment } from '@/lib/invoice-settlement'
-import { Button } from '@/components/ui/button'
+import { Button, buttonClasses } from '@/components/ui/button'
+import { DetailRows, DetailSection } from '@/components/bills/detail-parts'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import Link from 'next/link'
-import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check, Landmark, ArrowRight, Loader2 } from 'lucide-react'
+import { Plus, X, Wallet, Trash2, Pencil, Check, ArrowRight, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toAmountInput } from '@/lib/validate'
 import { usePermissions } from '@/lib/use-permissions'
@@ -49,7 +50,13 @@ const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maxi
 const blank = { paid_date: '', amount: '', method: 'Check', memo: '', reference: '', retainer: false, qb_entered: false, on_account: false }
 const METHODS = ['Check', 'QuickPay', 'Wire', 'ACH', 'Cash', 'CC', 'Other']
 
+// useOpenRecord reads `?open=` through useSearchParams, which needs a Suspense
+// boundary at the route level - the same shape as the Change Orders page.
 export default function PaymentsPage({ params }: { params: { id: string } }) {
+  return <Suspense fallback={null}><PaymentsPageInner params={params} /></Suspense>
+}
+
+function PaymentsPageInner({ params }: { params: { id: string } }) {
   const notify = useNotice()
   const supabase = createClient()
   const { can: canDo, loading: permLoading } = usePermissions()
@@ -366,17 +373,6 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
   const s = summary
 
-  const cards = [
-    { label: 'Funds Received', value: s?.received ?? 0, icon: Banknote, color: 'text-success', bg: 'bg-success-tint' },
-    { label: `Contractor Fee (${(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}%)`, value: s?.feeEarned ?? 0, icon: Percent, color: 'text-info', bg: 'bg-info-tint' },
-    { label: 'Paid to Vendors', value: s?.vendorPaid ?? 0, icon: TrendingDown, color: 'text-ink', bg: 'bg-panel' },
-    {
-      label: 'Escrow Balance', value: s?.escrowBalance ?? 0, icon: Landmark,
-      color: (s?.escrowBalance ?? 0) < 0 ? 'text-danger' : 'text-accent-fg',
-      bg: (s?.escrowBalance ?? 0) < 0 ? 'bg-danger-tint' : 'bg-accent-tint/50',
-    },
-  ]
-
   // Add form - modal so it's front-and-center, not buried at the bottom. A
   // variable, because an open invoice's screen records payments through it too.
   const paymentDialog = adding && (
@@ -452,161 +448,167 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     )
   }
 
+  const feeLabel = `${(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}%`
+  const escrow = s?.escrowBalance ?? 0
+  const owedVendors = s?.outstandingToVendors ?? 0
+  // `available` is clamped once and used for BOTH halves of the sentence. It
+  // used to say "only $0 is available" (clamped) and then "you're short
+  // $35,000" (unclamped) in the same breath - subtracting a NEGATIVE escrow
+  // balance added the $10,000 already paid back on top of the $25,000 owed.
+  const available = Math.max(escrow, 0)
+  const enough = owedVendors > 0 && available >= owedVendors
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Billing the client</h1>
-          <p className="text-sm text-muted-fg mt-0.5">
-            Money <span className="font-medium text-ink-soft">in</span> from the client - deposits and draws you have
-            received - your fee, and what is left to pay vendors.
-          </p>
-          <p className="text-xs text-faint mt-1">
-            Bills your subs sent <span className="font-medium">you</span> go on{' '}
-            <a href={`/projects/${params.id}/invoices`} className="text-accent-fg hover:underline">Bills from subs</a>. Raise
-            what the client owes below, then record their payments against it here.
-          </p>
-        </div>
-        <Button onClick={() => setAdding(v => !v)} className="gap-1.5"><Plus className="h-4 w-4" /> Record Payment</Button>
-      </div>
-
-      {/* Escrow summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {cards.map(c => { const Icon = c.icon; return (
-          <div key={c.label} className={cn('rounded-xl border border-line p-4', c.bg)}>
-            <div className="flex items-center gap-2 mb-2"><Icon className={cn('h-4 w-4', c.color)} /><p className="text-xs font-medium text-muted-fg">{c.label}</p></div>
-            <p className={cn('text-2xl font-bold', c.color)}>{money(c.value)}</p>
-          </div>
-        )})}
-      </div>
-
-      {/* Pay-vendors recommendation.
-          `available` is clamped once and used for BOTH halves of the sentence
-          below. It used to say "only $0 is available" (clamped) and then
-          "you're short $35,000" (unclamped) in the same breath - subtracting a
-          NEGATIVE escrow balance added the $10,000 already paid back on top of
-          the $25,000 owed. Two figures for one fact, a comma apart. */}
-      {s && s.outstandingToVendors > 0 && (
-        (() => {
-          const available = Math.max(s.escrowBalance, 0)
-          return available >= s.outstandingToVendors ? (
-          <div className="rounded-xl border border-success/30 bg-success-tint px-4 py-3 flex flex-wrap items-center gap-3">
-            <Banknote className="h-5 w-5 text-success shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-ink">You have enough to pay your vendors.</p>
-              <p className="text-sm text-muted-fg">
-                {money(s.escrowBalance)} in escrow covers the {money(s.outstandingToVendors)} still owed. Go ahead and release payment.
-              </p>
-            </div>
-            <a href={`/projects/${params.id}/invoices`} className="shrink-0 rounded-lg bg-success-solid text-white text-sm font-semibold px-3.5 py-2 hover:opacity-90">
-              Pay vendors →
-            </a>
-          </div>
-        ) : (
-          <div className="rounded-xl border border-warn/30 bg-warn-tint px-4 py-3 flex flex-wrap items-center gap-3">
-            <TrendingDown className="h-5 w-5 text-warn shrink-0" />
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-semibold text-ink">Hold off - not enough in escrow yet.</p>
-              <p className="text-sm text-muted-fg">
-                {money(s.outstandingToVendors)} is owed to vendors but only {money(available)} is available. You&apos;re short {money(s.outstandingToVendors - available)} - collect from the client first.
-              </p>
-            </div>
-          </div>
-        )
-        })()
-      )}
-
-      {/* Secondary stats + fee setting */}
-      <div className="bg-panel rounded-xl border border-line p-4 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-        <Stat label="Paid from escrow" value={money(s?.escrowPaid ?? 0)} />
-        <Stat label="Client paid direct" value={money(s?.clientPaidDirect ?? 0)} />
-        <Stat label="Vendor billed" value={money(s?.vendorBilled ?? 0)} />
-        <Stat label="Outstanding to vendors" value={money(s?.outstandingToVendors ?? 0)} cls={(s?.outstandingToVendors ?? 0) > 0 ? 'text-warn' : ''} />
-        {/* The markup, under another name - same permission as the Budget
-            tab's margin panel, or a project manager loses it on one screen and
-            reads it off the other. */}
-        {canSeeMargin && <div>
-          <p className="text-xs text-faint mb-0.5">Contractor fee rate</p>
-          {feeEditing ? (
-            <div className="flex items-center gap-1">
-              <Input className="w-20 h-8" value={feeInput} onChange={e => setFeeInput(e.target.value)} placeholder="15" />
-              <span className="text-sm text-muted-fg">%</span>
-              <button onClick={saveFee} className="p-1 text-success"><Check className="h-4 w-4" /></button>
-              <button onClick={() => setFeeEditing(false)} className="p-1 text-faint"><X className="h-4 w-4" /></button>
-            </div>
-          ) : (
-            <button onClick={() => { setFeeInput(toAmountInput(feePct * 100)); setFeeEditing(true) }} className="inline-flex items-center gap-1.5 font-semibold text-ink-soft hover:text-accent-fg">
-              {(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}% <Pencil className="h-3 w-3 text-faint" />
-            </button>
-          )}
-        </div>}
-      </div>
-
-      {/* Billing the client. This is the half that was missing: Payments only
-          ever recorded money that had already arrived.
-
-          Not shown on AIA jobs - there the claim goes out as a pay application,
-          and two ways to bill the same client for the same work is how the
-          numbers stop agreeing. */}
-      {/* Asking for money that has no costs behind it yet. Above the invoice
-          section because it comes first in the job: the deposit is what you ask
-          for before there is anything to bill. Shown on BOTH billing modes -
-          a pay application bills work in place, and a deposit is not work in
-          place. */}
-      <PaymentRequests projectId={params.id} onSettle={settleRequest} reloadKey={requestsKey} />
-
-      {billingMode !== null && (isAia ? (
-        <div className="bg-panel rounded-xl border border-line p-4">
-          <p className="font-semibold text-ink">Billing your client</p>
+    <div className="mx-auto flex max-w-[1180px] flex-col gap-4 lg:gap-5">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h1 className="text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">Billing the client</h1>
           <p className="mt-1 text-sm text-muted-fg">
-            This is an AIA job, so what the client owes for work done is raised as a pay application
-            rather than an invoice from here. Deposits and stage payments are asked for above, and the
-            money they send you is recorded above too.
+            Money <span className="font-medium text-ink-soft">in</span> from the client, your fee, and what is left to
+            pay vendors. Bills your subs sent <span className="font-medium text-ink-soft">you</span> are on{' '}
+            <a href={`/projects/${params.id}/invoices`} className="font-medium text-accent-fg hover:underline">Bills from subs</a>.
           </p>
-          <Link
-            href={`/projects/${params.id}/pay-apps`}
-            className="mt-3 inline-flex items-center gap-1.5 text-sm font-semibold text-accent-fg hover:underline"
-          >
-            Go to Pay Apps <ArrowRight className="h-3.5 w-3.5" />
-          </Link>
         </div>
-      ) : (
-        invoices
-      ))}
+        <Button size="lg" onClick={() => setAdding(v => !v)} className="h-11 shrink-0 rounded-[10px] px-5">
+          <Plus className="h-4 w-4" /> Record payment
+        </Button>
+      </div>
 
-      {/* Projections */}
-      <div className="bg-panel rounded-xl border border-line p-4">
-        <p className="text-xs font-semibold uppercase tracking-wide text-faint mb-3">Projections</p>
-        {/* Three money figures with labels this long do not fit a phone -
-            "$1,240,000" under "Projected going forward" in a 110px column
-            wraps into an unreadable stack. Two up, then three. */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-          <Stat label="Projected job cost" value={money(s?.projectedCost ?? 0)} />
-          <Stat label="Invoiced already" value={money(s?.invoicedAlready ?? 0)} />
-          <Stat label="Projected going forward" value={money(s?.projectedGoingForward ?? 0)} cls="text-accent-fg" />
+      {/* THE ONE NUMBER, AND WHAT IT MEANS. Four tiles in four colours said
+          four things at equal volume; the question this page is opened to
+          answer is "can I pay my subs?", so escrow is the headline and the
+          answer sits under it. Colour only where it means something. */}
+      <section className="flex flex-col gap-5 rounded-2xl border border-line bg-panel p-5 lg:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <div className="text-xs font-medium text-muted-fg lg:text-[13px]">Escrow balance</div>
+            <div className={cn('text-[32px] font-bold leading-tight tracking-tight tabular-nums lg:text-4xl lg:leading-none',
+              escrow < 0 ? 'text-danger' : 'text-ink')}>{money(escrow)}</div>
+            <p className="mt-2 text-sm text-muted-fg">
+              {owedVendors <= 0 ? (
+                <>Nothing is owed to vendors right now.</>
+              ) : enough ? (
+                <><span className="font-semibold text-success">You have enough to pay your vendors.</span>{' '}
+                  {money(escrow)} in escrow covers the {money(owedVendors)} still owed. Go ahead and release payment.</>
+              ) : (
+                <><span className="font-semibold text-warn">Hold off - not enough in escrow yet.</span>{' '}
+                  {money(owedVendors)} is owed to vendors but only {money(available)} is available. You&apos;re short {money(owedVendors - available)} - collect from the client first.</>
+              )}
+            </p>
+          </div>
+          {enough && (
+            <Link href={`/projects/${params.id}/invoices`} className={cn(buttonClasses('outline', 'lg'), 'h-11 shrink-0 rounded-[10px] px-4')}>
+              Pay vendors <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
         </div>
-        <p className="text-xs text-faint mt-2">Projected cost = Budget × (1 + {(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}% fee). Set budget lines on the Budget tab.</p>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-line-soft pt-4 lg:grid-cols-4">
+          <Figure label="Funds received" value={money(s?.received ?? 0)} />
+          <Figure label={`Contractor fee (${feeLabel})`} value={money(s?.feeEarned ?? 0)} />
+          <Figure label="Paid to vendors" value={money(s?.vendorPaid ?? 0)} />
+          <Figure label="Still owed to vendors" value={money(owedVendors)} cls={owedVendors > 0 ? 'text-warn' : undefined} />
+        </div>
+      </section>
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-1 lg:gap-5">
+          {/* Asking for money that has no costs behind it yet. Above the
+              invoices because it comes first in the job: the deposit is what you
+              ask for before there is anything to bill. Shown on BOTH billing
+              modes - a pay application bills work in place, and a deposit is
+              not work in place. */}
+          <PaymentRequests projectId={params.id} onSettle={settleRequest} reloadKey={requestsKey} />
+
+          {/* Billing the client. Not shown on AIA jobs - there the claim goes
+              out as a pay application, and two ways to bill the same client for
+              the same work is how the numbers stop agreeing. */}
+          {billingMode !== null && (isAia ? (
+            <section className="flex flex-col gap-2 rounded-2xl border border-line bg-panel p-5 lg:p-6">
+              <h2 className="text-base font-semibold text-ink lg:text-[17px]">Billing your client</h2>
+              <p className="text-sm text-muted-fg">
+                This is an AIA job, so what the client owes for work done is raised as a pay application
+                rather than an invoice from here. Deposits and stage payments are asked for above, and the
+                money they send you is recorded here too.
+              </p>
+              <Link
+                href={`/projects/${params.id}/pay-apps`}
+                className="inline-flex min-h-11 items-center gap-1.5 self-start text-sm font-semibold text-accent-fg hover:underline lg:min-h-0"
+              >
+                Go to Pay Apps <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </section>
+          ) : (
+            invoices
+          ))}
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4 lg:w-[340px] lg:shrink-0 lg:gap-5">
+          <DetailSection title="Escrow">
+            <DetailRows rows={[
+              { label: 'Paid from escrow', value: money(s?.escrowPaid ?? 0) },
+              { label: 'Client paid vendors direct', value: money(s?.clientPaidDirect ?? 0) },
+              { label: 'Vendors have billed', value: money(s?.vendorBilled ?? 0) },
+              { label: 'Still owed to vendors', value: <span className={owedVendors > 0 ? 'font-semibold text-warn' : undefined}>{money(owedVendors)}</span> },
+              // The markup, under another name - same permission as the Budget
+              // tab's margin panel, or a project manager loses it on one screen
+              // and reads it off the other.
+              ...(canSeeMargin ? [{
+                label: 'Contractor fee rate',
+                value: feeEditing ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Input className="h-9 w-20" inputMode="decimal" aria-label="Contractor fee rate" value={feeInput} onChange={e => setFeeInput(e.target.value)} placeholder="15" />
+                    <span className="text-sm text-muted-fg">%</span>
+                    <button type="button" onClick={saveFee} aria-label="Save the fee rate" className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-success hover:bg-surface"><Check className="h-4 w-4" /></button>
+                    <button type="button" onClick={() => setFeeEditing(false)} aria-label="Cancel" className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-faint hover:bg-surface"><X className="h-4 w-4" /></button>
+                  </span>
+                ) : (
+                  <button type="button" onClick={() => { setFeeInput(toAmountInput(feePct * 100)); setFeeEditing(true) }}
+                    className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-ink hover:text-accent-fg lg:min-h-0">
+                    {feeLabel} <Pencil className="h-3.5 w-3.5 text-faint" />
+                  </button>
+                ),
+              }] : []),
+            ]} />
+          </DetailSection>
+
+          <DetailSection title="Projections">
+            <DetailRows rows={[
+              { label: 'Projected job cost', value: money(s?.projectedCost ?? 0) },
+              { label: 'Invoiced already', value: money(s?.invoicedAlready ?? 0) },
+              { label: 'Still to invoice', value: <span className="font-semibold text-accent-fg">{money(s?.projectedGoingForward ?? 0)}</span> },
+            ]} />
+            <p className="text-xs text-muted-fg">Projected cost = Budget × (1 + {feeLabel} fee). Set budget lines on the Budget tab.</p>
+          </DetailSection>
+        </div>
       </div>
 
       {paymentDialog}
 
+      <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-5 lg:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold text-ink lg:text-[17px]">Payments received</h2>
+        {payments.length > 0 && <span className="text-sm text-muted-fg"><span className="font-semibold tabular-nums text-ink">{money(s?.received ?? 0)}</span> in total</span>}
+      </div>
       {pendingPayment && (
-        <div className="flex items-center gap-2 rounded-xl border border-line bg-panel px-4 py-3 text-sm text-ink-soft" role="status">
+        <div className="flex items-center gap-2 rounded-xl bg-surface px-4 py-3 text-sm text-ink-soft" role="status">
           <Loader2 className="h-4 w-4 animate-spin text-muted-fg" /> Saving the {pendingPayment} payment and sending it to QuickBooks - you can keep working.
         </div>
       )}
 
       {/* Ledger */}
       {payments.length === 0 && !pendingPayment ? (
-        <div className="bg-panel rounded-xl border border-line p-10 text-center"><Wallet className="h-8 w-8 text-faint mx-auto mb-3" /><p className="text-sm text-muted-fg">No client payments recorded yet.</p></div>
+        <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-muted2 px-6 py-8 text-center">
+          <Wallet className="h-7 w-7 text-faint" />
+          <p className="text-sm text-muted-fg">No client payments recorded yet. Record payment, above, logs a deposit or a check the moment it arrives.</p>
+        </div>
       ) : (
-        <div className="bg-panel rounded-xl border border-line overflow-hidden">
-          <div className="hidden md:grid grid-cols-[7rem_1fr_8rem_1fr_7.5rem_3rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
+        <div className="-mx-5 border-t border-line-soft lg:-mx-6">
+          <div className="hidden md:grid grid-cols-[7rem_1fr_8rem_1fr_7.5rem_3rem] gap-2 px-5 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide lg:px-6">
             <span>Date</span><span>Reference / memo</span><span>Method</span><span className="text-right">Amount</span><span>QB</span><span />
           </div>
           <div className="divide-y divide-line-soft">
             {payments.map(p => editingId === p.id ? (
-              <div key={p.id} className="px-4 py-3 grid grid-cols-2 sm:grid-cols-6 gap-2 bg-accent-tint/30 items-center">
+              <div key={p.id} className="px-5 py-3 grid grid-cols-2 sm:grid-cols-6 gap-2 bg-accent-tint/30 items-center lg:px-6">
                 <Input type="date" value={editForm.paid_date} onChange={e => setEditForm({ ...editForm, paid_date: e.target.value })} />
                 <Input value={editForm.reference} onChange={e => setEditForm({ ...editForm, reference: e.target.value })} placeholder="Reference / check #" />
                 <Input value={editForm.memo} onChange={e => setEditForm({ ...editForm, memo: e.target.value })} placeholder="Memo" />
@@ -620,9 +622,9 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                 </div>
               </div>
             ) : (
-              <div key={p.id} className="group md:grid md:grid-cols-[7rem_1fr_8rem_1fr_7.5rem_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface">
-                <span className="text-sm text-ink-soft">{p.paid_date ? formatDate(p.paid_date) : '-'}</span>
-                <span className="text-sm text-ink-soft truncate">
+              <div key={p.id} className="group flex flex-wrap items-center gap-x-3 gap-y-1 px-5 py-3 hover:bg-surface md:grid md:grid-cols-[7rem_1fr_8rem_1fr_7.5rem_3rem] md:gap-2 lg:px-6">
+                <span className="basis-full text-xs text-muted-fg md:basis-auto md:text-sm md:text-ink-soft">{p.paid_date ? formatDate(p.paid_date) : '-'}</span>
+                <span className="min-w-0 basis-full text-sm text-ink-soft md:basis-auto md:truncate">
                   {p.reference && <span className="font-medium text-ink">{p.reference}</span>}
                   {p.reference && p.memo ? ' · ' : ''}
                   {p.memo || (p.reference ? '' : '-')}
@@ -640,27 +642,27 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                     </span>
                   )}
                 </span>
-                <span className="text-sm text-muted-fg">{p.method || '-'}</span>
-                <span className="text-sm font-semibold text-success md:text-right block">{money(p.amount)}</span>
+                <span className="hidden text-sm text-muted-fg md:block">{p.method || '-'}</span>
+                <span className="mr-auto shrink-0 text-sm font-semibold tabular-nums text-ink md:mr-0 md:block md:text-right">{money(p.amount)}</span>
                 {/* Two different truths, shown differently. qbo_id means the
                     sync actually pushed it - a fact, so not clickable. The
                     hand-tick stays for people who type into QuickBooks
                     themselves, and stays a toggle because it is their claim. */}
                 {p.qbo_id ? (
                   <span title={`In QuickBooks - search for ${p.reference || 'SN-' + p.id.slice(0, 8)} or the memo`}
-                    className="whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
+                    className="justify-self-start whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
                     <Check className="h-3 w-3" /> QB ✓
                   </span>
                 ) : p.payment_group_id ? (
                   <span className="text-xs text-faint">-</span>
                 ) : p.qb_error ? (
                   <button onClick={() => retryQb(p)} title={`QuickBooks refused it: ${p.qb_error} - fix that, then press to retry`}
-                    className="whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-danger/40 bg-danger-tint px-2 py-0.5 text-danger">
+                    className="justify-self-start whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-danger/40 bg-danger-tint px-2 py-0.5 text-danger">
                     QB failed - retry
                   </button>
                 ) : (
                   <button onClick={() => toggleQb(p)} title="Mark as entered in QuickBooks by hand"
-                    className={cn('whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
+                    className={cn('justify-self-start whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
                       p.qb_entered ? 'border-success/40 bg-success-tint text-success' : 'border-line text-faint hover:border-muted2 hover:text-muted-fg')}>
                     {p.qb_entered ? <><Check className="h-3 w-3" /> QB</> : 'QB?'}
                   </button>
@@ -668,23 +670,29 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                 {p.payment_group_id ? (
                   <span className="text-right text-[11px] leading-tight text-faint" title="Part of one check split across houses - change or delete it from the development">Split check</span>
                 ) : (
-                <div className="flex justify-end gap-1 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                  <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: toAmountInput(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', reference: p.reference ?? '', retainer: p.retainer, qb_entered: p.qb_entered, on_account: !!p.on_account }) }} className="p-1.5 rounded-lg text-faint hover:bg-muted"><Pencil className="h-3.5 w-3.5" /></button>
-                  <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger"><Trash2 className="h-3.5 w-3.5" /></button>
+                <div className="flex justify-end gap-1 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+                  <button onClick={() => { setEditingId(p.id); setEditForm({ paid_date: p.paid_date ?? '', amount: toAmountInput(p.amount), method: p.method ?? 'Check', memo: p.memo ?? '', reference: p.reference ?? '', retainer: p.retainer, qb_entered: p.qb_entered, on_account: !!p.on_account }) }} aria-label="Edit this payment" title="Edit this payment" className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:bg-muted md:h-8 md:w-8"><Pencil className="h-3.5 w-3.5" /></button>
+                  <button onClick={() => remove(p)} aria-label="Delete this payment" title="Delete this payment" className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-faint hover:bg-danger-tint hover:text-danger md:h-8 md:w-8"><Trash2 className="h-3.5 w-3.5" /></button>
                 </div>
                 )}
               </div>
             ))}
           </div>
-          <div className="hidden md:grid grid-cols-[7rem_1fr_8rem_1fr_7.5rem_3rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
-            <span>Total</span><span /><span /><span className="text-right text-success">{money(s?.received ?? 0)}</span><span /><span />
+          <div className="hidden md:grid grid-cols-[7rem_1fr_8rem_1fr_7.5rem_3rem] gap-2 px-5 py-3 border-t border-line text-sm font-bold text-ink lg:px-6">
+            <span>Total</span><span /><span /><span className="text-right tabular-nums">{money(s?.received ?? 0)}</span><span /><span />
           </div>
         </div>
       )}
+      </section>
     </div>
   )
 }
 
-function Stat({ label, value, cls }: { label: string; value: string; cls?: string }) {
-  return <div><p className="text-xs text-faint mb-0.5">{label}</p><p className={cn('font-semibold text-ink-soft', cls)}>{value}</p></div>
+function Figure({ label, value, cls }: { label: string; value: string; cls?: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="text-xs text-muted-fg lg:text-[13px]">{label}</div>
+      <div className={cn('truncate text-lg font-bold tabular-nums text-ink lg:text-[22px]', cls)}>{value}</div>
+    </div>
+  )
 }

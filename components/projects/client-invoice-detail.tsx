@@ -33,10 +33,11 @@ export interface ClientBill {
   client_invoice_lines: { id: string; description: string; cost: number; markup_pct: number; markup: number; amount: number }[]
 }
 
-const TONE: Record<string, PillTone> = {
+/** One word per state, shared with the list so a row and its screen agree. */
+export const CLIENT_STATUS_TONE: Record<string, PillTone> = {
   draft: 'muted', sent: 'info', 'partly paid': 'warn', paid: 'success', void: 'danger',
 }
-const LABEL: Record<string, string> = {
+export const CLIENT_STATUS_LABEL: Record<string, string> = {
   draft: 'Draft', sent: 'Issued', 'partly paid': 'Part paid', paid: 'Paid', void: 'Void',
 }
 
@@ -108,10 +109,10 @@ export function ClientInvoiceDetail(p: ClientInvoiceDetailProps) {
         <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between lg:gap-6">
           <div className="flex min-w-0 flex-col gap-2.5">
             <div className="flex flex-wrap items-center gap-2">
-              <Pill tone={TONE[p.shownStatus] ?? 'muted'} icon={paid ? <Check className="h-3.5 w-3.5" /> : undefined}>
-                {LABEL[p.shownStatus] ?? p.shownStatus}
+              <Pill tone={CLIENT_STATUS_TONE[p.shownStatus] ?? 'muted'} icon={paid ? <Check className="h-3.5 w-3.5" /> : undefined}>
+                {CLIENT_STATUS_LABEL[p.shownStatus] ?? p.shownStatus}
               </Pill>
-              <span className="hidden font-mono text-[13px] text-muted-fg lg:inline">{bill.invoice_number}</span>
+              <span className="hidden text-[13px] tabular-nums text-muted-fg lg:inline">{bill.invoice_number}</span>
               {p.qb.show && (
                 p.qb.retry === 'void' ? (
                   <button type="button" title={p.qb.title} onClick={p.onRetryVoid} disabled={p.busy}
@@ -131,7 +132,7 @@ export function ClientInvoiceDetail(p: ClientInvoiceDetailProps) {
             <h1 className="break-words text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">
               {p.clientName || `Invoice ${bill.invoice_number}`}
             </h1>
-            <div className="font-mono text-[13px] text-muted-fg lg:hidden">{bill.invoice_number}</div>
+            <div className="text-[13px] tabular-nums text-muted-fg lg:hidden">{bill.invoice_number}</div>
           </div>
           <div className="flex items-end justify-between gap-3 border-t border-line-soft pt-3.5 lg:flex-col lg:items-end lg:gap-1 lg:border-0 lg:pt-0">
             <div className="lg:text-right">
@@ -212,7 +213,7 @@ export function ClientInvoiceDetail(p: ClientInvoiceDetailProps) {
             <SumTiles tiles={[
               { label: 'Invoice total', value: money(p.total) },
               { label: 'Paid so far', value: money(paidSoFar) },
-              { label: paid ? 'Settled' : 'Still owed', value: money(isVoid ? 0 : p.owed), strong: true },
+              { label: 'Still owed', value: money(isVoid ? 0 : p.owed), strong: true },
             ]} />
             {canCredit && (
               <div className="flex flex-col gap-2 lg:hidden">
@@ -265,8 +266,13 @@ export function ClientInvoiceDetail(p: ClientInvoiceDetailProps) {
             }>
               {p.shareable ? (
                 <div className="flex flex-col gap-2">
-                  <Button variant="outline" onClick={p.onEmail} className="h-11 justify-start rounded-[10px]">
-                    <Mail className="h-4 w-4" /> {p.clientEmail ? `Email it to ${p.clientEmail}` : 'Email it to the client'}
+                  {/* A long address must not run out of the button: the label
+                      truncates (with the whole address on hover) rather than
+                      the button's no-wrap pushing it over the card edge. */}
+                  <Button variant="outline" onClick={p.onEmail} title={p.clientEmail ? `Email it to ${p.clientEmail}` : undefined}
+                    className="h-11 min-w-0 justify-start rounded-[10px]">
+                    <Mail className="h-4 w-4 shrink-0" />
+                    <span className="min-w-0 truncate">{p.clientEmail ? `Email it to ${p.clientEmail}` : 'Email it to the client'}</span>
                   </Button>
                   <div className="grid grid-cols-2 gap-2">
                     <Button variant="outline" onClick={p.onCopy} className="h-11 rounded-[10px]">

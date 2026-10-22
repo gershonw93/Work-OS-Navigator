@@ -160,11 +160,11 @@ export function SubBillDetail(p: SubBillDetailProps) {
               <Pill tone={p.status.tone} icon={paid || invoice.status === 'approved' ? <CheckCircle2 className="h-3.5 w-3.5" /> : undefined}>
                 {p.status.label}
               </Pill>
-              <span className="hidden font-mono text-[13px] text-muted-fg lg:inline">{invoice.invoice_number}</span>
+              <span className="hidden text-[13px] tabular-nums text-muted-fg lg:inline">{invoice.invoice_number}</span>
               {trade && <><span className="hidden text-faint lg:inline" aria-hidden="true">·</span><span className="text-[13px] text-muted-fg">{trade}</span></>}
             </div>
             <h1 className="break-words text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">{invoice.company_name}</h1>
-            <div className="font-mono text-[13px] text-muted-fg lg:hidden">{invoice.invoice_number}</div>
+            <div className="text-[13px] tabular-nums text-muted-fg lg:hidden">{invoice.invoice_number}</div>
           </div>
           <div className="flex items-end justify-between gap-3 border-t border-line-soft pt-3.5 lg:flex-col lg:items-end lg:gap-1 lg:border-0 lg:pt-0">
             <div className="lg:text-right">

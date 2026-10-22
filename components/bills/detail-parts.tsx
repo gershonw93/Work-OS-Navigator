@@ -89,7 +89,7 @@ export function DetailRows({ rows }: { rows: { label: string; value: ReactNode; 
       {rows.map(r => (
         <div key={r.label} className="flex justify-between gap-3 py-2.5 first:pt-0 last:pb-0">
           <dt className="shrink-0 text-muted-fg">{r.label}</dt>
-          <dd className={cn('min-w-0 text-right text-ink break-words', r.mono && 'font-mono text-[13px]')}>{r.value}</dd>
+          <dd className={cn('min-w-0 text-right text-ink break-words', r.mono && 'text-[13px] tabular-nums')}>{r.value}</dd>
         </div>
       ))}
     </dl>

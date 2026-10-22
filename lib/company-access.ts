@@ -65,6 +65,8 @@ export const SEARCH_GROUP_RESOURCE: Record<string, string | null> = {
   budget: 'budget',
   materials: 'materials',
   invoices: 'invoices',
+  // Invoices TO the client, on Billing the client - gated on what that page is.
+  'client-invoices': 'payments',
   subcontracts: 'team',
   rfis: 'rfis',
   tasks: 'tasks',

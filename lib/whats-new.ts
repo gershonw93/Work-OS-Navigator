@@ -63,6 +63,18 @@ const AUTHORED: Release[] = [
         text: 'Tap a sub\'s bill and it opens: who and how much at the top, when it is due and how many days are left, a track of where it has got to (Received, Approved, Queued, Paid), and one big button for the next step. Its documents, what to bill the client, the budget line and the line items each have a card of their own. Invoices to your client open the same way - what is still owed, when they opened their link, and Record payment. On a phone the main button stays at the bottom of the screen.',
         help: 'approve-invoice',
       },
+      {
+        kind: 'improved',
+        title: 'Billing the client is easier to read',
+        text: 'The escrow balance is the headline, with whether you can pay your vendors right under it. Deposits and invoices sit side by side with the escrow and projection figures, and a tap anywhere on an invoice row opens it.',
+        help: 'bill-the-client',
+      },
+      {
+        kind: 'fixed',
+        title: 'Search finds your invoices to the client, and Send makes the link it needs',
+        text: 'Searching INV-0001 now finds the invoice you sent your client and opens it. And sending a deposit request on a job with no client link yet creates the link and sends it in one press, instead of telling you to go and make one first.',
+        help: 'global-search',
+      },
     ],
   },
   {

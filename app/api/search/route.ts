@@ -92,7 +92,7 @@ export async function GET(request: Request) {
     allowed(group) ? safe(fn) : Promise.resolve([])
 
   const [
-    projectHits, budgetHits, materialHits, invoiceHits, subHits,
+    projectHits, budgetHits, materialHits, invoiceHits, clientInvoiceHits, subHits,
     rfiHits, taskHits, changeOrderHits, customerHits, directoryHits, teamHits,
   ] = await Promise.all([
     // Projects
@@ -139,7 +139,25 @@ export async function GET(request: Request) {
       return (data ?? []).map((i: any) => ({
         id: i.id, title: `Invoice ${i.invoice_number || ''}`.trim(),
         subtitle: [i.company_name, projName.get(i.project_id)].filter(Boolean).join(' · ') || null,
-        href: `/projects/${i.project_id}/invoices`,
+        // Straight to the bill, not to the top of a list of them.
+        href: `/projects/${i.project_id}/invoices?open=${i.id}`,
+      }))
+    }),
+
+    // Invoices to the client. A separate table from the bills subs send you,
+    // and it was never searched: "INV-0001" - the number printed on the
+    // client's own copy - answered "No results".
+    only('client-invoices', async () => {
+      const { data, error } = await db.from('client_invoices')
+        .select('id, invoice_number, status, project_id')
+        .in('project_id', inList)
+        .or(`invoice_number.ilike.${like},notes.ilike.${like}`)
+        .limit(PER)
+      if (error) console.error('[search] client invoices:', error.message)
+      return (data ?? []).map((i: any) => ({
+        id: i.id, title: `Invoice ${i.invoice_number || ''}`.trim(),
+        subtitle: ['To the client', projName.get(i.project_id)].filter(Boolean).join(' · '),
+        href: `/projects/${i.project_id}/payments?open=${i.id}`,
       }))
     }),
 
@@ -253,7 +271,8 @@ export async function GET(request: Request) {
     { key: 'projects', label: 'Projects', items: projectHits },
     { key: 'budget', label: 'Budget lines', items: budgetHits },
     { key: 'materials', label: 'Material receipts', items: materialHits },
-    { key: 'invoices', label: 'Invoices', items: invoiceHits },
+    { key: 'invoices', label: 'Bills from subs', items: invoiceHits },
+    { key: 'client-invoices', label: 'Invoices to clients', items: clientInvoiceHits },
     { key: 'subcontracts', label: 'Subcontracts', items: subHits },
     { key: 'rfis', label: 'RFIs', items: rfiHits },
     { key: 'tasks', label: 'Tasks', items: taskHits },

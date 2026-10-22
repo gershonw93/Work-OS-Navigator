@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { InfoHint } from '@/components/ui/info-hint'
 import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, AlertTriangle, MessageSquare, ChevronRight } from 'lucide-react'
-import { ClientInvoiceDetail } from '@/components/projects/client-invoice-detail'
+import { ClientInvoiceDetail, CLIENT_STATUS_LABEL, CLIENT_STATUS_TONE } from '@/components/projects/client-invoice-detail'
+import { Pill } from '@/components/bills/detail-parts'
 import { ClientThreadDialog } from '@/components/client-thread/client-thread-dialog'
 import { threadShape } from '@/lib/client-thread'
 import { useClientEmail } from '@/lib/use-client-email'
@@ -70,14 +71,6 @@ interface Bill {
    */
   settlement: ({ recorded: boolean; in_qbo: boolean; amount: number } & Partial<Settlement> & { balance?: number }) | null
   client_invoice_lines: BillLine[]
-}
-
-const STATUS: Record<string, string> = {
-  draft: 'bg-surface text-muted-fg border-line',
-  sent: 'bg-info-tint text-info border-info/30',
-  'partly paid': 'bg-warn-tint text-warn border-warn/30',
-  paid: 'bg-success-tint text-success border-success/30',
-  void: 'bg-danger-tint text-danger border-danger/30',
 }
 
 const shortDate = (iso: string) =>
@@ -508,11 +501,11 @@ export function ClientInvoices({
   }
 
   return (
-    <div className="rounded-xl border border-line bg-panel p-4 space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+    <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-5 lg:p-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <p className="font-semibold text-ink">Invoices to your client</p>
-          <p className="text-xs text-muted-fg mt-0.5">
+          <h2 className="text-base font-semibold text-ink lg:text-[17px]">Invoices to your client</h2>
+          <p className="mt-0.5 text-sm text-muted-fg">
             Built from costs you have already approved, with your markup applied.
           </p>
         </div>
@@ -667,7 +660,7 @@ export function ClientInvoices({
       )}
 
       {bills.length > 0 && (
-        <div className="rounded-lg border border-line divide-y divide-line-soft">
+        <div className="-mx-5 divide-y divide-line-soft border-t border-line-soft lg:-mx-6">
           {bills.map(b => {
             const { total, qb, shareable, partly, shownStatus, owed } = factsOf(b)
             const opened = openedLabel(b, shortDate)
@@ -676,57 +669,58 @@ export function ClientInvoices({
               : null
             return (
               <div key={b.id}>
-              <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
-                <FileText className="h-4 w-4 text-faint shrink-0" />
-                <span className="min-w-0">
-                  {/* The number opens the invoice as a screen of its own. */}
-                  {onOpen ? (
-                    <button type="button" onClick={() => onOpen(b.id)}
-                      className="inline-flex items-center gap-0.5 text-sm font-medium text-ink hover:text-accent-fg hover:underline">
-                      {b.invoice_number} <ChevronRight className="h-3.5 w-3.5 text-faint" />
-                    </button>
-                  ) : (
-                    <span className="block text-sm font-medium text-ink">{b.invoice_number}</span>
-                  )}
-                  <span className="block text-[11px] text-faint">
-                    {(b.client_invoice_lines ?? []).length} line{(b.client_invoice_lines ?? []).length !== 1 ? 's' : ''}
-                    {' · '}{b.show_markup ? 'markup shown' : 'flat amounts'}
-                    {opened ? ` · ${opened}` : ''}
-                    {b.due_date ? ` · due ${formatDate(b.due_date)}` : ''}
+              {/* THE WHOLE ROW OPENS THE INVOICE. A button stretched under the
+                  row (not a row that IS a button - the controls inside it are
+                  buttons too, and a button inside a button is not one). The
+                  text lets the tap fall through to it; the controls sit above
+                  it and keep their own clicks. */}
+              <div className="relative flex flex-wrap items-center gap-x-3 gap-y-2 px-5 py-3.5 transition-colors hover:bg-surface lg:px-6">
+                {onOpen && (
+                  <button type="button" onClick={() => onOpen(b.id)} aria-label={`Open invoice ${b.invoice_number}`}
+                    className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent" />
+                )}
+                <div className="pointer-events-none flex min-w-0 flex-1 basis-56 items-start gap-3">
+                  <FileText className="mt-0.5 hidden h-4 w-4 shrink-0 text-faint lg:block" />
+                  <span className="min-w-0">
+                    <span className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-ink">{b.invoice_number}</span>
+                      {/* PARTLY PAID IS A STATE, not a flavour of sent. The stored
+                          status stays 'sent' until the money covers the invoice;
+                          this is the label the sums give it. */}
+                      <Pill tone={CLIENT_STATUS_TONE[shownStatus] ?? 'muted'}>{CLIENT_STATUS_LABEL[shownStatus] ?? shownStatus}</Pill>
+                      {qb.show && !qb.retry && (
+                        <span title={qb.title}>
+                          <Pill tone={qb.tone === 'ok' ? 'success' : 'warn'}
+                            icon={qb.tone === 'ok' ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}>
+                            {qb.label}
+                          </Pill>
+                        </span>
+                      )}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-muted-fg">
+                      {(b.client_invoice_lines ?? []).length} line{(b.client_invoice_lines ?? []).length !== 1 ? 's' : ''}
+                      {' · '}{b.show_markup ? 'markup shown' : 'flat amounts'}
+                      {opened ? ` · ${opened}` : ''}
+                      {b.due_date ? ` · due ${formatDate(b.due_date)}` : ''}
+                    </span>
+                    {paidLine && <span className="block text-xs font-medium text-warn">{paidLine}</span>}
+                    {threadShape(b.client_messages).waitingOnGc && (
+                      <button type="button" onClick={() => setThreadFor(b)}
+                        className="pointer-events-auto relative z-10 block min-h-11 text-xs font-semibold text-warn hover:underline lg:min-h-0">
+                        Client asked a question - reply
+                      </button>
+                    )}
                   </span>
-                  {paidLine && <span className="block text-[11px] font-medium text-warn">{paidLine}</span>}
-                  {threadShape(b.client_messages).waitingOnGc && (
-                    <button type="button" onClick={() => setThreadFor(b)} className="block text-[11px] font-semibold text-warn hover:underline">
-                      Client asked a question - reply
-                    </button>
-                  )}
-                </span>
-                {/* PARTLY PAID IS A STATE, not a flavour of sent. The stored status
-                    stays 'sent' until the money covers the invoice; this is
-                    the label the sums give it. */}
-                <span className={cn('whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium shrink-0', STATUS[shownStatus] ?? STATUS.draft)}>
-                  {shownStatus}
-                </span>
+                </div>
                 {qb.show && qb.retry === 'void' && (
                   <button type="button" title={qb.title} onClick={() => retryVoid(b)} disabled={statusBusy === b.id}
-                    className="shrink-0 inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-warn/40 bg-warn-tint px-2 py-0.5 text-[11px] font-medium text-warn hover:underline">
+                    className="relative z-10 shrink-0 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-warn-tint px-2.5 py-1 text-xs font-semibold text-warn hover:underline">
                     {statusBusy === b.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <AlertTriangle className="h-3 w-3" />}
                     {qb.label}
                   </button>
                 )}
-                {qb.show && !qb.retry && (
-                  <span title={qb.title}
-                    className={cn(
-                      'shrink-0 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-medium',
-                      qb.tone === 'ok'
-                        ? 'border-success/40 bg-success-tint text-success'
-                        : 'border-warn/40 bg-warn-tint text-warn',
-                    )}>
-                    {qb.tone === 'ok' ? <Check className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-                    {qb.label}
-                  </span>
-                )}
-                <span className="ml-auto text-sm font-bold text-ink tabular-nums shrink-0">{money(total)}</span>
+                <span className="pointer-events-none ml-auto shrink-0 text-[15px] font-bold tabular-nums text-ink">{money(total)}</span>
+                <div className="relative z-10 ml-auto flex shrink-0 items-center gap-2">
 
                 {/*
                   ONE action reads as the action. Everything else lives in the
@@ -734,13 +728,13 @@ export function ClientInvoices({
                   Void looked equally like the thing to press.
                 */}
                 {b.status === 'draft' && (
-                  <button onClick={() => setStatus(b, 'sent')} disabled={!!statusBusy}
-                    className="shrink-0 inline-flex items-center gap-1 rounded-md border border-line px-2 py-1 text-xs font-medium text-muted-fg hover:bg-surface disabled:opacity-50 disabled:cursor-not-allowed"
+                  <Button size="sm" variant="outline" onClick={() => setStatus(b, 'sent')} disabled={!!statusBusy}
+                    className="h-8 shrink-0"
                     title="Issues it and creates the client's link">
                     {statusBusy === b.id
                       ? <><Loader2 className="h-3 w-3 animate-spin" /> Issuing…</>
                       : <>Issue &amp; get link</>}
-                  </button>
+                  </Button>
                 )}
                 {/* RECORD PAYMENT, NOT MARK PAID. "Mark paid" promised a state; the
                     button records money, and the invoice is paid once the money
@@ -807,6 +801,8 @@ export function ClientInvoices({
                     </>
                   )}
                 </RowMenu>
+                </div>
+                {onOpen && <ChevronRight className="pointer-events-none hidden h-4 w-4 shrink-0 text-faint lg:block" />}
               </div>
 
               {sendArea(b)}
@@ -816,6 +812,6 @@ export function ClientInvoices({
         </div>
       )}
       {threadDialog}
-    </div>
+    </section>
   )
 }

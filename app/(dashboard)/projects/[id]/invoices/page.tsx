@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -68,7 +68,13 @@ interface Invoice {
   allocations?: { id: string; budget_line_item_id: string; amount: number; note: string | null }[]
 }
 
+// useOpenRecord reads `?open=` through useSearchParams, which needs a Suspense
+// boundary at the route level - the same shape as the Change Orders page.
 export default function InvoicesPage({ params }: { params: { id: string } }) {
+  return <Suspense fallback={null}><InvoicesPageInner params={params} /></Suspense>
+}
+
+function InvoicesPageInner({ params }: { params: { id: string } }) {
   const notify = useNotice()
   const supabase = createClient()
   const guardDelete = useDeleteGuard()
