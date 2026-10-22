@@ -188,6 +188,10 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
    */
   function settleInvoice(b: { id: string; label: string; amount: number }) {
     setSettling({ kind: 'invoice', ...b })
+    // Re-read what is payable as the form opens: the invoice being settled may
+    // have been issued since the page loaded, and the form's check (and the
+    // route's) asks this list.
+    loadPayable()
     // `amount` is what the invoice still OWES, not its total - a second payment
     // on a partly paid invoice starts from the balance.
     setForm({
