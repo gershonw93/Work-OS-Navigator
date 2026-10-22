@@ -28,6 +28,13 @@ ok(!/disabled=\{[^}]*form\.amount/.test(page), 'Add is never greyed out for a mi
 ok(/created\.quickbooks\.pushed === false/.test(add) && /QuickBooks did not take it/.test(add), 'a QuickBooks refusal is told to the person who pressed Add')
 ok(/p\.qb_error \? \(/.test(page) && /QB failed - retry/.test(page) && /onClick=\{\(\) => retryQb\(p\)\}/.test(page), 'the payment row says QB failed and is the retry')
 
+// The chip fits its column: "QB failed - retry" needs ~7.5rem and the QB column
+// was 5rem, so it hung out over the row (reported from the pilot). Header, rows
+// and total share ONE template or the columns stop lining up.
+const grids = page.match(/grid-cols-\[[^\]]+\]/g) ?? []
+ok(grids.length === 3 && new Set(grids).size === 1, 'the ledger header, rows and total share one column template')
+ok(/_7\.5rem_3rem\]/.test(grids[0] ?? ''), '...with a QB column wide enough for "QB failed - retry"')
+
 const route = code('app/api/projects/[id]/payments/route.ts')
 ok(/qb\.reason === 'failed'/.test(route), 'the route reports a REAL refusal only - not connected or already pushed are normal states')
 ok(/qb_error: qbErrors\[p\.id\]/.test(route), 'the list carries each payment\'s standing QuickBooks failure')
