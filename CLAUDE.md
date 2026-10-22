@@ -456,8 +456,11 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   clear it so the next push re-creates. Only when MISSING, never when inactive.
 - Reference no. is the USER's (`client_payments.reference`), not `SN-<id8>` -
   it is the bank-reconciliation column. `paymentIdentity()` composes ref+memo
-  for every payment path. `PaymentRefNum` on a Payment, `DocNumber` on a Sales
-  Receipt - the wrong one is accepted and silently ignored.
+  for every payment path. The payer's number is `PaymentRefNum` on a Payment
+  AND on a Sales Receipt; a receipt's `DocNumber` ("Sales Receipt no.") is our
+  `SN-` id, which is also what its duplicate check searches. The first real
+  pilot showed a check number in Sales Receipt no. and Reference no. empty.
+  Pinned in `sales-receipt-reference.ts`.
 - A payment row is one of TWO QBO entities. `qbo_txn_type` says which; any path
   that touches an existing payment must branch on it.
 - Every push: never throws, capped at 8s, "not connected" is a normal state,
