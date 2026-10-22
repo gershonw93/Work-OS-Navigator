@@ -124,6 +124,8 @@ export function ClientInvoices({
   // one invoice ended up as two in QuickBooks. The server claim is what makes
   // that impossible; this is what stops it being attempted.
   const [statusBusy, setStatusBusy] = useState('')
+  /** What the in-flight status change IS, so the row can say it rather than freeze. */
+  const [busyAction, setBusyAction] = useState('')
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [showMarkup, setShowMarkup] = useState(false)
   const [dueDate, setDueDate] = useState('')
@@ -225,6 +227,7 @@ export function ClientInvoices({
   async function setStatus(bill: Bill, status: string) {
     if (statusBusy) return
     setStatusBusy(bill.id)
+    setBusyAction(status)
     try {
       const t = await token()
       const res = await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
@@ -265,7 +268,7 @@ export function ClientInvoices({
    */
   async function retryVoid(bill: Bill) {
     if (statusBusy) return
-    setStatusBusy(bill.id); setError('')
+    setStatusBusy(bill.id); setBusyAction('void'); setError('')
     try {
       const t = await token()
       const res = await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
@@ -687,7 +690,16 @@ export function ClientInvoices({
                       {/* PARTLY PAID IS A STATE, not a flavour of sent. The stored
                           status stays 'sent' until the money covers the invoice;
                           this is the label the sums give it. */}
-                      <Pill tone={CLIENT_STATUS_TONE[shownStatus] ?? 'muted'}>{CLIENT_STATUS_LABEL[shownStatus] ?? shownStatus}</Pill>
+                      {/* A VOID TAKES SECONDS - QuickBooks goes first, and a paid invoice
+                          has its payments taken off before it. The work in flight
+                          is said on the row it is happening to, in the status's place. */}
+                      {statusBusy === b.id && busyAction ? (
+                        <span role="status" className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-surface px-2.5 py-1 text-xs font-semibold text-muted-fg">
+                          <Loader2 className="h-3 w-3 animate-spin" /> {busyAction === 'void' ? 'Voiding in QuickBooks…' : busyAction === 'sent' ? 'Issuing…' : 'Saving…'}
+                        </span>
+                      ) : (
+                        <Pill tone={CLIENT_STATUS_TONE[shownStatus] ?? 'muted'}>{CLIENT_STATUS_LABEL[shownStatus] ?? shownStatus}</Pill>
+                      )}
                       {qb.show && !qb.retry && (
                         <span title={qb.title}>
                           <Pill tone={qb.tone === 'ok' ? 'success' : 'warn'}

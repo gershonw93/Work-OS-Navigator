@@ -17,4 +17,12 @@ const page = code('app/(dashboard)/projects/[id]/payments/page.tsx')
 const settle = page.slice(page.indexOf('function settleInvoice'), page.indexOf('function closePaymentForm'))
 ok(/loadPayable\(\)/.test(settle), 'opening Record payment re-reads what is payable')
 ok(/onChanged=\{\(\) => \{ load\(\); setRequestsKey\(k => k \+ 1\) \}\}/.test(page), '...and onChanged bumps requestsKey, which is what reruns loadPayable')
+
+// A void says it is happening. The pilot pressed Void and the row froze for the
+// seconds QuickBooks took (payments taken off first, then the void), then
+// jumped to "void" - indistinguishable from a dead button until it moved.
+ok(/setBusyAction\(status\)/.test(setStatus), 'a status change records WHAT it is doing')
+ok(/statusBusy === b\.id && busyAction \?/.test(card) && /Voiding in QuickBooks/.test(card) && /animate-spin/.test(card), 'the row shows a spinner and "Voiding in QuickBooks..." in place of its status while it works')
+const retry = card.slice(card.indexOf('async function retryVoid'), card.indexOf('async function', card.indexOf('async function retryVoid') + 10))
+ok(/setBusyAction\('void'\)/.test(retry), 'the void retry says the same thing, not a stale label from the last action')
 done()
