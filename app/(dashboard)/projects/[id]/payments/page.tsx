@@ -47,7 +47,8 @@ interface Summary {
   outstandingToVendors: number; escrowBalance: number
   projectedCost: number; invoicedAlready: number; projectedGoingForward: number
 }
-const money = (n: number) => `$${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
+// The sign goes BEFORE the dollar: an overdrawn escrow read "$-30".
+const money = (n: number) => `${Number(n) < 0 ? '-' : ''}$${Math.abs(Number(n || 0)).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 const blank = { paid_date: '', amount: '', method: 'Check', memo: '', reference: '', retainer: false, qb_entered: false, on_account: false }
 const METHODS = ['Check', 'QuickPay', 'Wire', 'ACH', 'Cash', 'CC', 'Other']
 
@@ -446,7 +447,7 @@ function PaymentsPageInner({ params }: { params: { id: string } }) {
   // are about the whole job, and would push the invoice a screen down a phone.
   if (openInvoice && billingMode !== null && !isAia) {
     return (
-      <div>
+      <div className="lg:p-6">
         {invoices}
         {paymentDialog}
       </div>
@@ -464,7 +465,7 @@ function PaymentsPageInner({ params }: { params: { id: string } }) {
   const enough = owedVendors > 0 && available >= owedVendors
 
   return (
-    <div className="mx-auto flex max-w-[1180px] flex-col gap-4 lg:gap-5">
+    <div className="flex flex-col gap-4 lg:gap-5 lg:p-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">Billing the client</h1>
@@ -490,6 +491,13 @@ function PaymentsPageInner({ params }: { params: { id: string } }) {
             <div className={cn('text-[32px] font-bold leading-tight tracking-tight tabular-nums lg:text-4xl lg:leading-none',
               escrow < 0 ? 'text-danger' : 'text-ink')}>{money(escrow)}</div>
             <p className="mt-2 text-sm text-muted-fg">
+              {/* A NEGATIVE ESCROW IS A FACT OF ITS OWN: vendors have been paid
+                  more than the client has paid in. Said, not left as a red
+                  number for somebody to work out. */}
+              {escrow < 0 && (
+                <><span className="font-semibold text-danger">Escrow is overdrawn.</span>{' '}
+                  Vendors have been paid {money(-escrow)} more than the client has paid you.{' '}</>
+              )}
               {owedVendors <= 0 ? (
                 <>Nothing is owed to vendors right now.</>
               ) : enough ? (

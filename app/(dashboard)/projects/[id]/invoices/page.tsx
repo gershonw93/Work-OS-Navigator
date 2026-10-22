@@ -23,7 +23,8 @@ import { toAmountInput } from '@/lib/validate'
 
 import { LineEditor } from '@/components/invoices/line-editor'
 import { SubBillDetail } from '@/components/invoices/sub-bill-detail'
-import type { PillTone } from '@/components/bills/detail-parts'
+import { CountdownText, Pill, type PillTone } from '@/components/bills/detail-parts'
+import { dueCountdown } from '@/lib/bill-view'
 import { useOpenRecord } from '@/lib/use-open-record'
 import { useNotice } from '@/components/ui/notice'
 const STATUS_CONFIG: Record<string, { label: string; color: string; tone: PillTone }> = {
@@ -658,7 +659,10 @@ function InvoicesPageInner({ params }: { params: { id: string } }) {
   const shownBill = openId ? invoices.find(i => i.id === openId) ?? null : null
   const shownSub = shownBill?.subcontract_id ? subcontracts.find(s => s.id === shownBill.subcontract_id) : undefined
 
-  const GROUP = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0 lg:space-y-2 lg:overflow-visible lg:rounded-none lg:border-0 lg:bg-transparent'
+  // A group of bills is ONE card of divided rows, phone and desktop alike -
+  // the same list as Invoices to your client. (No row carries a menu, so the
+  // clip that rounds the corners cannot cut one off.)
+  const GROUP = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel'
 
   return (
     <div className="p-0 lg:p-6 space-y-5">
@@ -999,7 +1003,7 @@ function InvoicesPageInner({ params }: { params: { id: string } }) {
       <>
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Bills from subs</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">Bills from subs</h1>
           {/* THE EXPLAINER IS FOR THE FIRST VISIT. Once this job has a bill,
               whoever is here has used the page, and four lines of "what this
               is" above the buttons every time after that pushes the bills
@@ -1071,14 +1075,14 @@ function InvoicesPageInner({ params }: { params: { id: string } }) {
               if (f) scanInvoice(f)
             }}
             title="Drop a PDF, photo or screenshot of an invoice"
-            className={cn('inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium cursor-pointer transition-colors',
-              scanDrag ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:bg-surface',
+            className={cn('inline-flex h-11 items-center gap-2 rounded-[10px] border px-4 text-sm font-medium cursor-pointer transition-colors',
+              scanDrag ? 'border-accent bg-accent-tint text-accent-fg' : 'border-muted2 bg-panel text-ink-soft hover:bg-surface',
               scanning && 'opacity-60 pointer-events-none')}>
             <input ref={scanRef} type="file" accept="application/pdf,image/*" className="sr-only"
               onChange={e => { const f = e.target.files?.[0]; if (f) scanInvoice(f); e.target.value = '' }} />
             {scanning ? <><Loader2 className="h-4 w-4 animate-spin" /> Reading…</> : <><ScanLine className="h-4 w-4" /> Scan an invoice</>}
           </label>
-          <Button onClick={() => { setScanned(null); setShowForm(true) }}><Plus className="h-4 w-4" /> Create Invoice</Button>
+          <Button size="lg" className="h-11 rounded-[10px] px-5" onClick={() => { setScanned(null); setShowForm(true) }}><Plus className="h-4 w-4" /> Create Invoice</Button>
         </div>
       </div>
 
@@ -1187,37 +1191,36 @@ function InvoicesPageInner({ params }: { params: { id: string } }) {
  */
 function BillRow({ invoice, onOpen }: { invoice: Invoice; onOpen: () => void }) {
   const cfg = STATUS_CONFIG[invoice.status] ?? STATUS_CONFIG.pending_approval
+  // The same answer the bill's own screen gives - "in 7 days", "3 days
+  // overdue" - so the list says what is urgent without opening anything.
+  const countdown = invoice.status === 'paid' ? null : dueCountdown(invoice.due_date)
   return (
-    <div className={cn('lg:rounded-xl lg:border lg:bg-panel lg:overflow-hidden', invoice.status === 'pending_approval' ? 'lg:border-warn/30' : 'lg:border-line')}>
-      <button type="button" className="w-full flex items-center gap-3 px-4 py-3 hover:bg-surface transition-colors text-left lg:gap-4 lg:px-5 lg:py-4"
-        onClick={onOpen}>
-        <Receipt className="hidden h-5 w-5 text-faint shrink-0 lg:block" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-mono text-muted-fg">{invoice.invoice_number}</span>
-            <span className="font-semibold text-ink break-words">{invoice.company_name}</span>
-            <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', cfg.color)}>{cfg.label}</span>
-            {/* Which line it hits, readable without opening the bill. */}
-            {invoice.budget_line ? (
-              <span className="inline-flex items-center gap-1 text-xs text-faint min-w-0">
-                <Wallet className="h-3 w-3 shrink-0" />
-                <span className="truncate">{invoice.budget_line.category}</span>
-              </span>
-            ) : invoice.subcontract_id ? (
-              <span className="whitespace-nowrap inline-flex items-center gap-1 text-xs font-medium rounded-full border border-warn/30 bg-warn-tint text-warn px-2 py-0.5">
-                <AlertTriangle className="h-3 w-3 shrink-0" /> Not on the budget
-              </span>
-            ) : null}
-          </div>
-          <p className="text-xs text-faint mt-0.5 break-words">
-            ${Number(invoice.amount).toLocaleString()}
-            {invoice.description && ` · ${invoice.description}`}
-            {invoice.due_date && ` · Due ${formatDate(invoice.due_date)}`}
-          </p>
+    <button type="button" onClick={onOpen}
+      className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-surface lg:gap-4 lg:px-6 lg:py-4">
+      <Receipt className="hidden h-5 w-5 text-faint shrink-0 lg:block" />
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="break-words text-[15px] font-semibold text-ink">{invoice.company_name}</span>
+          <Pill tone={cfg.tone}>{cfg.label}</Pill>
+          {/* Which line it hits, readable without opening the bill. */}
+          {invoice.budget_line ? (
+            <span className="inline-flex min-w-0 items-center gap-1 text-xs text-muted-fg">
+              <Wallet className="h-3 w-3 shrink-0" />
+              <span className="truncate">{invoice.budget_line.category}</span>
+            </span>
+          ) : invoice.subcontract_id ? (
+            <Pill tone="warn" icon={<AlertTriangle className="h-3 w-3" />}>Not on the budget</Pill>
+          ) : null}
         </div>
-        <div className="hidden sm:block text-sm font-bold text-ink shrink-0">${Number(invoice.amount).toLocaleString()}</div>
-        <ChevronRight className="h-4 w-4 text-faint shrink-0" />
-      </button>
-    </div>
+        <p className="mt-0.5 break-words text-xs text-muted-fg tabular-nums">
+          {invoice.invoice_number}
+          {invoice.description && ` · ${invoice.description}`}
+          {invoice.due_date && ` · Due ${formatDate(invoice.due_date)}`}
+          {countdown && <> · <CountdownText countdown={countdown} /></>}
+        </p>
+      </div>
+      <div className="shrink-0 text-[15px] font-bold tabular-nums text-ink">${Number(invoice.amount).toLocaleString()}</div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+    </button>
   )
 }

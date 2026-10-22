@@ -466,7 +466,7 @@ export function ClientInvoices({
     const thread = threadShape(shown.client_messages)
     return (
       <>
-        {error && <p className="mx-auto mb-3 max-w-[1180px] rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
+        {error && <p className="mb-3 rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
         <ClientInvoiceDetail
           projectId={projectId}
           bill={shown}

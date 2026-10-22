@@ -545,7 +545,7 @@ ok(/flex-col bg-panel shadow-2xl pt-safe pb-safe/.test(checklist), 'the setup ch
 // Bills: rows in one card per group on a phone, no icon column.
 const bills = code('app/(dashboard)/projects/[id]/invoices/page.tsx')
 ok(/<Receipt className="hidden h-5 w-5 text-faint shrink-0 lg:block" \/>/.test(bills), 'a bill row has no icon column on a phone')
-ok(/const GROUP = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:divide-y-0/.test(bills)
+ok(/const GROUP = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel'/.test(bills)
   && (bills.match(/className=\{GROUP\}/g) ?? []).length === 3, 'each group of bills is one divided card on a phone')
 
 // A 12px label beside a field that must be 16px (iOS zooms below it) is what
