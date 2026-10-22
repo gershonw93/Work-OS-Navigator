@@ -30,6 +30,37 @@ type State =
  * a green tick over an email that never left is the one outcome worse than a
  * visible failure.
  */
+/**
+ * Send the link in ONE press, to an address we already have.
+ *
+ * "why cant the send button just send and say sent to... then option to send
+ * to more / one click and done". The box below asks for an address it was
+ * handed pre-filled, so a press on Send opened a form whose only job was a
+ * second press. Where the address is known this does the send; the box stays
+ * for sending to somebody ELSE. Same endpoint, same `{ sent: false }` rule:
+ * a refusal comes back as a message, never as a tick.
+ */
+export async function sendLinkNow(endpoint: string, to: string, note: string | null = null):
+  Promise<{ ok: true; to: string } | { ok: false; message: string }> {
+  try {
+    const { createClient } = await import('@/lib/supabase/client')
+    const { data: { session } } = await createClient().auth.getSession()
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session?.access_token ?? ''}`,
+      },
+      body: JSON.stringify({ to, note }),
+    })
+    const d = await res.json().catch(() => ({}))
+    if (!res.ok || d?.sent === false) return { ok: false, message: d?.error ?? 'Could not send that email.' }
+    return { ok: true, to: d.to ?? to }
+  } catch {
+    return { ok: false, message: 'Network error - we do not know whether it went. Reload before sending again, or copy the link and send it yourself.' }
+  }
+}
+
 export function SendLinkBox({
   endpoint,
   url,
@@ -65,27 +96,10 @@ export function SendLinkBox({
   async function submit(e: React.FormEvent) {
     e.preventDefault()
     setState({ kind: 'sending' })
-    try {
-      const { createClient } = await import('@/lib/supabase/client')
-      const { data: { session } } = await createClient().auth.getSession()
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session?.access_token ?? ''}`,
-        },
-        body: JSON.stringify({ to, note: note.trim() || null }),
-      })
-      const d = await res.json().catch(() => ({}))
-      if (!res.ok || d?.sent === false) {
-        setState({ kind: 'failed', message: d?.error ?? 'Could not send that email.' })
-        return
-      }
-      setState({ kind: 'sent', to: d.to ?? to })
-      onSent?.(d.to ?? to)
-    } catch {
-      setState({ kind: 'failed', message: 'Network error - copy the link and send it yourself.' })
-    }
+    const r = await sendLinkNow(endpoint, to, note.trim() || null)
+    if (!r.ok) { setState({ kind: 'failed', message: r.message }); return }
+    setState({ kind: 'sent', to: r.to })
+    onSent?.(r.to)
   }
 
   return (
