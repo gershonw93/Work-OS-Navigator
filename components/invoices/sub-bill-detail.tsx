@@ -157,7 +157,7 @@ export function SubBillDetail(p: SubBillDetailProps) {
   )
 
   return (
-    <div className="mx-auto flex max-w-[1180px] flex-col gap-4 lg:gap-5">
+    <div className="flex flex-col gap-4 lg:gap-5">
       <BackLink label="Bills from subs" onClick={p.onBack} />
 
       <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-5 lg:gap-6 lg:p-7">

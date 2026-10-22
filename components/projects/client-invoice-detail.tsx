@@ -102,7 +102,7 @@ export function ClientInvoiceDetail(p: ClientInvoiceDetailProps) {
   const canCredit = owing && p.credit !== null && p.credit > 0
 
   return (
-    <div className="mx-auto flex max-w-[1180px] flex-col gap-4 lg:gap-5">
+    <div className="flex flex-col gap-4 lg:gap-5">
       <BackLink label="Billing the client" onClick={p.onBack} />
 
       <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-5 lg:gap-6 lg:p-7">
