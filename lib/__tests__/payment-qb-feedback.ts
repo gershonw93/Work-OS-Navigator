@@ -11,6 +11,13 @@
 //     Integrations, where the person recording money never looks.
 
 import { ok, done, code } from './_helpers'
+import { qbShortReason } from '../qbo-short-reason'
+
+ok(qbShortReason('Invalid Customer - The customer you have specified has been deleted. You cannot create or edit a transaction with a deleted customer. (QuickBooks code 6250)') === 'Customer is inactive in QuickBooks', 'the pilot\'s 6250 reads as what the person did: the customer is inactive')
+ok(qbShortReason('Object Not Found - vendor 73: the vendor is inactive in QuickBooks') === 'Sub (vendor) is inactive in QuickBooks', 'an inactive sub says so')
+ok(qbShortReason('Stale Object Error - You and someone else edited this') === 'Stale Object Error', 'an unknown refusal keeps its own headline')
+ok(qbShortReason('x'.repeat(200)).length <= 80, '...and is never a paragraph')
+ok(qbShortReason(null) === 'QuickBooks refused it', 'no message still says something')
 
 const page = code('app/(dashboard)/projects/[id]/payments/page.tsx')
 const add = page.slice(page.indexOf('async function addPayment'), page.indexOf('async function retryQb'))
@@ -26,14 +33,18 @@ ok(!/setAdding\(true\)/.test(caught), '...but a request that never came back doe
 ok(!/disabled=\{[^}]*form\.amount/.test(page), 'Add is never greyed out for a missing amount - the check answers in words')
 
 ok(/created\.quickbooks\.pushed === false/.test(add) && /QuickBooks did not take it/.test(add), 'a QuickBooks refusal is told to the person who pressed Add')
-ok(/p\.qb_error \? \(/.test(page) && /QB failed - retry/.test(page) && /onClick=\{\(\) => retryQb\(p\)\}/.test(page), 'the payment row says QB failed and is the retry')
+ok(/p\.qb_error \? \(/.test(page) && /Retry QB/.test(page) && /onClick=\{\(\) => retryQb\(p\)\}/.test(page), 'the payment row offers Retry QB')
+const retryBtn = page.slice(page.indexOf('onClick={() => retryQb(p)}'), page.indexOf('Retry QB'))
+ok(/rounded-md/.test(retryBtn) && /hover:/.test(retryBtn) && /RefreshCw/.test(retryBtn) && !/rounded-full/.test(retryBtn), '...and it LOOKS like a button - outline, icon, hover - not a pill like the retainer tag')
+ok(/QuickBooks: \{qbShortReason\(p\.qb_error\)\}/.test(page), 'the short reason is printed ON the row, not only in a tooltip a phone does not have')
 
 // The chip fits its column: "QB failed - retry" needs ~7.5rem and the QB column
 // was 5rem, so it hung out over the row (reported from the pilot). Header, rows
 // and total share ONE template or the columns stop lining up.
 const grids = page.match(/grid-cols-\[[^\]]+\]/g) ?? []
 ok(grids.length === 3 && new Set(grids).size === 1, 'the ledger header, rows and total share one column template')
-ok(/_7\.5rem_3rem\]/.test(grids[0] ?? ''), '...with a QB column wide enough for "QB failed - retry"')
+ok(/_7\.5rem_3rem\]/.test(grids[0] ?? ''), '...with a QB column wide enough for the chip')
+ok((page.match(/w-fit justify-self-start whitespace-nowrap/g) ?? []).length === 3, 'every QB chip keeps its own width instead of stretching across the column')
 
 const route = code('app/api/projects/[id]/payments/route.ts')
 ok(/qb\.reason === 'failed'/.test(route), 'the route reports a REAL refusal only - not connected or already pushed are normal states')
