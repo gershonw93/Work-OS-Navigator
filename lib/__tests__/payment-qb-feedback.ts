@@ -34,7 +34,8 @@ ok(!/disabled=\{[^}]*form\.amount/.test(page), 'Add is never greyed out for a mi
 
 ok(/created\.quickbooks\.pushed === false/.test(add) && /QuickBooks did not take it/.test(add), 'a QuickBooks refusal is told to the person who pressed Add')
 ok(/p\.qb_error \? \(/.test(page) && /Retry QB/.test(page) && /onClick=\{\(\) => retryQb\(p\)\}/.test(page), 'the payment row offers Retry QB')
-const retryBtn = page.slice(page.indexOf('onClick={() => retryQb(p)}'), page.indexOf('Retry QB'))
+const btnAt = page.indexOf('onClick={() => retryQb(p)}')
+const retryBtn = page.slice(btnAt, page.indexOf('Retry QB', btnAt))
 ok(/rounded-md/.test(retryBtn) && /hover:/.test(retryBtn) && /RefreshCw/.test(retryBtn) && !/rounded-full/.test(retryBtn), '...and it LOOKS like a button - outline, icon, hover - not a pill like the retainer tag')
 ok(/QuickBooks: \{qbShortReason\(p\.qb_error\)\}/.test(page), 'the short reason is printed ON the row, not only in a tooltip a phone does not have')
 
