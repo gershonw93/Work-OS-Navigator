@@ -245,6 +245,11 @@ export function ClientInvoices({
         )
       }
       await load()
+      // Issuing or voiding changes what can be PAID, and the page keeps that
+      // list itself. Refreshing only this card left it stale: the first real
+      // pilot issued INV-0001, pressed Record payment, and was told the
+      // invoice "is not on this job any more".
+      onChanged?.()
     } catch {
       setError('Could not reach the server - nothing was changed.')
     } finally {
