@@ -71,9 +71,16 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const projectedCost = budgetTotal * (1 + feePct)
   const projectedGoingForward = Math.max(projectedCost - vendorBilled, 0)
 
+  // A payment QuickBooks refused says so ON ITS OWN ROW. The reason used to
+  // live only under Settings -> Integrations, where the person who recorded
+  // the money never looks - the first real pilot's inactive-customer failure
+  // was found there, not on the job. Latest log row per payment wins, so a
+  // failure a later push put right says nothing.
+  const qbErrors = await paymentQbErrors(db, (payments ?? []) as any[])
+
   return NextResponse.json({
     fee_pct: feePct,
-    payments: payments ?? [],
+    payments: (payments ?? []).map((p: any) => qbErrors[p.id] ? { ...p, qb_error: qbErrors[p.id] } : p),
     summary: {
       received, feeEarned, availableAfterFee, vendorBilled, vendorPaid, escrowPaid, clientPaidDirect,
       outstandingToVendors, escrowBalance,
@@ -169,5 +176,28 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // standalone Sales Receipt. Never both - see lib/quickbooks-push.ts.
   const qb = await pushPaymentForProject(db, data.id)
 
-  return NextResponse.json({ payment: qb.pushed ? { ...data, qbo_id: qb.qboId, qb_entered: true } : data })
+  // QuickBooks' answer goes back to the screen that pressed Add: "saved here,
+  // refused there, and why" belongs in front of the person who just did it.
+  // Only a real refusal - not connected, already pushed or skipped are normal.
+  const quickbooks = !qb.pushed && qb.reason === 'failed' ? { pushed: false, detail: qb.detail ?? null } : null
+  return NextResponse.json({ payment: qb.pushed ? { ...data, qbo_id: qb.qboId, qb_entered: true } : data, quickbooks })
+}
+
+/** The latest QuickBooks failure per payment still not in QuickBooks, by id. */
+async function paymentQbErrors(db: ReturnType<typeof admin>, payments: { id: string; qbo_id?: string | null; qb_entered?: boolean }[]): Promise<Record<string, string>> {
+  const ids = payments.filter(p => !p.qbo_id && !p.qb_entered).map(p => p.id)
+  if (!ids.length) return {}
+  const { data, error } = await db.from('quickbooks_sync_log')
+    .select('entity_id, status, message, created_at')
+    .in('entity_type', ['payment', 'client_payment']).in('entity_id', ids)
+    .order('created_at', { ascending: false })
+  if (error) { console.error('[payments] qb log read', error.message); return {} }
+  const out: Record<string, string> = {}
+  const seen = new Set<string>()
+  for (const r of (data ?? []) as any[]) {
+    if (seen.has(r.entity_id)) continue
+    seen.add(r.entity_id)
+    if (r.status === 'error') out[r.entity_id] = r.message ?? 'QuickBooks refused it.'
+  }
+  return out
 }

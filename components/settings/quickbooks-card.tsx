@@ -30,13 +30,15 @@ interface LogRow {
 
 /** One sync-log row in words: what happened to which record. */
 const ACTION_WORD: Record<string, string> = { create: 'Pushed', update: 'Updated', void: 'Voided' }
+/** "Push failed", never "Pushed failed" - the pilot's first red row read that way. */
+const FAIL_WORD: Record<string, string> = { create: 'Push', update: 'Update', void: 'Void' }
 const ENTITY_WORD: Record<string, string> = {
   client_invoice: 'client invoice', payment: 'client payment', client_payment: 'client payment',
   bill: 'sub bill', bill_payment: 'bill payment', customer: 'customer', vendor: 'sub (vendor)', connection: 'QuickBooks connection',
 }
 function logLine(l: LogRow): string {
   const verb = l.status === 'error'
-    ? `${ACTION_WORD[l.action ?? 'create'] ?? 'Pushed'} failed`
+    ? `${FAIL_WORD[l.action ?? 'create'] ?? 'Push'} failed`
     : ACTION_WORD[l.action ?? 'create'] ?? 'Pushed'
   const what = ENTITY_WORD[l.entity_type] ?? l.entity_type.replace(/_/g, ' ')
   return `${verb}: ${what}${l.record_label ? ` ${l.record_label}` : ''}`
