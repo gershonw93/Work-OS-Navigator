@@ -4,6 +4,7 @@ import { useRef } from 'react'
 import Link from 'next/link'
 import {
   CheckCircle2, Send, Printer, Pencil, Trash2, Upload, FileText, ShieldCheck, Shield, Plus, DollarSign, Loader2,
+  Undo2,
 } from 'lucide-react'
 import { Button, buttonClasses } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -83,6 +84,12 @@ export interface SubBillDetailProps {
   uploadingWaiver: boolean
   onUploadWaiver: (type: 'conditional' | 'unconditional', file: File) => void
   onEdit: () => void
+  /**
+   * Move a PAID bill back to unpaid. The route has always done it - and voids
+   * the QuickBooks bill payment - but no screen offered it, so a bill marked
+   * paid by mistake could only be deleted. Found in the first real pilot.
+   */
+  onUnpay: () => void
   onDelete: () => void
   onBack: () => void
 }
@@ -209,6 +216,12 @@ export function SubBillDetail(p: SubBillDetailProps) {
               className="inline-flex h-11 w-11 items-center justify-center rounded-[10px] text-ink-soft hover:bg-surface">
               <Pencil className="h-[19px] w-[19px]" />
             </button>
+            {paid && (
+              <button type="button" onClick={p.onUnpay} disabled={p.busy} aria-label="Mark unpaid" title="Mark unpaid - voids the bill payment in QuickBooks"
+                className="inline-flex h-11 items-center justify-center gap-1.5 rounded-[10px] px-3 text-sm font-medium text-ink-soft hover:bg-surface disabled:opacity-50">
+                {p.busy ? <Loader2 className="h-[17px] w-[17px] animate-spin" /> : <Undo2 className="h-[17px] w-[17px]" />} Mark unpaid
+              </button>
+            )}
             {/* Deletable at every status - a duplicate already marked paid is
                 exactly the one that needs removing. The confirm says what it
                 does to the budget and to QuickBooks. */}

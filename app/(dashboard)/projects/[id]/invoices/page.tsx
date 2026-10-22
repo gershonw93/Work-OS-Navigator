@@ -26,6 +26,7 @@ import { SubBillDetail } from '@/components/invoices/sub-bill-detail'
 import type { PillTone } from '@/components/bills/detail-parts'
 import { useOpenRecord } from '@/lib/use-open-record'
 import { useNotice } from '@/components/ui/notice'
+import { fetchProblem } from '@/lib/fetch-error'
 const STATUS_CONFIG: Record<string, { label: string; color: string; tone: PillTone }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn', tone: 'warn' },
   approved: { label: 'Approved', color: 'bg-info-tint border-info/30 text-info', tone: 'info' },
@@ -524,13 +525,33 @@ function InvoicesPageInner({ params }: { params: { id: string } }) {
 
   async function updateStatus(invoice: Invoice, newStatus: string) {
     setUpdating(invoice.id)
-    const token = await getToken()
-    await fetch(`/api/projects/${params.id}/invoices/${invoice.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ status: newStatus }),
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/invoices/${invoice.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ status: newStatus }),
+      })
+      // The answer used to be thrown away: a refused change, or a QuickBooks
+      // push or void that did not land, read exactly like success.
+      const j = await res.json().catch(() => ({} as any))
+      if (!res.ok) notify(j?.error ?? 'Could not change the bill.')
+      else if (j?.quickbooks?.voided === false) {
+        notify(`Marked unpaid here, but QuickBooks did not void the bill payment${j.quickbooks.detail ? `: ${j.quickbooks.detail}` : ''}. Settings -> Integrations -> Retry voids finishes it.`)
+      }
+    } catch (e) {
+      notify(fetchProblem(e, 'changing the bill'))
+    } finally {
+      setUpdating(null); fetchData()
+    }
+  }
+
+  function unpayBill(invoice: Invoice) {
+    guardDelete(() => updateStatus(invoice, 'approved'), {
+      title: 'Mark this bill unpaid?',
+      body: 'It goes back to approved and owing. If it is in QuickBooks, the bill payment there is voided, so the bill shows open again.',
+      confirmLabel: 'Mark unpaid',
     })
-    setUpdating(null); fetchData()
   }
 
   function openEditInvoice(invoice: Invoice) {
@@ -992,6 +1013,7 @@ function InvoicesPageInner({ params }: { params: { id: string } }) {
           uploadingWaiver={uploadingWaiver === shownBill.id}
           onUploadWaiver={(type, f) => handleLienWaiverUpload(shownBill, type, f)}
           onEdit={() => openEditInvoice(shownBill)}
+          onUnpay={() => unpayBill(shownBill)}
           onDelete={() => handleDeleteInvoice(shownBill)}
           onBack={closeBill}
         />
