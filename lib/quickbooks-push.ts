@@ -274,7 +274,11 @@ export function billPaymentPayload(
     TxnDate: ymd(inv.paid_at) ?? ymd(new Date().toISOString()),
     TotalAmt: amount,
     PayType: 'Check',
-    CheckPayment: { BankAccountRef: { value: bankAccountId } },
+    // PrintStatus NotSet: the money has already gone. Left unsaid, QuickBooks
+    // treats a Check-type payment as one waiting to be printed - the first real
+    // pilot showed Ref no. "To print" with Print later ticked, the reference
+    // hidden, and the payment sitting in the print-checks queue.
+    CheckPayment: { BankAccountRef: { value: bankAccountId }, PrintStatus: 'NotSet' },
     // The sub's own invoice number, not an SN- ref - same reasoning as a
     // client invoice. They have a number; it is the one being reconciled.
     ...(inv.invoice_number ? { DocNumber: String(inv.invoice_number).slice(0, 21) } : {}),
