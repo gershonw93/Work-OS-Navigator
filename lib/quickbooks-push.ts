@@ -1,9 +1,10 @@
 import { SupabaseClient } from '@supabase/supabase-js'
 import {
   Connection, getValidConnection, qboFetch, qboQuery,
-  defaultExpenseAccountId, defaultServiceItemId, defaultBankAccountId, paymentMethodId,
+  paymentMethodId,
   probeReferences, describeProbe, QBO_OBJECT_NOT_FOUND, type ReferenceRef,
 } from '@/lib/quickbooks'
+import { accountFor, depositField, type Choices } from '@/lib/qbo-accounts'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Pushing ONE record into QuickBooks - the unit both sync paths share.
@@ -37,6 +38,8 @@ export interface PushContext {
   itemId?: string
   /** The bank account bill payments come out of, resolved once per run. */
   bankAccountId?: string
+  /** The company's chosen accounts (lib/qbo-accounts.ts), read once per run. */
+  choices?: Choices
   /** Method name -> QBO PaymentMethod id, so a 50-row sync resolves each once. */
   methodIds?: Record<string, string | null>
 }
@@ -679,12 +682,18 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
     if (!await claimForPush(db, 'client_payments', p.id)) return { pushed: false, reason: 'already' }
 
     return await budgeted((async (): Promise<PushResult> => {
+      // The item the company chose on Settings > QuickBooks, or the first
+      // Service item when nobody has (lib/qbo-accounts.ts).
       if (!ctx?.itemId) {
-        const itemId = await defaultServiceItemId(conn)
-        if (ctx) ctx.itemId = itemId; else ctx = { conn, itemId }
+        if (!ctx) ctx = { conn }
+        ctx.itemId = (await accountFor(db, conn, 'invoice_item', ctx))!
       }
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
-      const payload = paymentPayload(p, customerQboId, ctx!.itemId!, projectName, await methodIdFor(conn, (p as any).method, ctx)) as any
+      const payload = {
+        ...paymentPayload(p, customerQboId, ctx!.itemId!, projectName, await methodIdFor(conn, (p as any).method, ctx)),
+        // Where the money lands, if the company chose; QuickBooks' own default otherwise.
+        ...depositField(await accountFor(db, conn, 'payment_deposit', ctx)),
+      } as any
       const dup = await findDuplicate(conn, { entity: 'SalesReceipt', doc: payload.DocNumber, partyId: customerQboId, amount: Number(p.amount) })
       const res = dup.id ? { SalesReceipt: { Id: dup.id } } : await qboFetch(conn, 'salesreceipt', {
         method: 'POST',
@@ -735,9 +744,11 @@ export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: Push
     if (!await claimForPush(db, 'invoices', inv.id)) return { pushed: false, reason: 'already' }
 
     return await budgeted((async (): Promise<PushResult> => {
+      // The account the company chose for sub bills, or the first COGS /
+      // Expense account when nobody has.
       if (!ctx?.expenseAccountId) {
-        const expenseAccountId = await defaultExpenseAccountId(conn)
-        if (ctx) ctx.expenseAccountId = expenseAccountId; else ctx = { conn, expenseAccountId }
+        if (!ctx) ctx = { conn }
+        ctx.expenseAccountId = (await accountFor(db, conn, 'bill_expense', ctx))!
       }
       const vendorQboId = await ensureVendorId(db, conn, vendorCompanyId, companyId)
       const payload = billPayload({ ...inv, trade: (inv.subcontracts as any)?.trade }, vendorQboId, ctx!.expenseAccountId!, projectName) as any
@@ -809,9 +820,12 @@ export async function pushBillPayment(db: SupabaseClient, invoiceId: string, ctx
     }
 
     return await budgeted((async (): Promise<PushResult> => {
+      // The bank account the company chose to pay bills from, or the first
+      // Bank account when nobody has - which, in a real company with payroll
+      // and operating accounts, is whichever QuickBooks happens to list first.
       if (!ctx?.bankAccountId) {
-        const bankAccountId = await defaultBankAccountId(conn)
-        if (ctx) ctx.bankAccountId = bankAccountId; else ctx = { conn, bankAccountId }
+        if (!ctx) ctx = { conn }
+        ctx.bankAccountId = (await accountFor(db, conn, 'bill_payment_bank', ctx))!
       }
       const vendorQboId = await ensureVendorId(db, conn, vendorCompanyId, companyId)
       const payload = billPaymentPayload(inv as any, vendorQboId, inv.qbo_id!, ctx!.bankAccountId!, projectName) as any
@@ -830,7 +844,7 @@ export async function pushBillPayment(db: SupabaseClient, invoiceId: string, ctx
       await releaseClaim(db, 'invoices', inv.id, 'qbo_payment_claimed_at')
       const detail = err?.code === QBO_OBJECT_NOT_FOUND
         ? `${err.message} - ${await briefly(
-          diagnoseBillPaymentRefs(db, conn, vendorCompanyId, inv.qbo_id!),
+          diagnoseBillPaymentRefs(db, conn, vendorCompanyId, inv.qbo_id!, ctx?.bankAccountId),
           'could not reach QuickBooks to work out which reference it rejected',
         )}`
         : err?.message
@@ -848,6 +862,7 @@ async function diagnoseBillPaymentRefs(
   conn: Connection,
   vendorCompanyId: string,
   billQboId: string,
+  bankAccountId?: string,
 ): Promise<string> {
   try {
     const vendorId = await linkedVendorId(db, conn, vendorCompanyId)
@@ -866,6 +881,10 @@ async function diagnoseBillPaymentRefs(
         ? 'the bill has a zero balance in QuickBooks - already paid or voided there'
         : null,
     })
+    // The bank account is the company's choice now (lib/qbo-accounts.ts), and
+    // a chosen account made inactive since is a 610 like any other.
+    if (bankAccountId) refs.push({ label: `bank account ${bankAccountId}`, path: `account/${bankAccountId}`,
+      inspect: (o: any) => o?.Active === false ? 'the bank account chosen for bill payments is inactive in QuickBooks' : null })
     const probes = await probeReferences(conn, refs)
     // A vendor id QuickBooks does not have fails identically forever. Clear it
     // so the next push re-creates - MISSING only, never merely inactive.
@@ -1006,9 +1025,11 @@ export async function pushClientInvoice(db: SupabaseClient, billId: string, ctx?
     if (!await claimForPush(db, 'client_invoices', inv.id)) return { pushed: false, reason: 'already' }
 
     return await budgeted((async (): Promise<PushResult> => {
+      // The item the company chose on Settings > QuickBooks, or the first
+      // Service item when nobody has (lib/qbo-accounts.ts).
       if (!ctx?.itemId) {
-        const itemId = await defaultServiceItemId(conn)
-        if (ctx) ctx.itemId = itemId; else ctx = { conn, itemId }
+        if (!ctx) ctx = { conn }
+        ctx.itemId = (await accountFor(db, conn, 'invoice_item', ctx))!
       }
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
       const payload = clientInvoicePayload(inv, lines, customerQboId, ctx!.itemId!, projectName) as any
@@ -1155,6 +1176,9 @@ async function diagnosePaymentRefs(
       refs.push({ label: `payment method ${methodQboId} (${method})`, path: `paymentmethod/${methodQboId}`,
         inspect: (o: any) => o?.Active === false ? 'the payment method is inactive in QuickBooks' : null })
     }
+    const depositId = ctx?.choices?.payment_deposit?.id
+    if (depositId) refs.push({ label: `deposit account ${depositId}`, path: `account/${depositId}`,
+      inspect: (o: any) => o?.Active === false ? 'the account chosen for client payment deposits is inactive in QuickBooks' : null })
 
     const probes = await probeReferences(conn, refs)
 
@@ -1222,9 +1246,11 @@ async function pushPaymentRow(db: SupabaseClient, paymentId: string, ctx?: PushC
       const customerQboId = await ensureCustomerId(db, conn, customerId, companyId)
       const methodQboId = await methodIdFor(conn, (p as any).method, ctx)
 
+      if (!ctx) ctx = { conn }
+      const deposit = depositField(await accountFor(db, conn, 'payment_deposit', ctx))
       const post = (mid: string | null, note: string | null) => qboFetch(conn, 'payment', {
         method: 'POST',
-        body: JSON.stringify(appliedPaymentPayload(p, customerQboId, targets, projectName, mid, note)),
+        body: JSON.stringify({ ...appliedPaymentPayload(p, customerQboId, targets, projectName, mid, note), ...deposit }),
       })
 
       const probe = appliedPaymentPayload(p, customerQboId, targets, projectName, methodQboId, null) as any
@@ -1328,9 +1354,11 @@ export async function pushPaymentGroup(db: SupabaseClient, groupId: string, ctx?
       return await budgeted((async (): Promise<PushResult> => {
         const customerQboId = await ensureCustomerId(db, conn, customerId!, companyId!)
         const methodQboId = await methodIdFor(conn, (grp as any).method, ctx)
+        if (!ctx) ctx = { conn }
+        const deposit = depositField(await accountFor(db, conn, 'payment_deposit', ctx))
         const post = (mid: string | null, note: string | null) => qboFetch(conn, 'payment', {
           method: 'POST',
-          body: JSON.stringify(appliedPaymentPayload(grp as any, customerQboId, links, (dev as any)?.name ?? null, mid, note)),
+          body: JSON.stringify({ ...appliedPaymentPayload(grp as any, customerQboId, links, (dev as any)?.name ?? null, mid, note), ...deposit }),
         })
         const probe = appliedPaymentPayload(grp as any, customerQboId, links, (dev as any)?.name ?? null, methodQboId, null) as any
         const dup = await findDuplicate(conn, { entity: 'Payment', doc: probe.PaymentRefNum, partyId: customerQboId, amount: Number((grp as any).amount), txnDate: probe.TxnDate })
