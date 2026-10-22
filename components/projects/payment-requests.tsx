@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { SendLinkBox } from '@/components/ui/send-link-box'
+import { SendLinkBox, sendLinkNow } from '@/components/ui/send-link-box'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { Plus, Check, Mail, AlertCircle, Loader2, X, Undo2, MessageSquare } from 'lucide-react'
 import { ClientThreadDialog } from '@/components/client-thread/client-thread-dialog'
@@ -75,6 +75,9 @@ export function PaymentRequests({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [sendingId, setSendingId] = useState<string | null>(null)
+  // One-press sends: which request is in flight, and what each one said.
+  const [sendNowId, setSendNowId] = useState<string | null>(null)
+  const [sendResult, setSendResult] = useState<Record<string, { to: string } | { error: string }>>({})
   // The request whose client thread is open, over the screen.
   const [threadFor, setThreadFor] = useState<Req | null>(null)
   const [clientName, setClientName] = useState<string | null>(null)
@@ -123,6 +126,31 @@ export function PaymentRequests({
   }, [projectId, token])
 
   useEffect(() => { load() }, [load, reloadKey])
+
+  // "one click and done": the first Send on a request goes straight to the
+  // client's address on file. Only with no address (or no portal link to put
+  // in the email) does it open the box to ask. A resend opens the box - a
+  // second email to the same person is a decision, not a reflex.
+  async function sendNow(r: Req) {
+    setSendNowId(r.id)
+    const out = await sendLinkNow(`/api/projects/${projectId}/payment-requests/${r.id}/send`, clientEmail)
+    setSendNowId(null)
+    setSendResult(m => ({ ...m, [r.id]: out.ok ? { to: out.to } : { error: out.message } }))
+    if (out.ok) load()
+  }
+
+  // "this should also be 2 step - are you sure": the X sat beside Mark paid and
+  // withdrew on a single press - an ask the client may already be paying
+  // against, gone from their link, with nothing between the slip and the act.
+  function withdraw(r: Req) {
+    guardDelete(() => setStatus(r, 'cancelled'), {
+      title: 'Withdraw this request?',
+      body: r.sent_at
+        ? `The ${money(r.amount)} ask for ${r.label} comes off your client's link. They were already emailed it, so tell them it is withdrawn.`
+        : `The ${money(r.amount)} ask for ${r.label} is withdrawn. Nothing was sent to the client yet.`,
+      confirmLabel: 'Withdraw it',
+    })
+  }
 
   async function post(url: string, init: RequestInit) {
     setError(null)
@@ -279,9 +307,13 @@ export function PaymentRequests({
                     <MessageSquare className="h-3.5 w-3.5" /> Questions{threadShape(r.client_messages).count ? ` (${threadShape(r.client_messages).count})` : ''}
                   </Button>
                 )}
-                <Button size="sm" variant="secondary" className="h-8"
-                  onClick={() => setSendingId(sendingId === r.id ? null : r.id)}>
-                  <Mail className="h-3.5 w-3.5" /> {r.sent_at ? 'Send again' : 'Send'}
+                <Button size="sm" variant="secondary" className="h-8" disabled={sendNowId === r.id}
+                  title={!r.sent_at && clientEmail && portalToken ? `Email it to ${clientEmail}` : undefined}
+                  onClick={() => (!r.sent_at && clientEmail && portalToken)
+                    ? sendNow(r)
+                    : setSendingId(sendingId === r.id ? null : r.id)}>
+                  {sendNowId === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                  {sendNowId === r.id ? 'Sending...' : r.sent_at ? 'Send again' : 'Send'}
                 </Button>
                 <Button size="sm" className="h-8" disabled={busy === r.id}
                   onClick={() => onSettle
@@ -290,20 +322,41 @@ export function PaymentRequests({
                   {busy === r.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
                   Mark paid
                 </Button>
-                <button type="button" title="Withdraw this request"
-                  onClick={() => setStatus(r, 'cancelled')}
+                <button type="button" title="Withdraw this request" aria-label="Withdraw this request"
+                  onClick={() => withdraw(r)}
                   className="rounded p-1 text-faint hover:bg-danger-tint hover:text-danger">
                   <X className="h-4 w-4" />
                 </button>
               </div>
+              {sendResult[r.id] && sendingId !== r.id && (
+                'to' in sendResult[r.id] ? (
+                  <p className="rounded-lg bg-success-tint px-3 py-2 text-sm text-success">
+                    <span className="font-semibold">Sent to {(sendResult[r.id] as { to: string }).to}.</span>{' '}
+                    <button type="button" onClick={() => setSendingId(r.id)} className="font-semibold underline">
+                      Send to somebody else
+                    </button>
+                  </p>
+                ) : (
+                  <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">
+                    {(sendResult[r.id] as { error: string }).error}{' '}
+                    <button type="button" onClick={() => setSendingId(r.id)} className="font-semibold underline">
+                      Send to a different address
+                    </button>
+                  </p>
+                )
+              )}
               {sendingId === r.id && (
                 <div className="border-t border-warn/20 pt-2">
                   {portalToken ? (
                     <SendLinkBox
                       endpoint={`/api/projects/${projectId}/payment-requests/${r.id}/send`}
                       url={`${window.location.origin}/portal/${portalToken}`}
-                      defaultTo={clientEmail}
-                      label={`Email this ${money(r.amount)} request to your client`}
+                      // Opened from "Send to somebody else", the box starts empty - pre-filling
+                      // the address it just went to would invite the same email twice.
+                      defaultTo={sendResult[r.id] && 'to' in sendResult[r.id] ? '' : clientEmail}
+                      label={sendResult[r.id] && 'to' in sendResult[r.id]
+                        ? `Email this ${money(r.amount)} request to somebody else too`
+                        : `Email this ${money(r.amount)} request to your client`}
                       placeholder="client@example.com"
                       onSent={() => load()}
                     />

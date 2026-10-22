@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { clientAppOrigin } from '@/lib/app-url'
-import { SendLinkBox } from '@/components/ui/send-link-box'
+import { SendLinkBox, sendLinkNow } from '@/components/ui/send-link-box'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
@@ -128,6 +128,9 @@ export function ClientInvoices({
   const [error, setError] = useState('')
   const [copied, setCopied] = useState('')
   const [sendingId, setSendingId] = useState('')
+  // One-press sends (see sendLinkNow): which invoice is in flight, and what each said.
+  const [sendNowId, setSendNowId] = useState('')
+  const [sendResult, setSendResult] = useState<Record<string, { to: string } | { error: string }>>({})
   // The invoice whose client thread is open, over the screen.
   const [threadFor, setThreadFor] = useState<Bill | null>(null)
   const clientEmail = useClientEmail(projectId)
@@ -310,6 +313,17 @@ export function ClientInvoices({
   // to the marketing host that a client could not open. Same bug as the admin
   // invite link (#288).
   const linkFor = (b: Bill) => (b.token ? `${clientAppOrigin()}/bill/${b.token}` : '')
+
+  // "one click and done": with the client's address on file, Email it goes
+  // straight there; the box is for anybody else, or when there is no address.
+  async function emailInvoice(b: Bill) {
+    if (!clientEmail) { setSendingId(sendingId === b.id ? '' : b.id); return }
+    setSendNowId(b.id)
+    const out = await sendLinkNow(`/api/projects/${projectId}/client-invoices/${b.id}/send`, clientEmail)
+    setSendNowId('')
+    setSendResult(m => ({ ...m, [b.id]: out.ok ? { to: out.to } : { error: out.message } }))
+    if (out.ok) load()
+  }
 
   async function copyLink(b: Bill) {
     const url = linkFor(b)
@@ -635,9 +649,14 @@ export function ClientInvoices({
                           <MenuItem onClick={() => { copyLink(b); close() }}>
                             <Copy className="h-3.5 w-3.5" /> {copied === b.id ? 'Link copied' : "Copy the client's link"}
                           </MenuItem>
-                          <MenuItem onClick={() => { setSendingId(sendingId === b.id ? '' : b.id); close() }}>
-                            <Mail className="h-3.5 w-3.5" /> Email it to the client
+                          <MenuItem onClick={() => { close(); emailInvoice(b) }}>
+                            <Mail className="h-3.5 w-3.5" /> {clientEmail ? `Email it to ${clientEmail}` : 'Email it to the client'}
                           </MenuItem>
+                          {clientEmail && (
+                            <MenuItem onClick={() => { close(); setSendingId(b.id) }}>
+                              <Mail className="h-3.5 w-3.5" /> Email it to somebody else
+                            </MenuItem>
+                          )}
                           <MenuItem href={mailtoFor(b)} onClick={close}>
                             <Mail className="h-3.5 w-3.5" /> Compose it yourself
                           </MenuItem>
@@ -664,12 +683,31 @@ export function ClientInvoices({
                 </RowMenu>
               </div>
 
+              {(sendNowId === b.id || (sendResult[b.id] && sendingId !== b.id)) && (
+                <div className="border-t border-line-soft px-3 py-2">
+                  {sendNowId === b.id ? (
+                    <p className="flex items-center gap-1.5 text-sm text-muted-fg"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending to {clientEmail}...</p>
+                  ) : 'to' in sendResult[b.id] ? (
+                    <p className="rounded-lg bg-success-tint px-3 py-2 text-sm text-success">
+                      <span className="font-semibold">Sent to {(sendResult[b.id] as { to: string }).to}.</span>{' '}
+                      <button type="button" onClick={() => setSendingId(b.id)} className="font-semibold underline">Send to somebody else</button>
+                    </p>
+                  ) : (
+                    <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">
+                      {(sendResult[b.id] as { error: string }).error}{' '}
+                      <button type="button" onClick={() => setSendingId(b.id)} className="font-semibold underline">Send to a different address</button>
+                    </p>
+                  )}
+                </div>
+              )}
               {sendingId === b.id && b.token && (
                 <div className="border-t border-line-soft bg-surface/50 px-3 py-3">
                   <SendLinkBox
                     endpoint={`/api/projects/${projectId}/client-invoices/${b.id}/send`}
                     url={linkFor(b)}
-                    defaultTo={clientEmail}
+                    // The client's own address is the one-press menu item, so this box is for
+                    // somebody else - starting it on that address invites the same email twice.
+                    defaultTo=""
                     label={`Email invoice ${b.invoice_number} to the client`}
                     placeholder="client@example.com"
                     onSent={() => load()}
