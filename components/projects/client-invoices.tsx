@@ -131,6 +131,8 @@ export function ClientInvoices({
   // one invoice ended up as two in QuickBooks. The server claim is what makes
   // that impossible; this is what stops it being attempted.
   const [statusBusy, setStatusBusy] = useState('')
+  /** What the in-flight status change IS, so the row can say it rather than freeze. */
+  const [busyAction, setBusyAction] = useState('')
   const [picked, setPicked] = useState<Set<string>>(new Set())
   const [showMarkup, setShowMarkup] = useState(false)
   const [dueDate, setDueDate] = useState('')
@@ -232,6 +234,7 @@ export function ClientInvoices({
   async function setStatus(bill: Bill, status: string) {
     if (statusBusy) return
     setStatusBusy(bill.id)
+    setBusyAction(status)
     try {
       const t = await token()
       const res = await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
@@ -272,7 +275,7 @@ export function ClientInvoices({
    */
   async function retryVoid(bill: Bill) {
     if (statusBusy) return
-    setStatusBusy(bill.id); setError('')
+    setStatusBusy(bill.id); setBusyAction('void'); setError('')
     try {
       const t = await token()
       const res = await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
@@ -704,9 +707,19 @@ export function ClientInvoices({
                 {/* PARTLY PAID IS A STATE, not a flavour of sent. The stored status
                     stays 'sent' until the money covers the invoice; this is
                     the label the sums give it. */}
-                <span className={cn('whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium shrink-0', STATUS[shownStatus] ?? STATUS.draft)}>
-                  {shownStatus}
-                </span>
+                {/* A VOID TAKES SECONDS - QuickBooks goes first, and a paid invoice
+                    has its payments taken off before it. The pilot pressed Void
+                    and saw nothing move until the row jumped to "void": the
+                    work in flight is said on the row it is happening to. */}
+                {statusBusy === b.id && busyAction ? (
+                  <span role="status" className="shrink-0 inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-line bg-surface px-2 py-0.5 text-[11px] font-medium text-muted-fg">
+                    <Loader2 className="h-3 w-3 animate-spin" /> {busyAction === 'void' ? 'Voiding in QuickBooks…' : busyAction === 'sent' ? 'Issuing…' : 'Saving…'}
+                  </span>
+                ) : (
+                  <span className={cn('whitespace-nowrap rounded-full border px-2 py-0.5 text-[11px] font-medium shrink-0', STATUS[shownStatus] ?? STATUS.draft)}>
+                    {shownStatus}
+                  </span>
+                )}
                 {qb.show && qb.retry === 'void' && (
                   <button type="button" title={qb.title} onClick={() => retryVoid(b)} disabled={statusBusy === b.id}
                     className="shrink-0 inline-flex items-center gap-1 whitespace-nowrap rounded-full border border-warn/40 bg-warn-tint px-2 py-0.5 text-[11px] font-medium text-warn hover:underline">
