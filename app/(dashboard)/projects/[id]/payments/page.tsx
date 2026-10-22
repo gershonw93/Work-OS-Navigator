@@ -15,6 +15,7 @@ import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check
 import { cn } from '@/lib/utils'
 import { toAmountInput } from '@/lib/validate'
 import { usePermissions } from '@/lib/use-permissions'
+import { useOpenRecord } from '@/lib/use-open-record'
 
 import { formatDate, todayDateInput } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
@@ -89,6 +90,9 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
   // Once somebody types a share by hand, changing the cheque amount must not
   // overwrite it - they told us which invoice they meant.
   const [sharesTouched, setSharesTouched] = useState(false)
+  // A client invoice open as a screen of its own - in the URL, so Back returns
+  // to this page rather than leaving the job.
+  const { id: openInvoice, open: openClientInvoice, close: closeClientInvoice } = useOpenRecord()
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
@@ -373,6 +377,81 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     },
   ]
 
+  // Add form - modal so it's front-and-center, not buried at the bottom. A
+  // variable, because an open invoice's screen records payments through it too.
+  const paymentDialog = adding && (
+        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={closePaymentForm}>
+        <div className="bg-panel rounded-xl border border-accent/40 shadow-xl w-full max-w-lg p-4 sm:p-5 space-y-3" onClick={e => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-ink-soft">Record a client payment</p>
+              {/* Say what is prefilled and why, or the numbers already in the
+                  form look like they came from nowhere. */}
+              {settling && (
+                <p className="text-xs text-muted-fg">
+                  Settling <span className="font-medium text-ink-soft">{settling.label}</span>.
+                  Change anything below if they sent something different - a part payment is recorded as part paid.
+                </p>
+              )}
+            </div>
+            <button onClick={closePaymentForm} className="text-faint hover:text-ink"><X className="h-4 w-4" /></button>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="space-y-1"><Label>Date</Label><Input type="date" value={form.paid_date} onChange={e => setForm({ ...form, paid_date: e.target.value })} /></div>
+            <div className="space-y-1"><Label>Amount</Label><Input type="number" value={form.amount} onChange={e => { setForm({ ...form, amount: e.target.value }); respread(e.target.value, picked) }} placeholder="0" /></div>
+            <div className="space-y-1"><Label>Method</Label>
+              <select value={form.method} onChange={e => setForm({ ...form, method: e.target.value })} className="w-full rounded-md border border-muted2 bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none">
+                {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
+            </div>
+            {/* Two fields, because QuickBooks has two. This was one box called
+                "Memo / check #", so a check number went across as the MEMO and
+                QuickBooks' Reference no. - the column a bookkeeper matches
+                against a bank statement - got our internal tracking id. */}
+            <div className="space-y-1"><Label>Reference / check #</Label><Input value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} placeholder="e.g. 1043" /></div>
+            <div className="space-y-1 col-span-2 sm:col-span-3"><Label>Memo</Label><Input value={form.memo} onChange={e => setForm({ ...form, memo: e.target.value })} placeholder="Anything worth remembering about this payment" /></div>
+          </div>
+          {settling?.kind !== 'request' && (
+            <PaymentAllocations
+              invoices={payable}
+              picked={picked}
+              shares={shares}
+              paymentAmount={form.amount}
+              onToggle={toggleInvoice}
+              onShare={(id, v) => { setSharesTouched(true); setShares(sh => ({ ...sh, [id]: v })) }}
+              onAccount={form.on_account}
+              onOnAccount={v => setForm(f => ({ ...f, on_account: v }))}
+            />
+          )}
+          <div className="flex flex-wrap items-center gap-4">
+            <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.retainer} onChange={e => setForm({ ...form, retainer: e.target.checked })} /> Retainer / deposit</label>
+            <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.qb_entered} onChange={e => setForm({ ...form, qb_entered: e.target.checked })} /> Already in QuickBooks - don&apos;t sync</label>
+            <div className="row-even ml-auto lg:flex gap-2">
+              <Button variant="secondary" onClick={closePaymentForm}>Cancel</Button>
+              <Button onClick={addPayment}>Add</Button>
+            </div>
+          </div>
+        </div>
+        </div>
+      )
+
+  const invoices = (
+    <ClientInvoices projectId={params.id} onSettle={settleInvoice} reloadKey={requestsKey}
+      onChanged={() => { load(); setRequestsKey(k => k + 1) }}
+      openId={isAia ? null : openInvoice} onOpen={openClientInvoice} onClose={closeClientInvoice} />
+  )
+
+  // One invoice open: its screen and nothing else. The summary cards above it
+  // are about the whole job, and would push the invoice a screen down a phone.
+  if (openInvoice && billingMode !== null && !isAia) {
+    return (
+      <div>
+        {invoices}
+        {paymentDialog}
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -492,7 +571,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
           </Link>
         </div>
       ) : (
-        <ClientInvoices projectId={params.id} onSettle={settleInvoice} reloadKey={requestsKey} onChanged={() => { load(); setRequestsKey(k => k + 1) }} />
+        invoices
       ))}
 
       {/* Projections */}
@@ -509,62 +588,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
         <p className="text-xs text-faint mt-2">Projected cost = Budget × (1 + {(feePct * 100).toFixed(feePct * 100 % 1 ? 1 : 0)}% fee). Set budget lines on the Budget tab.</p>
       </div>
 
-      {/* Add form - modal so it's front-and-center, not buried at the bottom */}
-      {adding && (
-        <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={closePaymentForm}>
-        <div className="bg-panel rounded-xl border border-accent/40 shadow-xl w-full max-w-lg p-4 sm:p-5 space-y-3" onClick={e => e.stopPropagation()}>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-semibold text-ink-soft">Record a client payment</p>
-              {/* Say what is prefilled and why, or the numbers already in the
-                  form look like they came from nowhere. */}
-              {settling && (
-                <p className="text-xs text-muted-fg">
-                  Settling <span className="font-medium text-ink-soft">{settling.label}</span>.
-                  Change anything below if they sent something different - a part payment is recorded as part paid.
-                </p>
-              )}
-            </div>
-            <button onClick={closePaymentForm} className="text-faint hover:text-ink"><X className="h-4 w-4" /></button>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="space-y-1"><Label>Date</Label><Input type="date" value={form.paid_date} onChange={e => setForm({ ...form, paid_date: e.target.value })} /></div>
-            <div className="space-y-1"><Label>Amount</Label><Input type="number" value={form.amount} onChange={e => { setForm({ ...form, amount: e.target.value }); respread(e.target.value, picked) }} placeholder="0" /></div>
-            <div className="space-y-1"><Label>Method</Label>
-              <select value={form.method} onChange={e => setForm({ ...form, method: e.target.value })} className="w-full rounded-md border border-muted2 bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none">
-                {METHODS.map(m => <option key={m} value={m}>{m}</option>)}
-              </select>
-            </div>
-            {/* Two fields, because QuickBooks has two. This was one box called
-                "Memo / check #", so a check number went across as the MEMO and
-                QuickBooks' Reference no. - the column a bookkeeper matches
-                against a bank statement - got our internal tracking id. */}
-            <div className="space-y-1"><Label>Reference / check #</Label><Input value={form.reference} onChange={e => setForm({ ...form, reference: e.target.value })} placeholder="e.g. 1043" /></div>
-            <div className="space-y-1 col-span-2 sm:col-span-3"><Label>Memo</Label><Input value={form.memo} onChange={e => setForm({ ...form, memo: e.target.value })} placeholder="Anything worth remembering about this payment" /></div>
-          </div>
-          {settling?.kind !== 'request' && (
-            <PaymentAllocations
-              invoices={payable}
-              picked={picked}
-              shares={shares}
-              paymentAmount={form.amount}
-              onToggle={toggleInvoice}
-              onShare={(id, v) => { setSharesTouched(true); setShares(sh => ({ ...sh, [id]: v })) }}
-              onAccount={form.on_account}
-              onOnAccount={v => setForm(f => ({ ...f, on_account: v }))}
-            />
-          )}
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.retainer} onChange={e => setForm({ ...form, retainer: e.target.checked })} /> Retainer / deposit</label>
-            <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" className="accent-[#C9F24A]" checked={form.qb_entered} onChange={e => setForm({ ...form, qb_entered: e.target.checked })} /> Already in QuickBooks - don&apos;t sync</label>
-            <div className="row-even ml-auto lg:flex gap-2">
-              <Button variant="secondary" onClick={closePaymentForm}>Cancel</Button>
-              <Button onClick={addPayment}>Add</Button>
-            </div>
-          </div>
-        </div>
-        </div>
-      )}
+      {paymentDialog}
 
       {pendingPayment && (
         <div className="flex items-center gap-2 rounded-xl border border-line bg-panel px-4 py-3 text-sm text-ink-soft" role="status">

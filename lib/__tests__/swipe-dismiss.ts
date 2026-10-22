@@ -104,7 +104,9 @@ ok(/TaskDetailPanelProps & \{ onClose/.test(tasks),
 //
 // So: counted, and THIS NUMBER MAY ONLY GO DOWN. Sweeping them all in the
 // change that fixed one reported drawer is how a fix becomes a regression.
-const NESTED_LIMIT = 18
+// 17: the bill card on Bills from subs became a screen of its own (BillRow +
+// components/invoices/sub-bill-detail.tsx), and stopped being declared inside the page.
+const NESTED_LIMIT = 17
 const nested = walk('app').concat(walk('components'))
   .filter(f => f.endsWith('.tsx'))
   .flatMap(f => (read(f).match(/^[ \t]+function [A-Z][A-Za-z0-9]*\(/gm) ?? []).map(m => `${f}: ${m.trim()}`))

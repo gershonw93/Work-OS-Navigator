@@ -8,7 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { InfoHint } from '@/components/ui/info-hint'
-import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, AlertTriangle, MessageSquare } from 'lucide-react'
+import { FileText, Plus, Printer, Loader2, Trash2, Check, Copy, Mail, AlertTriangle, MessageSquare, ChevronRight } from 'lucide-react'
+import { ClientInvoiceDetail } from '@/components/projects/client-invoice-detail'
 import { ClientThreadDialog } from '@/components/client-thread/client-thread-dialog'
 import { threadShape } from '@/lib/client-thread'
 import { useClientEmail } from '@/lib/use-client-email'
@@ -90,9 +91,17 @@ const shortDate = (iso: string) =>
  * from the costs they came from.
  */
 export function ClientInvoices({
-  projectId, onSettle, reloadKey = 0, onChanged,
+  projectId, onSettle, reloadKey = 0, onChanged, openId = null, onOpen, onClose,
 }: {
   projectId: string
+  /**
+   * The invoice open as a screen of its own, and the way in and out. Held by
+   * the page (in the URL), because the page hides everything else while one
+   * is open. Without `onOpen` the rows simply do not open.
+   */
+  openId?: string | null
+  onOpen?: (id: string) => void
+  onClose?: () => void
   /**
    * "Record payment" hands the invoice up to the page, which opens the same
    * Record a client payment box everything else uses - with what the invoice
@@ -379,18 +388,124 @@ export function ClientInvoices({
     })
   }
 
-  function remove(bill: Bill) {
+  function remove(bill: Bill, after?: () => void) {
     guardDelete(async () => {
       const t = await token()
       const res = await fetch(`/api/projects/${projectId}/client-invoices/${bill.id}`, {
         method: 'DELETE', headers: { Authorization: `Bearer ${t}` },
       })
       if (!res.ok) setError((await res.json().catch(() => ({})))?.error ?? 'Could not delete that invoice.')
+      else after?.()
       load()
     }, { label: `${bill.invoice_number} - the costs on it go back to being billable`, protected: true })
   }
 
   if (loading) return <p className="text-sm text-faint">Loading…</p>
+
+  /** The figures one invoice's row and its screen both print - worked out once. */
+  function factsOf(b: Bill) {
+    const total = (b.client_invoice_lines ?? []).reduce((s, l) => s + Number(l.amount || 0), 0)
+    const partly = b.status === 'sent' && b.settlement?.state === 'partly_paid'
+    return {
+      total,
+      partly,
+      shownStatus: partly ? 'partly paid' : b.status,
+      owed: b.settlement?.balance ?? total,
+      shareable: !!b.token && b.status !== 'draft',
+      qb: invoiceQbChip(b, qboConnected),
+    }
+  }
+
+  /** The send box and its answer, under a row or on the invoice's screen. */
+  function sendArea(b: Bill) {
+    return (
+      <>
+        {(sendNowId === b.id || (sendResult[b.id] && sendingId !== b.id)) && (
+          <div className="border-t border-line-soft px-3 py-2">
+            {sendNowId === b.id ? (
+              <p className="flex items-center gap-1.5 text-sm text-muted-fg"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending to {clientEmail}...</p>
+            ) : 'to' in sendResult[b.id] ? (
+              <p className="rounded-lg bg-success-tint px-3 py-2 text-sm text-success">
+                <span className="font-semibold">Sent to {(sendResult[b.id] as { to: string }).to}.</span>{' '}
+                <button type="button" onClick={() => setSendingId(b.id)} className="font-semibold underline">Send to somebody else</button>
+              </p>
+            ) : (
+              <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">
+                {(sendResult[b.id] as { error: string }).error}{' '}
+                <button type="button" onClick={() => setSendingId(b.id)} className="font-semibold underline">Send to a different address</button>
+              </p>
+            )}
+          </div>
+        )}
+        {sendingId === b.id && b.token && (
+          <div className="border-t border-line-soft bg-surface/50 px-3 py-3">
+            <SendLinkBox
+              endpoint={`/api/projects/${projectId}/client-invoices/${b.id}/send`}
+              url={linkFor(b)}
+              // The client's own address is the one-press menu item, so this box is for
+              // somebody else - starting it on that address invites the same email twice.
+              defaultTo=""
+              label={`Email invoice ${b.invoice_number} to the client`}
+              placeholder="client@example.com"
+              onSent={() => load()}
+            />
+          </div>
+        )}
+      </>
+    )
+  }
+
+  const threadDialog = threadFor && (
+    <ClientThreadDialog projectId={projectId} subject="invoice" subjectId={threadFor.id} clientName={null}
+      heading={`Invoice ${threadFor.invoice_number} - questions from the client`}
+      onClose={() => setThreadFor(null)} onChanged={load} />
+  )
+
+  // ONE INVOICE, AS A SCREEN. The same shape as a sub's bill, and every
+  // control on it calls the handler its row already used - two doors, one
+  // behaviour. An id this list does not hold falls through to the list.
+  const shown = openId ? bills.find(b => b.id === openId) : undefined
+  if (shown) {
+    const f = factsOf(shown)
+    const thread = threadShape(shown.client_messages)
+    return (
+      <>
+        {error && <p className="mx-auto mb-3 max-w-[1180px] rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">{error}</p>}
+        <ClientInvoiceDetail
+          projectId={projectId}
+          bill={shown}
+          clientName={clientName}
+          total={f.total}
+          owed={f.owed}
+          shownStatus={f.shownStatus}
+          qb={f.qb}
+          busy={statusBusy === shown.id}
+          onIssue={() => setStatus(shown, 'sent')}
+          onRecordPayment={onSettle ? () => onSettle({ id: shown.id, label: `Invoice ${shown.invoice_number}`, amount: f.owed }) : undefined}
+          onRetryVoid={() => retryVoid(shown)}
+          shareable={f.shareable}
+          clientEmail={clientEmail}
+          copied={copied === shown.id}
+          onCopy={() => copyLink(shown)}
+          onEmail={() => emailInvoice(shown)}
+          onEmailOther={() => setSendingId(shown.id)}
+          mailto={mailtoFor(shown)}
+          credit={credit}
+          applying={applying === shown.id}
+          onApplyCredit={() => applyCredit(shown)}
+          questions={thread.count}
+          waitingOnGc={thread.waitingOnGc}
+          onThread={() => setThreadFor(shown)}
+          onVoid={() => voidInvoice(shown)}
+          // A deleted draft has no screen to stay on.
+          onDelete={() => remove(shown, onClose)}
+          onBack={() => onClose?.()}
+          sendArea={sendArea(shown)}
+        />
+        {threadDialog}
+      </>
+    )
+  }
 
   return (
     <div className="rounded-xl border border-line bg-panel p-4 space-y-4">
@@ -554,13 +669,8 @@ export function ClientInvoices({
       {bills.length > 0 && (
         <div className="rounded-lg border border-line divide-y divide-line-soft">
           {bills.map(b => {
-            const total = (b.client_invoice_lines ?? []).reduce((s, l) => s + Number(l.amount || 0), 0)
-            const qb = invoiceQbChip(b, qboConnected)
+            const { total, qb, shareable, partly, shownStatus, owed } = factsOf(b)
             const opened = openedLabel(b, shortDate)
-            const shareable = !!b.token && b.status !== 'draft'
-            const partly = b.status === 'sent' && b.settlement?.state === 'partly_paid'
-            const shownStatus = partly ? 'partly paid' : b.status
-            const owed = b.settlement?.balance ?? total
             const paidLine = b.settlement?.state
               ? settlementLabel({ total: b.settlement.total ?? total, paid: b.settlement.paid ?? b.settlement.amount, balance: owed, state: b.settlement.state })
               : null
@@ -569,7 +679,15 @@ export function ClientInvoices({
               <div className="flex flex-wrap items-center gap-3 px-3 py-2.5">
                 <FileText className="h-4 w-4 text-faint shrink-0" />
                 <span className="min-w-0">
-                  <span className="block text-sm font-medium text-ink">{b.invoice_number}</span>
+                  {/* The number opens the invoice as a screen of its own. */}
+                  {onOpen ? (
+                    <button type="button" onClick={() => onOpen(b.id)}
+                      className="inline-flex items-center gap-0.5 text-sm font-medium text-ink hover:text-accent-fg hover:underline">
+                      {b.invoice_number} <ChevronRight className="h-3.5 w-3.5 text-faint" />
+                    </button>
+                  ) : (
+                    <span className="block text-sm font-medium text-ink">{b.invoice_number}</span>
+                  )}
                   <span className="block text-[11px] text-faint">
                     {(b.client_invoice_lines ?? []).length} line{(b.client_invoice_lines ?? []).length !== 1 ? 's' : ''}
                     {' · '}{b.show_markup ? 'markup shown' : 'flat amounts'}
@@ -691,47 +809,13 @@ export function ClientInvoices({
                 </RowMenu>
               </div>
 
-              {(sendNowId === b.id || (sendResult[b.id] && sendingId !== b.id)) && (
-                <div className="border-t border-line-soft px-3 py-2">
-                  {sendNowId === b.id ? (
-                    <p className="flex items-center gap-1.5 text-sm text-muted-fg"><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending to {clientEmail}...</p>
-                  ) : 'to' in sendResult[b.id] ? (
-                    <p className="rounded-lg bg-success-tint px-3 py-2 text-sm text-success">
-                      <span className="font-semibold">Sent to {(sendResult[b.id] as { to: string }).to}.</span>{' '}
-                      <button type="button" onClick={() => setSendingId(b.id)} className="font-semibold underline">Send to somebody else</button>
-                    </p>
-                  ) : (
-                    <p className="rounded-lg bg-danger-tint px-3 py-2 text-sm text-danger">
-                      {(sendResult[b.id] as { error: string }).error}{' '}
-                      <button type="button" onClick={() => setSendingId(b.id)} className="font-semibold underline">Send to a different address</button>
-                    </p>
-                  )}
-                </div>
-              )}
-              {sendingId === b.id && b.token && (
-                <div className="border-t border-line-soft bg-surface/50 px-3 py-3">
-                  <SendLinkBox
-                    endpoint={`/api/projects/${projectId}/client-invoices/${b.id}/send`}
-                    url={linkFor(b)}
-                    // The client's own address is the one-press menu item, so this box is for
-                    // somebody else - starting it on that address invites the same email twice.
-                    defaultTo=""
-                    label={`Email invoice ${b.invoice_number} to the client`}
-                    placeholder="client@example.com"
-                    onSent={() => load()}
-                  />
-                </div>
-              )}
+              {sendArea(b)}
               </div>
             )
           })}
         </div>
       )}
-      {threadFor && (
-        <ClientThreadDialog projectId={projectId} subject="invoice" subjectId={threadFor.id} clientName={null}
-          heading={`Invoice ${threadFor.invoice_number} - questions from the client`}
-          onClose={() => setThreadFor(null)} onChanged={load} />
-      )}
+      {threadDialog}
     </div>
   )
 }
