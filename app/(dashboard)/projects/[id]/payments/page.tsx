@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import Link from 'next/link'
-import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check, Landmark, ArrowRight, Loader2 } from 'lucide-react'
+import { Plus, X, Wallet, TrendingDown, Banknote, Percent, Trash2, Pencil, Check, Landmark, ArrowRight, Loader2, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toAmountInput } from '@/lib/validate'
 import { usePermissions } from '@/lib/use-permissions'
@@ -20,6 +20,7 @@ import { useOpenRecord } from '@/lib/use-open-record'
 import { formatDate, todayDateInput } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 import { fetchProblem } from '@/lib/fetch-error'
+import { qbShortReason } from '@/lib/qbo-short-reason'
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
   memo: string | null; retainer: boolean; qb_entered: boolean
@@ -62,6 +63,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
   const [adding, setAdding] = useState(false)
   /** A payment on its way to the server (and QuickBooks), shown on the page while the dialog is already closed. */
   const [pendingPayment, setPendingPayment] = useState<string | null>(null)
+  const [retrying, setRetrying] = useState('')
   const [form, setForm] = useState({ ...blank })
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState({ ...blank })
@@ -291,11 +293,13 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     // Saved here, refused by QuickBooks: said now, to the person who pressed
     // Add, not left for somebody to find under Settings.
     if (created?.quickbooks && created.quickbooks.pushed === false) {
-      notify(`Payment saved. QuickBooks did not take it${created.quickbooks.detail ? `: ${created.quickbooks.detail}` : ''}. Fix that in QuickBooks, then press "QB failed - retry" on the payment.`)
+      notify(`Payment saved. QuickBooks did not take it${created.quickbooks.detail ? `: ${created.quickbooks.detail}` : ''}. Fix that in QuickBooks, then press Retry QB on the payment.`)
     }
   }
 
   async function retryQb(p: Payment) {
+    if (retrying) return
+    setRetrying(p.id)
     const t = await token()
     try {
       const res = await fetch('/api/quickbooks/sync', {
@@ -307,7 +311,8 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
     } catch {
       notify('Could not reach the server. Reload to see whether it went through before retrying.')
     } finally {
-      load()
+      await load()
+      setRetrying('')
     }
   }
 
@@ -639,6 +644,10 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                         `${a.client_invoices?.invoice_number ?? 'invoice'}${(p.client_payment_allocations ?? []).length > 1 ? ` (${money(Number(a.amount))})` : ''}`).join(', ')}
                     </span>
                   )}
+                  {/* The reason, on the row - a tooltip is not there on a phone. */}
+                  {p.qb_error && !p.qbo_id && (
+                    <span className="block text-xs text-danger">QuickBooks: {qbShortReason(p.qb_error)}</span>
+                  )}
                 </span>
                 <span className="text-sm text-muted-fg">{p.method || '-'}</span>
                 <span className="text-sm font-semibold text-success md:text-right block">{money(p.amount)}</span>
@@ -648,19 +657,22 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                     themselves, and stays a toggle because it is their claim. */}
                 {p.qbo_id ? (
                   <span title={`In QuickBooks - search for ${p.reference || 'SN-' + p.id.slice(0, 8)} or the memo`}
-                    className="whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
+                    className="w-fit justify-self-start whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-success/40 bg-success-tint px-2 py-0.5 text-success">
                     <Check className="h-3 w-3" /> QB ✓
                   </span>
                 ) : p.payment_group_id ? (
                   <span className="text-xs text-faint">-</span>
                 ) : p.qb_error ? (
-                  <button onClick={() => retryQb(p)} title={`QuickBooks refused it: ${p.qb_error} - fix that, then press to retry`}
-                    className="whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border border-danger/40 bg-danger-tint px-2 py-0.5 text-danger">
-                    QB failed - retry
+                  // A BUTTON THAT LOOKS LIKE ONE: an outline, an icon and a hover,
+                  // not a pill - beside the "retainer" tag it read as a label.
+                  <button onClick={() => retryQb(p)} disabled={retrying === p.id}
+                    title={`QuickBooks refused it: ${p.qb_error} - fix that, then press to retry`}
+                    className="w-fit justify-self-start whitespace-nowrap text-xs font-semibold inline-flex items-center gap-1 rounded-md border border-danger bg-panel px-2 py-1 text-danger shadow-sm hover:bg-danger-tint cursor-pointer disabled:opacity-60">
+                    {retrying === p.id ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />} Retry QB
                   </button>
                 ) : (
                   <button onClick={() => toggleQb(p)} title="Mark as entered in QuickBooks by hand"
-                    className={cn('whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
+                    className={cn('w-fit justify-self-start whitespace-nowrap text-xs inline-flex items-center gap-1 rounded-full border px-2 py-0.5 transition-colors',
                       p.qb_entered ? 'border-success/40 bg-success-tint text-success' : 'border-line text-faint hover:border-muted2 hover:text-muted-fg')}>
                     {p.qb_entered ? <><Check className="h-3 w-3" /> QB</> : 'QB?'}
                   </button>
