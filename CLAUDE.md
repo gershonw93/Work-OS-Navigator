@@ -460,6 +460,8 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   AND on a Sales Receipt; a receipt's `DocNumber` ("Sales Receipt no.") is our
   `SN-` id, which is also what its duplicate check searches. The first real
   pilot showed a check number in Sales Receipt no. and Reference no. empty.
+  A Bill's `DocNumber` ("Bill no.") is the bill's OWN number (`billDocNumber`),
+  SN- only when it has none.
   Pinned in `sales-receipt-reference.ts`.
 - A payment row is one of TWO QBO entities. `qbo_txn_type` says which; any path
   that touches an existing payment must branch on it.

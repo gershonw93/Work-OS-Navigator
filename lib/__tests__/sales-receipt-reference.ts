@@ -8,7 +8,7 @@
 // Receipt", which was true of the field we used and wrong about the column a
 // bookkeeper reconciles against.
 
-import { paymentPayload, ownReference, receiptDocNumber } from '../quickbooks-push'
+import { paymentPayload, ownReference, receiptDocNumber, billPayload, billDocNumber } from '../quickbooks-push'
 import { ok, done, code } from './_helpers'
 
 const id = 'd25ad9bc-bfe0-4d92-8a99-108f0e54d6f5'
@@ -28,4 +28,13 @@ const push = code('lib/quickbooks-push.ts')
 const refresh = push.slice(push.indexOf("const key = applied ? 'Payment' : 'SalesReceipt'"))
 ok(/const own = ownReference\(p\)\s*if \(own\) obj\.PaymentRefNum = own/.test(refresh), 'Update formatting puts the check number in PaymentRefNum on a receipt too')
 ok(!/else obj\.DocNumber = ident\.ref/.test(refresh), 'the old "check number into DocNumber" branch is gone')
+// And a Bill's "Bill no." is the bill's own number. Same pilot: Bill 1312 read
+// SN-6dd0f7bc for the bill SyteNav lists as INV-8F89-001.
+const billId = '6dd0f7bc-1111-2222-3333-444444444444'
+const bill: any = billPayload({ id: billId, invoice_number: 'INV-8F89-001', amount: 200, trade: 'Drywall' }, '73', '80', 'ZZ TEST Job 1')
+ok(bill.DocNumber === 'INV-8F89-001', 'a Bill carries the bill\'s own number as Bill no.')
+ok(billDocNumber({ id: billId, invoice_number: '  ' }) === 'SN-6dd0f7bc', 'a bill with no number falls back to our tracking id')
+ok(billDocNumber({ invoice_number: 'X'.repeat(30) })!.length === 21, 'capped at QuickBooks\' 21 characters')
+ok(/\.select\('id, project_id, invoice_number, amount, status/.test(push), 'the push actually READS invoice_number - a payload rule fed undefined falls back silently')
+ok(/obj\.DocNumber = billDocNumber\(inv\)/.test(push), 'Update formatting rewrites an existing bill the same way')
 done()

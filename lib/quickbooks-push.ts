@@ -215,8 +215,20 @@ export function paymentPayload(
   }
 }
 
+/**
+ * A Bill's "Bill no.": the bill's own number, the one on the sub's paperwork
+ * and on the SyteNav screen. The first real pilot showed SN-6dd0f7bc there for
+ * a bill SyteNav lists as INV-8F89-001 - a number nobody holding the paper can
+ * search for. Our tracking id is only the fallback for a bill with no number.
+ * It is also what the duplicate check matches, alongside vendor and amount.
+ */
+export function billDocNumber(inv: { id?: string; invoice_number?: string | null }): string | undefined {
+  const own = String(inv.invoice_number ?? '').trim().slice(0, 21)
+  return own || (inv.id ? snRef(inv.id) : undefined)
+}
+
 export function billPayload(
-  inv: { id?: string; amount: unknown; paid_at?: string | null; created_at?: string | null; trade?: string | null },
+  inv: { id?: string; invoice_number?: string | null; amount: unknown; paid_at?: string | null; created_at?: string | null; trade?: string | null },
   vendorQboId: string,
   expenseAccountId: string,
   projectName?: string | null,
@@ -225,7 +237,7 @@ export function billPayload(
     VendorRef: { value: vendorQboId },
     // The date money moved if it has, else the date the bill was raised.
     TxnDate: ymd(inv.paid_at) ?? ymd(inv.created_at),
-    ...(inv.id ? { DocNumber: snRef(inv.id) } : {}),
+    ...(billDocNumber(inv) ? { DocNumber: billDocNumber(inv) } : {}),
     Line: [{
       DetailType: 'AccountBasedExpenseLineDetail',
       Amount: Number(inv.amount),
@@ -741,7 +753,7 @@ export async function pushClientPayment(db: SupabaseClient, paymentId: string, c
 export async function pushBill(db: SupabaseClient, invoiceId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: inv } = await db.from('invoices')
-      .select('id, project_id, amount, status, created_at, paid_at, qbo_id, subcontracts(company_id, trade)')
+      .select('id, project_id, invoice_number, amount, status, created_at, paid_at, qbo_id, subcontracts(company_id, trade)')
       .eq('id', invoiceId).maybeSingle()
     if (!inv) return { pushed: false, reason: 'skipped', detail: 'Invoice not found' }
     if (inv.qbo_id) return { pushed: false, reason: 'already' }
@@ -988,7 +1000,7 @@ export async function refreshPaymentInQbo(db: SupabaseClient, paymentId: string,
 export async function refreshBillInQbo(db: SupabaseClient, invoiceId: string, ctx?: PushContext): Promise<PushResult> {
   try {
     const { data: inv } = await db.from('invoices')
-      .select('id, project_id, qbo_id, subcontracts(trade)').eq('id', invoiceId).maybeSingle()
+      .select('id, project_id, invoice_number, qbo_id, subcontracts(trade)').eq('id', invoiceId).maybeSingle()
     if (!inv?.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks yet' }
 
     const { companyId, projectName } = await projectCompany(db, inv.project_id)
@@ -1000,7 +1012,7 @@ export async function refreshBillInQbo(db: SupabaseClient, invoiceId: string, ct
       const cur = await qboFetch(conn, `bill/${inv.qbo_id}`)
       const obj = cur?.Bill
       if (!obj?.Id) throw new Error('Record no longer exists in QuickBooks')
-      obj.DocNumber = snRef(inv.id)
+      obj.DocNumber = billDocNumber(inv)
       // Only retitle the expense line this push wrote; anything a bookkeeper
       // added by hand in QBO is not ours to rename.
       const line = (obj.Line ?? []).find((l: any) => l.DetailType === 'AccountBasedExpenseLineDetail')
