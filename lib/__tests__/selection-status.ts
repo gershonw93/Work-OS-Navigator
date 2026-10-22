@@ -96,7 +96,7 @@ ok(/onSent: \(\) => db\.from\('project_selections'\)\.update\(\{\s*client_remind
   'the stamp is written only after a confirmed send (deliverLink onSent)')
 ok(/dayWords\(s\.needed_by/.test(remind) && !/toLocaleDateString|formatDate\(/.test(remind),
   'the decide-by date in the letter is words from fixed tables, not the server\'s locale')
-ok(/setRemindFor\(sel\)\}>\s*<Send/.test(page) && /Remind the client/.test(page),
+ok(/onClick=\{\(\) => remind\(sel\)\}/.test(page) && /close\(\); remind\(sel\)/.test(page) && /Remind the client/.test(page),
   'each open selection has the button, in the row and in its menu')
 ok(/selections\/\$\{remindFor\.id\}\/remind/.test(page) && /data-overlay onClick=\{\(\) => setRemindFor\(null\)\}/.test(page),
   '...opening an overlay over the screen, not a box at the foot of the card')

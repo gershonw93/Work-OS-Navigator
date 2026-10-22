@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import {
   Plus, X, ChevronDown, ChevronUp, ClipboardList,
-  CheckCircle2, XCircle, Clock, Trash2, Link2, Share2, MessageSquare, EyeOff, AlertTriangle,
+  CheckCircle2, XCircle, Clock, Trash2, Link2, Share2, MessageSquare, EyeOff, AlertTriangle, Loader2,
 } from 'lucide-react'
 import { ClientThreadDialog } from '@/components/client-thread/client-thread-dialog'
 import { threadShape } from '@/lib/client-thread'
@@ -410,9 +410,26 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
               ) : (
                 <>
                   <p className="text-sm text-muted-fg">Not on the client&apos;s link. Share it to let them read it, approve or decline it, and ask about it.</p>
-                  <Button size="sm" variant="outline" onClick={() => setShareFor(co)}>
-                    <Share2 className="h-3.5 w-3.5" /> Share with client
-                  </Button>
+                  {/* ONE PRESS where nothing needs checking: a change order with no
+                      subcontract is the client's price, so Share puts it on their link and
+                      emails them, and the notice says who it went to. One tied to a
+                      subcontract still opens the dialog - its amount is probably the SUB's
+                      price, our cost, and that warning is the step worth having. */}
+                  {co.subcontract_id ? (
+                    <Button size="sm" variant="outline" onClick={() => setShareFor(co)}>
+                      <Share2 className="h-3.5 w-3.5" /> Share with client
+                    </Button>
+                  ) : (
+                    <div className="flex flex-wrap items-center gap-3">
+                      <Button size="sm" disabled={sharing} onClick={() => share(co, true)}>
+                        {sharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />} Share and email the client
+                      </Button>
+                      <button type="button" disabled={sharing} onClick={() => share(co, false)}
+                        className="text-xs font-medium text-muted-fg underline hover:text-ink disabled:opacity-50">
+                        Share without emailing
+                      </button>
+                    </div>
+                  )}
                 </>
               )}
             </div>

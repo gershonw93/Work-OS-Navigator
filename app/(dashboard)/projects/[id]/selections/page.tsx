@@ -25,7 +25,7 @@ import {
   type SelectionStatus,
 } from '@/lib/selections'
 import { clientAppOrigin } from '@/lib/app-url'
-import { SendLinkBox } from '@/components/ui/send-link-box'
+import { SendLinkBox, sendLinkNow } from '@/components/ui/send-link-box'
 import { ClientThreadPanel } from '@/components/client-thread/client-thread-panel'
 import { threadShape } from '@/lib/client-thread'
 import { useClientEmail } from '@/lib/use-client-email'
@@ -118,6 +118,8 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   const [orderFor, setOrderFor] = useState<Selection | null>(null)
   // "We're waiting on you" - the selection a reminder email is being written for.
   const [remindFor, setRemindFor] = useState<Selection | null>(null)
+  // The reminder in flight on one press (see remind()).
+  const [remindingId, setRemindingId] = useState<string | null>(null)
   const clientEmail = useClientEmail(params.id)
   const [orderForm, setOrderForm] = useState({ supplier_company_id: '', expected_delivery: '', amount: '' })
   const [showLink, setShowLink] = useState(false)
@@ -127,6 +129,24 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
   const [filling, setFilling] = useState(false)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
+
+  // "do the same for ... selections reminders": with the client's address on
+  // file and a link to send them to, Remind sends in ONE press and says who it
+  // went to. The dialog is still the way when there is no address, when the
+  // send was refused (it opens on the reason), or to remind somebody else.
+  async function remind(sel: Selection) {
+    if (!clientEmail || !portalToken) { setRemindFor(sel); return }
+    setRemindingId(sel.id)
+    const out = await sendLinkNow(`/api/projects/${params.id}/selections/${sel.id}/remind`, clientEmail)
+    setRemindingId(null)
+    if (out.ok) {
+      notify(`Reminder sent to ${out.to}.`, { tone: 'success' })
+      load()
+    } else {
+      notify(out.message)
+      setRemindFor(sel)
+    }
+  }
 
   async function load() {
     const t = await token()
@@ -834,7 +854,9 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                 <SendLinkBox
                   endpoint={`/api/projects/${params.id}/selections/${remindFor.id}/remind`}
                   url={portalLink}
-                  defaultTo={clientEmail}
+                  // Pressing Remind already emails the client's own address, so this
+                  // box is for somebody else - starting it there invites a double.
+                  defaultTo=""
                   label="Email the reminder"
                   placeholder="client@example.com"
                   onSent={() => load()}
@@ -1098,7 +1120,12 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                               <MenuItem onClick={() => { close(); openOrder(sel) }}><Truck className="h-3.5 w-3.5" /> Order it</MenuItem>
                             )}
                             {isOutstanding(sel.status) && (
-                              <MenuItem onClick={() => { close(); setRemindFor(sel) }}><Send className="h-3.5 w-3.5" /> Remind the client</MenuItem>
+                              <>
+                                <MenuItem onClick={() => { close(); remind(sel) }}><Send className="h-3.5 w-3.5" /> {clientEmail && portalToken ? `Remind ${clientEmail}` : 'Remind the client'}</MenuItem>
+                                {clientEmail && portalToken && (
+                                  <MenuItem onClick={() => { close(); setRemindFor(sel) }}><Send className="h-3.5 w-3.5" /> Remind somebody else</MenuItem>
+                                )}
+                              </>
                             )}
                             {/* Installed follows the schedule line reaching 100%. This is the fallback
                                 for a selection no schedule line leads from (no sub on its budget line). */}
@@ -1546,8 +1573,10 @@ export default function SelectionsPage({ params }: { params: { id: string } }) {
                                         <span className="font-semibold text-ink">Client&apos;s pick:</span> nothing yet. You can also record a choice they told you in person.
                                       </p>
                                       <div className="row-even lg:flex lg:flex-wrap gap-2 w-full lg:w-auto">
-                                        <Button size="sm" variant="outline" onClick={() => setRemindFor(sel)}>
-                                          <Send className="h-3.5 w-3.5" /> Remind client
+                                        <Button size="sm" variant="outline" disabled={remindingId === sel.id} onClick={() => remind(sel)}
+                                          title={clientEmail && portalToken ? `Email ${clientEmail}` : undefined}>
+                                          {remindingId === sel.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                                          {remindingId === sel.id ? 'Sending...' : 'Remind client'}
                                         </Button>
                                         <Button size="sm" variant="outline" onClick={() => addTo(setRecording, sel.id)}>
                                           Record a choice
