@@ -577,7 +577,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
         <div className="bg-panel rounded-xl border border-line p-10 text-center"><Wallet className="h-8 w-8 text-faint mx-auto mb-3" /><p className="text-sm text-muted-fg">No client payments recorded yet.</p></div>
       ) : (
         <div className="bg-panel rounded-xl border border-line overflow-hidden">
-          <div className="hidden md:grid grid-cols-[7rem_1fr_8rem_1fr_5rem_3rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
+          <div className="hidden md:grid grid-cols-[7rem_1fr_8rem_1fr_7.5rem_3rem] gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide">
             <span>Date</span><span>Reference / memo</span><span>Method</span><span className="text-right">Amount</span><span>QB</span><span />
           </div>
           <div className="divide-y divide-line-soft">
@@ -596,7 +596,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
                 </div>
               </div>
             ) : (
-              <div key={p.id} className="group md:grid md:grid-cols-[7rem_1fr_8rem_1fr_5rem_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface">
+              <div key={p.id} className="group md:grid md:grid-cols-[7rem_1fr_8rem_1fr_7.5rem_3rem] md:gap-2 md:items-center px-4 py-3 hover:bg-surface">
                 <span className="text-sm text-ink-soft">{p.paid_date ? formatDate(p.paid_date) : '-'}</span>
                 <span className="text-sm text-ink-soft truncate">
                   {p.reference && <span className="font-medium text-ink">{p.reference}</span>}
@@ -652,7 +652,7 @@ export default function PaymentsPage({ params }: { params: { id: string } }) {
               </div>
             ))}
           </div>
-          <div className="hidden md:grid grid-cols-[7rem_1fr_8rem_1fr_5rem_3rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
+          <div className="hidden md:grid grid-cols-[7rem_1fr_8rem_1fr_7.5rem_3rem] gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft">
             <span>Total</span><span /><span /><span className="text-right text-success">{money(s?.received ?? 0)}</span><span /><span />
           </div>
         </div>
