@@ -1,5 +1,5 @@
 import type { Guide } from '../schema'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'houzz-pro-alternatives',
@@ -15,6 +15,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'Houzz Pro is two products in one subscription: a way to be found by homeowners on Houzz, and the software to run the job once they say yes. If the first half is what you pay for, it is hard to replace. If you only use the second, a Houzz Pro alternative is a question worth asking at renewal.',
   takeaways: [
@@ -40,7 +41,7 @@ export const guide: Guide = {
       'THE LEADS ARE NOT THE CHANNEL. Builders who win work through referrals, repeat clients or bids pay for a marketplace they do not use.',
       'THE CONTRACT. An annual commitment is a lot to ask while you are still finding out whether the crew will use the app.',
       'GC WORK, NOT DESIGN WORK. Houzz Pro is built around design and remodeling. A GC managing several subs per job cares more about subcontracts, sub bills and pay applications than mood boards.',
-      'ACCOUNTING. A one-way push into QuickBooks means edits made in QuickBooks do not come back - true of Houzz Pro by its help centre, and true of SyteNav too, so weigh it equally.',
+      'ACCOUNTING. A one-way push into QuickBooks means edits made in QuickBooks do not come back - true of Houzz Pro by its help centre. SyteNav can bring back payments, voids and edits made in QuickBooks to records it sent, but not records created only in QuickBooks.',
     ] },
 
     { type: 'h2', text: 'When Houzz Pro is the right answer' },
@@ -80,7 +81,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT} - the project-management half of Houzz Pro, aimed at the GC side of it. Quotes are scanned into the budget, subs are awarded subcontracts, their bills are checked against what they quoted, change orders raise the budget line and the subcontract together, and client invoices are built from costs already approved. Clients and subs get links, not logins. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do: no leads, no marketing, no website, no 3D design tools and no online card payments from clients, and like Houzz Pro, ${QBO_ONE_WAY}. If Houzz is where your clients come from, keep it - SyteNav does not replace a sales channel.` },
+    { type: 'p', text: `What it does not do: no leads, no marketing, no website, no 3D design tools and no online card payments from clients, and ${QBO_SYNC_LIMIT}. If Houzz is where your clients come from, keep it - SyteNav does not replace a sales channel.` },
   ],
   links: [
     { text: 'Houzz’s pricing page describes Houzz Pro', href: 'https://www.houzz.com/houzz-pro/pricing' },

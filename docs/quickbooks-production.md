@@ -137,3 +137,34 @@ without their yes. A spare QuickBooks Online trial company works.
    - Reconnect the same company. Nothing should be re-created.
    - Disconnect from inside QuickBooks instead. You should land on the
      Disconnect URL page, and the next morning SyteNav should show "Reconnect QuickBooks".
+
+## Bringing changes back (two-way, phase 1)
+
+Off by default. An admin turns it on under Settings -> Integrations -> Bring
+changes back from QuickBooks. From that moment, changes made IN QuickBooks to
+records SyteNav sent come back: payments against SyteNav invoices and bills,
+and voids, deletes and amount changes (flagged, never applied).
+
+It works with no Intuit setup at all: SyteNav reads QuickBooks' changes every
+morning (`/api/cron/quickbooks-pull`, 09:40 UTC) and **Check QuickBooks now**
+reads them on demand. To get changes within minutes, set up Intuit's webhook:
+
+1. Intuit Developer -> your app -> **Production** -> **Webhooks**.
+2. Endpoint URL: `APP/api/quickbooks/webhook`.
+3. Entities: **Payment, Invoice, Bill, BillPayment** (Create, Update, Delete, Void).
+4. Copy the **Verifier token** into Vercel as `QBO_WEBHOOK_VERIFIER`
+   (Production only), then redeploy. Without it the webhook route refuses
+   every call, by design.
+5. The app assessment answered "one-way push". If Intuit asks, the data-use
+   answer is now: SyteNav pushes records and, when the customer turns it on,
+   reads changes Intuit reports to records SyteNav created.
+
+Pilot:
+- Turn it on. In QuickBooks, receive a payment against a SyteNav invoice.
+  Check QuickBooks now -> the payment appears on the job, "Recorded in
+  QuickBooks", and the invoice reads paid or part paid.
+- Pay a SyteNav bill in QuickBooks -> it reads paid.
+- Void a SyteNav payment in QuickBooks -> the row says Voided in QuickBooks.
+- Receive the SAME payment in SyteNav and in QuickBooks -> the QuickBooks one is
+  refused and listed under Recent sync activity (no double count).
+

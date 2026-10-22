@@ -1018,6 +1018,7 @@ function InvoicesPageInner({ params }: { params: { id: string } }) {
           onUploadWaiver={(type, f) => handleLienWaiverUpload(shownBill, type, f)}
           onEdit={() => openEditInvoice(shownBill)}
           onUnpay={() => unpayBill(shownBill)}
+          onFlagCleared={fetchData}
           onDelete={() => handleDeleteInvoice(shownBill)}
           onBack={closeBill}
         />

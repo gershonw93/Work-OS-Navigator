@@ -693,8 +693,19 @@
       <div>
         <dt>Does it sync with QuickBooks Online?</dt>
         <dd>
-          Yes. One-way, SyteNav into QuickBooks, so your bookkeeper is not re-entering anything.
+          Yes. SyteNav pushes into QuickBooks, so your bookkeeper is not re-entering anything.
           Once connected it runs itself - there is no button to remember.
+        </dd>
+      </div>
+      <div>
+        <dt>If my bookkeeper records a payment in QuickBooks, does SyteNav find out?</dt>
+        <dd>
+          Yes, if an admin turns on Bring changes back. A payment received in QuickBooks against a
+          SyteNav invoice is added to the job and the invoice reads paid; a sub's bill paid there reads
+          paid. A void, delete or amount change made there to something SyteNav sent is flagged on
+          that record for you to check - SyteNav never changes or deletes it for you. A payment that
+          SyteNav already has (the same money recorded twice) is refused and listed, not added again.
+          Records created only in QuickBooks stay there.
         </dd>
       </div>
       <div>
@@ -848,9 +859,11 @@
           name a real town from a genuine address.
         </li>
         <li>
-          <span class="tag">QuickBooks · one direction</span>
-          Nothing recorded directly in QuickBooks comes back into SyteNav. Edit something over
-          there and the two will disagree until it is fixed here.
+          <span class="tag">QuickBooks · not a full two-way sync</span>
+          With Bring changes back on, payments recorded in QuickBooks against SyteNav invoices and
+          bills come back, and voids, deletes and amount changes there are flagged on the record -
+          never applied for you. Invoices, bills and payments created only in QuickBooks do not come
+          back at all.
         </li>
         <li>
           <span class="tag">Credit is per job</span>

@@ -1,5 +1,5 @@
 import type { Guide } from '../schema'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'projul-alternatives',
@@ -15,6 +15,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'Projul is built to run a contracting company from the first phone call to the last invoice: a CRM, estimates, crew scheduling, time tracking and a client portal, on flat-rate plans rather than per seat. It fits a company whose crews do the work. A GC whose subs do the work is asking a different question.',
   takeaways: [
@@ -79,7 +80,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT}, and specifically for the GC whose subs do the work. Quotes are requested from subs, scanned and compared, awards become subcontracts and budget lines, sub bills are checked against what was quoted, change orders raise the subcontract and the budget together, and pay applications run both ways - a sub billing you and you billing the owner. Daily logs, photos and inspections sit on the same job as the money they prove. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do, and where Projul is ahead: SyteNav has no CRM or lead pipeline, no online card payments from clients, and its time clock is a record of who was on site rather than a payroll system; and ${QBO_ONE_WAY}. A self-performing contractor will find more of their day in Projul.` },
+    { type: 'p', text: `What it does not do, and where Projul is ahead: SyteNav has no CRM or lead pipeline, no online card payments from clients, and its time clock is a record of who was on site rather than a payroll system; and ${QBO_SYNC_LIMIT}. A self-performing contractor will find more of their day in Projul.` },
   ],
   links: [
     { text: 'Projul’s homepage calls it all-in-one construction management software', href: 'https://projul.com/' },

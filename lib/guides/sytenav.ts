@@ -4,7 +4,7 @@
 // Every comparison guide ends with the same three facts - who it is for, what
 // it costs, and what it does not do - and fourteen hand-typed copies of them is
 // "one fact, one home" broken fourteen times. The day QuickBooks becomes a
-// two-way sync, or the entry price moves, this is the file that changes and
+// full two-way sync, or the entry price moves, this is the file that changes and
 // every guide follows.
 //
 // THE POSITIONING IS DELIBERATELY NOT A SIZE. The owner's decision: SyteNav is
@@ -34,6 +34,11 @@ export const PLANS_SENTENCE =
 
 export const plansLink: GuideLink = { text: PLANS_LINK_TEXT, href: '/pricing' }
 
-/** The QuickBooks answer, as a clause. */
-export const QBO_ONE_WAY =
-  'its QuickBooks integration is a one-way push from SyteNav into QuickBooks Online rather than a two-way sync'
+/**
+ * The QuickBooks answer, as a clause. Since October 2026 it is not plain
+ * "one-way": with the setting on, payments, voids and edits made in QuickBooks
+ * to records SyteNav sent come back (lib/quickbooks-pull.ts). Anything created
+ * only in QuickBooks still does not - which is the honest limit.
+ */
+export const QBO_SYNC_LIMIT =
+  'its QuickBooks Online integration is not a full two-way sync: it pushes SyteNav records into QuickBooks and brings back only payments, voids and edits made there to those records, never anything created only in QuickBooks'

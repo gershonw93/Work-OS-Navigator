@@ -15,8 +15,8 @@ import type { LegalSection } from '@/components/marketing/legal-doc'
 // link opens for whoever holds it) is a fact about the code. A promise the
 // product does not keep is worse in a legal document than anywhere else.
 
-export const TERMS_VERSION = '2026-10-20'
-export const TERMS_UPDATED = 'October 20, 2026'
+export const TERMS_VERSION = '2026-10-22'
+export const TERMS_UPDATED = 'October 22, 2026'
 
 export const TERMS_INTRO = "These Terms of Service ('Terms') are an agreement between you and SyteNav ('SyteNav', 'we', 'us') and govern your access to and use of SyteNav's website, web app and mobile apps (the 'Service'). By creating an account, ticking the box at sign-up, or using the Service, you agree to these Terms. If you are using the Service for a company, you agree on its behalf and confirm you have the authority to do so; 'you' then means that company and everyone it lets use the Service. If you do not agree, do not use the Service."
 
@@ -62,7 +62,7 @@ export const TERMS_SECTIONS: LegalSection[] = [
   { h: 'Intellectual property', body: ['The Service, including its software, design, and content (excluding Customer Data), is owned by SyteNav and protected by intellectual-property laws. We grant you a limited, non-exclusive, non-transferable, revocable right to use the Service under these Terms. You may not copy, resell, reverse engineer or build a competing product from the Service.'] },
   { h: 'Third-party services', body: ['The Service relies on and connects to services we do not control, such as hosting, database, storage, email, maps, analytics, AI, payment and accounting providers, and app stores. Their availability, security and accuracy are their responsibility, their own terms may apply to you, and we are not liable for their acts, failures or outages.'] },
   { h: 'QuickBooks Online', body: [
-    'If you connect the Service to QuickBooks Online, you confirm that you are authorized to connect the QuickBooks company you choose and to have the Service send records into it. The connection sends records from the Service into QuickBooks only; it does not import or reconcile your books, and it is not accounting, tax or bookkeeping advice. You remain responsible for your accounting records and for reviewing what is sent.',
+    'If you connect the Service to QuickBooks Online, you confirm that you are authorized to connect the QuickBooks company you choose and to have the Service send records into it. The connection sends records from the Service into QuickBooks. If an administrator turns on bringing changes back, the Service also reads payments, voids, deletions and amount changes made in QuickBooks to records the Service sent, adds those payments to the job and flags the rest for you to review; it does not import other records, it does not reconcile your books, and it is not accounting, tax or bookkeeping advice. You remain responsible for your accounting records and for reviewing what is sent and what comes back.',
     'Your use of QuickBooks is governed by your agreement with Intuit. SyteNav is not affiliated with or endorsed by Intuit. You may disconnect at any time from Settings or from QuickBooks; records already sent stay in QuickBooks.',
   ] },
   { h: 'Security', body: ['We use reasonable technical and organisational safeguards, including encryption in transit and access controls. No method of storage or transmission is completely secure, and we cannot guarantee that unauthorized access, loss or disclosure will never happen. To the fullest extent permitted by law, we are not liable for unauthorized access to Customer Data that was not caused by our gross negligence or willful misconduct.'] },

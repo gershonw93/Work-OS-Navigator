@@ -1,6 +1,6 @@
 import type { Guide } from '../schema'
 import { TRIAL_DAYS } from '../../plans'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'buildertrend-alternatives',
@@ -17,6 +17,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'Buildertrend is built around the homeowner: selections, a client portal, a sales pipeline before the job and warranty work after it. If that is your business, it is hard to beat. If your money leaks somewhere else, a Buildertrend alternative may fit better.',
   takeaways: [
@@ -93,7 +94,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT}: quotes scanned in by AI so line items are not retyped, budgets that receive sub bills directly, sub invoices checked against the quote they were awarded on, change orders that raise the budget line and the subcontract they belong to, and client invoices built from costs already recorded. Subs and clients get links rather than logins. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do, and where Buildertrend is ahead: it has no sales pipeline or lead tracking, no warranty module, and ${QBO_ONE_WAY}. If those are what you need, Buildertrend is the better fit and we would rather say so here.` },
+    { type: 'p', text: `What it does not do, and where Buildertrend is ahead: it has no sales pipeline or lead tracking, no warranty module, and ${QBO_SYNC_LIMIT}. If those are what you need, Buildertrend is the better fit and we would rather say so here.` },
   ],
   links: [
     { text: 'Buildertrend’s own comparison page', href: 'https://buildertrend.com/buildertrend-vs-procore/' },

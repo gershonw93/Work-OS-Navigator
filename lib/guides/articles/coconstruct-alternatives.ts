@@ -1,5 +1,5 @@
 import type { Guide } from '../schema'
-import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_ONE_WAY } from '../sytenav'
+import { SYTENAV_FIT, PLANS_SENTENCE, plansLink, QBO_SYNC_LIMIT } from '../sytenav'
 
 export const guide: Guide = {
   slug: 'coconstruct-alternatives',
@@ -15,6 +15,7 @@ export const guide: Guide = {
   ],
   category: 'compare',
   published: '2026-10-20',
+  updated: '2026-10-22',
   lede:
     'If you run on CoConstruct, the decision has been made for you in one sense: CoConstruct is becoming part of Buildertrend, and new projects will have to go somewhere else. The useful question is not whether to move but where, and the migration is the cheapest moment you will ever get to ask it.',
   takeaways: [
@@ -79,7 +80,7 @@ export const guide: Guide = {
 
     { type: 'h2', text: 'Where SyteNav fits' },
     { type: 'p', text: `SyteNav is built for ${SYTENAV_FIT}. For a CoConstruct customer the honest comparison is this: SyteNav has selections and a client portal, but the homeowner experience is not where it is deepest. Its depth is the money - quotes scanned into the budget, sub bills checked against what each sub quoted, change orders that raise the budget line and the subcontract together, and client invoices built from approved costs. ${PLANS_SENTENCE}` },
-    { type: 'p', text: `What it does not do: there is no import from CoConstruct, no warranty module and no sales pipeline, and ${QBO_ONE_WAY}. If CoConstruct’s homeowner workflow is what you valued, Buildertrend is the closer match.` },
+    { type: 'p', text: `What it does not do: there is no import from CoConstruct, no warranty module and no sales pipeline, and ${QBO_SYNC_LIMIT}. If CoConstruct’s homeowner workflow is what you valued, Buildertrend is the closer match.` },
   ],
   links: [
     { text: 'Buildertrend announced its acquisition of CoConstruct in February 2021', href: 'https://buildertrend.com/press-releases/coconstruct-acquisition/' },

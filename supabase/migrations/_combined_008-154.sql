@@ -4641,3 +4641,37 @@ CREATE TABLE IF NOT EXISTS quickbooks_account_choices (
   PRIMARY KEY (company_id, realm_id, environment, kind)
 );
 ALTER TABLE quickbooks_account_choices ENABLE ROW LEVEL SECURITY;
+
+-- 154 quickbooks pull (two-way phase 1)
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS qbo_pull_enabled boolean NOT NULL DEFAULT false;
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS qbo_pull_since timestamptz;
+ALTER TABLE client_payments ADD COLUMN IF NOT EXISTS origin text NOT NULL DEFAULT 'sytenav';
+ALTER TABLE client_payments ADD COLUMN IF NOT EXISTS qbo_external_state text;
+ALTER TABLE client_payments ADD COLUMN IF NOT EXISTS qbo_external_note text;
+ALTER TABLE client_payments ADD COLUMN IF NOT EXISTS qbo_external_at timestamptz;
+ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS qbo_external_state text;
+ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS qbo_external_note text;
+ALTER TABLE client_invoices ADD COLUMN IF NOT EXISTS qbo_external_at timestamptz;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS qbo_external_state text;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS qbo_external_note text;
+ALTER TABLE invoices ADD COLUMN IF NOT EXISTS qbo_external_at timestamptz;
+ALTER TABLE quickbooks_sync_log ADD COLUMN IF NOT EXISTS direction text NOT NULL DEFAULT 'push';
+CREATE TABLE IF NOT EXISTS quickbooks_inbound_events (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id   uuid REFERENCES companies (id) ON DELETE CASCADE,
+  realm_id     text NOT NULL,
+  environment  text NOT NULL,
+  entity       text NOT NULL,
+  qbo_id       text NOT NULL,
+  operation    text NOT NULL,
+  last_updated text NOT NULL DEFAULT '',
+  source       text NOT NULL DEFAULT 'webhook',
+  status       text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'applied', 'ignored', 'error')),
+  message      text,
+  received_at  timestamptz NOT NULL DEFAULT now(),
+  processed_at timestamptz,
+  UNIQUE (realm_id, environment, entity, qbo_id, operation, last_updated)
+);
+ALTER TABLE quickbooks_inbound_events ENABLE ROW LEVEL SECURITY;
+CREATE INDEX IF NOT EXISTS idx_qbo_inbound_pending ON quickbooks_inbound_events (status, received_at);
+CREATE INDEX IF NOT EXISTS idx_qbo_inbound_company ON quickbooks_inbound_events (company_id, received_at DESC);

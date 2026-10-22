@@ -55,6 +55,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-10-22',
+    title: 'Payments made in QuickBooks come back',
+    items: [
+      {
+        kind: 'new',
+        title: 'Bring changes back from QuickBooks',
+        text: 'Turn it on under Settings > Integrations. When your bookkeeper receives a payment in QuickBooks against a SyteNav invoice, it is added to the job and the invoice reads paid; a sub\'s bill paid there reads paid here. A void, delete or amount change made in QuickBooks to something SyteNav sent is flagged on that record for you to check - SyteNav never changes or deletes it for you. Records created only in QuickBooks stay there.',
+        help: 'connect-quickbooks',
+      },
+    ],
+  },
+  {
+    date: '2026-10-22',
     title: 'A bill is a screen of its own',
     items: [
       {

@@ -22,6 +22,7 @@ import { formatDate, todayDateInput } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 import { fetchProblem } from '@/lib/fetch-error'
 import { qbShortReason } from '@/lib/qbo-short-reason'
+import { QboExternalFlag } from '@/components/quickbooks/external-flag'
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
   memo: string | null; retainer: boolean; qb_entered: boolean
@@ -31,6 +32,11 @@ interface Payment {
   qbo_id: string | null
   /** QuickBooks refused the latest push of this payment, and why (from the sync log). */
   qb_error?: string | null
+  /** 'quickbooks' when the payment was recorded in QuickBooks and brought back. */
+  origin?: string | null
+  /** What QuickBooks says about it since (voided / deleted / changed there). */
+  qbo_external_state?: string | null
+  qbo_external_note?: string | null
   /**
    * A share of one check split across a development's houses. Changed or
    * deleted with the whole check, on the development - the route refuses it here.
@@ -658,6 +664,8 @@ function PaymentsPageInner({ params }: { params: { id: string } }) {
                   {p.qb_error && !p.qbo_id && (
                     <span className="block text-xs text-danger">QuickBooks: {qbShortReason(p.qb_error)}</span>
                   )}
+                  {p.origin === 'quickbooks' && <span className="block text-xs text-faint">Recorded in QuickBooks</span>}
+                  <QboExternalFlag state={p.qbo_external_state} note={p.qbo_external_note} table="client_payments" id={p.id} onCleared={load} />
                 </span>
                 <span className="hidden text-sm text-muted-fg md:block">{p.method || '-'}</span>
                 <span className="mr-auto shrink-0 text-sm font-semibold tabular-nums text-ink md:mr-0 md:block md:text-right">{money(p.amount)}</span>
