@@ -106,7 +106,8 @@ ok(/TaskDetailPanelProps & \{ onClose/.test(tasks),
 // change that fixed one reported drawer is how a fix becomes a regression.
 // 17: the bill card on Bills from subs became a screen of its own (BillRow +
 // components/invoices/sub-bill-detail.tsx), and stopped being declared inside the page.
-const NESTED_LIMIT = 17
+// 15: Change Orders' card and group became module-level CORow / CODetail.
+const NESTED_LIMIT = 15
 const nested = walk('app').concat(walk('components'))
   .filter(f => f.endsWith('.tsx'))
   .flatMap(f => (read(f).match(/^[ \t]+function [A-Z][A-Za-z0-9]*\(/gm) ?? []).map(m => `${f}: ${m.trim()}`))

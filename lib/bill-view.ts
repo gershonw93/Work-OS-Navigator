@@ -204,3 +204,52 @@ export function clientInvoiceSteps(b: ClientInvoiceFacts, money: (n: number) => 
     },
   ]
 }
+
+// ── A change order ──────────────────────────────────────────────────────────
+
+export interface ChangeOrderFacts {
+  status: string
+  created_at: string
+  applied_to_contract?: boolean | null
+  client_shared_at?: string | null
+  client_response?: string | null
+  client_response_at?: string | null
+}
+
+/**
+ * Raised -> On the client's link -> Client answered -> Approved (or Rejected).
+ *
+ * Sharing is OPTIONAL - plenty of change orders are agreed on site and never go
+ * near the portal - so an unshared one reads "Optional", never "Not yet", and a
+ * decision made without it reads "Skipped". The client's answer is a record
+ * beside the decision, not the decision: it lights its own step and nothing
+ * else.
+ */
+export function changeOrderSteps(c: ChangeOrderFacts): Step[] {
+  const decided = c.status === 'approved' || c.status === 'rejected'
+  const shared = !!c.client_shared_at
+  const answered = !!c.client_response
+  return [
+    { label: 'Raised', done: true, note: day(c.created_at) },
+    {
+      // Short words: four columns share 340px on a phone.
+      label: 'Shared',
+      done: shared,
+      note: shared ? short(c.client_shared_at) : decided ? 'Skipped' : 'Optional',
+    },
+    {
+      label: 'Answered',
+      done: answered,
+      note: answered
+        ? `${c.client_response === 'approved' ? 'Approved' : 'Declined'}${c.client_response_at ? ` ${short(c.client_response_at)}` : ''}`
+        : shared ? 'Waiting on them' : decided ? 'Skipped' : 'Once shared',
+    },
+    {
+      label: c.status === 'rejected' ? 'Rejected' : 'Approved',
+      done: decided,
+      note: c.status === 'approved'
+        ? (c.applied_to_contract ? 'Added to the contract' : 'Approved')
+        : c.status === 'rejected' ? 'Not going ahead' : 'Waiting on you',
+    },
+  ]
+}

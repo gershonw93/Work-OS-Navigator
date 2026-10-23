@@ -9,9 +9,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
 import {
-  Plus, X, ChevronDown, ChevronUp, ClipboardList,
-  CheckCircle2, XCircle, Clock, Trash2, Link2, Share2, MessageSquare, EyeOff, AlertTriangle, Loader2,
+  Plus, X, ChevronRight, ClipboardList,
+  CheckCircle2, XCircle, Clock, Trash2, Link2, Share2, MessageSquare, EyeOff, AlertTriangle, Loader2, DollarSign, Users,
 } from 'lucide-react'
+import {
+  BackLink, DetailRows, DetailSection, Pill, PhoneActionBar, StatTile, StepTrack, type PillTone,
+} from '@/components/bills/detail-parts'
+import { changeOrderSteps } from '@/lib/bill-view'
+import { useOpenRecord } from '@/lib/use-open-record'
 import { ClientThreadDialog } from '@/components/client-thread/client-thread-dialog'
 import { threadShape } from '@/lib/client-thread'
 import { responseLine } from '@/lib/change-order-client'
@@ -65,10 +70,10 @@ function fmt(amount: number) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount)
 }
 
-const STATUS_CONFIG: Record<string, { label: string; pillClass: string; icon: any }> = {
-  pending:  { label: 'Pending',  pillClass: 'bg-warn-tint border-warn/30 text-warn',  icon: Clock },
-  approved: { label: 'Approved', pillClass: 'bg-success-tint border-success/30 text-success', icon: CheckCircle2 },
-  rejected: { label: 'Rejected', pillClass: 'bg-danger-tint border-danger/30 text-danger',       icon: XCircle },
+const STATUS_CONFIG: Record<string, { label: string; tone: PillTone; icon: any }> = {
+  pending:  { label: 'Pending',  tone: 'warn',    icon: Clock },
+  approved: { label: 'Approved', tone: 'success', icon: CheckCircle2 },
+  rejected: { label: 'Rejected', tone: 'danger',  icon: XCircle },
 }
 
 export default function ChangeOrdersPage({ params }: { params: { id: string } }) {
@@ -88,7 +93,9 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [expanded, setExpanded] = useState<string | null>(null)
+  // The change order open as a screen of its own - in the URL, so Back and
+  // a refresh both land where they should. It used to unfold in the list.
+  const { id: openId, open: openCO, close: closeCO } = useOpenRecord()
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({})
   // Sharing with the client is a deliberate step with its own dialog: the
   // amount on a sub-linked change order is the SUB's price, our cost.
@@ -255,6 +262,7 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` },
       })
+      if (openId === co.id) closeCO()
       fetchData()
     }, { label: `change order "${co.title}"`, protected: true })
   }
@@ -275,230 +283,9 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
     return sub?.companies?.name ?? sub?.scope_of_work ?? id
   }
 
-  function COCard({ co }: { co: ChangeOrder }) {
-    const isExpanded = expanded === co.id
-    const cfg = STATUS_CONFIG[co.status] ?? STATUS_CONFIG.pending
-    const StatusIcon = cfg.icon
-    const amountColor = co.amount >= 0 ? 'text-success' : 'text-danger'
-    const localNotes = reviewNotes[co.id] ?? co.review_notes ?? ''
-
-    return (
-      <div className="rounded-xl border border-line bg-panel overflow-hidden">
-        <button
-          className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
-          onClick={() => setExpanded(isExpanded ? null : co.id)}
-        >
-          <StatusIcon className={cn('h-5 w-5 shrink-0',
-            co.status === 'approved' ? 'text-success' :
-            co.status === 'rejected' ? 'text-danger' : 'text-amber-400'
-          )} />
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="font-semibold text-ink">{co.title}</span>
-              <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', cfg.pillClass)}>
-                {cfg.label}
-              </span>
-              <span className={cn('text-sm font-semibold', amountColor)}>{fmt(co.amount)}</span>
-              {co.requested_by_type === 'sub' && (
-                <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">Sub</span>
-              )}
-              {co.requested_by_type === 'gc' && (
-                <span className="whitespace-nowrap text-xs bg-accent-tint text-accent-fg rounded-full px-2 py-0.5">GC</span>
-              )}
-              {co.client_response ? (
-                <span className={cn('whitespace-nowrap text-xs rounded-full px-2 py-0.5',
-                  co.client_response === 'approved' ? 'bg-success-tint text-success' : 'bg-danger-tint text-danger')}>
-                  Client {co.client_response}
-                </span>
-              ) : co.client_shared_at ? (
-                <span className="whitespace-nowrap text-xs bg-info-tint text-info rounded-full px-2 py-0.5">With client</span>
-              ) : null}
-              {threadShape(co.client_messages).waitingOnGc && (
-                <span className="whitespace-nowrap text-xs font-semibold text-warn">Client asked a question</span>
-              )}
-            </div>
-            <p className="text-xs text-faint mt-0.5">
-              {co.reason && `${co.reason} · `}
-              {formatDate(co.created_at)}
-              {co.subcontract_id && ` · ${getSubName(co.subcontract_id)}`}
-            </p>
-            {co.applied_to_contract && co.subcontract_id && (
-              <p className="text-[11px] text-success mt-0.5 inline-flex items-center gap-1">
-                <CheckCircle2 className="h-3 w-3" /> Added to {getSubName(co.subcontract_id)}'s contract
-              </p>
-            )}
-          </div>
-          {isExpanded
-            ? <ChevronUp className="h-4 w-4 text-faint shrink-0" />
-            : <ChevronDown className="h-4 w-4 text-faint shrink-0" />
-          }
-        </button>
-
-        {isExpanded && (
-          <div className="border-t border-line-soft px-5 py-5 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-              <div>
-                <p className="text-xs text-faint">Amount</p>
-                <p className={cn('font-semibold text-base', amountColor)}>{fmt(co.amount)}</p>
-              </div>
-              <div>
-                <p className="text-xs text-faint">Status</p>
-                <span className={cn('whitespace-nowrap inline-block text-xs font-medium rounded-full border px-2 py-0.5 mt-0.5', cfg.pillClass)}>
-                  {cfg.label}
-                </span>
-              </div>
-              {co.reason && (
-                <div>
-                  <p className="text-xs text-faint">Reason</p>
-                  <p className="font-medium text-ink-soft">{co.reason}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-xs text-faint">Requested By</p>
-                <p className="font-medium text-ink-soft">{co.requested_by_type === 'gc' ? 'General Contractor' : 'Subcontractor'}</p>
-              </div>
-              {co.subcontract_id && (
-                <div>
-                  <p className="text-xs text-faint">Subcontract</p>
-                  <p className="font-medium text-ink-soft">{getSubName(co.subcontract_id)}</p>
-                </div>
-              )}
-              <div>
-                <p className="text-xs text-faint">Created</p>
-                <p className="font-medium text-ink-soft">{formatDate(co.created_at)}</p>
-              </div>
-            </div>
-
-            {co.description && (
-              <div>
-                <p className="text-xs text-faint mb-1">Description</p>
-                <p className="text-sm text-muted-fg whitespace-pre-wrap break-words">{co.description}</p>
-              </div>
-            )}
-
-            {/* THE CLIENT'S SIDE. Shared on purpose or not at all; the client's
-                answer sits here as a record for the Approve button below, which
-                stays yours - approving moves money. */}
-            <div className="rounded-lg border border-line-soft bg-surface/50 px-3 py-3 space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-faint">Client</p>
-              {co.client_shared_at ? (
-                <>
-                  <p className="text-sm text-ink-soft">On the client&apos;s link since {formatDate(co.client_shared_at)}.</p>
-                  {co.client_response ? (
-                    <p className={cn('text-sm font-semibold', co.client_response === 'approved' ? 'text-success' : 'text-danger')}>
-                      {responseLine(co as any, co.client_response_at ? formatDate(co.client_response_at) : null)}
-                      {co.client_response_email && (
-                        <span className="block text-xs font-normal text-muted-fg">Signed in as {co.client_response_email}.</span>
-                      )}
-                      {co.client_response === 'approved' && co.status === 'pending' && (
-                        <span className="block text-xs font-normal text-muted-fg">It is tied to a subcontract, so approve it below to add it to the contract - their yes does not do that on its own.</span>
-                      )}
-                    </p>
-                  ) : (
-                    <p className="text-sm text-muted-fg">No answer from the client yet.</p>
-                  )}
-                  {co.client_response_note && <p className="text-sm text-muted-fg italic">&ldquo;{co.client_response_note}&rdquo;</p>}
-                  <div className="row-even lg:flex lg:flex-wrap gap-2">
-                    <Button size="sm" variant="outline" onClick={() => setThreadFor(co)}>
-                      <MessageSquare className="h-3.5 w-3.5" /> Client questions{threadShape(co.client_messages).count ? ` (${threadShape(co.client_messages).count})` : ''}
-                    </Button>
-                    <Button size="sm" variant="outline" onClick={() => unshare(co)}>
-                      <EyeOff className="h-3.5 w-3.5" /> Take off client link
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-sm text-muted-fg">Not on the client&apos;s link. Share it to let them read it, approve or decline it, and ask about it.</p>
-                  {/* ONE PRESS where nothing needs checking: a change order with no
-                      subcontract is the client's price, so Share puts it on their link and
-                      emails them, and the notice says who it went to. One tied to a
-                      subcontract still opens the dialog - its amount is probably the SUB's
-                      price, our cost, and that warning is the step worth having. */}
-                  {co.subcontract_id ? (
-                    <Button size="sm" variant="outline" onClick={() => setShareFor(co)}>
-                      <Share2 className="h-3.5 w-3.5" /> Share with client
-                    </Button>
-                  ) : (
-                    <div className="flex flex-wrap items-center gap-3">
-                      <Button size="sm" disabled={sharing} onClick={() => share(co, true)}>
-                        {sharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />} Share and email the client
-                      </Button>
-                      <button type="button" disabled={sharing} onClick={() => share(co, false)}
-                        className="text-xs font-medium text-muted-fg underline hover:text-ink disabled:opacity-50">
-                        Share without emailing
-                      </button>
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-
-            <div className="space-y-1.5">
-              <Label className="lg:text-xs text-faint">Review Notes</Label>
-              <textarea
-                rows={2}
-                value={localNotes}
-                onChange={e => setReviewNotes(prev => ({ ...prev, [co.id]: e.target.value }))}
-                placeholder="Add review notes..."
-                className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none"
-              />
-              {(reviewNotes[co.id] !== undefined && reviewNotes[co.id] !== (co.review_notes ?? '')) && (
-                <button
-                  type="button"
-                  onClick={() => saveNotes(co)}
-                  className="text-xs text-accent-fg hover:underline"
-                >
-                  Save notes
-                </button>
-              )}
-            </div>
-
-            <div className="row-even lg:flex items-center gap-2 lg:flex-wrap">
-              {co.status !== 'approved' && (
-                <Button size="sm" onClick={() => updateStatus(co, 'approved')}
-                  className="bg-success-solid hover:bg-green-700 text-white">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> Approve
-                </Button>
-              )}
-              {co.status !== 'rejected' && (
-                <Button size="sm" variant="outline"
-                  className="border-danger/30 text-danger hover:bg-danger-tint"
-                  onClick={() => updateStatus(co, 'rejected')}>
-                  <XCircle className="h-3.5 w-3.5" /> Reject
-                </Button>
-              )}
-              {co.status !== 'pending' && (
-                <Button size="sm" variant="outline" onClick={() => updateStatus(co, 'pending')}>
-                  <Clock className="h-3.5 w-3.5" /> Reset to Pending
-                </Button>
-              )}
-              <button
-                type="button"
-                onClick={() => handleDelete(co)}
-                className="ml-auto text-faint hover:text-danger transition-colors p-1 rounded"
-                title="Delete change order"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  function Group({ label, items }: { label: string; items: ChangeOrder[] }) {
-    if (items.length === 0) return null
-    return (
-      <div className="space-y-2">
-        <p className="text-xs font-semibold text-faint uppercase tracking-wide">
-          {label} ({items.length})
-        </p>
-        {items.map(co => <COCard key={co.id} co={co} />)}
-      </div>
-    )
-  }
+  const withClient = changeOrders.filter(c => c.client_shared_at && !c.client_response && c.status === 'pending')
+  const pendingValue = pending.reduce((sum, c) => sum + c.amount, 0)
+  const shown = openId ? changeOrders.find(c => c.id === openId) ?? null : null
 
   return (
     <div className="p-0 lg:p-6 space-y-5">
@@ -647,65 +434,75 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
         </div>
       )}
 
+      {shown ? (
+        <CODetail
+          co={shown}
+          subName={getSubName(shown.subcontract_id)}
+          notes={reviewNotes[shown.id] ?? shown.review_notes ?? ''}
+          notesDirty={reviewNotes[shown.id] !== undefined && reviewNotes[shown.id] !== (shown.review_notes ?? '')}
+          onNotes={v => setReviewNotes(prev => ({ ...prev, [shown.id]: v }))}
+          onSaveNotes={() => saveNotes(shown)}
+          onStatus={next => updateStatus(shown, next)}
+          setShareFor={setShareFor}
+          share={share}
+          sharing={sharing}
+          onUnshare={() => unshare(shown)}
+          onThread={() => setThreadFor(shown)}
+          onDelete={() => handleDelete(shown)}
+          onBack={closeCO}
+        />
+      ) : (
+      <>
       {/* Header */}
       <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Change Orders</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">Change Orders</h1>
           <p className="text-sm text-muted-fg mt-0.5">Track scope changes, cost adjustments, and approvals.</p>
         </div>
-        <Button onClick={() => setShowForm(true)}>
+        <Button size="lg" className="h-11 rounded-[10px] px-5" onClick={() => setShowForm(true)}>
           <Plus className="h-4 w-4" /> New Change Order
         </Button>
       </div>
 
-      {/* Stat bar */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <div className="rounded-xl border border-line bg-panel p-4">
-          <p className="text-xs text-faint uppercase tracking-wide font-medium">Pending</p>
-          <p className="text-2xl font-bold text-warn mt-1">{totalPending}</p>
-          <p className="text-xs text-faint">awaiting review</p>
-        </div>
-        <div className="rounded-xl border border-line bg-panel p-4">
-          <p className="text-xs text-faint uppercase tracking-wide font-medium">Approved Value</p>
-          <p className={cn('text-2xl font-bold mt-1', approvedValue >= 0 ? 'text-success' : 'text-danger')}>
-            {fmt(approvedValue)}
-          </p>
-          <p className="text-xs text-faint">running total</p>
-        </div>
-        <div className="rounded-xl border border-line bg-panel p-4">
-          <p className="text-xs text-faint uppercase tracking-wide font-medium">Rejected</p>
-          <p className="text-2xl font-bold text-danger mt-1">{totalRejected}</p>
-          <p className="text-xs text-faint">not approved</p>
-        </div>
+      {/* THE FOUR FIGURES, the same tile as the money pages. Approved value
+          is the one people quote; the green "Total Approved" card that used to
+          sit under the list said it a second time. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        <StatTile label="Pending" value={String(totalPending)} icon={Clock} tone="warn"
+          note={totalPending ? `${fmt(pendingValue)} awaiting your decision` : 'Nothing waiting on you'} />
+        <StatTile label="Approved value" value={fmt(approvedValue)} icon={DollarSign} tone="success"
+          alarm={approvedValue < 0 ? 'danger' : undefined}
+          note={`${approved.length} approved change order${approved.length !== 1 ? 's' : ''}`} />
+        <StatTile label="With the client" value={String(withClient.length)} icon={Users} tone="info"
+          note={withClient.length ? 'On their link, no answer yet' : 'Nothing waiting on the client'} />
+        <StatTile label="Rejected" value={String(totalRejected)} icon={XCircle} tone="danger"
+          note="Not going ahead" />
       </div>
 
       {/* List */}
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : changeOrders.length === 0 ? (
-        <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
+        <div className="rounded-2xl border-2 border-dashed border-line py-16 text-center">
           <ClipboardList className="h-8 w-8 text-faint mx-auto mb-3" />
           <p className="text-sm font-medium text-muted-fg">No change orders yet</p>
           <p className="text-xs text-faint mt-1">Add change orders to track scope changes and cost impacts.</p>
         </div>
       ) : (
-        <div className="space-y-6">
-          <Group label="Pending" items={pending} />
-          <Group label="Approved" items={approved} />
-          <Group label="Rejected" items={rejected} />
-
-          {approved.length > 0 && (
-            <div className="rounded-xl border border-success/30 bg-success-tint px-5 py-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-success">Total Approved Change Order Value</p>
-                <p className="text-xs text-success mt-0.5">{approved.length} approved change order{approved.length !== 1 ? 's' : ''}</p>
+        <div className="space-y-4">
+          {([['Pending', pending], ['Approved', approved], ['Rejected', rejected]] as const).map(([label, items]) => items.length > 0 && (
+            <div key={label} className="space-y-2">
+              <p className="text-xs font-semibold text-faint uppercase tracking-wide">{label} ({items.length})</p>
+              {/* ONE card of divided rows - the same list as Bills from subs. */}
+              <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel">
+                {items.map(co => <CORow key={co.id} co={co} subName={getSubName(co.subcontract_id)} onOpen={() => openCO(co.id)} />)}
               </div>
-              <p className={cn('text-2xl font-bold', approvedValue >= 0 ? 'text-success' : 'text-danger')}>
-                {fmt(approvedValue)}
-              </p>
             </div>
-          )}
+          ))}
         </div>
+      )}
+
+      </>
       )}
 
       {/* Share with the client: says EXACTLY what they will see, and warns when
@@ -755,6 +552,263 @@ function ChangeOrdersPageInner({ params }: { params: { id: string } }) {
         <ClientThreadDialog projectId={params.id} subject="change_order" subjectId={threadFor.id} clientName={null}
           heading={`${threadFor.title} - questions from the client`}
           onClose={() => setThreadFor(null)} onChanged={fetchData} />
+      )}
+    </div>
+  )
+}
+
+/**
+ * One change order in the list. Opens it as a screen of its own.
+ */
+function CORow({ co, subName, onOpen }: { co: ChangeOrder; subName: string | null; onOpen: () => void }) {
+  const cfg = STATUS_CONFIG[co.status] ?? STATUS_CONFIG.pending
+  return (
+    <button type="button" onClick={onOpen}
+      className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-surface lg:gap-4 lg:px-6 lg:py-4">
+      <div className="min-w-0 flex-1">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="break-words text-[15px] font-semibold text-ink">{co.title}</span>
+          <Pill tone={cfg.tone}>{cfg.label}</Pill>
+          {co.client_response ? (
+            <Pill tone={co.client_response === 'approved' ? 'success' : 'danger'}>Client {co.client_response}</Pill>
+          ) : co.client_shared_at ? (
+            <Pill tone="info">With client</Pill>
+          ) : null}
+          {threadShape(co.client_messages).waitingOnGc && (
+            <span className="whitespace-nowrap text-xs font-semibold text-warn">Client asked a question</span>
+          )}
+        </div>
+        <p className="mt-0.5 break-words text-xs text-muted-fg">
+          {co.requested_by_type === 'sub' ? 'Raised by the sub' : 'Raised by you'}
+          {co.reason && ` · ${co.reason}`}
+          {` · ${formatDate(co.created_at)}`}
+          {subName && ` · ${subName}`}
+        </p>
+        {co.applied_to_contract && subName && (
+          <p className="mt-0.5 inline-flex items-center gap-1 text-xs text-success">
+            <CheckCircle2 className="h-3 w-3" /> Added to {subName}&apos;s contract
+          </p>
+        )}
+      </div>
+      <div className={cn('shrink-0 text-[15px] font-bold tabular-nums', co.amount < 0 ? 'text-danger' : 'text-ink')}>{fmt(co.amount)}</div>
+      <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
+    </button>
+  )
+}
+
+interface CODetailProps {
+  co: ChangeOrder
+  subName: string | null
+  notes: string
+  notesDirty: boolean
+  onNotes: (v: string) => void
+  onSaveNotes: () => void
+  onStatus: (next: 'approved' | 'rejected' | 'pending') => void
+  setShareFor: (co: ChangeOrder) => void
+  share: (co: ChangeOrder, email: boolean) => void
+  sharing: boolean
+  onUnshare: () => void
+  onThread: () => void
+  onDelete: () => void
+  onBack: () => void
+}
+
+/**
+ * One change order, as a screen of its own - the same shape as a sub's bill:
+ * the title and the amount at the top, the steps it has been through, ONE
+ * primary action, and the client's side, the notes and the details in cards.
+ * Approving stays the GC's: it raises the contract and what the client is
+ * billed, so the client's own answer is shown beside it as a record.
+ */
+function CODetail({
+  co, subName, notes, notesDirty, onNotes, onSaveNotes, onStatus,
+  setShareFor, share, sharing, onUnshare, onThread, onDelete, onBack,
+}: CODetailProps) {
+  const cfg = STATUS_CONFIG[co.status] ?? STATUS_CONFIG.pending
+  const thread = threadShape(co.client_messages)
+  const primary = co.status !== 'approved'
+    ? { label: 'Approve', icon: CheckCircle2, next: 'approved' as const }
+    : null
+  return (
+    <div className="flex flex-col gap-4 lg:gap-5">
+      <BackLink label="Change Orders" onClick={onBack} />
+
+      <section className="flex flex-col gap-4 rounded-2xl border border-line bg-panel p-5 lg:gap-6 lg:p-7">
+        <div className="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-start lg:justify-between lg:gap-6">
+          <div className="flex min-w-0 flex-col gap-2.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <Pill tone={cfg.tone}>{cfg.label}</Pill>
+              {co.reason && <span className="text-[13px] text-muted-fg">{co.reason}</span>}
+              <span className="text-faint" aria-hidden="true">·</span>
+              <span className="text-[13px] text-muted-fg">{co.requested_by_type === 'sub' ? 'Raised by the sub' : 'Raised by you'}</span>
+            </div>
+            <h1 className="break-words text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">{co.title}</h1>
+            {subName && <div className="text-[13px] text-muted-fg">On {subName}&apos;s subcontract</div>}
+          </div>
+          <div className="flex items-end justify-between gap-3 border-t border-line-soft pt-3.5 lg:flex-col lg:items-end lg:gap-1 lg:border-0 lg:pt-0">
+            <div className="lg:text-right">
+              <div className="text-xs font-medium text-muted-fg lg:text-[13px]">{co.amount < 0 ? 'Deduction' : 'Change to the contract'}</div>
+              <div className={cn('text-[32px] font-bold leading-tight tracking-tight tabular-nums lg:text-4xl lg:leading-none',
+                co.amount < 0 ? 'text-danger' : 'text-ink')}>{fmt(co.amount)}</div>
+            </div>
+            <div className="text-right text-xs text-muted-fg lg:text-sm">Raised {formatDate(co.created_at)}</div>
+          </div>
+        </div>
+
+        <div className="hidden flex-wrap items-center gap-2.5 lg:flex">
+          {primary && (
+            <Button size="lg" onClick={() => onStatus(primary.next)} className="h-11 rounded-[10px] px-5">
+              <primary.icon className="h-4 w-4" /> {primary.label}
+            </Button>
+          )}
+          {co.status !== 'rejected' && (
+            <Button size="lg" variant="outline" onClick={() => onStatus('rejected')}
+              className="h-11 rounded-[10px] px-4 border-danger/30 text-danger hover:bg-danger-tint">
+              <XCircle className="h-4 w-4" /> Reject
+            </Button>
+          )}
+          {co.status !== 'pending' && (
+            <Button size="lg" variant="outline" onClick={() => onStatus('pending')} className="h-11 rounded-[10px] px-4">
+              <Clock className="h-4 w-4" /> Reset to Pending
+            </Button>
+          )}
+          {subName && co.status === 'pending' && (
+            <span className="min-w-[220px] flex-1 text-[13px] text-muted-fg">Approving adds {fmt(co.amount)} to {subName}&apos;s contract.</span>
+          )}
+          <button type="button" onClick={onDelete} aria-label="Delete change order" title="Delete change order"
+            className="ml-auto inline-flex h-11 w-11 items-center justify-center rounded-[10px] text-danger hover:bg-danger-tint">
+            <Trash2 className="h-[19px] w-[19px]" />
+          </button>
+        </div>
+
+        {thread.waitingOnGc && (
+          <button type="button" onClick={onThread}
+            className="flex min-h-11 items-center gap-2 self-start rounded-lg bg-warn-tint px-3 text-sm font-semibold text-warn hover:underline">
+            <MessageSquare className="h-4 w-4" /> The client asked a question - reply
+          </button>
+        )}
+
+        <div className="lg:border-t lg:border-line-soft lg:pt-4">
+          <StepTrack steps={changeOrderSteps(co)} />
+        </div>
+      </section>
+
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
+        <div className="flex min-w-0 flex-col gap-4 lg:flex-1 lg:gap-5">
+          {co.description && (
+            <DetailSection title="What changed">
+              <p className="whitespace-pre-wrap break-words text-sm text-ink-soft">{co.description}</p>
+            </DetailSection>
+          )}
+
+          {/* THE CLIENT'S SIDE. Shared on purpose or not at all; the client's
+              answer sits here as a record beside the Approve button, which
+              stays yours - approving moves money. */}
+          <DetailSection title="The client" aside={
+            co.client_response
+              ? <Pill tone={co.client_response === 'approved' ? 'success' : 'danger'}>Client {co.client_response}</Pill>
+              : co.client_shared_at ? <Pill tone="info">On their link</Pill> : <Pill tone="muted">Not shared</Pill>
+          }>
+            {co.client_shared_at ? (
+              <>
+                <p className="text-sm text-ink-soft">On the client&apos;s link since {formatDate(co.client_shared_at)}.</p>
+                {co.client_response ? (
+                  <p className={cn('text-sm font-semibold', co.client_response === 'approved' ? 'text-success' : 'text-danger')}>
+                    {responseLine(co as any, co.client_response_at ? formatDate(co.client_response_at) : null)}
+                    {co.client_response_email && (
+                      <span className="block text-xs font-normal text-muted-fg">Signed in as {co.client_response_email}.</span>
+                    )}
+                    {co.client_response === 'approved' && co.status === 'pending' && (
+                      <span className="block text-xs font-normal text-muted-fg">It is tied to a subcontract, so approve it yourself to add it to the contract - their yes does not do that on its own.</span>
+                    )}
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-fg">No answer from the client yet.</p>
+                )}
+                {co.client_response_note && <p className="text-sm italic text-muted-fg">&ldquo;{co.client_response_note}&rdquo;</p>}
+                <div className="row-even lg:flex lg:flex-wrap gap-2">
+                  <Button variant="outline" className="h-11 rounded-[10px] lg:h-9" onClick={onThread}>
+                    <MessageSquare className="h-4 w-4 shrink-0" /> Client questions{thread.count ? ` (${thread.count})` : ''}
+                  </Button>
+                  <Button variant="outline" className="h-11 rounded-[10px] lg:h-9" onClick={onUnshare}>
+                    <EyeOff className="h-4 w-4 shrink-0" /> Take off client link
+                  </Button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-sm text-muted-fg">Not on the client&apos;s link. Share it to let them read it, approve or decline it, and ask about it.</p>
+                {/* ONE PRESS where nothing needs checking: a change order with no
+                    subcontract is the client's price, so Share puts it on their link and
+                    emails them, and the notice says who it went to. One tied to a
+                    subcontract still opens the dialog - its amount is probably the SUB's
+                    price, our cost, and that warning is the step worth having. */}
+                {co.subcontract_id ? (
+                  <Button size="sm" variant="outline" onClick={() => setShareFor(co)}>
+                    <Share2 className="h-3.5 w-3.5" /> Share with client
+                  </Button>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button size="sm" disabled={sharing} onClick={() => share(co, true)}>
+                      {sharing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Share2 className="h-3.5 w-3.5" />} Share and email the client
+                    </Button>
+                    <button type="button" disabled={sharing} onClick={() => share(co, false)}
+                      className="min-h-11 text-xs font-medium text-muted-fg underline hover:text-ink disabled:opacity-50 lg:min-h-0">
+                      Share without emailing
+                    </button>
+                  </div>
+                )}
+              </>
+            )}
+          </DetailSection>
+
+          <DetailSection title="Review notes">
+            <textarea
+              rows={3}
+              value={notes}
+              onChange={e => onNotes(e.target.value)}
+              aria-label="Review notes"
+              placeholder="Anything worth remembering about this decision - only your team sees it."
+              className="w-full resize-none rounded-[10px] border border-muted2 bg-panel px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+            />
+            {notesDirty && (
+              <Button variant="outline" onClick={onSaveNotes} className="h-11 self-start rounded-[10px] lg:h-9">Save notes</Button>
+            )}
+          </DetailSection>
+        </div>
+
+        <div className="flex min-w-0 flex-col gap-4 lg:w-[340px] lg:shrink-0 lg:gap-5">
+          <DetailSection title="Details">
+            <DetailRows rows={[
+              { label: 'Amount', value: fmt(co.amount) },
+              { label: 'Status', value: cfg.label },
+              ...(co.reason ? [{ label: 'Reason', value: co.reason }] : []),
+              { label: 'Requested by', value: co.requested_by_type === 'gc' ? 'General Contractor' : 'Subcontractor' },
+              ...(subName ? [{ label: 'Subcontract', value: subName }] : []),
+              ...(co.applied_to_contract && subName ? [{ label: 'Contract', value: 'Added to it' }] : []),
+              { label: 'Created', value: formatDate(co.created_at) },
+            ]} />
+          </DetailSection>
+          {/* Phone: the secondary actions, as words, under everything. */}
+          <div className="flex flex-wrap justify-center gap-2 lg:hidden">
+            {co.status !== 'rejected' && (
+              <button type="button" onClick={() => onStatus('rejected')} className="min-h-11 px-3.5 text-sm font-medium text-danger">Reject</button>
+            )}
+            {co.status !== 'pending' && (
+              <button type="button" onClick={() => onStatus('pending')} className="min-h-11 px-3.5 text-sm font-medium text-ink-soft">Reset to Pending</button>
+            )}
+            <button type="button" onClick={onDelete} className="min-h-11 px-3.5 text-sm font-medium text-danger">Delete</button>
+          </div>
+        </div>
+      </div>
+
+      {primary && (
+        <PhoneActionBar>
+          <button type="button" onClick={() => onStatus(primary.next)}
+            className="inline-flex h-[52px] flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-accent text-base font-semibold text-accent-ink">
+            <primary.icon className="h-5 w-5" /> {primary.label} · {fmt(co.amount)}
+          </button>
+        </PhoneActionBar>
       )}
     </div>
   )

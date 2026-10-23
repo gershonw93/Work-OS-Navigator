@@ -1059,15 +1059,16 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'change-order-basics',
     title: 'Create and approve a change order',
     category: 'money',
-    keywords: ['change order', 'co', 'scope', 'extra', 'approve', 'reject', 'budget line', 'raises', 'over scheduled value', 'overbilled', 'pay application', 'from a pay app', 'link to budget', 'share with client', 'client approval', 'client portal', 'client sign off', 'client approved', 'client declined', 'client login', 'sign in', 'code', 'homeowner approval', 'owner approval'],
+    keywords: ['change order', 'co', 'scope', 'extra', 'approve', 'reject', 'budget line', 'raises', 'over scheduled value', 'overbilled', 'pay application', 'from a pay app', 'link to budget', 'share with client', 'client approval', 'client portal', 'client sign off', 'client approved', 'client declined', 'client login', 'sign in', 'code', 'homeowner approval', 'owner approval', 'open a change order', 'approved value', 'pending change orders'],
     summary: 'Track scope changes and cost adjustments, and approve them.',
     blocks: [
       { type: 'steps', items: [
         'Open the project and go to the Change Orders tab.',
         'Click New Change Order. Enter a title, amount (use negative for a deduction), reason, and who requested it (GC or sub).',
         'Optionally link it to a subcontract.',
-        'Save. Then Approve, Reject, or Reset to Pending as needed.',
+        'Save. Then tap it in the list to open it, and Approve, Reject, or Reset to Pending as needed.',
       ] },
+      { type: 'text', text: 'EACH CHANGE ORDER IS ITS OWN SCREEN. The list opens with four figures - what is pending and its value, the approved value, what is with the client waiting on an answer, and what was rejected. Tap a change order and it opens: the title and amount at the top, and a track - Raised, Shared, Answered, Approved (or Rejected) - with the dates. Sharing is optional, so a change order agreed on site and never shared reads "Skipped" there, not unfinished. Approve is the big button (at the bottom of the screen on a phone); the client\'s side, your review notes and the details each have a card below. Back returns to the list.' },
       { type: 'text', text: 'Approved change orders flow into the Financial Summary and increase your Revised Contract total.' },
       { type: 'text', text: 'SHOWING ONE TO YOUR CLIENT. Nothing on this tab reaches the client by itself. Open a change order and press "Share and email the client": it goes on their link and they are emailed in one press, and the message says who it went to ("Share without emailing" sits beside it). One tied to a subcontract opens a dialog first instead, because its amount is probably what the SUB charges you - check that is the price you want the client to see. They see the title, amount, reason and description. It then sits under "Change orders" on their link, where they can approve it, decline it (with a note), or ask about it. Your review notes, the subcontract and who raised it never show.' },
       { type: 'text', text: 'THE CLIENT SIGNS IN TO ANSWER - FREE, NO PASSWORD. Their link is the kind of thing that gets forwarded, so it cannot be what agrees to spend money. When they go to approve or decline, they press "Email me a code" and we send a six-digit code to the email address on their customer record (never one typed on the page); typing it signs them in, and that browser stays signed in for next time. Make sure the customer has an email address on file - without one they can read and ask, but not answer. The change order records the address they were signed in as.' },
