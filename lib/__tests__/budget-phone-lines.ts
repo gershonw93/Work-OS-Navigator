@@ -24,7 +24,7 @@ const phoneAt = page.indexOf('data-budget-phone-list')
 ok(phoneAt > 0, 'the Budget page has a phone list of its own')
 const phone = page.slice(page.lastIndexOf('<div', phoneAt), page.indexOf('</>', phoneAt))
 ok(/lg:hidden/.test(page.slice(page.lastIndexOf('<div', phoneAt), phoneAt)), '...shown only below lg')
-ok(/<div className="hidden lg:block bg-panel rounded-xl border border-line overflow-hidden">/.test(page),
+ok(/<div className="hidden lg:block bg-panel rounded-2xl border border-line overflow-hidden">/.test(page),
   '...while the desktop table sits under hidden lg:block, unchanged')
 
 // Collapsed by default: nothing is open until tapped.

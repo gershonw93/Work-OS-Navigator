@@ -7,12 +7,12 @@ import { PaymentRequests } from '@/components/projects/payment-requests'
 import { PaymentAllocations, type PayableInvoice } from '@/components/projects/payment-allocations'
 import { allocationProblem, cents, dollars, spreadPayment } from '@/lib/invoice-settlement'
 import { Button, buttonClasses } from '@/components/ui/button'
-import { DetailRows, DetailSection } from '@/components/bills/detail-parts'
+import { DetailRows, DetailSection, StatTile } from '@/components/bills/detail-parts'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import Link from 'next/link'
-import { Plus, X, Wallet, Trash2, Pencil, Check, ArrowRight, Loader2, RefreshCw } from 'lucide-react'
+import { Plus, X, Wallet, Trash2, Pencil, Check, ArrowRight, Loader2, RefreshCw, Banknote, Percent, TrendingDown, Landmark } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toAmountInput } from '@/lib/validate'
 import { usePermissions } from '@/lib/use-permissions'
@@ -486,17 +486,23 @@ function PaymentsPageInner({ params }: { params: { id: string } }) {
         </Button>
       </div>
 
-      {/* THE ONE NUMBER, AND WHAT IT MEANS. Four tiles in four colours said
-          four things at equal volume; the question this page is opened to
-          answer is "can I pay my subs?", so escrow is the headline and the
-          answer sits under it. Colour only where it means something. */}
-      <section className="flex flex-col gap-5 rounded-2xl border border-line bg-panel p-5 lg:p-7">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-          <div className="min-w-0">
-            <div className="text-xs font-medium text-muted-fg lg:text-[13px]">Escrow balance</div>
-            <div className={cn('text-[32px] font-bold leading-tight tracking-tight tabular-nums lg:text-4xl lg:leading-none',
-              escrow < 0 ? 'text-danger' : 'text-ink')}>{money(escrow)}</div>
-            <p className="mt-2 text-sm text-muted-fg">
+      {/* THE FOUR TILES, kept on top - the same tile as Budget's. Colour is the
+          icon; the figure turns red only when escrow is overdrawn. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        <StatTile label="Funds received" value={money(s?.received ?? 0)} icon={Banknote} tone="success"
+          note="Deposits and payments from the client" />
+        <StatTile label={`Contractor fee (${feeLabel})`} value={money(s?.feeEarned ?? 0)} icon={Percent} tone="info"
+          note="Your fee on the vendor bills so far" />
+        <StatTile label="Paid to vendors" value={money(s?.vendorPaid ?? 0)} icon={TrendingDown}
+          note={owedVendors > 0 ? <><span className="font-semibold text-warn">{money(owedVendors)}</span> still owed</> : 'Nothing still owed'} />
+        <StatTile label="Escrow balance" value={money(escrow)} icon={Landmark} tone={escrow < 0 ? 'danger' : 'special'}
+          alarm={escrow < 0 ? 'danger' : undefined} note="Received, less paid from escrow and your fee" />
+      </div>
+
+      {/* WHAT THE ESCROW MEANS, said once under the tiles: "can I pay my
+          subs?" is the question this page is opened to answer. */}
+      <section className="flex flex-col gap-3 rounded-2xl border border-line bg-panel px-5 py-4 lg:flex-row lg:items-center lg:gap-4 lg:px-6">
+            <p className="min-w-0 flex-1 text-sm text-muted-fg">
               {/* A NEGATIVE ESCROW IS A FACT OF ITS OWN: vendors have been paid
                   more than the client has paid in. Said, not left as a red
                   number for somebody to work out. */}
@@ -514,19 +520,11 @@ function PaymentsPageInner({ params }: { params: { id: string } }) {
                   {money(owedVendors)} is owed to vendors but only {money(available)} is available. You&apos;re short {money(owedVendors - available)} - collect from the client first.</>
               )}
             </p>
-          </div>
-          {enough && (
-            <Link href={`/projects/${params.id}/invoices`} className={cn(buttonClasses('outline', 'lg'), 'h-11 shrink-0 rounded-[10px] px-4')}>
-              Pay vendors <ArrowRight className="h-4 w-4" />
-            </Link>
-          )}
-        </div>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-4 border-t border-line-soft pt-4 lg:grid-cols-4">
-          <Figure label="Funds received" value={money(s?.received ?? 0)} />
-          <Figure label={`Contractor fee (${feeLabel})`} value={money(s?.feeEarned ?? 0)} />
-          <Figure label="Paid to vendors" value={money(s?.vendorPaid ?? 0)} />
-          <Figure label="Still owed to vendors" value={money(owedVendors)} cls={owedVendors > 0 ? 'text-warn' : undefined} />
-        </div>
+        {enough && (
+          <Link href={`/projects/${params.id}/invoices`} className={cn(buttonClasses('outline', 'lg'), 'h-11 shrink-0 rounded-[10px] px-4')}>
+            Pay vendors <ArrowRight className="h-4 w-4" />
+          </Link>
+        )}
       </section>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:gap-5">
@@ -716,11 +714,3 @@ function PaymentsPageInner({ params }: { params: { id: string } }) {
   )
 }
 
-function Figure({ label, value, cls }: { label: string; value: string; cls?: string }) {
-  return (
-    <div className="min-w-0">
-      <div className="text-xs text-muted-fg lg:text-[13px]">{label}</div>
-      <div className={cn('truncate text-lg font-bold tabular-nums text-ink lg:text-[22px]', cls)}>{value}</div>
-    </div>
-  )
-}

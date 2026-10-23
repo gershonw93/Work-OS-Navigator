@@ -38,6 +38,7 @@ export interface SubBill {
   approved_by_name: string | null
   approved_at: string | null
   sent_at: string | null
+  paid_at?: string | null
   due_date: string | null
   created_at: string
   subcontract_id: string | null
@@ -145,6 +146,7 @@ export function SubBillDetail(p: SubBillDetailProps) {
             ...(invoice.approved_at ? [{ label: 'Approved', value: formatDate(invoice.approved_at) }] : []),
             ...(invoice.approved_by_name ? [{ label: 'Approved by', value: invoice.approved_by_name }] : []),
             ...(invoice.sent_at ? [{ label: 'Queued for payment', value: formatDate(invoice.sent_at) }] : []),
+            ...(invoice.paid_at && paid ? [{ label: 'Paid', value: formatDate(invoice.paid_at) }] : []),
             { label: 'Due', value: invoice.due_date ? formatDate(invoice.due_date) : 'No due date' },
             ...(Number(invoice.escrow_paid) > 0 ? [{ label: 'Paid from escrow', value: money(invoice.escrow_paid) }] : []),
             ...(Number(invoice.client_paid) > 0 ? [{ label: 'Client paid vendor', value: money(invoice.client_paid) }] : []),

@@ -1,3 +1,4 @@
+import { friendlyDbError } from '@/lib/db-error'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { logActivity } from '@/lib/log-activity'
 import { audienceFor } from '@/lib/notification-audience'
@@ -340,15 +341,23 @@ export async function updateSubBill(
     }
   }
 
-  const { data, error } = await db
-    .from('invoices')
-    .update(updates)
-    .eq('id', invoiceId)
-    .eq('project_id', projectId)
-    .select()
-    .single()
+  // A SAVE THAT CHANGES ONLY THE SPLIT SENDS NO COLUMNS. `update({})` matches
+  // no row and `.single()` turned that into "Cannot coerce the result to a
+  // single JSON object" - on screen, in Postgres's words, every time somebody
+  // saved a split across budget lines. With nothing to write, read the row.
+  const touched = Object.keys(updates).length > 0
+  const { data, error } = touched
+    ? await db.from('invoices').update(updates)
+      .eq('id', invoiceId).eq('project_id', projectId).select().maybeSingle()
+    : await db.from('invoices').select()
+      .eq('id', invoiceId).eq('project_id', projectId).maybeSingle()
 
-  if (error) return { status: 500, body: { error: error.message } }
+  if (error) {
+    // Logged in full; the person is told which field, never the raw text.
+    console.error('[sub-bill] update failed:', error.message)
+    return { status: 500, body: { error: friendlyDbError(error) } }
+  }
+  if (!data) return { status: 404, body: { error: 'Invoice not found on this project' } }
 
   // After the invoice itself saves, so a rejected update never leaves the split
   // pointing at an amount that was not written.

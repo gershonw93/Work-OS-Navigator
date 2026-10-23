@@ -29,6 +29,8 @@ const approved = subBillSteps({ ...base, status: 'approved', approved_at: '2026-
 ok(approved[1].done && /Pat Doe/.test(approved[1].note), 'approved carries who approved it')
 ok(!approved[2].done && approved[2].note === 'Optional', 'queueing is OPTIONAL, and says so')
 const paidDirect = subBillSteps({ ...base, status: 'paid', approved_at: '2026-10-22T15:00:00Z' })
+ok(subBillSteps({ ...base, status: 'paid', paid_at: '2026-10-23T15:00:00Z' })[3].note === 'Oct 23',
+  'the Paid step carries the day it was marked paid - invoices.paid_at exists and is written')
 ok(paidDirect[3].done && paidDirect[2].note === 'Skipped',
   'paid straight from Approved reads Skipped, not "Not yet" - a normal bill is not unfinished')
 const queued = subBillSteps({ ...base, status: 'sent', approved_at: '2026-10-22T15:00:00Z', sent_at: '2026-10-23T09:00:00Z' })
@@ -109,4 +111,10 @@ ok(/payments\?open=\$\{i\.id\}/.test(search) && /invoices\?open=\$\{i\.id\}/.tes
   '...and both kinds of invoice open the record itself, not the top of a list')
 ok(/useSearchParams\(\)\.get\(param\)/.test(code('lib/use-open-record.ts')),
   'the open record follows the URL, so a search result on the same page opens it')
+// "Cannot coerce the result to a single JSON object": a split-only save sent
+// no columns, update({}) matched nothing and .single() said so in Postgres.
+const write = code('lib/writes/sub-bill.ts')
+ok(/const touched = Object\.keys\(updates\)\.length > 0/.test(write) && !/\.update\(updates\)[\s\S]{0,120}\.single\(\)/.test(write),
+  'a save with nothing to write reads the row instead of updating nothing through .single()')
+ok(/friendlyDbError\(error\)/.test(write.slice(write.indexOf('const touched'))), '...and a real failure is told in words, not in Postgres')
 done()

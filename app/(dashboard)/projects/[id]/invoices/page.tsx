@@ -23,11 +23,16 @@ import { toAmountInput } from '@/lib/validate'
 
 import { LineEditor } from '@/components/invoices/line-editor'
 import { SubBillDetail } from '@/components/invoices/sub-bill-detail'
-import { CountdownText, Pill, type PillTone } from '@/components/bills/detail-parts'
+import { CountdownText, Pill, StatTile, type PillTone } from '@/components/bills/detail-parts'
 import { dueCountdown } from '@/lib/bill-view'
 import { useOpenRecord } from '@/lib/use-open-record'
 import { useNotice } from '@/components/ui/notice'
 import { fetchProblem } from '@/lib/fetch-error'
+/** Dollars with cents shown as cents - "$20,978.20", never "$20,978.2". */
+const billMoney = (n: number) => `$${Number(n || 0).toLocaleString('en-US', {
+  minimumFractionDigits: Number(n) % 1 ? 2 : 0, maximumFractionDigits: 2,
+})}`
+
 const STATUS_CONFIG: Record<string, { label: string; color: string; tone: PillTone }> = {
   pending_approval: { label: 'Pending Approval', color: 'bg-warn-tint border-warn/30 text-warn', tone: 'warn' },
   approved: { label: 'Approved', color: 'bg-info-tint border-info/30 text-info', tone: 'info' },
@@ -1061,33 +1066,9 @@ function InvoicesPageInner({ params }: { params: { id: string } }) {
               <HelpCircle className="h-4 w-4" /> How this works
             </button>
           )}
-          {/* Cost-plus roll-up: cost, your fee, what the client owes. Only when
-              a markup is actually in use. */}
-          {(costPlus || projectMarkup > 0) && invoices.length > 0 && (() => {
-            const t = markupTotals(
-              invoices.filter(i => ACTUAL_STATUSES.has(i.status)).map(i => ({ ...i, cost: i.amount })),
-              projectMarkup,
-            )
-            if (t.cost === 0) return null
-            return (
-              <p className="text-xs text-muted-fg mt-1.5">
-                Approved so far: <span className="font-semibold text-ink-soft">${t.cost.toLocaleString()}</span> cost
-                {' + '}<span className="font-semibold text-ink-soft">${t.markup.toLocaleString()}</span> your markup
-                {' = '}<span className="font-semibold text-accent-fg">${t.clientPrice.toLocaleString()}</span> to bill the client
-                {t.excludedCount > 0 && (
-                  <span className="text-faint"> · {t.excludedCount} at cost (${t.excludedCost.toLocaleString()})</span>
-                )}
-                {t.customCount > 0 && <span className="text-faint"> · {t.customCount} on a different rate</span>}
-              </p>
-            )
-          })()}
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          {pending.length > 0 && (
-            <span className="flex items-center gap-1.5 text-sm text-warn font-medium">
-              <Clock className="h-4 w-4" />{pending.length} pending approval
-            </span>
-          )}
+          {/* The pending count is the first tile below, not a second copy here. */}
           {/* Drop the PDF the sub emailed. Reading it beats retyping it. */}
           <label
             onDragOver={e => { e.preventDefault(); setScanDrag(true) }}
@@ -1108,6 +1089,42 @@ function InvoicesPageInner({ params }: { params: { id: string } }) {
           <Button size="lg" className="h-11 rounded-[10px] px-5" onClick={() => { setScanned(null); setShowForm(true) }}><Plus className="h-4 w-4" /> Create Invoice</Button>
         </div>
       </div>
+
+      {/* WHERE THE MONEY STANDS, AS FOUR FIGURES. It was one sentence of small
+          type - "Approved so far: $209,782 cost + $20,978.2 your markup =
+          $230,760.2 to bill the client" - which had to be read to be found,
+          and printed cents as a single digit. Data, not explainer, so it is
+          outside the "How this works" fold and only once there are bills. */}
+      {invoices.length > 0 && (() => {
+        const sum = (list: Invoice[]) => list.reduce((t, i) => t + (Number(i.amount) || 0), 0)
+        const owed = invoices.filter(i => i.status === 'approved' || i.status === 'sent')
+        const marked = costPlus || projectMarkup > 0
+        const t = markupTotals(
+          invoices.filter(i => ACTUAL_STATUSES.has(i.status)).map(i => ({ ...i, cost: i.amount })),
+          projectMarkup,
+        )
+        const n = (k: number) => `${k} bill${k === 1 ? '' : 's'}`
+        return (
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+            <StatTile label="Awaiting approval" value={billMoney(sum(pending))} icon={Clock} tone="warn"
+              note={pending.length ? n(pending.length) : 'Nothing waiting on you'} />
+            <StatTile label="Approved, not paid" value={billMoney(sum(owed))} icon={CheckCircle2} tone="info"
+              note={owed.length ? n(owed.length) : 'Nothing owed right now'} />
+            <StatTile label="Paid" value={billMoney(sum(paid))} icon={DollarSign} tone="success"
+              note={paid.length ? n(paid.length) : 'Nothing paid yet'} />
+            {marked ? (
+              <StatTile label="To bill the client" value={billMoney(t.clientPrice)} icon={Receipt} tone="special"
+                help={'Every approved, queued and paid bill, with your markup on it - what the client owes for them.\n\nA bill marked "at cost" adds nothing, and one with its own rate uses that rate.'}
+                note={<>{billMoney(t.cost)} cost + {billMoney(t.markup)} markup
+                  {t.excludedCount > 0 && <> · {t.excludedCount} at cost</>}
+                  {t.customCount > 0 && <> · {t.customCount} on its own rate</>}</>} />
+            ) : (
+              <StatTile label="All bills" value={billMoney(sum(invoices.filter(i => i.status !== 'rejected')))} icon={Receipt}
+                note={n(invoices.filter(i => i.status !== 'rejected').length)} />
+            )}
+          </div>
+        )
+      })()}
 
       {/* Said once, at the top. A page that renders its empty state over a
           failed load is asserting something it does not know. */}
