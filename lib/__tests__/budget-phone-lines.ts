@@ -24,7 +24,7 @@ const phoneAt = page.indexOf('data-budget-phone-list')
 ok(phoneAt > 0, 'the Budget page has a phone list of its own')
 const phone = page.slice(page.lastIndexOf('<div', phoneAt), page.indexOf('</>', phoneAt))
 ok(/lg:hidden/.test(page.slice(page.lastIndexOf('<div', phoneAt), phoneAt)), '...shown only below lg')
-ok(/<div className="hidden lg:block bg-panel rounded-2xl border border-line overflow-hidden">/.test(page),
+ok(/<div className="hidden lg:block bg-panel rounded-2xl border border-line">/.test(page),
   '...while the desktop table sits under hidden lg:block, unchanged')
 
 // Collapsed by default: nothing is open until tapped.
@@ -50,7 +50,7 @@ ok(/guardDelete\(async \(\) => \{[\s\S]{0,300}method: 'DELETE'/.test(page),
 
 // Toolbar: Add Line and a More menu - on the phone AND the desktop. The
 // desktop kept a row of five equal buttons until it was reported as too much.
-const phoneBar = page.slice(page.indexOf('data-budget-toolbar'), page.indexOf('</RowMenu>'))
+const phoneBar = page.slice(page.indexOf('data-budget-toolbar'), page.indexOf('</RowMenu>', page.indexOf('data-budget-toolbar')))
 ok(phoneBar.length > 0 && /Add Line/.test(phoneBar) && /<RowMenu label="More budget actions"/.test(phoneBar),
   'the toolbar is Add Line plus a More menu')
 ok(!/flex w-full items-center gap-2 lg:hidden"[^>]*data-budget-toolbar|className="[^"]*lg:hidden[^"]*" data-budget-toolbar/.test(page),

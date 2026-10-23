@@ -8,7 +8,7 @@ import { createClient } from '@/lib/supabase/client'
 import { Wallet, DollarSign, CheckCircle2, TrendingDown, TrendingUp, Plus, Trash2, Pencil, X, Check, Link as LinkIcon, AlertTriangle, LayoutTemplate, Save, FileSpreadsheet, FolderInput, Search, ShoppingCart, FileText, ChevronDown, ChevronRight, Square, CheckSquare } from 'lucide-react'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
+import { Button, buttonClasses } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
@@ -295,6 +295,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   const [assigningSubId, setAssigningSubId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState('category')
+  const [filter, setFilter] = useState<'all' | 'over' | 'interior' | 'exterior'>('all')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [bulkDeleting, setBulkDeleting] = useState(false)
   const [selectMode, setSelectMode] = useState(false)
@@ -779,10 +780,6 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
   // Search filter
   const q = search.trim().toLowerCase()
-  const filtered = q
-    ? items.filter(i => [i.description, i.cost_code, i.category, i.linked_label, i.notes]
-        .some(v => (v ?? '').toLowerCase().includes(q)))
-    : items
 
   // Sort within whatever grouping is applied
   /**
@@ -801,6 +798,14 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     return Math.max(Number(i.committed_amount || 0), billed) + receipts
   }
   const variance = (i: BudgetItem) => revisedOf(i) - exposureOf(i)
+  // Search, then the segmented filter. Over is the same sum the Left column
+  // prints, so the count on the button and the rows under it cannot disagree.
+  const filtered = items
+    .filter(i => !q || [i.description, i.cost_code, i.category, i.linked_label, i.notes]
+      .some(v => (v ?? '').toLowerCase().includes(q)))
+    .filter(i => filter === 'all' ? true
+      : filter === 'over' ? variance(i) < 0
+      : i.space_type === filter)
   /** Contract signed but not yet invoiced - the money that has no bill yet. */
   const toBill = (i: BudgetItem) =>
     Math.max(0, Number(i.committed_amount || 0) - (Number(i.actual_amount || 0) - Number(i.materials_amount || 0)))
@@ -1055,25 +1060,158 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     return <QuoteLineItems projectId={params.id} mode="budget" />
   }
 
+  // ── What a line or a group of lines says in the Left column ──────────────
+  // Left = budget less whichever is bigger, signed or billed (`variance`), and
+  // the bar is how much of the budget that has used. Amber from 85%, red over:
+  // colour only where it means something.
+  const leftOf = (rows: BudgetItem[]) => {
+    const budget = rows.reduce((s, i) => s + revisedOf(i), 0)
+    const used = rows.reduce((s, i) => s + exposureOf(i), 0)
+    const left = budget - used
+    const pct = budget > 0 ? used / budget : used > 0 ? 1 : 0
+    return {
+      left, over: left < 0,
+      barW: `${Math.min(pct, 1) * 100}%`,
+      barC: left < 0 ? 'bg-danger-solid' : pct > 0.85 ? 'bg-warn' : 'bg-accent-fg',
+    }
+  }
+  const leftCell = (rows: BudgetItem[], bold = true) => {
+    const l = leftOf(rows)
+    return (
+      <div className="min-w-0 text-right">
+        <div className={cn('whitespace-nowrap tabular-nums', bold ? 'font-semibold' : 'font-medium', l.over ? 'text-danger' : 'text-ink')}>
+          {l.over ? `Over ${money(Math.abs(l.left))}` : l.left === 0 ? '-' : money(l.left)}
+        </div>
+        <div className="mt-1.5 flex h-1.5 overflow-hidden rounded-full bg-muted">
+          <div className={l.barC} style={{ width: l.barW }} />
+        </div>
+      </div>
+    )
+  }
+  const COLS = selectMode
+    ? 'grid-cols-[1.5rem_minmax(0,1fr)_repeat(3,minmax(0,6.5rem))_minmax(0,8rem)_2.75rem]'
+    : 'grid-cols-[minmax(0,1fr)_repeat(3,minmax(0,6.5rem))_minmax(0,8rem)_2.75rem]'
+
+  /** One line in the desktop table. A function returning markup, not a component - see renderEditForm. */
+  const renderLine = (item: BudgetItem, opts: { child: boolean; title: string; sub: string | null }) => {
+    if (editingId === item.id) return renderEditForm(item)
+    const revised = revisedOf(item)
+    const changes = Number(item.change_orders_amount || 0)
+    const stillToBill = toBill(item)
+    const overCommitted = revised > 0 && (Number(item.committed_amount || 0) - revised) >= 1
+    return (
+      <div key={item.id}
+        // The whole row opens the line. In select mode it toggles the tick
+        // instead, which is what a click means there. Buttons and links
+        // inside stop the event themselves.
+        onClick={() => selectMode ? toggleSelect(item.id) : setDetailLineId(item.id)}
+        className={cn('group grid cursor-pointer items-start gap-3 px-5 py-3.5 transition-colors hover:bg-surface', COLS,
+          opts.child && 'bg-surface/60 pl-12',
+          selectMode && selected.has(item.id) && 'bg-danger-tint/40')}>
+        {selectMode && (
+          <input type="checkbox" className="mt-1 accent-danger" checked={selected.has(item.id)}
+            onClick={e => e.stopPropagation()} onChange={() => toggleSelect(item.id)} aria-label={`Select ${item.description}`} />
+        )}
+        <div className="flex min-w-0 items-start gap-3">
+          <span className="w-9 shrink-0 pt-0.5 text-xs tabular-nums text-muted-fg">{item.cost_code ?? ''}</span>
+          <div className="min-w-0">
+            <p className={cn('truncate text-[15px] text-ink group-hover:text-accent-fg', opts.child ? 'font-medium' : 'font-semibold')}>{opts.title}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-fg">
+              {item.linked && <span className="rounded-[5px] bg-surface px-1.5 py-0.5 font-semibold text-ink-soft">Sub</span>}
+              {opts.sub && <span className="min-w-0 truncate">{opts.sub}</span>}
+              {item.space_type && <span>{opts.sub ? '· ' : ''}{SPACE_LABELS[item.space_type]}</span>}
+              {item.linked && (
+                <a href={`/projects/${params.id}/team`} onClick={e => e.stopPropagation()}
+                  className="inline-flex min-w-0 items-center gap-1 text-accent-fg hover:underline">
+                  · <span className="truncate">{item.linked_label}</span>
+                </a>
+              )}
+            </div>
+            {sortBy === 'edited' && editedLabel(item)}
+          </div>
+        </div>
+        <div className="text-right text-sm tabular-nums">
+          {/* Revised, with the change orders spelled out - a budget that grew
+              silently is worse than one that never grew. */}
+          <div className="font-semibold text-ink">{money(revised)}</div>
+          {changes !== 0 && (
+            <div className="mt-0.5 text-xs font-medium text-info" title={`${money(item.budgeted_amount)} original + ${money(changes)} approved change orders`}>
+              incl. {money(changes)} CO
+            </div>
+          )}
+        </div>
+        <div className="text-right text-sm tabular-nums">
+          <span
+            title={overCommitted ? `Committed ${money(item.committed_amount)} exceeds budget ${money(revised)} by ${money(Number(item.committed_amount) - revised)}` : undefined}
+            className={cn('inline-flex items-center justify-end gap-1', overCommitted ? 'font-semibold text-danger' : 'text-ink-soft')}>
+            {overCommitted && <AlertTriangle className="h-3.5 w-3.5 shrink-0" />}
+            {money(item.committed_amount)}
+          </span>
+        </div>
+        <div className="text-right text-sm tabular-nums text-ink-soft"
+          title={stillToBill > 0 ? `${money(stillToBill)} of the contract is signed but not yet invoiced` : undefined}>
+          {money(item.actual_amount)}
+        </div>
+        {leftCell([item], !opts.child)}
+        {/* ONE primary action per row (the row itself opens it); the rest
+            behind the dots. */}
+        <div onClick={e => e.stopPropagation()} className="flex justify-end">
+          <RowMenu label={`More for ${item.description}`}>
+            {close => (
+              <>
+                <MenuItem onClick={() => { close(); setDetailLineId(item.id) }}><FileText className="h-3.5 w-3.5" /> Details</MenuItem>
+                <MenuItem onClick={() => { close(); startEdit(item) }}><Pencil className="h-3.5 w-3.5" /> Edit line</MenuItem>
+                {/* Not one tap: `remove` goes through the delete guard, which
+                    asks first (and wants the delete key when protection is on). */}
+                <MenuItem danger onClick={() => { close(); remove(item.id) }}><Trash2 className="h-3.5 w-3.5" /> Delete line</MenuItem>
+              </>
+            )}
+          </RowMenu>
+        </div>
+      </div>
+    )
+  }
+
+  const overCount = items.filter(i => variance(i) < 0).length
+  const hasInterior = items.some(i => i.space_type === 'interior')
+  const hasExterior = items.some(i => i.space_type === 'exterior')
+  const FILTERS = [
+    { key: 'all' as const, label: 'All', show: true },
+    { key: 'over' as const, label: `Over (${overCount})`, show: overCount > 0 || filter === 'over' },
+    { key: 'exterior' as const, label: 'Exterior', show: hasExterior || filter === 'exterior' },
+    { key: 'interior' as const, label: 'Interior', show: hasInterior || filter === 'interior' },
+  ].filter(f => f.show)
+  const unfiledCount = unlinkedSubs.length + unassignedReceipts.length + unlinkedChangeOrders.length
+  const unfiledTotal = unlinkedSubs.reduce((s, x) => s + Number(x.contract_amount || 0), 0)
+    + unassignedReceipts.reduce((s, x) => s + Number(x.amount || 0), 0)
+    + unlinkedChangeOrders.reduce((s, x) => s + Number(x.amount || 0), 0)
+  const spentPct = totalBudgeted > 0 ? (totalActual / totalBudgeted) * 100 : 0
+  const committedPct = totalBudgeted > 0 ? Math.max(0, Math.min((totalCommitted - totalActual) / totalBudgeted * 100, 100 - Math.min(spentPct, 100))) : 0
+  const [tBudget, tCommitted, tSpent, tLeft] = statCards
+
   return (
     <div className="flex flex-col gap-4 lg:gap-5 lg:p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">Budget</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Line-item cost breakdown - budgeted vs committed vs actual.</p>
-        </div>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">Budget</h1>
         <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" className="sr-only"
           onChange={e => { const file = e.target.files?.[0]; if (file) { setImportOnly(true); setShowTemplate(true); setImportItems(null); importExcel(file) } e.target.value = '' }} />
-        {/* ONE action, and the rest behind More - on every width. Five buttons
-            of equal weight wrapped into three rows on a phone, and on a desktop
-            they were still five boxes shouting at once. Adding a line is the
-            thing done daily; importing, templates and Select are set-up. */}
-        <div className="flex w-full items-center gap-2 lg:w-auto" data-budget-toolbar>
-          <Button size="lg" onClick={() => setAdding(true)} className="h-11 flex-1 gap-1.5 rounded-[10px] px-5 lg:flex-none"><Plus className="h-4 w-4" /> Add Line</Button>
+        {/* ONE action, and the rest behind More - on every width. Adding a line
+            is the thing done daily; importing, templates and Select are set-up. */}
+        <div className="flex items-center gap-2" data-budget-toolbar>
+          {showProposalLink && (
+            // Won job: reprint the proposal that was sent.
+            <a href={`/projects/${params.id}/proposal/print`} target="_blank" rel="noreferrer"
+              className={cn(buttonClasses('outline', 'lg'), 'hidden h-11 rounded-[10px] px-4 lg:inline-flex')}>
+              <FileText className="h-4 w-4" /> View proposal
+            </a>
+          )}
           {selectMode && (
             <Button variant="default" onClick={() => { setSelectMode(false); setSelected(new Set()) }}>Done</Button>
           )}
-          <RowMenu label="More budget actions" triggerClassName="bg-panel lg:h-11 lg:w-11 lg:p-0 lg:rounded-[10px]">
+          <Button size="lg" onClick={() => setAdding(true)} aria-label="Add Line" className="h-11 w-11 gap-1.5 rounded-[10px] px-0 lg:w-auto lg:px-5">
+            <Plus className="h-5 w-5 lg:h-4 lg:w-4" /> <span className="hidden lg:inline">Add Line</span>
+          </Button>
+          <RowMenu label="More budget actions" triggerClassName="bg-panel h-11 w-11 p-0 lg:h-11 lg:w-11 lg:p-0 rounded-[10px] border border-muted2">
             {close => (
               <>
                 <MenuItem onClick={() => { close(); importInputRef.current?.click() }}>
@@ -1090,6 +1228,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
                 {items.length > 0 && !selectMode && (
                   <MenuItem onClick={() => { close(); setSelectMode(true); setSelected(new Set()) }}>
                     <Pencil className="h-4 w-4" /> Select lines
+                  </MenuItem>
+                )}
+                {showProposalLink && (
+                  <MenuItem newTab href={`/projects/${params.id}/proposal/print`} onClick={close}>
+                    <FileText className="h-4 w-4" /> View proposal
                   </MenuItem>
                 )}
               </>
@@ -1328,22 +1471,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Stat cards - the four figures people argue about. "How is that
-          worked out?" should not require asking someone, so each carries its
-          explainer. */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
-        {statCards.map(c => (
-          <StatTile key={c.label} label={c.label} value={money(c.value)} icon={c.icon} tone={c.tone} alarm={c.alarm}
-            note={c.note} help={c.help} />
-        ))}
-      </div>
 
-      {/* How the job pays → what it earns.
-          Asked ONCE. Before this the screen showed the revenue box and the
-          markup box together and told you to leave one empty, because it had no
-          idea which kind of job this was - and on a cost-plus custom home the
-          revenue box is asking a question with no answer. */}
-      {!canSeeMargin ? null : askContract ? (
+      {/* How does this job pay you? Asked ONCE, before anything else on this
+          screen can say what the job earns. */}
+      {canSeeMargin && askContract && (
         <div className="rounded-xl border border-dashed border-accent/40 bg-accent-tint/20 p-4">
           <p className="text-sm font-medium text-ink">How does this job pay you?</p>
           <p className="mt-0.5 text-xs text-muted-fg">
@@ -1371,123 +1502,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             You can change it later in Edit project.
           </p>
         </div>
-      ) : showRevenuePanel || showMarkupPanel ? (
-        /* A row, not a panel. This was a bordered card carrying the same weight
-           as the stat tiles directly above it, and repeating one of them -
-           "Cost / budgeted" is Total Budget under another name. Dropped, along
-           with the footnote paragraph, which is now on the hover where the rest
-           of the explaining already lives. */
-        <div className="flex flex-wrap items-end gap-x-8 gap-y-3 rounded-2xl border border-line bg-panel px-5 py-4 lg:px-6">
-          {showMarkupPanel ? (
-            <div>
-              <label className="block text-xs font-medium text-muted-fg mb-1">
-                Markup <span className="text-faint font-normal">· your fee on cost</span>
-                <InfoHint className="ml-1 align-middle" text={'The percentage you add on top of every cost.\n\nOn a cost-plus job this IS what you are paid, so it is the only revenue figure this screen needs.\n\nIt is the default rate. Any single invoice can be billed at cost or given its own percent on the Invoices tab - a permit fee or a pass-through does not have to follow it - and the fee earned here follows those, not this.'} />
-              </label>
-              {/* Read-only until you ask to change it. This drives what the
-                  client is billed, and as a live input it sat one stray click
-                  away from moving on a screen people scroll through to READ. */}
-              <LockedField
-                ariaLabel="markup percent"
-                value={markupPct}
-                display={`${Number(markupPct) || 0}%`}
-                suffix="%"
-                inputClassName="w-20"
-                saving={savingMarkup}
-                onSave={next => { setMarkupPct(next); saveMarkupValue(next) }}
-              />
-            </div>
-          ) : (
-            <div>
-              <label className="block text-xs font-medium text-muted-fg mb-1">
-                {revLabel} <span className="text-faint font-normal">· {revHint}</span>
-                <InfoHint className="ml-1 align-middle" text={
-                  (contractType === 'spec'
-                    ? 'The sale price - what you expect this to sell for.'
-                    : 'Your contract value - the agreed price this client is paying for the job.')
-                  + '\n\nProfit is measured against it: as the budget fills in, and again against what has actually been spent.'
-                } />
-              </label>
-              {/* Same reasoning as the markup: this is what profit is measured
-                  against, so it does not sit live under the cursor. */}
-              <LockedField
-                ariaLabel={revLabel.toLowerCase()}
-                value={sellout}
-                display={selloutNum != null ? money(selloutNum) : 'Not set'}
-                prefix="$"
-                inputClassName="w-36"
-                saving={savingSellout}
-                onSave={next => { setSellout(next); saveSelloutValue(next) }}
-              />
-            </div>
-          )}
-
-          <ProfitFigures profit={profit} totalActual={totalActual} feeBasis={feeBasis} materialsSpentHint={materialsSpent} />
-        </div>
-      ) : null}
-
-      {/* Hard vs soft split. Every job carries costs that aren't a trade -
-          plans, permits, builders risk, survey, loan interest - and they belong
-          in the same budget so the job total is the real total. */}
-      {/* Only worth its own row once soft costs carry money. With none, all
-          three tiles printed the same figure as Total Budget directly above
-          them - three ways of saying one number. */}
-      {totalSoft > 0 ? (
-        <div className="rounded-2xl border border-line bg-panel px-5 py-4 flex flex-wrap items-center gap-x-8 gap-y-2 lg:px-6">
-          <div>
-            <p className="text-xs font-medium text-muted-fg">Hard costs · construction</p>
-            <p className="text-lg font-bold text-ink">{money(totalHard)}
-              <span className="ml-1.5 text-xs font-normal text-faint">{hardItems.length} line{hardItems.length !== 1 ? 's' : ''}</span>
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-medium text-info">Soft costs · preconstruction &amp; carrying</p>
-            <p className="text-lg font-bold text-info">{money(totalSoft)}
-              <span className="ml-1.5 text-xs font-normal text-muted-fg">
-                {totalBudgeted > 0 ? `${((totalSoft / totalBudgeted) * 100).toFixed(0)}% of budget` : `${softItems.length} lines`}
-              </span>
-            </p>
-          </div>
-          <button onClick={() => setShowSoft(true)} className="ml-auto text-xs font-medium text-accent-fg hover:underline">
-            Add more soft costs →
-          </button>
-        </div>
-      ) : projectStatus === 'planning' ? (
-        <div className="rounded-2xl border border-dashed border-info/40 bg-info-tint/40 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-ink-soft">No soft costs on this budget yet</p>
-            <p className="text-xs text-muted-fg mt-0.5">
-              Land, plans, permits, builders risk, survey, loan interest, contingency - the money spent before and around the trades.
-            </p>
-          </div>
-          <Button variant="outline" onClick={() => setShowSoft(true)} className="gap-1.5 shrink-0">
-            <Plus className="h-4 w-4" /> Add preconstruction costs
-          </Button>
-        </div>
-      ) : null}
-
-      {/* Secondary ACTIONS. Markup used to sit in this row too, which put a
-          persistent project setting next to a button that opens a modal - two
-          unrelated things sharing a line for layout reasons rather than because
-          they belong together. It now lives with the money it decides: in the
-          cost-plus panel above, and in Edit project. */}
-      {(totalSoft === 0 && projectStatus !== 'planning') || showProposalLink ? (
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-sm">
-          {totalSoft === 0 && projectStatus !== 'planning' && (
-            <button onClick={() => setShowSoft(true)}
-              className="inline-flex items-center gap-1.5 font-medium text-accent-fg hover:underline">
-              <Plus className="h-3.5 w-3.5" /> Add preconstruction / soft costs
-            </button>
-          )}
-          {/* Won job: reprint the proposal that was sent. */}
-          {showProposalLink && (
-            <a href={`/projects/${params.id}/proposal/print`} target="_blank" rel="noreferrer"
-              className="inline-flex items-center gap-1.5 font-medium text-accent-fg hover:underline">
-              <FileText className="h-4 w-4" /> View proposal
-            </a>
-          )}
-        </div>
-      ) : null}
+      )}
 
       {/* Estimate → Proposal: markup + client price + generate a client PDF.
           Pre-award only, simple-billing jobs only. */}
@@ -1542,6 +1557,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
+
       {/* Unbudgeted subcontracts hint */}
       {unbudgetedSubs.length > 0 && (
         <div className="rounded-2xl border border-warn/30 bg-warn-tint px-5 py-4 flex items-start gap-3">
@@ -1568,52 +1584,6 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Spend progress */}
-      {totalBudgeted > 0 && (
-        <section className="rounded-2xl border border-line bg-panel p-5 lg:p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-base font-semibold text-ink lg:text-[17px]">Budget used</h2>
-            <p className={cn('text-sm', overBudget ? 'text-danger font-semibold' : 'text-muted-fg')}>
-              {((totalActual / totalBudgeted) * 100).toFixed(1)}% spent
-            </p>
-          </div>
-          <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
-            <div className={cn('h-full transition-all', overBudget ? 'bg-danger-solid' : 'bg-accent-fg')}
-              style={{ width: `${Math.min((totalActual / totalBudgeted) * 100, 100)}%` }} />
-            <div className="h-full bg-info/40 transition-all"
-              style={{ width: `${Math.min(Math.max((totalCommitted - totalActual) / totalBudgeted * 100, 0), 100 - Math.min((totalActual / totalBudgeted) * 100, 100))}%` }} />
-          </div>
-          <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-fg">
-            <span className="flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', overBudget ? 'bg-danger-solid' : 'bg-accent-fg')} />Spent {money(totalActual)}</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-info/40" />Committed {money(totalCommitted)}</span>
-            {!overBudget && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted2" />Remaining {money(remaining)}</span>}
-          </div>
-          {/* Interior/exterior split. The old Grand Total tile here was Total
-              Budget a third time - and it disagreed with it, because the split
-              ignored approved change orders. Dropped; the unassigned remainder
-              is the only part that was not already on screen. A line inside
-              this card, not a panel: it breaks down a number already here. */}
-          {(spaceTotals.interior > 0 || spaceTotals.exterior > 0) && (
-        <p className="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-1 border-t border-line-soft pt-4 text-sm text-muted-fg">
-          <span>
-            <span className="font-semibold text-ink-soft">{money(spaceTotals.interior)}</span> interior
-            {projectSqft.interior
-              ? <span className="text-faint"> · {money(spaceTotals.interior / Number(projectSqft.interior))}/sq ft</span>
-              : null}
-          </span>
-          <span>
-            <span className="font-semibold text-ink-soft">{money(spaceTotals.exterior)}</span> exterior
-            {projectSqft.exterior
-              ? <span className="text-faint"> · {money(spaceTotals.exterior / Number(projectSqft.exterior))}/sq ft</span>
-              : null}
-          </span>
-          {spaceTotals.unassigned > 0 && (
-            <span className="text-faint">{money(spaceTotals.unassigned)} not assigned to a space</span>
-          )}
-        </p>
-          )}
-        </section>
-      )}
 
       {/* Add form - a DIALOG, on the phone and the desktop alike. It used to be
           a card below the header, the four tiles and the markup row: two
@@ -1706,28 +1676,48 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Search + sort toolbar */}
-      {items.length > 0 && (
-        <div className="row-even lg:flex lg:flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[180px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-faint" />
-            <Input className="pl-9" placeholder="Search line items…" value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-muted-fg whitespace-nowrap">Sort by</span>
-            <SearchableSelect className="rounded-lg border border-line px-3 py-2 text-sm bg-panel" value={sortBy} onChange={e => setSortBy(e.target.value)}>
-              <option value="category">Category</option>
-              <option value="description">Description (A-Z)</option>
-              <option value="budgeted">Budgeted (high → low)</option>
-              <option value="committed">Committed (high → low)</option>
-              <option value="actual">Actual (high → low)</option>
-              <option value="variance">Variance (over first)</option>
-              <option value="edited">Last edited (newest first)</option>
-            </SearchableSelect>
-          </div>
-        </div>
-      )}
 
+      {/* TWO COLUMNS on a desktop: the lines, and what they add up to. On a
+          phone the columns dissolve (`contents`) and the cards take their
+          order from `order-*` - the headline first, the lines, then the rest. */}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-5">
+        <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-3">
+          {items.length > 0 && (
+            <div className="order-4 flex flex-col gap-2.5 lg:order-none lg:flex-row lg:flex-wrap lg:items-center">
+              <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-muted2 bg-panel px-3 text-muted-fg lg:min-w-[220px]">
+                <Search className="h-4 w-4 shrink-0" />
+                <input type="search" placeholder="Search line items" aria-label="Search line items" value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  className="min-w-0 flex-1 bg-transparent text-sm text-ink outline-none placeholder:text-faint" />
+              </label>
+              <div className="scroll-fade flex items-center gap-2 overflow-x-auto lg:shrink-0 lg:overflow-visible">
+                <div role="group" aria-label="Filter lines" className="flex shrink-0 gap-1.5 lg:gap-0.5 lg:rounded-[10px] lg:bg-muted lg:p-[3px]">
+                  {FILTERS.map(f => (
+                    <button key={f.key} type="button" aria-pressed={filter === f.key} onClick={() => setFilter(f.key)}
+                      className={cn('h-9 shrink-0 whitespace-nowrap rounded-full px-3.5 text-[13px] lg:rounded-lg lg:px-3',
+                        filter === f.key
+                          ? 'bg-ink font-semibold text-panel lg:bg-panel lg:text-ink lg:shadow-sm'
+                          : 'border border-muted2 bg-panel font-medium text-ink-soft lg:border-0 lg:bg-transparent')}>
+                      {f.label}
+                    </button>
+                  ))}
+                </div>
+                <div className="w-48 shrink-0">
+                <SearchableSelect aria-label="Sort by" className="h-9 w-full rounded-[10px] border border-muted2 bg-panel px-3 text-sm" value={sortBy} onChange={e => setSortBy(e.target.value)}>
+                  <option value="category">Sort: category</option>
+                  <option value="description">Description (A-Z)</option>
+                  <option value="budgeted">Budgeted (high → low)</option>
+                  <option value="committed">Committed (high → low)</option>
+                  <option value="actual">Spent (high → low)</option>
+                  <option value="variance">Left (over first)</option>
+                  <option value="edited">Last edited (newest first)</option>
+                </SearchableSelect>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="order-4 contents lg:order-none">
       {/* Bulk selection bar */}
       {selected.size > 0 && (
         <div className="flex items-center justify-between gap-3 rounded-xl border border-danger/30 bg-danger-tint px-4 py-2.5">
@@ -1741,474 +1731,603 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Budget table */}
-      {items.length === 0 ? (
-        <div className="bg-panel rounded-2xl border border-line p-10 text-center">
-          <Wallet className="h-8 w-8 text-faint mx-auto mb-3" />
-          <p className="text-sm text-muted-fg">No budget lines yet. Add your first cost line to start tracking.</p>
-        </div>
-      ) : sections.length === 0 ? (
-        <div className="bg-panel rounded-2xl border border-line p-10 text-center">
-          <Search className="h-8 w-8 text-faint mx-auto mb-3" />
-          <p className="text-sm text-muted-fg">No line items match “{search}”.</p>
-        </div>
-      ) : (
-        <>
-        {/* DESKTOP: the table, unchanged. Below lg the phone list further down
-            takes over - one line per row, collapsed until tapped. */}
-        <div className="hidden lg:block bg-panel rounded-2xl border border-line overflow-hidden">
-          {/* header row (desktop) */}
-          <div className={cn('hidden md:grid gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide items-center',
-            selectMode ? 'grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem]' : 'grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem]')}>
-            {selectMode && (
-              <input type="checkbox" className="accent-danger" checked={filtered.length > 0 && filtered.every(i => selected.has(i.id))}
-                onChange={() => toggleSelectAll(filtered)} title="Select all" />
-            )}
-            <span>Line Item</span>
-            {/* Same explainers as the tiles, on the columns they describe. */}
-            <span className="text-right inline-flex items-center justify-end gap-1">
-              Budgeted
-              <InfoHint align="right" text={'What this line is budgeted at.\n\nWhat you estimated, plus any approved change orders that landed on it. A line that grew shows "incl. $X CO" underneath, so the budget never changes silently.'} />
-            </span>
-            <span className="text-right inline-flex items-center justify-end gap-1">
-              Committed
-              <InfoHint align="right" text={'What you have signed for on this line.\n\nThe contract amount of the subcontract linked to it. On an unlinked line it is whatever you typed. Turns red when it is more than the line is budgeted at.'} />
-            </span>
-            <span className="text-right inline-flex items-center justify-end gap-1">
-              Actual
-              <InfoHint align="right" text={'What has actually been billed on this line.\n\nInvoices from the linked sub that are approved, sent for payment or paid, plus any material receipts assigned here. An invoice awaiting approval does not count yet.'} />
-            </span>
-            <span className="text-right inline-flex items-center justify-end gap-1">
-              Variance
-              <InfoHint align="right" text={'Budget left on this line.\n\nBudgeted less whichever is bigger: what you have signed, or what you have already been billed. Green is under, red is over.\n\nIt is NOT committed minus actual - that is how much of the contract is still to be invoiced, which is on the hover over the number itself.'} />
-            </span>
-            <span />
+
           </div>
 
-          {sections.map(section => (
-          <div key={section.key}>
-          {showSectionBands && (
-            <div className={cn('flex items-center justify-between gap-2 px-4 py-2.5 border-y border-line',
-              section.key === 'soft' ? 'bg-info-tint' : 'bg-muted')}>
-              <span className={cn('text-xs font-bold uppercase tracking-wider', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>
-                {section.label}
-              </span>
-              <span className={cn('text-sm font-bold', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>{money(section.total)}</span>
+          {/* Budget table */}
+          {items.length === 0 ? (
+            <div className="order-4 rounded-2xl border border-line bg-panel p-10 text-center lg:order-none">
+              <Wallet className="mx-auto mb-3 h-8 w-8 text-faint" />
+              <p className="text-sm text-muted-fg">No budget lines yet. Add your first cost line to start tracking.</p>
             </div>
-          )}
-          {section.groups.map(group => {
-            const gBudget = group.rows.reduce((s, i) => s + revisedOf(i), 0)
-            return (
-              <div key={group.category}>
-                <div className="bg-surface px-4 py-2 flex items-center justify-between gap-2">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    {selectMode && (
-                      <input type="checkbox" className="accent-danger" checked={group.rows.every(i => selected.has(i.id))}
-                        onChange={() => toggleSelectAll(group.rows)} />
-                    )}
-                    <span className="text-xs font-bold uppercase tracking-wide text-muted-fg">{group.category}</span>
-                  </label>
-                  <span className="text-xs font-semibold text-muted-fg">{money(gBudget)}</span>
+          ) : sections.length === 0 ? (
+            <div className="order-4 rounded-2xl border border-line bg-panel p-10 text-center lg:order-none">
+              <Search className="mx-auto mb-3 h-8 w-8 text-faint" />
+              <p className="text-sm text-muted-fg">No line items match{search ? ` “${search}”` : ' this filter'}.</p>
+            </div>
+          ) : (
+            <>
+            {/* DESKTOP: one table. A category with one line reads as one row -
+                the category is its title and the line its description; one
+                with several is a row of its own that folds its lines under it.
+                NOT overflow-hidden: a row's ... menu would be clipped off the
+                last row, so the children that touch an edge round themselves. */}
+            <div className="hidden lg:block bg-panel rounded-2xl border border-line">
+              <div className={cn('grid gap-3 rounded-t-2xl border-b border-line px-5 py-3 text-xs font-semibold text-muted-fg', COLS)}>
+                {selectMode && (
+                  <input type="checkbox" className="accent-danger" checked={filtered.length > 0 && filtered.every(i => selected.has(i.id))}
+                    onChange={() => toggleSelectAll(filtered)} aria-label="Select all" title="Select all" />
+                )}
+                <span>Cost code</span>
+                {/* Same explainers as the headline figures, on the columns they describe. */}
+                <span className="inline-flex items-center justify-end gap-1">
+                  Budgeted
+                  <InfoHint align="right" text={'What this line is budgeted at.\n\nWhat you estimated, plus any approved change orders that landed on it. A line that grew shows "incl. $X CO" underneath, so the budget never changes silently.'} />
+                </span>
+                <span className="inline-flex items-center justify-end gap-1">
+                  Committed
+                  <InfoHint align="right" text={'What you have signed for on this line.\n\nThe contract amount of the subcontract linked to it. On an unlinked line it is whatever you typed. Turns red when it is more than the line is budgeted at.'} />
+                </span>
+                <span className="inline-flex items-center justify-end gap-1">
+                  Spent
+                  <InfoHint align="right" text={'What has actually been billed on this line.\n\nInvoices from the linked sub that are approved, sent for payment or paid, plus any material receipts assigned here. An invoice awaiting approval does not count yet.'} />
+                </span>
+                <span className="inline-flex items-center justify-end gap-1">
+                  Left
+                  <InfoHint align="right" text={'Budget left on this line.\n\nBudgeted less whichever is bigger: what you have signed, or what you have already been billed. The bar is how much of the line that has used - amber from 85%, red once it is over.\n\nIt is NOT committed minus actual - that is how much of the contract is still to be invoiced, which is on the hover over Spent.'} />
+                </span>
+                <span><span className="sr-only">Actions</span></span>
+              </div>
+
+              {sections.map(section => (
+              <div key={section.key}>
+              {showSectionBands && (
+                <div className={cn('flex items-center justify-between gap-2 border-b border-line px-5 py-2.5',
+                  section.key === 'soft' ? 'bg-info-tint' : 'bg-surface')}>
+                  <span className={cn('text-xs font-bold uppercase tracking-wider', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>
+                    {section.label}
+                  </span>
+                  <span className={cn('text-sm font-bold tabular-nums', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>{money(section.total)}</span>
                 </div>
-                <div className="divide-y divide-line-soft">
-                  {group.rows.map(item => {
-                    const revised = revisedOf(item)
-                    const changes = Number(item.change_orders_amount || 0)
-                    // Counts the signed contract, not only what has been billed.
-                    const variance = revised - exposureOf(item)
-                    const stillToBill = toBill(item)
-                    const over = variance < 0
-                    const overCommitted = revised > 0 && (Number(item.committed_amount || 0) - revised) >= 1
-                    if (editingId === item.id) return renderEditForm(item)
+              )}
+              <div className="divide-y divide-line-soft">
+              {section.groups.map(group => {
+                const one = group.rows.length === 1 && !flatSort
+                if (flatSort) {
+                  return group.rows.map(item => renderLine(item, { child: false, title: item.description, sub: item.category }))
+                }
+                if (one) {
+                  const item = group.rows[0]
+                  return renderLine(item, { child: false, title: group.category, sub: item.description })
+                }
+                const catKey = `desk:${section.key}:${group.category}`
+                const folded = foldedCats.has(catKey)
+                const sum = (f: (i: BudgetItem) => number) => group.rows.reduce((s, i) => s + f(i), 0)
+                return (
+                  <div key={group.category} className="divide-y divide-line-soft">
+                    <div className={cn('grid items-start gap-3 px-5 py-3.5', COLS)}>
+                      {selectMode && (
+                        <input type="checkbox" className="mt-1 accent-danger" checked={group.rows.every(i => selected.has(i.id))}
+                          onChange={() => toggleSelectAll(group.rows)} aria-label={`Select every ${group.category} line`} />
+                      )}
+                      <button type="button" onClick={() => toggleIn(setFoldedCats, catKey)} aria-expanded={!folded}
+                        className="flex min-w-0 items-start gap-3 text-left">
+                        <span className="flex w-9 shrink-0 items-center gap-1 pt-0.5 text-xs tabular-nums text-muted-fg">
+                          <ChevronRight className={cn('h-4 w-4 shrink-0 transition-transform', !folded && 'rotate-90')} />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-[15px] font-semibold text-ink">{group.category}</span>
+                          <span className="mt-1 block text-xs text-muted-fg">{group.rows.length} lines</span>
+                        </span>
+                      </button>
+                      <div className="text-right text-sm font-semibold tabular-nums text-ink">{money(sum(revisedOf))}</div>
+                      <div className="text-right text-sm tabular-nums text-ink-soft">{money(sum(i => Number(i.committed_amount || 0)))}</div>
+                      <div className="text-right text-sm tabular-nums text-ink-soft">{money(sum(i => Number(i.actual_amount || 0)))}</div>
+                      {leftCell(group.rows)}
+                      <span />
+                    </div>
+                    {!folded && group.rows.map(item => renderLine(item, { child: true, title: item.description, sub: null }))}
+                  </div>
+                )
+              })}
+              </div>
+              </div>
+              ))}
+
+              {/* totals footer */}
+              <div className={cn('grid gap-3 rounded-b-2xl border-t border-line bg-surface px-5 py-4 text-sm font-bold tabular-nums text-ink', COLS)}>
+                {selectMode && <span />}
+                <span>Total</span>
+                <span className="text-right">{money(totalBudgeted)}</span>
+                <span className={cn('text-right', (totalCommitted - totalBudgeted) >= 1 ? 'text-danger' : '')}
+                  title={(totalCommitted - totalBudgeted) >= 1 ? `Committed exceeds budget by ${money(totalCommitted - totalBudgeted)}` : undefined}>
+                  {money(totalCommitted)}
+                </span>
+                <span className="text-right">{money(totalActual)}</span>
+                <span className={cn('text-right', overBudget ? 'text-danger' : 'text-accent-fg')}>
+                  {overBudget ? `Over ${money(Math.abs(remaining))}` : money(remaining)}
+                </span>
+                <span />
+              </div>
+            </div>
+
+            {/* PHONE: a card per category - its name, what is left, a bar and
+                the three figures - with its lines COLLAPSED under it to a name,
+                what each has cost and its variance. Tap a line for the rest; tap
+                a category to fold it away. Delete lives inside the opened line,
+                never one tap from the list. */}
+            <div className="order-5 flex flex-col gap-3 lg:hidden" data-budget-phone-list>
+              {sections.map(section => (
+                <div key={section.key} className="flex flex-col gap-3">
+                  {showSectionBands && (
+                    <div className="flex items-center justify-between gap-2 px-1">
+                      <span className={cn('min-w-0 truncate text-xs font-bold uppercase tracking-wider', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>
+                        {section.label}
+                      </span>
+                      <span className={cn('shrink-0 text-sm font-bold tabular-nums', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>{money(section.total)}</span>
+                    </div>
+                  )}
+                  {section.groups.map(group => {
+                    const catKey = `${section.key}:${group.category}`
+                    const folded = foldedCats.has(catKey)
+                    const gl = leftOf(group.rows)
+                    const sum = (f: (i: BudgetItem) => number) => group.rows.reduce((s, i) => s + f(i), 0)
+                    // A category of ONE line is that line: the card opens it,
+                    // rather than holding a child row that repeats the card.
+                    const only = group.rows.length === 1 ? group.rows[0] : null
+                    const code = only ? only.cost_code : null
                     return (
-                      <div key={item.id}
-                        // The whole row opens the line. In select mode it toggles
-                        // the tick instead, which is what a click means there.
-                        // Buttons and links inside stop the event themselves.
-                        onClick={() => selectMode ? toggleSelect(item.id) : setDetailLineId(item.id)}
-                        className={cn('group cursor-pointer md:grid md:gap-2 md:items-center px-4 py-3 hover:bg-surface transition-colors',
-                        selectMode ? 'md:grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem]' : 'md:grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem]',
-                        selectMode && selected.has(item.id) && 'bg-danger-tint/40')}>
-                        {selectMode && (
-                          <div className="flex items-center mb-2 md:mb-0">
-                            <input type="checkbox" className="accent-danger" checked={selected.has(item.id)}
-                              onClick={e => e.stopPropagation()} onChange={() => toggleSelect(item.id)} />
+                      <div key={group.category} className={cn('overflow-hidden rounded-2xl border border-line bg-panel', only && selectMode && selected.has(only.id) && 'bg-danger-tint/40')}>
+                        <button type="button"
+                          onClick={() => only
+                            ? (selectMode ? toggleSelect(only.id) : toggleIn(setOpenLines, only.id))
+                            : toggleIn(setFoldedCats, catKey)}
+                          aria-expanded={only ? (selectMode ? undefined : openLines.has(only.id)) : !folded}
+                          aria-pressed={only && selectMode ? selected.has(only.id) : undefined}
+                          className="flex w-full flex-col gap-2.5 px-4 py-3.5 text-left">
+                          <span className="flex w-full items-start justify-between gap-3">
+                            <span className="min-w-0">
+                              <span className="block truncate text-xs text-muted-fg">
+                                {code && <span className="tabular-nums">{code} · </span>}
+                                {group.rows.length === 1 ? group.rows[0].description : `${group.rows.length} lines`}
+                              </span>
+                              <span className="mt-0.5 block truncate text-base font-semibold text-ink">{group.category}</span>
+                            </span>
+                            <span className="shrink-0 text-right">
+                              <span className={cn('block text-[11px] font-semibold', gl.over ? 'text-danger' : 'text-muted-fg')}>{gl.over ? 'OVER' : 'LEFT'}</span>
+                              <span className={cn('block text-base font-bold tabular-nums', gl.over ? 'text-danger' : 'text-ink')}>{money(Math.abs(gl.left))}</span>
+                            </span>
+                          </span>
+                          <span className="flex h-1.5 w-full overflow-hidden rounded-full bg-muted"><span className={gl.barC} style={{ width: gl.barW }} /></span>
+                          <span className="grid w-full grid-cols-3 gap-1.5 text-xs text-muted-fg">
+                            <span>Budget<span className="block text-[13px] font-semibold tabular-nums text-ink">{money(sum(revisedOf))}</span></span>
+                            <span>Committed<span className="block text-[13px] font-semibold tabular-nums text-ink">{money(sum(i => Number(i.committed_amount || 0)))}</span></span>
+                            <span>Spent<span className="block text-[13px] font-semibold tabular-nums text-ink">{money(sum(i => Number(i.actual_amount || 0)))}</span></span>
+                          </span>
+                        </button>
+                        {!folded && (!only || openLines.has(only.id)) && !(only && selectMode) && (
+                          <div className="divide-y divide-line-soft border-t border-line-soft">
+                            {group.rows.map(item => {
+                              if (editingId === item.id) return renderEditForm(item)
+                              const open = openLines.has(item.id)
+                              const revised = revisedOf(item)
+                              const changes = Number(item.change_orders_amount || 0)
+                              const v = variance(item)
+                              const overCommitted = revised > 0 && (Number(item.committed_amount || 0) - revised) >= 1
+                              const picked = selectMode && selected.has(item.id)
+                              return (
+                                <div key={item.id} className={cn('bg-surface/60', open && !selectMode && 'bg-surface', picked && 'bg-danger-tint/40')}>
+                                  {!only && <button type="button"
+                                    onClick={() => selectMode ? toggleSelect(item.id) : toggleIn(setOpenLines, item.id)}
+                                    aria-expanded={selectMode ? undefined : open}
+                                    aria-pressed={selectMode ? picked : undefined}
+                                    className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left">
+                                    {selectMode && (picked
+                                      ? <CheckSquare className="h-5 w-5 shrink-0 text-danger" />
+                                      : <Square className="h-5 w-5 shrink-0 text-faint" />)}
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate text-sm font-medium text-ink">{item.description}</span>
+                                      <span className="block truncate text-xs text-muted-fg">
+                                        {[item.cost_code, item.linked ? item.linked_label : null, item.space_type ? SPACE_LABELS[item.space_type] : null].filter(Boolean).join(' · ')}
+                                      </span>
+                                      {sortBy === 'edited' && editedLabel(item)}
+                                    </span>
+                                    <span className="shrink-0 text-right">
+                                      <span className="block text-sm font-semibold tabular-nums text-ink">{money(item.actual_amount)}</span>
+                                      <VarianceChip variance={v} />
+                                    </span>
+                                    {!selectMode && (open
+                                      ? <ChevronDown className="h-4 w-4 shrink-0 text-faint" />
+                                      : <ChevronRight className="h-4 w-4 shrink-0 text-faint" />)}
+                                  </button>}
+                                  {open && !selectMode && (
+                                    <div className={cn('space-y-3 px-4 pb-4', only && 'pt-3')}>
+                                      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                                        <div>
+                                          <dt className="text-xs text-faint">Budgeted</dt>
+                                          <dd className="text-ink-soft">
+                                            {money(revised)}
+                                            {changes !== 0 && <span className="ml-1 text-[11px] text-info">incl. {money(changes)} CO</span>}
+                                          </dd>
+                                        </div>
+                                        <div>
+                                          <dt className="text-xs text-faint">Committed</dt>
+                                          <dd className={cn('inline-flex items-center gap-1', overCommitted ? 'font-semibold text-danger' : 'text-ink-soft')}>
+                                            {overCommitted && <AlertTriangle className="h-3 w-3 shrink-0" />}
+                                            {money(item.committed_amount)}
+                                          </dd>
+                                        </div>
+                                        <div>
+                                          <dt className="text-xs text-faint">Spent</dt>
+                                          <dd className="text-ink-soft">{money(item.actual_amount)}</dd>
+                                        </div>
+                                        <div>
+                                          <dt className="text-xs text-faint">Left</dt>
+                                          <dd className={cn('font-medium', v === 0 ? 'text-faint' : v < 0 ? 'text-danger' : 'text-success')}>
+                                            {v === 0 ? '-' : `${v < 0 ? '-' : ''}${money(Math.abs(v))}`}
+                                          </dd>
+                                        </div>
+                                      </dl>
+                                      {(item.linked || item.notes) && (
+                                        <div className="space-y-1 text-xs">
+                                          {item.linked && (
+                                            <a href={`/projects/${params.id}/team`}
+                                              className="flex w-fit max-w-full items-center gap-1 text-accent-fg hover:underline">
+                                              <LinkIcon className="h-3 w-3 shrink-0" /> <span className="truncate">Linked · {item.linked_label}</span>
+                                            </a>
+                                          )}
+                                          {item.notes && <p className="text-faint">{item.notes}</p>}
+                                        </div>
+                                      )}
+                                      <div className="row-even gap-2">
+                                        <Button variant="outline" onClick={() => setDetailLineId(item.id)}>Details</Button>
+                                        <Button variant="outline" onClick={() => startEdit(item)} className="gap-1.5"><Pencil className="h-4 w-4" /> Edit</Button>
+                                      </div>
+                                      <button type="button" onClick={() => remove(item.id)}
+                                        className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-danger">
+                                        <Trash2 className="h-4 w-4" /> Delete this line
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              )
+                            })}
                           </div>
                         )}
-                        <div className="min-w-0">
-                          <p className="block max-w-full truncate text-sm font-medium text-ink-soft group-hover:text-accent-fg">
-                            {item.cost_code && <span className="text-faint font-normal mr-1.5">{item.cost_code}</span>}
-                            {item.description}
-                            {item.space_type && (
-                              <span className={cn('ml-1.5 rounded-full px-1.5 py-0 text-[10px] font-medium align-middle',
-                                item.space_type === 'interior' ? 'bg-info-tint text-info' : 'bg-warn-tint text-warn')}>
-                                {SPACE_LABELS[item.space_type]}
-                              </span>
-                            )}
-                          </p>
-                          {item.linked ? (
-                            <a href={`/projects/${params.id}/team`} onClick={e => e.stopPropagation()}
-                              className="text-xs text-accent-fg truncate flex items-center gap-1 hover:underline w-fit">
-                              <LinkIcon className="h-3 w-3 shrink-0" /> Linked · {item.linked_label}
-                            </a>
-                          ) : item.notes ? (
-                            <p className="text-xs text-faint truncate">{item.notes}</p>
-                          ) : null}
-                          {sortBy === 'edited' && editedLabel(item)}
-                        </div>
-                        <div className="flex justify-between md:block md:text-right mt-2 md:mt-0 text-sm">
-                          <span className="md:hidden text-xs text-faint">Budgeted</span>
-                          {/* Revised, with the change orders spelled out - a
-                              budget that grew silently is worse than one that
-                              never grew. */}
-                          <span className="md:inline-flex md:flex-col md:items-end">
-                            <span className="text-ink-soft">{money(revised)}</span>
-                            {changes !== 0 && (
-                              <span className="ml-1 md:ml-0 text-[11px] text-info"
-                                title={`${money(item.budgeted_amount)} original + ${money(changes)} approved change orders`}>
-                                incl. {money(changes)} CO
-                              </span>
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex justify-between md:block md:text-right text-sm">
-                          <span className="md:hidden text-xs text-faint">Committed</span>
-                          <span
-                            title={overCommitted ? `Committed ${money(item.committed_amount)} exceeds budget ${money(revised)} by ${money(Number(item.committed_amount) - revised)}` : undefined}
-                            className={cn('inline-flex items-center gap-1 justify-end',
-                              overCommitted ? 'text-danger font-semibold' : (item.linked ? 'text-ink-soft' : 'text-muted-fg'))}>
-                            {overCommitted && <AlertTriangle className="h-3 w-3 shrink-0" />}
-                            {money(item.committed_amount)}
-                          </span>
-                        </div>
-                        <div className="flex justify-between md:block md:text-right text-sm">
-                          <span className="md:hidden text-xs text-faint">Actual</span>
-                          <span className={item.linked ? 'text-ink-soft' : 'text-muted-fg'}>{money(item.actual_amount)}</span>
-                        </div>
-                        <div className="flex justify-between md:block md:text-right text-sm font-medium">
-                          <span className="md:hidden text-xs text-faint">Variance</span>
-                          <span
-                            title={
-                              `Budget ${money(revised)} less ${money(exposureOf(item))} committed-or-billed` +
-                              (stillToBill > 0 ? ` · ${money(stillToBill)} of the contract is signed but not yet invoiced` : '')
-                            }
-                            className={variance === 0 ? 'text-faint' : over ? 'text-danger' : 'text-success'}>
-                            {variance === 0 ? '-' : `${over ? '-' : ''}${money(Math.abs(variance))}`}
-                          </span>
-                        </div>
-                        <div className="flex justify-end gap-1 mt-2 md:mt-0 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
-                          <button onClick={e => { e.stopPropagation(); startEdit(item) }} aria-label={`Edit ${item.description}`} title="Edit line" className="p-1.5 rounded-lg text-faint hover:bg-muted hover:text-muted-fg">
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          {/* Not one tap: `remove` goes through the delete
-                              guard, which asks first (and wants the delete key
-                              when protection is on). */}
-                          <button onClick={e => { e.stopPropagation(); remove(item.id) }} aria-label={`Delete ${item.description}`} title="Delete line" className="p-1.5 rounded-lg text-faint hover:bg-danger-tint hover:text-danger">
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
                       </div>
                     )
                   })}
                 </div>
+              ))}
+              <div className="flex items-center justify-between gap-2 rounded-2xl border border-line bg-panel px-4 py-3.5 text-sm font-bold text-ink">
+                <span>Total</span>
+                <span className="tabular-nums">{money(totalBudgeted)}</span>
               </div>
-            )
-          })}
-          </div>
-          ))}
-
-          {/* totals footer */}
-          <div className={cn('hidden md:grid gap-2 px-4 py-3 border-t-2 border-line bg-surface text-sm font-bold text-ink-soft',
-            selectMode ? 'grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem]' : 'grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem]')}>
-            {selectMode && <span />}
-            <span>Total</span>
-            <span className="text-right">{money(totalBudgeted)}</span>
-            <span className={cn('text-right', (totalCommitted - totalBudgeted) >= 1 ? 'text-danger' : '')}
-              title={(totalCommitted - totalBudgeted) >= 1 ? `Committed exceeds budget by ${money(totalCommitted - totalBudgeted)}` : undefined}>
-              {money(totalCommitted)}
-            </span>
-            <span className="text-right">{money(totalActual)}</span>
-            <span className={cn('text-right', overBudget ? 'text-danger' : 'text-success')}>
-              {overBudget ? '-' : ''}{money(Math.abs(remaining))}
-            </span>
-            <span />
-          </div>
-        </div>
-
-        {/* PHONE: every line COLLAPSED to its name, what it has cost, and its
-            variance. It used to print all four figures, the linked sub, a
-            pencil and a trash can on every line, so the one line that was over
-            budget was somewhere in a scroll of a hundred numbers. Tap a line
-            for the rest; tap a category to fold it away. Delete lives inside
-            the opened line, never one tap from the list. */}
-        <div className="overflow-hidden rounded-2xl border border-line bg-panel lg:hidden" data-budget-phone-list>
-          {sections.map(section => (
-            <div key={section.key}>
-              {showSectionBands && (
-                <div className={cn('flex items-center justify-between gap-2 px-4 py-2.5 border-y border-line',
-                  section.key === 'soft' ? 'bg-info-tint' : 'bg-muted')}>
-                  <span className={cn('min-w-0 truncate text-xs font-bold uppercase tracking-wider', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>
-                    {section.label}
-                  </span>
-                  <span className={cn('shrink-0 text-sm font-bold', section.key === 'soft' ? 'text-info' : 'text-ink-soft')}>{money(section.total)}</span>
-                </div>
-              )}
-              {section.groups.map(group => {
-                const catKey = `${section.key}:${group.category}`
-                const folded = foldedCats.has(catKey)
-                const gBudget = group.rows.reduce((s, i) => s + revisedOf(i), 0)
-                const gOver = group.rows.filter(i => variance(i) < 0).length
-                return (
-                  <div key={group.category} className="border-t border-line-soft first:border-t-0">
-                    <button type="button" onClick={() => toggleIn(setFoldedCats, catKey)} aria-expanded={!folded}
-                      className="flex min-h-11 w-full items-center justify-between gap-2 bg-surface px-4 py-2 text-left">
-                      <span className="flex min-w-0 items-center gap-1.5">
-                        {folded ? <ChevronRight className="h-4 w-4 shrink-0 text-faint" /> : <ChevronDown className="h-4 w-4 shrink-0 text-faint" />}
-                        <span className="truncate text-xs font-bold uppercase tracking-wide text-muted-fg">{group.category}</span>
-                        <span className="shrink-0 text-xs text-faint">{group.rows.length}</span>
-                        {gOver > 0 && <span className="shrink-0 whitespace-nowrap text-[11px] font-medium text-danger">{gOver} over</span>}
-                      </span>
-                      <span className="shrink-0 text-xs font-semibold text-muted-fg">{money(gBudget)}</span>
-                    </button>
-                    {!folded && (
-                      <div className="divide-y divide-line-soft">
-                        {group.rows.map(item => {
-                          if (editingId === item.id) return renderEditForm(item)
-                          const open = openLines.has(item.id)
-                          const revised = revisedOf(item)
-                          const changes = Number(item.change_orders_amount || 0)
-                          const v = variance(item)
-                          const overCommitted = revised > 0 && (Number(item.committed_amount || 0) - revised) >= 1
-                          const picked = selectMode && selected.has(item.id)
-                          return (
-                            <div key={item.id} className={cn(open && !selectMode && 'bg-surface', picked && 'bg-danger-tint/40')}>
-                              <button type="button"
-                                onClick={() => selectMode ? toggleSelect(item.id) : toggleIn(setOpenLines, item.id)}
-                                aria-expanded={selectMode ? undefined : open}
-                                aria-pressed={selectMode ? picked : undefined}
-                                className="flex min-h-11 w-full items-center gap-3 px-4 py-3 text-left">
-                                {selectMode && (picked
-                                  ? <CheckSquare className="h-5 w-5 shrink-0 text-danger" />
-                                  : <Square className="h-5 w-5 shrink-0 text-faint" />)}
-                                <span className="min-w-0 flex-1">
-                                  <span className="block truncate text-sm font-medium text-ink">{item.description}</span>
-                                  {item.cost_code && <span className="block truncate text-xs text-faint">{item.cost_code}</span>}
-                                  {sortBy === 'edited' && editedLabel(item)}
-                                </span>
-                                <span className="shrink-0 text-right">
-                                  <span className="block text-sm font-semibold text-ink">{money(item.actual_amount)}</span>
-                                  <VarianceChip variance={v} />
-                                </span>
-                                {!selectMode && (open
-                                  ? <ChevronDown className="h-4 w-4 shrink-0 text-faint" />
-                                  : <ChevronRight className="h-4 w-4 shrink-0 text-faint" />)}
-                              </button>
-                              {open && !selectMode && (
-                                <div className="space-y-3 px-4 pb-4">
-                                  <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                                    <div>
-                                      <dt className="text-xs text-faint">Budgeted</dt>
-                                      <dd className="text-ink-soft">
-                                        {money(revised)}
-                                        {changes !== 0 && <span className="ml-1 text-[11px] text-info">incl. {money(changes)} CO</span>}
-                                      </dd>
-                                    </div>
-                                    <div>
-                                      <dt className="text-xs text-faint">Committed</dt>
-                                      <dd className={cn('inline-flex items-center gap-1', overCommitted ? 'font-semibold text-danger' : 'text-ink-soft')}>
-                                        {overCommitted && <AlertTriangle className="h-3 w-3 shrink-0" />}
-                                        {money(item.committed_amount)}
-                                      </dd>
-                                    </div>
-                                    <div>
-                                      <dt className="text-xs text-faint">Actual</dt>
-                                      <dd className="text-ink-soft">{money(item.actual_amount)}</dd>
-                                    </div>
-                                    <div>
-                                      <dt className="text-xs text-faint">Variance</dt>
-                                      <dd className={cn('font-medium', v === 0 ? 'text-faint' : v < 0 ? 'text-danger' : 'text-success')}>
-                                        {v === 0 ? '-' : `${v < 0 ? '-' : ''}${money(Math.abs(v))}`}
-                                      </dd>
-                                    </div>
-                                  </dl>
-                                  {(item.space_type || item.linked || item.notes) && (
-                                    <div className="space-y-1 text-xs">
-                                      {item.space_type && <p className="text-muted-fg">{SPACE_LABELS[item.space_type]}</p>}
-                                      {item.linked && (
-                                        <a href={`/projects/${params.id}/team`}
-                                          className="flex w-fit max-w-full items-center gap-1 text-accent-fg hover:underline">
-                                          <LinkIcon className="h-3 w-3 shrink-0" /> <span className="truncate">Linked · {item.linked_label}</span>
-                                        </a>
-                                      )}
-                                      {item.notes && <p className="text-faint">{item.notes}</p>}
-                                    </div>
-                                  )}
-                                  <div className="row-even gap-2">
-                                    <Button variant="outline" onClick={() => setDetailLineId(item.id)}>Details</Button>
-                                    <Button variant="outline" onClick={() => startEdit(item)} className="gap-1.5"><Pencil className="h-4 w-4" /> Edit</Button>
-                                  </div>
-                                  <button type="button" onClick={() => remove(item.id)}
-                                    className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-danger">
-                                    <Trash2 className="h-4 w-4" /> Delete this line
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                )
-              })}
             </div>
-          ))}
-          <div className="flex items-center justify-between gap-2 border-t border-line bg-surface px-4 py-3 text-sm font-bold text-ink-soft">
-            <span>Total spent</span>
-            <span>{money(totalActual)} <span className="font-normal text-faint">of {money(totalBudgeted)}</span></span>
-          </div>
-        </div>
-        </>
-      )}
+            </>
+          )}
 
-      {/* MONEY THAT IS IN THE TOTALS AND ON NO LINE ABOVE.
-          Committed read $160,000 while the rows added to $80,000, because a
-          subcontract nobody had linked to a budget line was in the total and on
-          no row - and Left to spend quietly left it out again. A scanned receipt
-          with no line did the same to Actual Spent. Both are now visible, both
-          are counted, and both can be filed from here. */}
-      {(unlinkedSubs.length > 0 || unassignedReceipts.length > 0 || unlinkedChangeOrders.length > 0) && (
-        <div id="not-on-a-line" className="mt-4 scroll-mt-4 overflow-hidden rounded-xl border border-warn/40 bg-warn-tint/30">
-          <div className="border-b border-warn/30 px-4 py-2.5">
-            <p className="text-sm font-semibold text-warn">Not on a budget line</p>
-            <p className="mt-0.5 text-xs text-warn">
-              This money is counted in the totals above but belongs to no line, so the rows do not
-              add up to the headline. File each one against a line and the numbers close up - a
-              contract filed against a line you already typed a Committed amount on stops being
-              counted twice.
-            </p>
-          </div>
-
-          {unlinkedSubs.map(sc => (
-            <div key={sc.id} className="flex flex-wrap items-center gap-2 border-b border-warn/20 px-4 py-2.5 last:border-0">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-ink-soft">{sc.label}</p>
-                <p className="text-xs text-muted-fg">Subcontract · counted in Committed</p>
-              </div>
-              <span className="shrink-0 text-sm font-semibold text-ink-soft">{money(sc.contract_amount)}</span>
-              <select
-                disabled={filing === sc.id}
-                defaultValue=""
-                onChange={e => fileAgainstLine('sub', sc.id, e.target.value)}
-                className="shrink-0 rounded-md border border-line bg-panel px-2 py-1 text-xs text-ink-soft"
-              >
-                <option value="">File against a line…</option>
-                {items.map(l => (
-                  <option key={l.id} value={l.id}>{[l.cost_code, l.description].filter(Boolean).join(' · ')}</option>
-                ))}
-              </select>
-            </div>
-          ))}
-
-          {unlinkedChangeOrders.map(co => (
-            <div key={co.id} className="flex flex-wrap items-center gap-2 border-b border-warn/20 px-4 py-2.5 last:border-0">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-ink-soft">{co.label}</p>
-                <p className="text-xs text-muted-fg">Approved change order · counted in Total Budget</p>
-              </div>
-              <span className="shrink-0 text-sm font-semibold text-ink-soft">{money(co.amount)}</span>
-              <select
-                disabled={filing === co.id}
-                defaultValue=""
-                onChange={e => fileAgainstLine('change_order', co.id, e.target.value)}
-                className="shrink-0 rounded-md border border-line bg-panel px-2 py-1 text-xs text-ink-soft"
-              >
-                <option value="">File against a line…</option>
-                {items.map(l => (
-                  <option key={l.id} value={l.id}>{[l.cost_code, l.description].filter(Boolean).join(' · ')}</option>
-                ))}
-              </select>
-            </div>
-          ))}
-
-          {unassignedReceipts.map(r => (
-            <div key={r.id} className="flex flex-wrap items-center gap-2 border-b border-warn/20 px-4 py-2.5 last:border-0">
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-ink-soft">{r.label}</p>
-                <p className="text-xs text-muted-fg">
-                  Receipt · counted in Actual Spent{r.purchase_date ? ` · ${r.purchase_date}` : ''}
-                </p>
-              </div>
-              <span className="shrink-0 text-sm font-semibold text-ink-soft">{money(r.amount)}</span>
-              <select
-                disabled={filing === r.id}
-                defaultValue=""
-                onChange={e => fileAgainstLine('receipt', r.id, e.target.value)}
-                className="shrink-0 rounded-md border border-line bg-panel px-2 py-1 text-xs text-ink-soft"
-              >
-                <option value="">File against a line…</option>
-                {items.map(l => (
-                  <option key={l.id} value={l.id}>{[l.cost_code, l.description].filter(Boolean).join(' · ')}</option>
-                ))}
-              </select>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Materials - receipts assigned to this job (linked ones roll into a line's Actual) */}
-      {materials.length > 0 && (() => {
-        const materialsOwed = materials.reduce((s: number, m: any) => s + (m.client_paid ? 0 : Number(m.amount ?? 0)), 0)
-        // ONE line for the receipts with no budget line, not a label on each.
-        // Every row used to say "in a budget line" or "not linked to a line",
-        // so the list read as a column of the same two phrases and the few
-        // that needed filing did not stand out. They are listed, with a picker
-        // each, in the "Not on a budget line" panel above - this points there.
-        const unfiledReceipts = materials.filter((m: any) => !m.budget_line_id).length
-        return (
-        <div className="mt-6 rounded-xl border border-line bg-panel overflow-hidden">
-          <div className="px-4 sm:px-5 py-3.5 border-b border-line-soft flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-sm font-semibold text-ink-soft inline-flex items-center gap-1.5"><ShoppingCart className="h-4 w-4 text-muted-fg" /> Materials</h2>
-            <div className="flex items-center gap-3 text-sm">
-              <span className="font-bold text-ink">{money(materialsTotal)} spent</span>
-              {materialsOwed > 0 && <span className="font-medium text-warn">{money(materialsOwed)} owed by client</span>}
-            </div>
-          </div>
-          {unfiledReceipts > 0 && (
-            <button type="button"
-              onClick={() => document.getElementById('not-on-a-line')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-              className="flex min-h-11 w-full items-center justify-between gap-2 border-b border-line-soft px-4 py-2 text-left text-sm sm:px-5 lg:min-h-0">
-              <span className="min-w-0 text-warn">
-                {unfiledReceipts} receipt{unfiledReceipts !== 1 ? 's have' : ' has'} no budget line yet
-              </span>
-              <span className="shrink-0 font-medium text-accent-fg">Assign {unfiledReceipts !== 1 ? 'them' : 'it'} →</span>
+          {/* Soft costs: a quiet way in when there are none yet. */}
+          {totalSoft === 0 && projectStatus !== 'planning' && (
+            <button type="button" onClick={() => setShowSoft(true)}
+              className="order-6 inline-flex min-h-11 items-center justify-center gap-1.5 self-stretch rounded-[12px] border border-dashed border-muted2 text-sm font-semibold text-accent-fg hover:underline lg:order-none lg:self-start lg:border-0 lg:px-1">
+              <Plus className="h-4 w-4" /> Add preconstruction / soft costs
             </button>
           )}
-          <div className="divide-y divide-line-soft">
-            {materials.map((m: any) => (
-              <div key={m.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 sm:px-5 py-2.5 text-sm">
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium text-ink-soft truncate">{m.store_name || 'Material purchase'}</p>
-                  <p className="text-xs text-faint truncate">
-                    {[m.category, m.purchase_date && formatDate(m.purchase_date)].filter(Boolean).join(' · ')}
+          {totalSoft === 0 && projectStatus === 'planning' && (
+            <div className="order-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-dashed border-info/40 bg-info-tint/40 px-5 py-4 lg:order-none">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink-soft">No soft costs on this budget yet</p>
+                <p className="mt-0.5 text-xs text-muted-fg">
+                  Land, plans, permits, builders risk, survey, loan interest, contingency - the money spent before and around the trades.
+                </p>
+              </div>
+              <Button variant="outline" onClick={() => setShowSoft(true)} className="shrink-0 gap-1.5">
+                <Plus className="h-4 w-4" /> Add preconstruction costs
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
+          {/* THE HEADLINE: what is still free to spend, and what it is made of.
+              The four tiles' figures and their explainers, in one card. */}
+          {totalBudgeted > 0 && (
+            <section className="order-1 flex flex-col gap-3.5 rounded-2xl border border-line bg-panel p-5 lg:order-none">
+              <div>
+                <div className="flex items-center gap-1.5 text-[13px] font-medium text-muted-fg">
+                  {overBudget ? 'Over budget' : 'Left to spend'}
+                  {tLeft.help && <InfoHint text={tLeft.help} />}
+                </div>
+                <div className={cn('text-[32px] font-bold leading-tight tracking-tight tabular-nums', overBudget ? 'text-danger' : 'text-accent-fg')}>
+                  {money(Math.abs(remaining))}
+                </div>
+                <div className="text-xs text-muted-fg">of {money(totalBudgeted)} total budget</div>
+              </div>
+              <div className="flex h-2.5 overflow-hidden rounded-full bg-muted" role="img"
+                aria-label={`${spentPct.toFixed(1)}% spent, ${(spentPct + committedPct).toFixed(1)}% committed`}>
+                <div className={overBudget ? 'bg-danger-solid' : 'bg-accent-fg'} style={{ width: `${Math.min(spentPct, 100)}%` }} />
+                <div className="bg-info/40" style={{ width: `${committedPct}%` }} />
+              </div>
+              <div className="flex flex-col gap-2.5 text-sm">
+                <div className="flex justify-between gap-2">
+                  <span className="flex items-center gap-2 text-muted-fg">
+                    <span className={cn('h-2.5 w-2.5 rounded-sm', overBudget ? 'bg-danger-solid' : 'bg-accent-fg')} />
+                    Spent · {spentPct.toFixed(1)}%
+                    {tSpent.help && <InfoHint text={tSpent.help} />}
+                  </span>
+                  <b className="tabular-nums text-ink">{money(totalActual)}</b>
+                </div>
+                {tSpent.note && <div className="-mt-1.5 pl-[18px] text-xs text-muted-fg">{tSpent.note}</div>}
+                <div className="flex justify-between gap-2">
+                  <span className="flex items-center gap-2 text-muted-fg">
+                    <span className="h-2.5 w-2.5 rounded-sm bg-info/40" />
+                    Committed
+                    {tCommitted.help && <InfoHint text={tCommitted.help} />}
+                  </span>
+                  <b className="tabular-nums text-ink">{money(totalCommitted)}</b>
+                </div>
+                {tCommitted.note && <div className="-mt-1.5 pl-[18px] text-xs text-muted-fg">{tCommitted.note}</div>}
+                <div className="flex justify-between gap-2 border-t border-line-soft pt-2.5">
+                  <span className="flex items-center gap-1.5 text-muted-fg">
+                    Total budget
+                    {tBudget.help && <InfoHint text={tBudget.help} />}
+                  </span>
+                  <b className="tabular-nums text-ink">{money(totalBudgeted)}</b>
+                </div>
+                {tBudget.note && <div className="-mt-1.5 text-xs text-muted-fg">{tBudget.note}</div>}
+                <div className="text-xs text-muted-fg">{tLeft.note}</div>
+              </div>
+            </section>
+          )}
+
+          {/* What the job earns: the markup (or the contract value) and the
+              profit it makes. Same permission as before - the server withholds
+              the figures from anybody without `margin`. */}
+          {canSeeMargin && !askContract && (showRevenuePanel || showMarkupPanel) && (
+            <section className="order-2 flex flex-col gap-3 rounded-2xl border border-line bg-panel p-5 lg:order-none">
+              <h2 className="text-[15px] font-semibold text-ink">{showMarkupPanel ? 'Your fee' : 'What the job earns'}</h2>
+          {showMarkupPanel ? (
+            <div>
+              <label className="block text-xs font-medium text-muted-fg mb-1">
+                Markup <span className="text-faint font-normal">· your fee on cost</span>
+                <InfoHint className="ml-1 align-middle" text={'The percentage you add on top of every cost.\n\nOn a cost-plus job this IS what you are paid, so it is the only revenue figure this screen needs.\n\nIt is the default rate. Any single invoice can be billed at cost or given its own percent on the Invoices tab - a permit fee or a pass-through does not have to follow it - and the fee earned here follows those, not this.'} />
+              </label>
+              {/* Read-only until you ask to change it. This drives what the
+                  client is billed, and as a live input it sat one stray click
+                  away from moving on a screen people scroll through to READ. */}
+              <LockedField
+                ariaLabel="markup percent"
+                value={markupPct}
+                display={`${Number(markupPct) || 0}%`}
+                suffix="%"
+                inputClassName="w-20"
+                saving={savingMarkup}
+                onSave={next => { setMarkupPct(next); saveMarkupValue(next) }}
+              />
+            </div>
+          ) : (
+            <div>
+              <label className="block text-xs font-medium text-muted-fg mb-1">
+                {revLabel} <span className="text-faint font-normal">· {revHint}</span>
+                <InfoHint className="ml-1 align-middle" text={
+                  (contractType === 'spec'
+                    ? 'The sale price - what you expect this to sell for.'
+                    : 'Your contract value - the agreed price this client is paying for the job.')
+                  + '\n\nProfit is measured against it: as the budget fills in, and again against what has actually been spent.'
+                } />
+              </label>
+              {/* Same reasoning as the markup: this is what profit is measured
+                  against, so it does not sit live under the cursor. */}
+              <LockedField
+                ariaLabel={revLabel.toLowerCase()}
+                value={sellout}
+                display={selloutNum != null ? money(selloutNum) : 'Not set'}
+                prefix="$"
+                inputClassName="w-36"
+                saving={savingSellout}
+                onSave={next => { setSellout(next); saveSelloutValue(next) }}
+              />
+            </div>
+          )}
+              <div className="grid grid-cols-2 gap-3">
+                <ProfitFigures profit={profit} totalActual={totalActual} feeBasis={feeBasis} materialsSpentHint={materialsSpent} />
+              </div>
+            </section>
+          )}
+
+          {/* MONEY THAT IS IN THE TOTALS AND ON NO LINE ABOVE.
+              Committed read $160,000 while the rows added to $80,000, because a
+              subcontract nobody had linked to a budget line was in the total and
+              on no row - and Left to spend quietly left it out again. A scanned
+              receipt with no line did the same to Actual Spent. Both are now
+              visible, both are counted, and both can be filed from here. */}
+          {(unlinkedSubs.length > 0 || unassignedReceipts.length > 0 || unlinkedChangeOrders.length > 0) && (
+            <section id="not-on-a-line" className="order-3 scroll-mt-4 rounded-2xl border border-warn/40 bg-panel lg:order-none">
+              <div className="flex items-start gap-2.5 rounded-t-2xl bg-warn-tint/50 px-5 py-4">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
+                <div className="min-w-0">
+                  <h2 className="text-[15px] font-semibold text-ink">Not on a budget line</h2>
+                  <p className="mt-0.5 text-xs text-muted-fg">
+                    {unfiledCount} item{unfiledCount !== 1 ? 's' : ''}, {money(unfiledTotal)}, counted in the totals but on
+                    no line, so the rows do not add up to the headline. File each one and the numbers close up - a
+                    contract filed against a line you already typed a Committed amount on stops being counted twice.
                   </p>
                 </div>
-                {m.client_paid ? (
-                  <span className="text-xs font-medium text-success">Paid</span>
-                ) : (
-                  <span className="text-xs font-medium text-warn">Owed</span>
-                )}
-                {m.receipt_url && <a href={m.receipt_url} target="_blank" rel="noreferrer" className="text-xs text-accent-fg hover:underline">Receipt</a>}
-                <span className="font-bold text-ink">{money(m.amount)}</span>
               </div>
-            ))}
-          </div>
-          <div className="px-5 py-2.5 border-t border-line-soft bg-surface text-right">
-            <a href="/materials" className="text-xs font-medium text-accent-fg hover:underline">Add a receipt →</a>
-          </div>
+              <div className="divide-y divide-warn/20 border-t border-warn/20">
+                {unlinkedSubs.map(sc => (
+                  <div key={sc.id} className="flex flex-col gap-2 px-5 py-3 lg:flex-row lg:items-center">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">{sc.label}</p>
+                      <p className="text-xs text-muted-fg">{money(sc.contract_amount)} · Subcontract, counted in Committed</p>
+                    </div>
+                    <select
+                      disabled={filing === sc.id}
+                      defaultValue=""
+                      aria-label="File against a budget line"
+                      onChange={e => fileAgainstLine('sub', sc.id, e.target.value)}
+                      className="h-11 w-full rounded-[10px] border border-muted2 bg-panel px-2.5 text-sm text-ink lg:h-9 lg:w-auto lg:max-w-[9rem]"
+                    >
+                      <option value="">File against a line…</option>
+                      {items.map(l => (
+                        <option key={l.id} value={l.id}>{[l.cost_code, l.description].filter(Boolean).join(' · ')}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+                {unlinkedChangeOrders.map(co => (
+                  <div key={co.id} className="flex flex-col gap-2 px-5 py-3 lg:flex-row lg:items-center">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">{co.label}</p>
+                      <p className="text-xs text-muted-fg">{money(co.amount)} · Approved change order, counted in Total Budget</p>
+                    </div>
+                    <select
+                      disabled={filing === co.id}
+                      defaultValue=""
+                      aria-label="File against a budget line"
+                      onChange={e => fileAgainstLine('change_order', co.id, e.target.value)}
+                      className="h-11 w-full rounded-[10px] border border-muted2 bg-panel px-2.5 text-sm text-ink lg:h-9 lg:w-auto lg:max-w-[9rem]"
+                    >
+                      <option value="">File against a line…</option>
+                      {items.map(l => (
+                        <option key={l.id} value={l.id}>{[l.cost_code, l.description].filter(Boolean).join(' · ')}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+                {unassignedReceipts.map(r => (
+                  <div key={r.id} className="flex flex-col gap-2 px-5 py-3 lg:flex-row lg:items-center">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-semibold text-ink">{r.label}</p>
+                      <p className="text-xs text-muted-fg">
+                        {money(r.amount)} · Receipt, counted in Spent{r.purchase_date ? ` · ${formatDate(r.purchase_date)}` : ''}
+                      </p>
+                    </div>
+                    <select
+                      disabled={filing === r.id}
+                      defaultValue=""
+                      aria-label="File against a budget line"
+                      onChange={e => fileAgainstLine('receipt', r.id, e.target.value)}
+                      className="h-11 w-full rounded-[10px] border border-muted2 bg-panel px-2.5 text-sm text-ink lg:h-9 lg:w-auto lg:max-w-[9rem]"
+                    >
+                      <option value="">File against a line…</option>
+                      {items.map(l => (
+                        <option key={l.id} value={l.id}>{[l.cost_code, l.description].filter(Boolean).join(' · ')}</option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {(spaceTotals.interior > 0 || spaceTotals.exterior > 0) && (
+            // Interior/exterior split. The old Grand Total tile here was Total
+            // Budget a third time - and it disagreed with it, because the split
+            // ignored approved change orders. The unassigned remainder is the
+            // only part that was not already on screen.
+            <section className="order-7 flex flex-col gap-2.5 rounded-2xl border border-line bg-panel p-5 lg:order-none">
+              <h2 className="text-[15px] font-semibold text-ink">By space</h2>
+              <div className="flex justify-between gap-2 text-sm">
+                <span className="text-muted-fg">Interior{projectSqft.interior ? <span className="text-xs"> · {money(spaceTotals.interior / Number(projectSqft.interior))}/sq ft</span> : null}</span>
+                <b className="tabular-nums text-ink">{money(spaceTotals.interior)}</b>
+              </div>
+              <div className="flex justify-between gap-2 text-sm">
+                <span className="text-muted-fg">Exterior{projectSqft.exterior ? <span className="text-xs"> · {money(spaceTotals.exterior / Number(projectSqft.exterior))}/sq ft</span> : null}</span>
+                <b className="tabular-nums text-ink">{money(spaceTotals.exterior)}</b>
+              </div>
+              {spaceTotals.unassigned > 0 && (
+                <div className="flex justify-between gap-2 text-sm">
+                  <span className="text-muted-fg">Not assigned to a space</span>
+                  <b className="tabular-nums text-ink">{money(spaceTotals.unassigned)}</b>
+                </div>
+              )}
+            </section>
+          )}
+
+          {/* Hard vs soft split. Only worth a card once soft costs carry money -
+              with none, it is Total Budget a second time. */}
+          {totalSoft > 0 && (
+            <section className="order-7 flex flex-col gap-2.5 rounded-2xl border border-line bg-panel p-5 lg:order-none">
+              <h2 className="text-[15px] font-semibold text-ink">Hard and soft costs</h2>
+              <div className="flex justify-between gap-2 text-sm">
+                <span className="text-muted-fg">Construction · {hardItems.length} line{hardItems.length !== 1 ? 's' : ''}</span>
+                <b className="tabular-nums text-ink">{money(totalHard)}</b>
+              </div>
+              <div className="flex justify-between gap-2 text-sm">
+                <span className="text-info">Preconstruction &amp; carrying</span>
+                <b className="tabular-nums text-info">{money(totalSoft)}</b>
+              </div>
+              <p className="text-xs text-muted-fg">
+                {totalBudgeted > 0 ? `Soft costs are ${((totalSoft / totalBudgeted) * 100).toFixed(0)}% of the budget.` : `${softItems.length} soft-cost lines.`}
+              </p>
+              <button type="button" onClick={() => setShowSoft(true)}
+                className="inline-flex min-h-11 items-center self-start text-sm font-semibold text-accent-fg hover:underline lg:min-h-0">
+                Add more soft costs →
+              </button>
+            </section>
+          )}
+
+          {/* Materials - receipts on this job (filed ones roll into a line's Spent). */}
+          {materials.length > 0 && (() => {
+            const materialsOwed = materials.reduce((s: number, m: any) => s + (m.client_paid ? 0 : Number(m.amount ?? 0)), 0)
+            // ONE line for the receipts with no budget line, not a label on each.
+            // They are listed, with a picker each, in the "Not on a budget line"
+            // card - this points there.
+            const unfiledReceipts = materials.filter((m: any) => !m.budget_line_id).length
+            const SHOWN = 6
+            return (
+            <section className="order-8 rounded-2xl border border-line bg-panel lg:order-none">
+              <div className="flex flex-col gap-2.5 px-5 pb-3 pt-4">
+                <div className="flex items-center justify-between gap-2">
+                  <h2 className="inline-flex items-center gap-1.5 text-[15px] font-semibold text-ink"><ShoppingCart className="h-4 w-4 text-muted-fg" /> Materials</h2>
+                  <a href="/materials" className="inline-flex min-h-11 items-center text-[13px] font-semibold text-accent-fg hover:underline lg:min-h-0">View all</a>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div><div className="text-xs text-muted-fg">Spent</div><div className="text-lg font-bold tabular-nums text-ink">{money(materialsTotal)}</div></div>
+                  <div><div className="text-xs text-muted-fg">Owed by client</div><div className={cn('text-lg font-bold tabular-nums', materialsOwed > 0 ? 'text-warn' : 'text-ink')}>{money(materialsOwed)}</div></div>
+                </div>
+              </div>
+              {unfiledReceipts > 0 && (
+                <button type="button"
+                  onClick={() => document.getElementById('not-on-a-line')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                  className="flex min-h-11 w-full items-center justify-between gap-2 border-t border-line-soft px-5 py-2 text-left text-sm lg:min-h-0">
+                  <span className="min-w-0 text-warn">
+                    {unfiledReceipts} receipt{unfiledReceipts !== 1 ? 's have' : ' has'} no budget line yet
+                  </span>
+                  <span className="shrink-0 font-medium text-accent-fg">Assign {unfiledReceipts !== 1 ? 'them' : 'it'} →</span>
+                </button>
+              )}
+              <div className="divide-y divide-line-soft border-t border-line-soft">
+                {materials.slice(0, SHOWN).map((m: any) => (
+                  <div key={m.id} className="flex items-center gap-2.5 px-5 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-[13px] font-semibold text-ink">{m.store_name || 'Material purchase'}</p>
+                      <p className="truncate text-xs text-muted-fg">
+                        {[m.category, m.purchase_date && formatDate(m.purchase_date)].filter(Boolean).join(' · ')}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <p className="text-[13px] font-semibold tabular-nums text-ink">{money(m.amount)}</p>
+                      {m.client_paid
+                        ? <span className="text-[11px] font-semibold text-success">Paid</span>
+                        : <span className="text-[11px] font-semibold text-warn">Owed</span>}
+                      {m.receipt_url && <a href={m.receipt_url} target="_blank" rel="noreferrer" className="ml-1.5 text-[11px] text-accent-fg hover:underline">Receipt</a>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {materials.length > SHOWN && (
+                <a href="/materials" className="flex min-h-11 items-center justify-center rounded-b-2xl border-t border-line-soft text-[13px] font-medium text-accent-fg hover:underline">
+                  {materials.length - SHOWN} more on the Materials tab
+                </a>
+              )}
+            </section>
+            )
+          })()}
         </div>
-        )
-      })()}
+      </div>
     </div>
   )
 }
