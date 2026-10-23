@@ -74,6 +74,11 @@ const AUTHORED: Release[] = [
         text: 'The lines fill the width of the screen, each with a bar showing how much of it is used, and a column beside them adds it all up: left to spend, your fee, anything not on a line yet, and materials. Filter the lines to just the ones over budget, or to Interior or Exterior. On a phone each category is one card.',
         help: 'add-project-budget',
       },
+      {
+        kind: 'improved',
+        title: 'A job\'s Overview opens what it names',
+        text: 'The Overview is two columns now: what is waiting on you and on others, with the money, what is on site and the tasks beside it. Every line goes to the thing it is about - "1 RFI unanswered" opens that RFI\'s answer box, "4 tasks overdue" opens Tasks filtered to overdue, expired certificates open the compliance alerts - rather than the top of a tab.',
+      },
     ],
   },
   {

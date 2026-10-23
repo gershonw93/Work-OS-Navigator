@@ -444,9 +444,12 @@ const strip = code('components/ui/stat-strip.tsx')
 ok(/onClick\?: \(\) => void/.test(strip) && /active\?: boolean/.test(strip) && /\? 'button' :/.test(strip),
   'a StatStrip cell can be a button - a count can be a filter, not only a link')
 const overview = code('app/(dashboard)/projects/[id]/overview/page.tsx')
-ok(/phoneRow\(/.test(overview) && (overview.match(/divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:hidden/g) ?? []).length === 2,
-  'a project\'s waiting-on lists are one divided card each on a phone')
-ok(/hidden space-y-2\.5 lg:block/.test(overview), '...with the spined, tinted rows kept for the desktop')
+// One divided card per list on EVERY width now: the desktop's separate
+// spined boxes went with the Overview redesign, and the card is what the
+// phone already had.
+ok((overview.match(/data-waiting-list/g) ?? []).length === 2 && /const LIST = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel'/.test(overview),
+  'a project\'s waiting-on lists are one divided card each')
+ok(!/rounded-xl border border-line bg-panel py-3 pl-4/.test(overview), '...not a bordered box per row')
 
 // The Permissions matrix: five columns in a card on a phone. A list of
 // resources with four labelled toggles each below lg, the matrix above it.

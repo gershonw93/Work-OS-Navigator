@@ -420,7 +420,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     blocks: [
       { type: 'text', text: 'Every job has one row of sections across the top. Hover one, or click it, and its pages drop down underneath. A tick marks the page you are on.' },
       { type: 'steps', items: [
-        'Overview - where the job stands and what is waiting on you. No menu; it is one page.',
+        'Overview - where the job stands and what is waiting on you, with the money, what is on site and the tasks beside it. Every line opens the thing it names: one RFI opens its answer box, one bill opens that bill, expired certificates open the compliance alerts. No menu; it is one page.',
         'Field - Plans, Schedule, Tasks, Progress, Daily Logs, Time Clock, and All jobs on a development.',
         'Buyout - Quotes & Bids, Subs & Team, Compliance.',
         'Finance - Estimate, Budget, Materials, Selections, Bills from subs, Pay Apps, Billing the client, Change Orders, Financial Summary, Reports.',

@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { useLandOnHash } from '@/lib/use-land-on'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -1006,6 +1007,8 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { fetchData() }, [params.id])
+  // The Overview links to the alerts, or to one vendor's card.
+  useLandOnHash(!loading)
 
   // ── Summary stats ──────────────────────────────────────────────────────────
   function resolveStatus(companyId: string, type: DocType): DocStatus {
@@ -1096,7 +1099,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
               .sort((a, b) => a.days - b.days)
             if (flagged.length === 0) return null
             return (
-              <div className="rounded-xl border border-warn/30 bg-warn-tint px-4 py-3 space-y-2">
+              <div id="needs-attention" className="scroll-mt-4 rounded-xl border border-warn/30 bg-warn-tint px-4 py-3 space-y-2">
                 <div className="flex items-center gap-2">
                   <AlertTriangle className="h-4 w-4 text-warn" />
                   <span className="text-sm font-semibold text-warn">
@@ -1124,8 +1127,10 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
           {/* Per-sub cards */}
           <div className="space-y-4">
             {subs.map((sub) => (
+              // The anchor a link to one vendor lands on - keyed on the
+              // company, the same id the Overview names it by.
+              <div key={sub.id} id={sub.companies?.id ? `vendor-${sub.companies.id}` : undefined} className="scroll-mt-4">
               <SubCard
-                key={sub.id}
                 sub={sub}
                 docs={docs}
                 requests={requests}
@@ -1134,6 +1139,7 @@ export default function CompliancePage({ params }: { params: { id: string } }) {
                 token={token}
                 onRefresh={fetchData}
               />
+              </div>
             ))}
           </div>
         </>

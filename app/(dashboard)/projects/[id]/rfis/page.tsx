@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useLandOnParam } from '@/lib/use-land-on'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -72,6 +73,12 @@ export default function RFIsPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { fetchRfis() }, [params.id])
+
+  // "Answer" on the Overview names one RFI: open its answer box, not the list.
+  useLandOnParam('answer', !loading, id => {
+    const rfi = rfis.find(r => r.id === id)
+    if (rfi) openRespond(rfi)
+  })
 
   /** What a new RFI is still missing, in words, or null when it can be sent. */
   function missingRfi(f: { subject: string; question: string }): string | null {
