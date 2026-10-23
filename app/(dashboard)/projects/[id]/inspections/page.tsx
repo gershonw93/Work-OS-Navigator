@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useLandOnHash } from '@/lib/use-land-on'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
@@ -180,6 +181,9 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     setExpanded(wanted)
     fetchInspections(true)
   }, [])
+
+  // A link to one inspection (or to the ones still to book) lands on it.
+  useLandOnHash(!loading)
 
   useEffect(() => {
     fetchInspections()
@@ -539,7 +543,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
     // operation: a clipped panel still reports its full bounding rect, so
     // measuring the panel proves nothing at all.
     return (
-      <div className={cn('rounded-xl border bg-panel',
+      <div id={`insp-${insp.id}`} className={cn('scroll-mt-4 rounded-xl border bg-panel',
         isVoid(insp.status) ? 'border-dashed border-line opacity-70' : 'border-line')}>
         {isVoid(insp.status) && (
           <p className="rounded-t-xl bg-muted px-5 py-2 text-xs text-muted-fg">
@@ -1136,7 +1140,7 @@ export default function InspectionsPage({ params }: { params: { id: string } }) 
       ) : (
         <div className="space-y-4">
           {pending.length > 0 && (
-            <div className="space-y-2">
+            <div id="to-book" className="scroll-mt-4 space-y-2">
               <p className="text-xs font-semibold text-faint uppercase tracking-wide">Pending ({pending.length})</p>
               {pending.map(i => <InspCard key={i.id} insp={i} />)}
             </div>

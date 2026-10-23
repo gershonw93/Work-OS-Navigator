@@ -23,6 +23,7 @@ import { useNotice } from '@/components/ui/notice'
 import { fetchProblem } from '@/lib/fetch-error'
 import { qbShortReason } from '@/lib/qbo-short-reason'
 import { QboExternalFlag } from '@/components/quickbooks/external-flag'
+import { useLandOnHash } from '@/lib/use-land-on'
 interface Payment {
   id: string; paid_date: string | null; amount: number; method: string | null
   memo: string | null; retainer: boolean; qb_entered: boolean
@@ -109,6 +110,8 @@ function PaymentsPageInner({ params }: { params: { id: string } }) {
   // A client invoice open as a screen of its own - in the URL, so Back returns
   // to this page rather than leaving the job.
   const { id: openInvoice, open: openClientInvoice, close: closeClientInvoice } = useOpenRecord()
+  // The Overview's payment-request lines land on the requests, not the top.
+  useLandOnHash(!loading)
 
   async function token() { const { data: { session } } = await supabase.auth.getSession(); return session?.access_token ?? '' }
 
@@ -534,7 +537,9 @@ function PaymentsPageInner({ params }: { params: { id: string } }) {
               ask for before there is anything to bill. Shown on BOTH billing
               modes - a pay application bills work in place, and a deposit is
               not work in place. */}
-          <PaymentRequests projectId={params.id} onSettle={settleRequest} reloadKey={requestsKey} />
+          <div id="payment-requests" className="scroll-mt-4">
+            <PaymentRequests projectId={params.id} onSettle={settleRequest} reloadKey={requestsKey} />
+          </div>
 
           {/* Billing the client. Not shown on AIA jobs - there the claim goes
               out as a pay application, and two ways to bill the same client for

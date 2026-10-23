@@ -7,6 +7,7 @@ import { projectEscrow, awaitingApproval as billsAwaitingApproval, AWAITING_APPR
 import { TO_BOOK } from '@/lib/inspection-status'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { ownsProject } from '@/lib/project-access'
+import { overviewHref } from '@/lib/overview-links'
 
 export const runtime = 'nodejs'
 
@@ -153,39 +154,51 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const toBook = (inspections ?? []).filter((i: any) => (INSPECTION_TO_BOOK as readonly string[]).includes(i.status))
   const signoffs = (tasks ?? []).filter((t: any) => t.signoff_requested_at && !t.signoff_signed_at)
   const unsentRequests = (paymentRequests ?? []).filter((r: any) => !r.sent_at)
+  const openTasks = (tasks ?? []).filter((t: any) => t.status !== 'completed')
+  const overdueTasks = openTasks.filter((t: any) => {
+    const d = days(t.due_date)
+    return d != null && d < 0
+  })
 
   const clientWaiting = threadsWaitingOnGc((clientMessages ?? []) as any[])
   const waitingOnYou = [
+    overdueTasks.length && {
+      key: 'overdue', count: overdueTasks.length, href: overviewHref.overdueTasks(overdueTasks), cta: 'Tasks', tone: 'danger',
+      label: `${overdueTasks.length} task${overdueTasks.length === 1 ? '' : 's'} overdue`,
+      detail: overdueTasks.length === openTasks.length
+        ? `${overdueTasks.length === 1 ? 'The only open task is' : `All ${openTasks.length} open tasks are`} past due`
+        : overdueTasks.slice(0, 2).map((t: any) => t.title).filter(Boolean).join('; ') || null,
+    },
     awaitingApproval.length && {
-      key: 'invoices', count: awaitingApproval.length, href: 'invoices',
+      key: 'invoices', count: awaitingApproval.length, href: overviewHref.bills(awaitingApproval), cta: 'Review',
       label: `${awaitingApproval.length} bill${awaitingApproval.length === 1 ? '' : 's'} waiting for your approval`,
       detail: `$${pendingApproval.toLocaleString(undefined, { maximumFractionDigits: 0 })} from ${new Set(awaitingApproval.map((i: any) => i.company_name)).size} vendor(s)`,
     },
     openRfis.length && {
-      key: 'rfis', count: openRfis.length, href: 'rfis',
+      key: 'rfis', count: openRfis.length, href: overviewHref.rfis(openRfis), cta: 'Answer',
       label: `${openRfis.length} RFI${openRfis.length === 1 ? '' : 's'} unanswered`,
       detail: openRfis.slice(0, 2).map((r: any) => r.subject).filter(Boolean).join('; ') || null,
     },
     toBook.length && {
-      key: 'inspections', count: toBook.length, href: 'inspections',
+      key: 'inspections', count: toBook.length, href: overviewHref.inspectionsToBook(toBook), cta: 'Book',
       label: `${toBook.length} inspection${toBook.length === 1 ? '' : 's'} to book`,
-      detail: toBook.slice(0, 2).map((i: any) => i.trade || i.type).filter(Boolean).join('; ') || null,
+      detail: toBook.slice(0, 2).map((i: any) => i.trade || i.type).filter(Boolean).join(', ') || null,
     },
     signoffs.length && {
-      key: 'signoffs', count: signoffs.length, href: 'tasks',
+      key: 'signoffs', count: signoffs.length, href: overviewHref.signoffs(signoffs), cta: 'Sign off',
       label: `${signoffs.length} sign-off${signoffs.length === 1 ? '' : 's'} requested`,
       detail: signoffs.slice(0, 2).map((t: any) => t.title).join('; '),
     },
     clientWaiting.length && {
-      key: 'client-questions', count: clientWaiting.length,
+      key: 'client-questions', count: clientWaiting.length, cta: 'Reply',
       // Straight to where the answer is written when every question is in one
       // place; the Overview's own thread otherwise.
-      href: new Set(clientWaiting.map(t => SUBJECTS[t.subject].tab)).size === 1 ? SUBJECTS[clientWaiting[0].subject].tab : 'overview',
+      href: new Set(clientWaiting.map(t => SUBJECTS[t.subject].tab)).size === 1 ? SUBJECTS[clientWaiting[0].subject].tab : overviewHref.clientQuestions(),
       label: `${clientWaiting.length} client question${clientWaiting.length === 1 ? '' : 's'} waiting on a reply`,
       detail: Array.from(new Set(clientWaiting.map(t => CLIENT_TOPIC[t.subject]))).join(', '),
     },
     unsentRequests.length && {
-      key: 'unsent', count: unsentRequests.length, href: 'payments',
+      key: 'unsent', count: unsentRequests.length, href: overviewHref.paymentRequests(), cta: 'Send',
       label: `${unsentRequests.length} payment request${unsentRequests.length === 1 ? '' : 's'} raised but not sent`,
       detail: `$${unsentRequests.reduce((s: number, r: any) => s + Number(r.amount || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} the client has not been told about`,
     },
@@ -214,31 +227,31 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   const waitingOnOthers = [
     sentRequests.length && {
-      key: 'requested', count: sentRequests.length, href: 'payments',
+      key: 'requested', count: sentRequests.length, href: overviewHref.paymentRequests(),
       label: `$${sentRequests.reduce((s: number, r: any) => s + Number(r.amount || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 0 })} requested from the client, not yet paid`,
       detail: sentRequests.map((r: any) => r.label).join('; '),
       tone: 'warn',
     },
     lapsed.length && {
-      key: 'lapsed', count: lapsed.length, href: 'compliance',
+      key: 'lapsed', count: lapsed.length, href: overviewHref.certificates(),
       label: `${lapsed.length} certificate${lapsed.length === 1 ? '' : 's'} expired`,
       detail: Array.from(new Set(lapsed.map((c: any) => nameOf(c.company_id)))).slice(0, 3).join(', '),
       tone: 'danger',
     },
     expiring.length && {
-      key: 'expiring', count: expiring.length, href: 'compliance',
+      key: 'expiring', count: expiring.length, href: overviewHref.certificates(),
       label: `${expiring.length} certificate${expiring.length === 1 ? '' : 's'} expiring within 30 days`,
       detail: Array.from(new Set(expiring.map((c: any) => nameOf(c.company_id)))).slice(0, 3).join(', '),
       tone: 'warn',
     },
     noDocs.length && {
-      key: 'nodocs', count: noDocs.length, href: 'compliance',
+      key: 'nodocs', count: noDocs.length, href: overviewHref.vendorsWithNothing(noDocs.map((s: any) => s.company_id)),
       label: `${noDocs.length} vendor${noDocs.length === 1 ? '' : 's'} with nothing on file`,
       detail: noDocs.slice(0, 3).map((s: any) => s.companies?.name).filter(Boolean).join(', '),
       tone: 'warn',
     },
     openSelections.length && {
-      key: 'selections', count: openSelections.length, href: 'selections',
+      key: 'selections', count: openSelections.length, href: overviewHref.selections(),
       label: `${openSelections.length} selection${openSelections.length === 1 ? '' : 's'} still to choose`,
       detail: lateSelections.length ? `${lateSelections.length} already past the date they were needed` : null,
       tone: lateSelections.length ? 'danger' : 'muted',
@@ -258,17 +271,19 @@ export async function GET(request: Request, { params }: { params: { id: string }
       inDays: s.inDays,
     }))
 
+  // Requested and past the day they were needed - what the job is waiting on
+  // to happen on site. Each opens its own inspection.
+  const lateToBook = toBook
+    .map((i: any) => ({ id: i.id, label: i.trade || i.type || 'Inspection', date: i.requested_date, inDays: days(i.requested_date) }))
+    .filter((i: any) => i.inDays != null && i.inDays < 0)
+    .sort((a: any, b: any) => a.inDays - b.inDays)
+    .slice(0, 5)
+
   const booked = (inspections ?? [])
     .filter((i: any) => i.status === 'scheduled' && i.scheduled_date)
     .map((i: any) => ({ id: i.id, label: i.trade || i.type || 'Inspection', date: i.scheduled_date, inDays: days(i.scheduled_date) }))
     .filter((i: any) => i.inDays != null && i.inDays >= -1 && i.inDays <= 21)
     .slice(0, 5)
-
-  const openTasks = (tasks ?? []).filter((t: any) => t.status !== 'completed')
-  const overdueTasks = openTasks.filter((t: any) => {
-    const d = days(t.due_date)
-    return d != null && d < 0
-  })
 
   return NextResponse.json({
     project: { id: (project as any).id, name: (project as any).name, status: (project as any).status },
@@ -286,6 +301,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     waitingOnOthers,
     upcoming,
     inspections: booked,
+    lateInspections: lateToBook,
     // WHAT IS ON SITE TODAY, as raw rows for the browser to sort into a day.
     //
     // Everything here was already fetched above - no extra round trip, which is

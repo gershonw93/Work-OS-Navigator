@@ -10,13 +10,10 @@ import { TodayStrip } from '@/components/projects/today-strip'
 import { ClientThreadPanel } from '@/components/client-thread/client-thread-panel'
 import { usePermissions } from '@/lib/use-permissions'
 import type { TodayInput } from '@/lib/today'
-import {
-  ArrowRight, Banknote, CalendarDays, CheckCircle2, ClipboardCheck,
-  FileSignature, HardHat, Inbox, MessageSquare, Palette, Receipt, Send,
-  ShieldAlert, TrendingDown, Clock, CheckSquare,
-  ChevronRight, MapPinned,
-} from 'lucide-react'
-import type { LucideIcon } from 'lucide-react'
+import { formatDate, formatDateShort } from '@/lib/dates'
+import { overviewHref } from '@/lib/overview-links'
+import { useLandOnHash } from '@/lib/use-land-on'
+import { CheckCircle2, ChevronRight } from 'lucide-react'
 
 interface Item {
   key: string
@@ -25,6 +22,8 @@ interface Item {
   label: string
   detail: string | null
   tone?: 'warn' | 'danger' | 'muted'
+  /** The verb on the row's button - what pressing it lets you do. */
+  cta?: string
 }
 
 interface Overview {
@@ -37,6 +36,8 @@ interface Overview {
   waitingOnOthers: Item[]
   upcoming: { id: string; label: string; start_date: string; end_date: string | null; inDays: number }[]
   inspections: { id: string; label: string; date: string; inDays: number }[]
+  /** Requested and past the day they were needed. */
+  lateInspections?: { id: string; label: string; date: string; inDays: number }[]
   /** Raw rows for the Today strip - the DAY is decided in the browser. */
   todayFeed?: Omit<TodayInput, 'projectId'>
   tasks: { open: number; overdue: number }
@@ -44,6 +45,7 @@ interface Overview {
   /** Parcel, lot, utilities - only the facts somebody filled in. */
   lot?: { label: string; value: string }[]
 }
+
 
 const money = (n: number) => `$${Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 })}`
 
@@ -54,20 +56,19 @@ function when(inDays: number) {
   return `in ${inDays}d`
 }
 
-// Each kind of waiting item gets its own icon, so the list reads by shape
-// before it reads by words - the same reason road signs are pictures.
-const ITEM_ICONS: Record<string, LucideIcon> = {
-  invoices: Receipt,
-  rfis: MessageSquare,
-  inspections: ClipboardCheck,
-  signoffs: FileSignature,
-  unsent: Send,
-  requested: Banknote,
-  lapsed: ShieldAlert,
-  expiring: ShieldAlert,
-  nodocs: ShieldAlert,
-  selections: Palette,
+const late = (inDays: number) => `${Math.abs(inDays)} day${Math.abs(inDays) === 1 ? '' : 's'} late`
+
+/** "15 certificates expired" reads as a chip of 15 and "Certificates expired". */
+function splitCount(i: Item): { n: string; title: string } {
+  const lead = `${i.count} `
+  if (!i.label.startsWith(lead)) return { n: String(i.count), title: i.label }
+  const rest = i.label.slice(lead.length)
+  return { n: String(i.count), title: rest.charAt(0).toUpperCase() + rest.slice(1) }
 }
+
+const CARD = 'rounded-2xl border border-line bg-panel'
+const LIST = 'divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel'
+const RAIL_LINK = 'text-[13px] font-semibold text-accent-fg hover:underline'
 
 /**
  * Where this job stands, and what has piled up since you last looked.
@@ -80,10 +81,13 @@ const ITEM_ICONS: Record<string, LucideIcon> = {
  * The two piles are split because they need different responses: things you can
  * clear yourself this minute, and things you can only chase somebody about.
  *
- * Styling follows the house idiom rather than inventing one: the tinted stat
- * tiles are the ones from Billing the client, the icon-chip section headers are
- * the dashboard's. First version of this page was bare grey boxes - correct and
- * lifeless, which on a landing page reads as "nothing to see here".
+ * EVERY LINE IS A LINK TO THE THING IT NAMES (`lib/overview-links.ts`): one RFI
+ * opens that RFI's answer box, one bill opens that bill, several certificates
+ * land on the compliance alerts. The route builds the link; the page at the
+ * other end reads it (`lib/use-land-on.ts`).
+ *
+ * Two columns on a desktop - the piles, and a rail of what the job adds up to.
+ * On a phone the rail dissolves (`contents`) and the cards take `order-*`.
  */
 export default function OverviewPage({ params }: { params: { id: string } }) {
   const supabase = createClient()
@@ -112,260 +116,246 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
   }, [params.id, supabase, router])
 
   useEffect(() => { load() }, [load])
+  // "client questions waiting" links back here, to the thread.
+  useLandOnHash(!!data)
 
   if (loading) return <div className="py-12 text-center text-sm text-faint">Loading…</div>
   if (!data) return null
 
   const { money: m, waitingOnYou, waitingOnOthers, upcoming, inspections, tasks } = data
+  const lateInspections = data.lateInspections ?? []
   const nothingWaiting = waitingOnYou.length === 0 && waitingOnOthers.length === 0
-  const youCount = waitingOnYou.reduce((s, i) => s + i.count, 0)
+  const youCount = waitingOnYou.length
+  const to = (href: string) => `/projects/${data.project.id}/${href}`
+  const today = formatDate(new Date(), { weekday: 'short', month: 'short', day: 'numeric' })
 
-  // Same tile treatment as Billing the client, so money looks like money
-  // everywhere in the app.
   // Outstanding is approved-and-unpaid (lib/escrow.ts). The approval queue is
   // named under it, the same sentence the Financial Summary card uses, so a
   // $9,000 bill nobody has approved is visible without being called owed.
   const pending = m.pendingApproval ?? 0
   const pendingNote = pending > 0 ? `${money(pending)} more awaiting your approval` : undefined
-
-  const tiles = [
-    { label: 'Received from client', value: m.received, icon: Banknote, color: 'text-success', bg: 'bg-success-tint' },
-    { label: 'Committed to vendors', value: m.committed, icon: HardHat, color: 'text-special', bg: 'bg-special-tint', hint: `${data.subcontracts} subcontract${data.subcontracts === 1 ? '' : 's'}` },
-    { label: 'Billed by vendors', value: m.vendorBilled, icon: Receipt, color: 'text-info', bg: 'bg-info-tint', hint: `${money(m.vendorPaid)} paid` },
-    {
-      label: 'Outstanding to vendors', value: m.outstandingToVendors, icon: TrendingDown,
-      color: m.outstandingToVendors > 0 ? 'text-warn' : 'text-ink',
-      bg: m.outstandingToVendors > 0 ? 'bg-warn-tint' : 'bg-panel',
-      hint: pendingNote,
-    },
+  const paidPct = m.vendorBilled > 0 ? Math.min(100, (m.vendorPaid / m.vendorBilled) * 100) : 0
+  // The desktop rail's figures, each a link to the screen that holds it.
+  const rail = [
+    { label: 'Committed to vendors', value: m.committed, href: 'budget', note: `${data.subcontracts} subcontract${data.subcontracts === 1 ? '' : 's'}` },
+    { label: 'Billed by vendors', value: m.vendorBilled, href: 'invoices', hint: pendingNote },
   ]
 
-  // PHONE: one divided card of rows, ink and a chevron, the icon carrying the
-  // tone. The desktop keeps `row()` below - spine, tinted chip, hover lift.
-  const phoneRow = (i: Item, projectId: string) => {
-    const Icon = ITEM_ICONS[i.key] ?? Inbox
-    const iconTone = i.tone === 'danger' ? 'text-danger' : i.tone === 'warn' ? 'text-warn' : i.tone === 'muted' ? 'text-faint' : 'text-info'
-    return (
-      <Link key={i.key} href={`/projects/${projectId}/${i.href}`}
-        className="flex min-h-[52px] items-center gap-3 px-4 py-3 transition-colors hover:bg-surface active:bg-surface">
-        <Icon className={cn('h-[18px] w-[18px] shrink-0', iconTone)} />
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium text-ink">{i.label}</span>
-          {i.detail && <span className="block truncate text-xs text-muted-fg">{i.detail}</span>}
-        </span>
-        <ChevronRight className="h-4 w-4 shrink-0 text-faint" />
-      </Link>
-    )
-  }
+  const dot = (tone?: Item['tone']) => tone === 'danger' ? 'bg-danger-solid' : tone === 'muted' ? 'bg-muted2' : 'bg-warn'
+  const chip = (tone?: Item['tone']) => tone === 'danger' ? 'bg-danger-tint text-danger' : tone === 'muted' ? 'bg-muted text-muted-fg' : 'bg-warn-tint text-warn'
 
-  const row = (i: Item, projectId: string) => {
-    const Icon = ITEM_ICONS[i.key] ?? Inbox
-    const tone = i.tone === 'danger'
-      ? { chip: 'bg-danger-tint text-danger', bar: 'bg-danger' }
-      : i.tone === 'warn'
-        ? { chip: 'bg-warn-tint text-warn', bar: 'bg-warn' }
-        : i.tone === 'muted'
-          ? { chip: 'bg-muted text-muted-fg', bar: 'bg-muted2' }
-          : { chip: 'bg-info-tint text-info', bar: 'bg-info' }
+  // One link per row, the whole row - the verb on the right is what it opens,
+  // not a second control beside it.
+  const mineRow = (i: Item) => (
+    <Link key={i.key} href={to(i.href)}
+      className="group flex min-h-11 items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-surface lg:px-5">
+      <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', dot(i.tone))} aria-hidden="true" />
+      <span className="min-w-0 flex-1">
+        <span className="block text-[15px] font-semibold text-ink">{i.label}</span>
+        {i.detail && <span className="mt-0.5 block truncate text-[13px] text-muted-fg">{i.detail}</span>}
+      </span>
+      <span className="shrink-0 whitespace-nowrap text-[13px] font-semibold text-accent-fg lg:inline-flex lg:h-9 lg:items-center lg:rounded-lg lg:border lg:border-muted2 lg:bg-panel lg:px-3.5 lg:text-ink lg:group-hover:border-accent">
+        {i.cta ?? 'Open'}
+      </span>
+    </Link>
+  )
+
+  const othersRow = (i: Item) => {
+    const { n, title } = splitCount(i)
     return (
-      <Link
-        key={i.key}
-        href={`/projects/${projectId}/${i.href}`}
-        className="group relative flex items-center gap-3 overflow-hidden rounded-xl border border-line bg-panel py-3 pl-4 pr-3 transition-all hover:-translate-y-px hover:border-accent hover:shadow-sm"
-      >
-        {/* Tone as a spine, not a wash - readable at a squint. */}
-        <span className={cn('absolute inset-y-0 left-0 w-1', tone.bar)} />
-        <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-lg', tone.chip)}>
-          <Icon className="h-[18px] w-[18px]" />
-        </span>
+      <Link key={i.key} href={to(i.href)}
+        className="flex min-h-11 items-center gap-3.5 px-4 py-3.5 transition-colors hover:bg-surface lg:px-5">
+        <span className={cn('inline-flex h-8 min-w-11 shrink-0 items-center justify-center rounded-lg px-2 text-[15px] font-bold tabular-nums', chip(i.tone))}>{n}</span>
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-semibold text-ink">{i.label}</span>
-          {i.detail && <span className="block truncate text-xs text-muted-fg">{i.detail}</span>}
+          <span className="block text-[15px] font-semibold text-ink">{title}</span>
+          {i.detail && <span className="mt-0.5 block truncate text-[13px] text-muted-fg">{i.detail}</span>}
         </span>
-        <ArrowRight className="h-4 w-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent-fg" />
+        <ChevronRight className="h-[18px] w-[18px] shrink-0 text-faint" />
       </Link>
     )
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4 lg:gap-5 lg:p-6">
       {/* FIRST, because it is the question somebody standing on the site is
           actually asking. The Master Calendar answers it and is admins-only. */}
       <TodayStrip projectId={params.id} {...(data.todayFeed ?? {})} />
 
-      {/* Money position. PHONE: one card, the numbers ink, colour only on an
-          outstanding balance. DESKTOP (lg+): the four tiles it always had. */}
-      <StatStrip label="Money" className="lg:hidden" items={[
-        { label: 'Received from client', value: money(m.received) },
-        { label: 'Committed to vendors', value: money(m.committed), note: `${data.subcontracts} subcontract${data.subcontracts === 1 ? '' : 's'}` },
-        { label: 'Billed by vendors', value: money(m.vendorBilled), note: `${money(m.vendorPaid)} paid` },
-        { label: 'Outstanding to vendors', value: money(m.outstandingToVendors), tone: m.outstandingToVendors > 0 ? 'warn' : undefined, note: pendingNote },
-      ]} />
-      <div className="hidden lg:grid gap-3 lg:grid-cols-4">
-        {tiles.map(t => {
-          const Icon = t.icon
-          return (
-            <div key={t.label} className={cn('rounded-xl border border-line p-4', t.bg)}>
-              <div className={cn('flex items-center gap-1.5 text-xs font-medium', t.color)}>
-                <Icon className="h-3.5 w-3.5" /> {t.label}
+      <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-5">
+        <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-5">
+          {nothingWaiting && (
+            <div className="order-2 flex items-center gap-4 rounded-2xl bg-accent px-5 py-4 text-accent-ink lg:order-none">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-ink/10">
+                <CheckCircle2 className="h-5 w-5" />
+              </span>
+              <div>
+                <p className="text-sm font-bold">Nothing is waiting on anyone.</p>
+                <p className="text-sm opacity-80">No bills to approve, no RFIs open, no certificates lapsing.</p>
               </div>
-              <p className="mt-1.5 text-2xl font-bold tracking-tight text-ink">{money(t.value)}</p>
-              {'hint' in t && t.hint && <p className="mt-0.5 text-xs text-faint">{t.hint}</p>}
             </div>
-          )
-        })}
-      </div>
+          )}
 
-      {nothingWaiting && (
-        <div className="flex items-center gap-4 rounded-xl bg-accent px-5 py-4 text-accent-ink">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-accent-ink/10">
-            <CheckCircle2 className="h-5 w-5" />
-          </span>
-          <div>
-            <p className="text-sm font-bold">Nothing is waiting on anyone.</p>
-            <p className="text-sm opacity-80">No bills to approve, no RFIs open, no certificates lapsing.</p>
-          </div>
+          {waitingOnYou.length > 0 && (
+            <section className={cn(LIST, 'order-2 lg:order-none')} data-waiting-list>
+              <div className="flex items-center gap-2.5 px-4 py-4 lg:px-5">
+                <h2 className="text-base font-semibold text-ink">Waiting on you</h2>
+                <span className="whitespace-nowrap rounded-full bg-ink px-2 py-0.5 text-xs font-bold tabular-nums text-panel">{youCount}</span>
+              </div>
+              {waitingOnYou.map(mineRow)}
+            </section>
+          )}
+
+          {waitingOnOthers.length > 0 && (
+            <section className={cn(LIST, 'order-3 lg:order-none')} data-waiting-list>
+              <div className="flex flex-wrap items-baseline gap-x-2.5 gap-y-0.5 px-4 py-4 lg:px-5">
+                <h2 className="text-base font-semibold text-ink">Waiting on others</h2>
+                <span className="text-[13px] text-muted-fg">Chase these with subs and the client</span>
+              </div>
+              {waitingOnOthers.map(othersRow)}
+            </section>
+          )}
+
+          {/* The client's general questions about the job - the "anything else?"
+              box at the bottom of their link. Only for people who handle the
+              client link; a thread they cannot read is not shown as a failure. */}
+          {can('client-portal', 'view') && (
+            <div id="client-questions" className={cn(CARD, 'order-6 scroll-mt-4 px-4 py-3 lg:order-none lg:px-5 lg:py-4')}>
+              <ClientThreadPanel projectId={data.project.id} subject="project" subjectId={null} clientName={null}
+                title="Client messages" />
+            </div>
+          )}
+
+          {/* The lot, when anything is known about it. Facts, not a form - the
+              Settings dialog is where they are edited. */}
+          {!!data.lot?.length && (
+            <div className={cn(CARD, 'order-8 p-4 lg:order-none lg:p-5')}>
+              <h2 className="mb-3 text-[15px] font-semibold text-ink">Lot</h2>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
+                {data.lot.map(f => (
+                  <div key={f.label} className="min-w-0">
+                    <dt className="text-xs text-muted-fg">{f.label}</dt>
+                    <dd className="break-words text-sm font-medium text-ink">{f.value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </div>
+          )}
         </div>
-      )}
 
-      {waitingOnYou.length > 0 && (
-        <div className="space-y-2.5">
-          <div className="flex items-center gap-2.5">
-            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-info-tint lg:flex">
-              <Inbox className="h-4 w-4 text-info" />
-            </span>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-ink">Waiting on you</h2>
-            <span className="whitespace-nowrap text-xs font-semibold tabular-nums text-faint lg:rounded-full lg:bg-info-tint lg:px-2 lg:py-0.5 lg:font-bold lg:text-info">{youCount}</span>
-          </div>
-          <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:hidden">
-            {waitingOnYou.map(i => phoneRow(i, data.project.id))}
-          </div>
-          <div className="hidden space-y-2.5 lg:block">
-            {waitingOnYou.map(i => row(i, data.project.id))}
-          </div>
-        </div>
-      )}
-
-      {waitingOnOthers.length > 0 && (
-        <div className="space-y-2.5">
-          <div className="flex items-center gap-2.5">
-            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-warn-tint lg:flex">
-              <Clock className="h-4 w-4 text-warn" />
-            </span>
-            <h2 className="text-sm font-bold uppercase tracking-wide text-ink">Waiting on someone else</h2>
-          </div>
-          <div className="divide-y divide-line-soft overflow-hidden rounded-2xl border border-line bg-panel lg:hidden">
-            {waitingOnOthers.map(i => phoneRow(i, data.project.id))}
-          </div>
-          <div className="hidden space-y-2.5 lg:block">
-            {waitingOnOthers.map(i => row(i, data.project.id))}
-          </div>
-        </div>
-      )}
-
-      {/* What is happening next */}
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border border-line bg-panel p-4 lg:rounded-xl">
-          <div className="mb-3 flex items-center gap-2.5">
-            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-accent-tint lg:flex">
-              <CalendarDays className="h-4 w-4 text-accent-fg" />
-            </span>
-            <h2 className="text-sm font-bold text-ink">On site</h2>
-            <span className="text-xs text-faint">next 3 weeks</span>
-          </div>
-          {upcoming.length ? (
-            <div className="space-y-0">
-              {upcoming.map((u, idx) => (
-                <div key={u.id} className="relative flex items-baseline justify-between gap-2 pb-3 pl-5 last:pb-0">
-                  {/* timeline spine */}
-                  {idx < upcoming.length - 1 && <span className="absolute left-[5px] top-2 bottom-0 w-px bg-line" />}
-                  <span className={cn('absolute left-0 top-1.5 h-[11px] w-[11px] rounded-full border-2 border-panel',
-                    u.inDays <= 0 ? 'bg-accent' : 'bg-muted2')} />
-                  <span className="min-w-0 truncate text-sm font-medium text-ink-soft">{u.label}</span>
-                  <span className={cn('shrink-0 text-xs font-semibold',
-                    u.inDays === 0 ? 'text-accent-fg' : u.inDays < 0 ? 'text-muted-fg' : 'text-faint')}>
-                    {when(u.inDays)}
+        <aside className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
+          {/* Money position. PHONE: one card of four numbers, the colour only on
+              what is owed. DESKTOP: the rail card, every figure a link. */}
+          <StatStrip label="Money" className="order-1 lg:hidden" items={[
+            { label: 'From client', value: money(m.received), href: to('payments') },
+            { label: 'Committed', value: money(m.committed), note: `${data.subcontracts} subcontract${data.subcontracts === 1 ? '' : 's'}`, href: to('budget') },
+            { label: 'Billed by vendors', value: money(m.vendorBilled), note: `${money(m.vendorPaid)} paid`, href: to('invoices') },
+            { label: 'Owed to vendors', value: money(m.outstandingToVendors), tone: m.outstandingToVendors > 0 ? 'warn' : undefined, note: pendingNote, href: to('invoices') },
+          ]} />
+          <section className={cn(CARD, 'hidden lg:flex flex-col gap-3.5 p-5')}>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-[15px] font-semibold text-ink">Money</h2>
+              <Link href={to('budget')} className={RAIL_LINK}>Budget</Link>
+            </div>
+            <Link href={to('payments')} className="group block">
+              <span className="block text-[13px] text-muted-fg">Received from client</span>
+              <span className="block text-[28px] font-bold leading-tight tracking-tight text-success tabular-nums group-hover:underline">{money(m.received)}</span>
+            </Link>
+            <div className="flex flex-col gap-2.5 border-t border-line-soft pt-3 text-sm">
+              {rail.map(r => (
+                <Link key={r.label} href={to(r.href)} className="group block">
+                  <span className="flex justify-between gap-2">
+                    <span className="text-muted-fg group-hover:text-ink">{r.label}</span>
+                    <b className="tabular-nums text-ink">{money(r.value)}</b>
                   </span>
-                </div>
+                  {r.note && <span className="block text-xs text-muted-fg">{r.note}</span>}
+                </Link>
               ))}
-            </div>
-          ) : (
-            <p className="text-sm text-faint">Nothing scheduled in the next three weeks.</p>
-          )}
-          <Link href={`/projects/${data.project.id}/schedule`} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-accent-fg hover:underline">
-            Schedule <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
-
-        <div className="rounded-2xl border border-line bg-panel p-4 lg:rounded-xl">
-          <div className="mb-3 flex items-center gap-2.5">
-            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-success-tint lg:flex">
-              <ClipboardCheck className="h-4 w-4 text-success" />
-            </span>
-            <h2 className="text-sm font-bold text-ink">Booked inspections</h2>
-          </div>
-          {inspections.length ? (
-            <div className="space-y-2">
-              {inspections.map(i => (
-                <div key={i.id} className="flex items-center justify-between gap-2 rounded-lg bg-surface px-3 py-2">
-                  <span className="min-w-0 truncate text-sm font-medium text-ink-soft">{i.label}</span>
-                  <span className="whitespace-nowrap shrink-0 rounded-full bg-panel px-2 py-0.5 text-xs font-semibold text-muted-fg">{when(i.inDays)}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-faint">None booked in the next three weeks.</p>
-          )}
-          <Link href={`/projects/${data.project.id}/inspections`} className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-accent-fg hover:underline">
-            Inspections <ArrowRight className="h-3 w-3" />
-          </Link>
-        </div>
-      </div>
-
-      {/* The lot, when anything is known about it. Facts, not a form - the
-          Settings dialog is where they are edited. */}
-      {!!data.lot?.length && (
-        <div className="rounded-2xl border border-line bg-panel p-4 lg:rounded-xl">
-          <div className="mb-3 flex items-center gap-2.5">
-            <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-muted lg:flex">
-              <MapPinned className="h-4 w-4 text-muted-fg" />
-            </span>
-            <h2 className="text-sm font-bold text-ink">Lot</h2>
-          </div>
-          <dl className="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3 lg:grid-cols-4">
-            {data.lot.map(f => (
-              <div key={f.label} className="min-w-0">
-                <dt className="text-xs text-muted-fg">{f.label}</dt>
-                <dd className="break-words text-sm font-medium text-ink">{f.value}</dd>
+              <div className="flex h-2 overflow-hidden rounded-full bg-warn-tint" role="img"
+                aria-label={`${money(m.vendorPaid)} of ${money(m.vendorBilled)} paid`}>
+                <div className="bg-accent-fg" style={{ width: `${paidPct}%` }} />
               </div>
-            ))}
-          </dl>
-        </div>
-      )}
+              <Link href={to('invoices')} className="flex justify-between gap-2 text-[13px] hover:underline">
+                <span className="flex items-center gap-1.5 text-muted-fg"><span className="h-2 w-2 rounded-sm bg-accent-fg" />Paid {money(m.vendorPaid)}</span>
+                <span className={cn('flex items-center gap-1.5', m.outstandingToVendors > 0 ? 'font-semibold text-warn' : 'text-muted-fg')}>
+                  <span className="h-2 w-2 rounded-sm bg-warn" />Owed {money(m.outstandingToVendors)}
+                </span>
+              </Link>
+              {rail[1].hint && <p className="text-xs text-faint">{rail[1].hint}</p>}
+            </div>
+          </section>
 
-      {/* The client's general questions about the job - the "anything else?"
-          box at the bottom of their link. Only for people who handle the
-          client link; a thread they cannot read is not shown as a failure. */}
-      {can('client-portal', 'view') && (
-        <div id="client-questions" className="rounded-2xl border border-line bg-panel px-4 py-3 lg:rounded-xl">
-          <ClientThreadPanel projectId={data.project.id} subject="project" subjectId={null} clientName={null}
-            title="Questions about the job from the client" />
-        </div>
-      )}
+          {/* What is happening on site - every name a link to its record. */}
+          <section className={cn(CARD, 'order-4 flex flex-col gap-3 p-4 lg:order-none lg:p-5')}>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-[15px] font-semibold text-ink">On site</h2>
+              <span className="text-[13px] text-muted-fg">{today}</span>
+            </div>
+            {lateInspections.length > 0 && (
+              <div className="flex flex-col gap-1">
+                {lateInspections.map(i => (
+                  <Link key={i.id} href={to(overviewHref.inspection(i.id))}
+                    className="-mx-2 flex min-h-11 items-start gap-2.5 rounded-lg px-2 py-1.5 hover:bg-surface">
+                    <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-danger-solid" aria-hidden="true" />
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-ink">{i.label}</span>
+                      <span className="block text-xs text-danger">Needed by {formatDateShort(i.date)} · {late(i.inDays)}</span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            )}
+            <div className={cn('flex flex-col gap-2 text-[13px]', lateInspections.length > 0 && 'border-t border-line-soft pt-3')}>
+              <div className="flex items-start justify-between gap-3">
+                <span className="shrink-0 text-muted-fg">Next 3 weeks</span>
+                {upcoming.length ? (
+                  <span className="flex min-w-0 flex-col items-end gap-1">
+                    {upcoming.map(u => (
+                      <Link key={u.id} href={to('schedule')} className="flex max-w-full gap-2 text-ink hover:underline">
+                        <span className="truncate">{u.label}</span>
+                        <span className={cn('shrink-0 font-semibold', u.inDays === 0 ? 'text-accent-fg' : 'text-faint')}>{when(u.inDays)}</span>
+                      </Link>
+                    ))}
+                  </span>
+                ) : <span className="text-ink">Nothing scheduled</span>}
+              </div>
+              <div className="flex items-start justify-between gap-3">
+                <span className="shrink-0 text-muted-fg">Inspections booked</span>
+                {inspections.length ? (
+                  <span className="flex min-w-0 flex-col items-end gap-1">
+                    {inspections.map(i => (
+                      <Link key={i.id} href={to(overviewHref.inspection(i.id))} className="flex max-w-full gap-2 text-ink hover:underline">
+                        <span className="truncate">{i.label}</span>
+                        <span className="shrink-0 font-semibold text-faint">{when(i.inDays)}</span>
+                      </Link>
+                    ))}
+                  </span>
+                ) : <span className="text-ink">None</span>}
+              </div>
+            </div>
+            <div className="row-even gap-2 lg:flex lg:gap-4">
+              <Link href={to('schedule')} className="inline-flex h-11 items-center justify-center rounded-[10px] border border-muted2 text-sm font-medium text-ink lg:h-auto lg:border-0 lg:text-[13px] lg:font-semibold lg:text-accent-fg lg:hover:underline">Schedule</Link>
+              <Link href={to('inspections')} className="inline-flex h-11 items-center justify-center rounded-[10px] border border-muted2 text-sm font-medium text-ink lg:h-auto lg:border-0 lg:text-[13px] lg:font-semibold lg:text-accent-fg lg:hover:underline">Inspections</Link>
+            </div>
+          </section>
 
-      {tasks.open > 0 && (
-        <Link href={`/projects/${data.project.id}/tasks`}
-          className="group flex items-center gap-3 rounded-2xl border border-line bg-panel px-4 py-3 transition-all hover:-translate-y-px hover:border-accent hover:shadow-sm lg:rounded-xl">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-muted">
-            <CheckSquare className="h-4 w-4 text-muted-fg" />
-          </span>
-          <span className="min-w-0 flex-1 text-sm text-ink-soft">
-            <span className="font-semibold text-ink">{tasks.open} open task{tasks.open === 1 ? '' : 's'}</span>
-            {tasks.overdue > 0 && <span className="font-semibold text-danger"> · {tasks.overdue} overdue</span>}
-          </span>
-          <ArrowRight className="h-4 w-4 shrink-0 text-faint transition-transform group-hover:translate-x-0.5 group-hover:text-accent-fg" />
-        </Link>
-      )}
+          <section className={cn(CARD, 'order-7 flex flex-col gap-2.5 p-4 lg:order-none lg:p-5')}>
+            <div className="flex items-center justify-between gap-2">
+              <h2 className="text-[15px] font-semibold text-ink">Tasks</h2>
+              <Link href={to(overviewHref.allTasks())} className={RAIL_LINK}>View all</Link>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Link href={to(overviewHref.openTasks())} className="group rounded-lg">
+                <span className="block text-xs text-muted-fg">Open</span>
+                <span className="block text-[22px] font-bold tabular-nums text-ink group-hover:underline">{tasks.open}</span>
+              </Link>
+              <Link href={to('tasks?filter=overdue')} className="group rounded-lg">
+                <span className="block text-xs text-muted-fg">Overdue</span>
+                <span className={cn('block text-[22px] font-bold tabular-nums group-hover:underline', tasks.overdue > 0 ? 'text-danger' : 'text-ink')}>{tasks.overdue}</span>
+              </Link>
+            </div>
+          </section>
+        </aside>
+      </div>
     </div>
   )
 }

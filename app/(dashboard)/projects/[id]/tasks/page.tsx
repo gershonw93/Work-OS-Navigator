@@ -24,6 +24,7 @@ import { formatDate } from '@/lib/dates'
 import { dueLabel } from '@/lib/task-due'
 import { timeAgo, absoluteTime } from '@/lib/time-ago'
 import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
+import { useLandOnParam } from '@/lib/use-land-on'
 import {
   assigneeLabel, assigneeName, normalizeAssignees, completedByLabel,
   type TaskAssignee,
@@ -676,6 +677,13 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   }
 
   useEffect(() => { load() }, [params.id])
+
+  // Arriving from a link that named something: the Overview's "4 tasks
+  // overdue" lands on the overdue filter, and a line naming one task opens it.
+  useLandOnParam('filter', true, f => {
+    if ((['all', 'open', 'in_progress', 'completed', 'overdue', 'punch'] as string[]).includes(f)) setFilterMode(f as FilterMode)
+  })
+  useLandOnParam('open', !loading, id => { if (tasks.some(t => t.id === id)) openTask(id) })
 
   // ── expand / notes ─────────────────────────────────────────────────────────
 
