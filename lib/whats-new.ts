@@ -65,8 +65,14 @@ const AUTHORED: Release[] = [
       },
       {
         kind: 'improved',
-        title: 'Four figures at the top of Budget, Billing the client and Bills from subs',
-        text: 'Each money page opens with the same four tiles. Bills from subs shows what is awaiting approval, approved but unpaid, paid, and what to bill the client with your markup on - the sentence that used to say it is gone.',
+        title: 'Four figures at the top of Billing the client, Bills from subs and Change Orders',
+        text: 'Each opens with the same four tiles. Bills from subs shows what is awaiting approval, approved but unpaid, paid, and what to bill the client with your markup on - the sentence that used to say it is gone.',
+      },
+      {
+        kind: 'improved',
+        title: 'A new Budget screen',
+        text: 'The lines fill the width of the screen, each with a bar showing how much of it is used, and a column beside them adds it all up: left to spend, your fee, anything not on a line yet, and materials. Filter the lines to just the ones over budget, or to Interior or Exterior. On a phone each category is one card.',
+        help: 'add-project-budget',
       },
     ],
   },
