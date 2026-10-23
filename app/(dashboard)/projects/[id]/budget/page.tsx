@@ -1,5 +1,6 @@
 'use client'
 
+import { StatTile, type PillTone } from '@/components/bills/detail-parts'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
@@ -900,7 +901,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   // out, in the words someone would use out loud.
   const statCards = [
     {
-      label: 'Total Budget', value: totalBudgeted, color: 'text-ink', bg: 'bg-panel', icon: DollarSign,
+      label: 'Total Budget', value: totalBudgeted, tone: 'muted' as PillTone, alarm: undefined as PillTone | undefined, icon: DollarSign,
       // A budget that grew because of approved change orders should say so.
       note: approvedChanges !== 0
         ? `${money(originalBudget)} original + ${money(approvedChanges)} approved changes`
@@ -910,7 +911,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         : 'What this job is budgeted at.\n\nEvery line\'s budget added up. Approved change orders are added on top as they land; nothing pending counts.',
     },
     {
-      label: 'Committed', value: totalCommitted, color: 'text-info', bg: 'bg-info-tint', icon: TrendingUp,
+      label: 'Committed', value: totalCommitted, tone: 'info' as PillTone, alarm: undefined as PillTone | undefined, icon: TrendingUp,
       // WHERE THE NUMBER COMES FROM, when the rows below do not add up to it.
       // A contract nobody linked to a budget line is in this total and on no
       // row, so the card read $160,000 over a list adding to $80,000 with no
@@ -921,7 +922,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       help: `What you have promised in signed contracts.\n\nEvery subcontract on the job added up, plus anything typed into Committed on a line that has no contract behind it.${committedUnlinked > 0 ? `\n\n${money(committedUnlinked)} of this is in subcontracts that are not linked to any budget line, which is why the rows below add up to less than this figure.\n\nIf that contract is the SAME money as a Committed amount you typed onto a line, it is being counted twice - link the subcontract to that line on Subs & Team and the duplicate goes away.` : ''}${committedNotBilled > 0 ? `\n\n${money(committedNotBilled)} has not been invoiced yet - that is the bit that catches people out.` : ''}`,
     },
     {
-      label: 'Actual Spent', value: totalActual, color: 'text-success', bg: 'bg-success-tint', icon: CheckCircle2,
+      label: 'Actual Spent', value: totalActual, tone: 'success' as PillTone, alarm: undefined as PillTone | undefined, icon: CheckCircle2,
       // ON SCREEN, not in the tooltip. Two things were hiding in this total -
       // material receipts, and bills in the two accepted statuses beyond
       // "approved" - and somebody comparing it to the Bills tab had to guess
@@ -933,8 +934,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
     {
       label: overBudget ? 'Over Budget' : 'Left to spend',
       value: Math.abs(remaining),
-      color: overBudget ? 'text-danger' : 'text-warn',
-      bg: overBudget ? 'bg-danger-tint' : 'bg-warn-tint',
+      tone: (overBudget ? 'danger' : 'warn') as PillTone,
+      // Over budget is the one figure here whose colour is the message.
+      alarm: (overBudget ? 'danger' : undefined) as PillTone | undefined,
       icon: overBudget ? TrendingDown : Wallet,
       // The whole point of the fix: this counts contracts you have signed, not
       // just invoices you have received.
@@ -1054,10 +1056,10 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-col gap-4 lg:gap-5 lg:p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Budget</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink lg:text-[30px] lg:leading-tight">Budget</h1>
           <p className="text-sm text-muted-fg mt-0.5">Line-item cost breakdown - budgeted vs committed vs actual.</p>
         </div>
         <input ref={importInputRef} type="file" accept=".xlsx,.xls,.csv" className="sr-only"
@@ -1067,11 +1069,11 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
             they were still five boxes shouting at once. Adding a line is the
             thing done daily; importing, templates and Select are set-up. */}
         <div className="flex w-full items-center gap-2 lg:w-auto" data-budget-toolbar>
-          <Button onClick={() => setAdding(true)} className="flex-1 gap-1.5 lg:flex-none"><Plus className="h-4 w-4" /> Add Line</Button>
+          <Button size="lg" onClick={() => setAdding(true)} className="h-11 flex-1 gap-1.5 rounded-[10px] px-5 lg:flex-none"><Plus className="h-4 w-4" /> Add Line</Button>
           {selectMode && (
             <Button variant="default" onClick={() => { setSelectMode(false); setSelected(new Set()) }}>Done</Button>
           )}
-          <RowMenu label="More budget actions" triggerClassName="bg-panel lg:h-9 lg:w-9 lg:p-0">
+          <RowMenu label="More budget actions" triggerClassName="bg-panel lg:h-11 lg:w-11 lg:p-0 lg:rounded-[10px]">
             {close => (
               <>
                 <MenuItem onClick={() => { close(); importInputRef.current?.click() }}>
@@ -1326,24 +1328,14 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {statCards.map(s => {
-          const Icon = s.icon
-          return (
-            <div key={s.label} className={cn('rounded-xl border border-line p-4', s.bg)}>
-              <div className="flex items-center gap-2 mb-2">
-                <Icon className={cn('h-4 w-4', s.color)} />
-                <p className="text-xs font-medium text-muted-fg">{s.label}</p>
-                {/* These four are the numbers people argue about. "How is that
-                    worked out?" should not require asking someone. */}
-                {s.help && <InfoHint text={s.help} align="right" className="ml-auto" />}
-              </div>
-              <p className={cn('text-2xl font-bold', s.color)}>{money(s.value)}</p>
-              {s.note && <p className="text-[11px] text-faint mt-1 leading-snug">{s.note}</p>}
-            </div>
-          )
-        })}
+      {/* Stat cards - the four figures people argue about. "How is that
+          worked out?" should not require asking someone, so each carries its
+          explainer. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        {statCards.map(c => (
+          <StatTile key={c.label} label={c.label} value={money(c.value)} icon={c.icon} tone={c.tone} alarm={c.alarm}
+            note={c.note} help={c.help} />
+        ))}
       </div>
 
       {/* How the job pays → what it earns.
@@ -1385,7 +1377,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
            "Cost / budgeted" is Total Budget under another name. Dropped, along
            with the footnote paragraph, which is now on the hover where the rest
            of the explaining already lives. */
-        <div className="flex flex-wrap items-end gap-x-8 gap-y-3 border-y border-line-soft py-3">
+        <div className="flex flex-wrap items-end gap-x-8 gap-y-3 rounded-2xl border border-line bg-panel px-5 py-4 lg:px-6">
           {showMarkupPanel ? (
             <div>
               <label className="block text-xs font-medium text-muted-fg mb-1">
@@ -1441,7 +1433,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           three tiles printed the same figure as Total Budget directly above
           them - three ways of saying one number. */}
       {totalSoft > 0 ? (
-        <div className="rounded-xl border border-line bg-panel px-4 py-3 flex flex-wrap items-center gap-x-8 gap-y-2">
+        <div className="rounded-2xl border border-line bg-panel px-5 py-4 flex flex-wrap items-center gap-x-8 gap-y-2 lg:px-6">
           <div>
             <p className="text-xs font-medium text-muted-fg">Hard costs · construction</p>
             <p className="text-lg font-bold text-ink">{money(totalHard)}
@@ -1461,7 +1453,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
           </button>
         </div>
       ) : projectStatus === 'planning' ? (
-        <div className="rounded-xl border border-dashed border-info/40 bg-info-tint/40 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+        <div className="rounded-2xl border border-dashed border-info/40 bg-info-tint/40 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm font-medium text-ink-soft">No soft costs on this budget yet</p>
             <p className="text-xs text-muted-fg mt-0.5">
@@ -1500,7 +1492,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
       {/* Estimate → Proposal: markup + client price + generate a client PDF.
           Pre-award only, simple-billing jobs only. */}
       {showEstimateBar && (
-        <div className="rounded-xl border border-accent/30 bg-accent-tint/30 p-4">
+        <div className="rounded-2xl border border-accent/30 bg-accent-tint/30 p-5 lg:p-6">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div className="flex flex-wrap items-end gap-5">
               {/* On a cost-plus job the rate is already editable in the panel
@@ -1550,36 +1542,9 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      {/* Interior / Exterior breakdown */}
-      {/* Interior/exterior split. The old Grand Total tile here was Total
-          Budget a third time - and it disagreed with it, because the split
-          ignored approved change orders. Dropped; the unassigned remainder is
-          the only part that was not already on screen. */}
-      {(spaceTotals.interior > 0 || spaceTotals.exterior > 0) && (
-        // A line of text, not a panel. It is a breakdown of a number already on
-        // screen, so it should not carry the same weight as one.
-        <p className="flex flex-wrap items-baseline gap-x-5 gap-y-1 text-sm text-muted-fg">
-          <span>
-            <span className="font-semibold text-ink-soft">{money(spaceTotals.interior)}</span> interior
-            {projectSqft.interior
-              ? <span className="text-faint"> · {money(spaceTotals.interior / Number(projectSqft.interior))}/sq ft</span>
-              : null}
-          </span>
-          <span>
-            <span className="font-semibold text-ink-soft">{money(spaceTotals.exterior)}</span> exterior
-            {projectSqft.exterior
-              ? <span className="text-faint"> · {money(spaceTotals.exterior / Number(projectSqft.exterior))}/sq ft</span>
-              : null}
-          </span>
-          {spaceTotals.unassigned > 0 && (
-            <span className="text-faint">{money(spaceTotals.unassigned)} not assigned to a space</span>
-          )}
-        </p>
-      )}
-
       {/* Unbudgeted subcontracts hint */}
       {unbudgetedSubs.length > 0 && (
-        <div className="rounded-xl border border-warn/30 bg-warn-tint px-4 py-3 flex items-start gap-3">
+        <div className="rounded-2xl border border-warn/30 bg-warn-tint px-5 py-4 flex items-start gap-3">
           <AlertTriangle className="h-4 w-4 text-warn shrink-0 mt-0.5" />
           <div className="min-w-0 text-sm">
             <p className="font-medium text-ink-soft">
@@ -1605,25 +1570,49 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
       {/* Spend progress */}
       {totalBudgeted > 0 && (
-        <div className="bg-panel rounded-xl border border-line p-5">
+        <section className="rounded-2xl border border-line bg-panel p-5 lg:p-6">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-ink-soft">Budget Used</p>
+            <h2 className="text-base font-semibold text-ink lg:text-[17px]">Budget used</h2>
             <p className={cn('text-sm', overBudget ? 'text-danger font-semibold' : 'text-muted-fg')}>
               {((totalActual / totalBudgeted) * 100).toFixed(1)}% spent
             </p>
           </div>
-          <div className="h-3 w-full bg-muted rounded-full overflow-hidden flex">
-            <div className={cn('h-full transition-all', overBudget ? 'bg-danger-solid' : 'bg-success-solid')}
+          <div className="h-2.5 w-full bg-muted rounded-full overflow-hidden flex">
+            <div className={cn('h-full transition-all', overBudget ? 'bg-danger-solid' : 'bg-accent-fg')}
               style={{ width: `${Math.min((totalActual / totalBudgeted) * 100, 100)}%` }} />
-            <div className="h-full bg-blue-300 transition-all"
+            <div className="h-full bg-info/40 transition-all"
               style={{ width: `${Math.min(Math.max((totalCommitted - totalActual) / totalBudgeted * 100, 0), 100 - Math.min((totalActual / totalBudgeted) * 100, 100))}%` }} />
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 text-xs text-muted-fg">
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-success-solid" />Spent {money(totalActual)}</span>
-            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-blue-300" />Committed {money(totalCommitted)}</span>
+            <span className="flex items-center gap-1"><span className={cn('h-2 w-2 rounded-full', overBudget ? 'bg-danger-solid' : 'bg-accent-fg')} />Spent {money(totalActual)}</span>
+            <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-info/40" />Committed {money(totalCommitted)}</span>
             {!overBudget && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-muted2" />Remaining {money(remaining)}</span>}
           </div>
-        </div>
+          {/* Interior/exterior split. The old Grand Total tile here was Total
+              Budget a third time - and it disagreed with it, because the split
+              ignored approved change orders. Dropped; the unassigned remainder
+              is the only part that was not already on screen. A line inside
+              this card, not a panel: it breaks down a number already here. */}
+          {(spaceTotals.interior > 0 || spaceTotals.exterior > 0) && (
+        <p className="mt-4 flex flex-wrap items-baseline gap-x-5 gap-y-1 border-t border-line-soft pt-4 text-sm text-muted-fg">
+          <span>
+            <span className="font-semibold text-ink-soft">{money(spaceTotals.interior)}</span> interior
+            {projectSqft.interior
+              ? <span className="text-faint"> · {money(spaceTotals.interior / Number(projectSqft.interior))}/sq ft</span>
+              : null}
+          </span>
+          <span>
+            <span className="font-semibold text-ink-soft">{money(spaceTotals.exterior)}</span> exterior
+            {projectSqft.exterior
+              ? <span className="text-faint"> · {money(spaceTotals.exterior / Number(projectSqft.exterior))}/sq ft</span>
+              : null}
+          </span>
+          {spaceTotals.unassigned > 0 && (
+            <span className="text-faint">{money(spaceTotals.unassigned)} not assigned to a space</span>
+          )}
+        </p>
+          )}
+        </section>
       )}
 
       {/* Add form - a DIALOG, on the phone and the desktop alike. It used to be
@@ -1754,12 +1743,12 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
 
       {/* Budget table */}
       {items.length === 0 ? (
-        <div className="bg-panel rounded-xl border border-line p-10 text-center">
+        <div className="bg-panel rounded-2xl border border-line p-10 text-center">
           <Wallet className="h-8 w-8 text-faint mx-auto mb-3" />
           <p className="text-sm text-muted-fg">No budget lines yet. Add your first cost line to start tracking.</p>
         </div>
       ) : sections.length === 0 ? (
-        <div className="bg-panel rounded-xl border border-line p-10 text-center">
+        <div className="bg-panel rounded-2xl border border-line p-10 text-center">
           <Search className="h-8 w-8 text-faint mx-auto mb-3" />
           <p className="text-sm text-muted-fg">No line items match “{search}”.</p>
         </div>
@@ -1767,7 +1756,7 @@ export default function BudgetPage({ params }: { params: { id: string } }) {
         <>
         {/* DESKTOP: the table, unchanged. Below lg the phone list further down
             takes over - one line per row, collapsed until tapped. */}
-        <div className="hidden lg:block bg-panel rounded-xl border border-line overflow-hidden">
+        <div className="hidden lg:block bg-panel rounded-2xl border border-line overflow-hidden">
           {/* header row (desktop) */}
           <div className={cn('hidden md:grid gap-2 px-4 py-2.5 border-b border-line-soft text-xs font-semibold text-faint uppercase tracking-wide items-center',
             selectMode ? 'grid-cols-[1.5rem_1fr_repeat(4,minmax(0,7rem))_3rem]' : 'grid-cols-[1fr_repeat(4,minmax(0,7rem))_3rem]')}>

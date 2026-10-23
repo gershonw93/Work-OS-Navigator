@@ -113,8 +113,10 @@ ok(/const showExplainer = explainerOpen \|\| \(!loading && !loadError && invoice
   'Bills from subs: the explainer shows on a job with no bills, or when asked for')
 ok(/\{showExplainer \? \(/.test(bills) && /How this works/.test(bills),
   '...and otherwise folds to "How this works"')
-const how = bills.indexOf('How this works'), rollup = bills.indexOf('Approved so far:')
+const how = bills.indexOf('How this works'), rollup = bills.indexOf('label="To bill the client"')
 ok(how > 0 && rollup > how,
   'the cost-plus roll-up is NOT inside the fold - it is data, and it only exists once there are bills')
+ok(!/Approved so far:/.test(bills) && /\{invoices\.length > 0 && \(\(\) => \{/.test(bills),
+  '...and it is four tiles now, not a sentence of small type')
 
 done()

@@ -61,6 +61,8 @@ export interface SubBillFacts {
   approved_at: string | null
   approved_by_name: string | null
   sent_at: string | null
+  /** Written by the status move to paid (lib/writes/sub-bill.ts). */
+  paid_at?: string | null
 }
 
 /**
@@ -88,9 +90,9 @@ export function subBillSteps(b: SubBillFacts): Step[] {
       done: queued,
       note: queued ? (b.sent_at ? short(b.sent_at) : 'Queued') : paid ? 'Skipped' : 'Optional',
     },
-    // Nothing stores the day a sub's bill was paid, so the step says that it
-    // was rather than inventing when.
-    { label: 'Paid', done: paid, note: paid ? 'Paid' : 'Not yet' },
+    // The day it was marked paid. A bill paid before that column was written
+    // says that it was, rather than inventing when.
+    { label: 'Paid', done: paid, note: paid ? (b.paid_at ? short(b.paid_at) : 'Paid') : 'Not yet' },
   ]
 }
 

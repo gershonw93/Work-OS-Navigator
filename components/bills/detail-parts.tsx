@@ -1,7 +1,8 @@
 'use client'
 
 import type { ReactNode } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, type LucideIcon } from 'lucide-react'
+import { InfoHint } from '@/components/ui/info-hint'
 import { cn } from '@/lib/utils'
 import type { Countdown, Step } from '@/lib/bill-view'
 
@@ -151,5 +152,41 @@ export function SumTiles({ tiles }: { tiles: { label: string; value: string; str
         ))}
       </div>
     </>
+  )
+}
+
+const TILE_TEXT: Record<PillTone, string> = {
+  warn: 'text-warn', info: 'text-info', special: 'text-special', success: 'text-success', danger: 'text-danger', muted: 'text-ink',
+}
+
+/**
+ * One of the four headline figures on a money page (Budget, Billing the
+ * client). A white card like every other on these screens: the colour is the
+ * small icon, and the figure itself is only coloured when the colour MEANS
+ * something - over budget, an overdrawn escrow - never by default.
+ */
+export function StatTile({ label, value, note, help, icon: Icon, tone = 'muted', alarm }: {
+  label: string
+  value: string
+  note?: ReactNode
+  /** The hover explainer: what the number is and how it is worked out. */
+  help?: string
+  icon: LucideIcon
+  tone?: PillTone
+  /** The figure itself is the warning - drawn in that tone. */
+  alarm?: PillTone
+}) {
+  return (
+    <div className="flex min-w-0 flex-col gap-1 rounded-2xl border border-line bg-panel p-4 lg:p-5">
+      <div className="flex items-center gap-2">
+        <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-lg', PILL[tone])}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <span className="min-w-0 truncate text-xs font-medium text-muted-fg lg:text-[13px]">{label}</span>
+        {help && <InfoHint text={help} align="right" className="ml-auto" />}
+      </div>
+      <div className={cn('mt-1 truncate text-[22px] font-bold tracking-tight tabular-nums lg:text-[26px]', alarm ? TILE_TEXT[alarm] : 'text-ink')}>{value}</div>
+      {note && <div className="text-xs leading-snug text-muted-fg">{note}</div>}
+    </div>
   )
 }

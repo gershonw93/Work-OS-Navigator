@@ -54,6 +54,23 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-23',
+    title: 'Money pages, one look',
+    items: [
+      {
+        kind: 'fixed',
+        title: 'Splitting a bill across budget lines saves again',
+        text: 'Saving a split on a sub\'s bill showed "Cannot coerce the result to a single JSON object" and kept nothing. It saves now, and the bill\'s Paid step shows the day it was marked paid.',
+        help: 'approve-invoice',
+      },
+      {
+        kind: 'improved',
+        title: 'Four figures at the top of Budget, Billing the client and Bills from subs',
+        text: 'Each money page opens with the same four tiles. Bills from subs shows what is awaiting approval, approved but unpaid, paid, and what to bill the client with your markup on - the sentence that used to say it is gone.',
+      },
+    ],
+  },
+  {
     date: '2026-10-22',
     title: 'Payments made in QuickBooks come back',
     items: [
