@@ -56,7 +56,7 @@ const page = code('app/(dashboard)/projects/[id]/change-orders/page.tsx')
 ok(/This change order is tied to \{getSubName\(shareFor\.subcontract_id\)\}/.test(page),
   'sharing a sub-linked change order warns that its amount is the sub\'s price')
 ok(/Your client sees exactly this on their link/.test(page), '...and the dialog shows exactly what they will see')
-ok(/tied to a subcontract, so approve it below[\s\S]{0,80}their yes does not do that on its own/.test(page),
+ok(/tied to a subcontract, so approve it yourself[\s\S]{0,80}their yes does not do that on its own/.test(page),
   'on a sub-linked one the card says the client\'s approval is not the approval')
 ok(/Their approval approves it/.test(page), '...and the share dialog says when it is')
 

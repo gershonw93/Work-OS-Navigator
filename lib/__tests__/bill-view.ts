@@ -5,7 +5,7 @@
 // both lists actually open them.
 
 import { ok, done, code } from './_helpers'
-import { clientInvoiceSteps, dueCountdown, markupMode, subBillDocs, subBillSteps } from '../bill-view'
+import { changeOrderSteps, clientInvoiceSteps, dueCountdown, markupMode, subBillDocs, subBillSteps } from '../bill-view'
 
 // ── the countdown beside a due date ─────────────────────────────────────────
 // Local noon on Thu 22 Oct 2026, so no timezone can tip it into another day.
@@ -117,4 +117,19 @@ const write = code('lib/writes/sub-bill.ts')
 ok(/const touched = Object\.keys\(updates\)\.length > 0/.test(write) && !/\.update\(updates\)[\s\S]{0,120}\.single\(\)/.test(write),
   'a save with nothing to write reads the row instead of updating nothing through .single()')
 ok(/friendlyDbError\(error\)/.test(write.slice(write.indexOf('const touched'))), '...and a real failure is told in words, not in Postgres')
+// ── a change order ───────────────────────────────────────────────────────────
+const coBase = { created_at: '2026-10-20T12:00:00Z' }
+const coNew = changeOrderSteps({ ...coBase, status: 'pending' })
+ok(coNew.map(x => x.label).join(',') === 'Raised,Shared,Answered,Approved', 'Raised, shared, answered, decided')
+ok(coNew[1].note === 'Optional' && coNew[3].note === 'Waiting on you', 'sharing is optional; the decision waits on the GC')
+const coSkipped = changeOrderSteps({ ...coBase, status: 'approved', applied_to_contract: true })
+ok(coSkipped[1].note === 'Skipped' && coSkipped[3].note === 'Added to the contract', 'agreed on site without the portal: Skipped, not unfinished')
+const coRejected = changeOrderSteps({ ...coBase, status: 'rejected' })
+ok(coRejected[3].label === 'Rejected' && coRejected[3].done, 'a rejection is the last step, named as one')
+const coAnswered = changeOrderSteps({ ...coBase, status: 'pending', client_shared_at: '2026-10-21T10:00:00Z', client_response: 'approved' })
+ok(coAnswered[2].done && !coAnswered[3].done, "THE CLIENT'S YES IS A RECORD: it lights its own step and never the decision")
+const cop = code('app/(dashboard)/projects/[id]/change-orders/page.tsx')
+ok(/<CORow key=\{co\.id\}[^>]*onOpen=\{\(\) => openCO\(co\.id\)\}/.test(cop) && /<CODetail/.test(cop), 'a change order opens as its own screen')
+ok(!/^[ \t]+function (COCard|Group|CORow|CODetail)\(/m.test(cop), '...declared at module level, not inside the page')
+ok(!/Total Approved Change Order Value/.test(cop), 'the approved total is a tile, not a second card saying it again')
 done()
