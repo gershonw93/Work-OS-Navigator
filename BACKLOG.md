@@ -56,38 +56,58 @@ account role). That is the sharp edge, not the whole surface. Still to do:
 ## 🧰 The subcontractor owner's account - what the scope review left open (Oct 2026)
 
 The scope review of the sub owner ("SyteNav - the sub owner scope", items
-11-18) was checked against the code. Four holes were closed in the same change
-(Estimate route ownership, sub crew seeing every job, award matching vendors
-across companies, the sub menu ignoring permissions - `sub-owner-scope.ts`).
-These are the parts that are decisions or larger builds, not fixes:
+11-18) was checked against the code. SECURITY FIXES SHIPPED ON THEIR OWN, not
+waiting for the company redesign: the Estimate route's permission and job
+check, award ownership, vendor matching inside the GC's own Directory, a sub's
+crew limited to assigned jobs, the calendar feed filtered by the holder's
+permissions and assignments, task creation checked against the job, the Time
+Clock list checked against the job, and subcontract edit/delete limited to the
+job's owner (with a vendor rename only on the GC's own Directory row)
+(`sub-owner-scope.ts`, `calendar-feed.ts`, `lockdown-job.ts`, `plan-gates.ts`;
+each run against the pre-fix code and seen to fail). The sub menu now follows
+permissions too - UX, not data protection.
 
-- **ONE PERSON, ONE COMPANY, AND THAT IS THE P0.** `profiles.company_id` is the
-  only membership there is. A GC's vendor invite lands the person in the GC's
-  OWN Directory row for them, so an owner who already has a company is refused
-  (`inviteMove` -> `other_company`, invite pending for ever), a second GC's
-  invite is always refused, and somebody invited first lands as `read_only` in
-  a company with no admin and cannot later open their own (complete-signup
-  sees the profile and does nothing). Public signup joins any company whose
-  `contact_email` matches - a GC's Directory row - as its ADMIN. Needs a choice:
-  a memberships table, or a Directory row that LINKS to the sub's real company
-  (`linked_company_id`) and every sub-side read following the link.
+**CORRECTED SCOPE** - what the first pass called missing, and is not:
+- Field and finance tabs (Daily Logs, Time Clock, Progress, Invoices, Change
+  Orders...) are HIDDEN WHILE A JOB IS IN PLANNING, not missing modules. A new
+  job is born `planning`; they appear when it goes active. That is what the
+  walkthrough saw.
+- Own customers and own projects EXIST for a sub owner (Customers in the menu,
+  own jobs under My Jobs and Projects).
+- Costs, Equipment, Materials and Reports are HIDDEN FROM THE SUB MENU, not
+  absent - the screens open by URL and are gated by role on the server.
+  Whether a sub owner gets them in the menu is a product decision.
+
+**THE REPORTED WORKFLOW GAPS:**
+- **No accept / decline on an award.** An award writes the subcontract at once
+  and tells the sub "You won the job". Decline, expiry and re-invite (item 13)
+  have nowhere to live yet.
+- **My Bids cannot show "revision requested" or "you won"** - see "Sub-side
+  bidding UI needs a pass" below; both states exist in the data
+  (`bid_invites.status`, `quote_comparisons.awarded_subcontract_id`).
+
+**STILL TO PROVE END TO END** (fake QA companies, not code reading): the
+private-job finance path (estimate > acceptance > change > invoice > partial
+payment > balance) and the field path (assign > crew log/time/photo on a phone
+> owner review). Both run on existing modules; neither has been walked as a
+sub owner.
+
+**OPEN DECISIONS:**
+- **One real sub company, linked from each GC's Directory entry (Q2).** The
+  proposal - schema map, migration and permission model - goes up as its own
+  PR, for review before anything is built.
 - **Crew on an awarded GC job.** Nothing on the sub side can put a crew member
   on a GC's job (the Team tab is not in `SUB_AWARDED_ALLOWED`), so a sub's crew
   sees every awarded job the company has, with `subcontracts.*` - contract
   amounts included. My Jobs deliberately leaves awarded jobs unfiltered until
-  there is a way to assign.
+  there is a way to assign. Part of the engagement model in the proposal.
 - **Prices on a sub's Progress tab.** The quote route answers `progress: view`
   too, because the Progress tab on a sub's own job draws the estimate lines as
   % complete - amounts and the costing rollup included. A field worker holds
   `progress: view`. The route should strip money for a caller without `quotes`.
-- **No accept / decline on an award.** An award writes the subcontract at once
-  and tells the sub "You won the job". Decline, expiry and re-invite (item 13)
-  have nowhere to live yet.
-- **Equipment, Materials and Reports are hidden from a sub, not missing.** The
-  screens open by URL and the server gates them by role only. Item 15 is a
-  decision about adding them to `SUB_NAV`, not a build.
-- **The calendar feed** lists every job the company OWNS whatever the person's
-  role, and none of a sub's awarded GC jobs.
+- **The calendar feed has no awarded GC jobs** for a sub. Adding them means
+  deciding which of the GC's events a sub may see (only their own
+  subcontract's schedule lines, at most).
 - **A sub company is unmetered for ever** (no billing row from complete-signup).
   Right for a vendor who only works GC jobs; open question for an owner running
   private jobs on SyteNav as their own business.

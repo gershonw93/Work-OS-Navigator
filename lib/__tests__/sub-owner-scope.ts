@@ -1,8 +1,9 @@
 // THE SUBCONTRACTOR OWNER'S ACCOUNT, checked against the scope review of it
 // (October 2026). Company type only ever changed MENUS; the server answers
 // role x resource plus "is this your job", so every limit a sub's screens imply
-// has to be asked again on the route or it is decoration. Four places where it
-// was not, each pinned here.
+// has to be asked again on the route or it is decoration. The holes are 1-3
+// here and the calendar feed (calendar-feed.ts); 4 is the menu, which is UX.
+// Every check below was run against the code before the fix and failed.
 
 import { ok, done, code } from './_helpers'
 
@@ -61,6 +62,9 @@ ok(/bid_invites\(vendor_name, vendor_email, vendor_company_id\)/.test(toComparis
   '...which means the quote pulled from a bid request carries that company id')
 
 // ── 4. The sub menu is filtered by permission ──────────────────────────────
+// UX, NOT DATA PROTECTION. Hiding a link stops nobody who has the URL; every
+// screen behind these entries is gated on its own route. This only stops the
+// menu offering a door the role cannot open.
 const sidebar = code('components/layout/sidebar.tsx')
 ok(/SUB_NAV\.filter\(item => item\.resource === null \|\| \(!permsLoading && can\(item\.resource, 'view'\)\)\)/.test(sidebar),
   'sidebar: the subcontractor menu drops what the role cannot open')
@@ -72,5 +76,26 @@ for (const [label, resource] of [['Customers', 'customers'], ['Directory', 'dire
 // holds bids: N, and it is that role's main screen.
 ok(/label: 'My Bids', href: '\/my-bids', icon: \w+, resource: null/.test(sidebar),
   'sidebar: My Bids stays open to every sub - it is their own list')
+
+// ── 5. The Time Clock list is the job's, and a sub's admin gets their crew ──
+// The manage check was the whole gate: an admin of ANY company with a job id
+// got that job's every punch, selfies and locations included.
+const timeGet = handler(code('app/api/projects/[id]/time/route.ts'), 'GET')
+ok(/jobGate\(db, request, params\.id, 'time', 'view'\)/.test(timeGet), 'time list: only somebody on the job reads its punches')
+ok(/else if \(gate\.side !== 'gc'\) \{\s*const crew = await companyProfileIds\(db, gate\.actor\.companyId\)/.test(timeGet),
+  '...and a manager on somebody else\'s job sees their own company\'s crew, not the GC\'s')
+
+// ── 6. A subcontract is the GC's, and so is its rename ─────────────────────
+const subRoute = code('app/api/projects/[id]/subcontracts/[subId]/route.ts')
+for (const verb of ['PATCH', 'DELETE']) {
+  ok(/ownedProject\(admin\(\), gate\.actor, params\.id/.test(handler(subRoute, verb)),
+    `subcontract ${verb}: only the company that owns the job (team: edit alone let a sub's admin change the contract)`)
+}
+const updSub = code('lib/writes/subcontract.ts')
+ok(/vendor\?\.added_by_company_id && ownerIds\.includes\(vendor\.added_by_company_id\)/.test(updSub),
+  'subcontract edit: the vendor\'s name and contact change only on the job owner\'s own Directory row')
+ok(/companyNotChanged \? \{ notice: companyNotChanged \}/.test(updSub) &&
+   /if \(saved\?\.notice\) notify\(saved\.notice\)/.test(code('app/(dashboard)/projects/[id]/team/page.tsx')),
+  '...and a refused rename is SAID, on the screen that asked for it')
 
 done()

@@ -332,9 +332,31 @@ export async function updateSubcontract(
     data = res.data
   }
 
+  // THE VENDOR'S NAME AND CONTACT ARE CHANGED ONLY ON THIS GC'S OWN DIRECTORY
+  // ROW. The company on a subcontract may be the sub's own account, or another
+  // GC's Directory entry for them, and this rewrote whichever it was - a GC
+  // renaming a sub on one job renamed them for everybody they work for. Same
+  // fence as `directoryContactProblem`: `added_by_company_id` is what makes a
+  // Directory row yours. A row that is not is left alone and SAID so.
+  let companyNotChanged: string | undefined
   if (Object.keys(companyUpdates).length > 0 && data?.company_id) {
-    await db.from('companies').update(companyUpdates).eq('id', data.company_id)
+    const [{ data: vendor }, { data: project }] = await Promise.all([
+      db.from('companies').select('added_by_company_id, name, contact_email, phone').eq('id', data.company_id).maybeSingle(),
+      db.from('projects').select('gc_company_id, created_by_company_id').eq('id', projectId).maybeSingle(),
+    ])
+    const ownerIds = [project?.gc_company_id, project?.created_by_company_id].filter(Boolean)
+    // The edit dialog posts all three on every save, so only a value that
+    // actually CHANGED is a request to change it.
+    const current = (vendor ?? {}) as Record<string, unknown>
+    const changed = Object.entries(companyUpdates).some(([k, v]) => String(v ?? '') !== String(current[k] ?? ''))
+    if (!changed) {
+      // nothing to write
+    } else if (vendor?.added_by_company_id && ownerIds.includes(vendor.added_by_company_id)) {
+      await db.from('companies').update(companyUpdates).eq('id', data.company_id)
+    } else {
+      companyNotChanged = 'That company keeps its own SyteNav account, so only they can change its name and contact details.'
+    }
   }
 
-  return { status: 200, body: { subcontract: data } }
+  return { status: 200, body: { subcontract: data, ...(companyNotChanged ? { notice: companyNotChanged } : {}) } }
 }
