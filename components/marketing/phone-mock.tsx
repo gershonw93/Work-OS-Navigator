@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils'
 // A phone frame for field-view mockups. Pass one of the screens below.
 export function PhoneMock({ children, className }: { children: ReactNode; className?: string }) {
   return (
-    <div className={cn('w-[280px] rounded-[2.6rem] border-[9px] border-[#202126] bg-[#202126] shadow-2xl shadow-black/25 overflow-hidden', className)}>
+    <div data-nosnippet="" className={cn('w-[280px] rounded-[2.6rem] border-[9px] border-[#202126] bg-[#202126] shadow-2xl shadow-black/25 overflow-hidden', className)}>
       <div className="relative bg-surface">
         {/* Notch */}
         <div aria-hidden className="absolute top-2.5 left-1/2 -translate-x-1/2 h-5 w-24 rounded-full bg-[#202126] z-10" />
@@ -30,7 +30,7 @@ function ScreenHeader({ title, sub }: { title: string; sub: string }) {
 export function LogScreen() {
   return (
     <>
-      <ScreenHeader title="Daily log" sub="Maple Street Residences" />
+      <ScreenHeader title="Daily log" sub="Sample Residences" />
       <div className="grid grid-cols-2 gap-2 mb-3">
         <div className="rounded-xl border border-line bg-panel px-3 py-2.5">
           <p className="text-[9px] font-mono uppercase tracking-[0.14em] text-faint mb-1">Weather</p>
@@ -65,7 +65,7 @@ export function LogScreen() {
 export function ClockScreen() {
   return (
     <>
-      <ScreenHeader title="Time clock" sub="Maple Street Residences" />
+      <ScreenHeader title="Time clock" sub="Sample Residences" />
       <div className="text-center my-4">
         <p className="font-mono text-4xl font-bold text-ink tracking-tight">6:58<span className="text-lg text-faint"> AM</span></p>
         <p className="mt-2 inline-flex items-center gap-1.5 rounded-full bg-success-tint text-success text-[11px] font-semibold px-2.5 py-1">
@@ -135,7 +135,7 @@ export function TasksScreen() {
   ]
   return (
     <>
-      <ScreenHeader title="My tasks" sub="Thu · Maple Street Residences" />
+      <ScreenHeader title="My tasks" sub="Thu · Sample Residences" />
       <div className="space-y-2 mb-4">
         {tasks.map(x => (
           <div key={x.t} className="flex items-start gap-2.5 rounded-xl border border-line bg-panel px-3 py-2.5">

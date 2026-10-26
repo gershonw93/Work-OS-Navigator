@@ -21,7 +21,7 @@ const STAGES = [
 
 export function QuoteScanMock() {
   return (
-    <div className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl">
+    <div aria-hidden="true" data-nosnippet="" className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 gap-2">
         <span className="inline-flex items-center gap-2 text-xs sm:text-sm text-ink-soft font-mono min-w-0">

@@ -26,6 +26,10 @@ export function DashboardMock() {
   const [active, setActive] = useState<NavPath>('dashboard')
 
   return (
+    // Interactive (the sidebar switches panels), so it stays in the
+    // accessibility tree - but it is a picture of the app, not page copy, so
+    // it is kept out of search snippets.
+    <div data-nosnippet="">
     <BrowserMock url={`app.sytenav.com/${active}`}>
       <div className="flex text-left min-h-[420px]">
         {/* Sidebar (desktop) */}
@@ -80,6 +84,7 @@ export function DashboardMock() {
         </div>
       </div>
     </BrowserMock>
+    </div>
   )
 }
 
@@ -95,14 +100,14 @@ function DashboardPanel() {
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug']
   const bars = [40, 65, 50, 80, 72, 95, 60, 88]
   const week = [
-    { icon: ShieldCheck, text: 'Rough inspection · Maple St', when: 'Thu', tone: 'text-info' },
-    { icon: Banknote, text: 'Draw #2 · Linden Ave', when: 'Fri', tone: 'text-success' },
-    { icon: Truck, text: 'Steel delivery · Harborview', when: 'Mon', tone: 'text-warn' },
+    { icon: ShieldCheck, text: 'Rough inspection · Sample Residences', when: 'Thu', tone: 'text-info' },
+    { icon: Banknote, text: 'Draw #2 · Sample Remodel', when: 'Fri', tone: 'text-success' },
+    { icon: Truck, text: 'Steel delivery · Demo Lofts', when: 'Mon', tone: 'text-warn' },
   ]
   const rows = [
-    ['Maple Street Residences', 74],
-    ['Linden Ave Remodel', 38],
-    ['Oak Park Townhomes', 91],
+    ['Sample Residences', 74],
+    ['Sample Remodel', 38],
+    ['Demo Townhomes', 91],
   ] as const
   return (
     <div className="space-y-3.5">
@@ -197,11 +202,11 @@ function StatusPill({ label }: { label: string }) {
 
 function ProjectsPanel() {
   const projects = [
-    { name: 'Maple Street Residences', loc: 'Brooklyn, NY', status: 'Active', pct: 74, val: '$1.2M' },
-    { name: 'Linden Ave Remodel', loc: 'Linden, NJ', status: 'Active', pct: 38, val: '$420K' },
-    { name: 'Princeton Commercial', loc: 'Princeton, NJ', status: 'Planning', pct: 12, val: '$3.1M' },
-    { name: 'Oak Park Townhomes', loc: 'Newark, NJ', status: 'Active', pct: 91, val: '$880K' },
-    { name: 'Cedar Lane Duplex', loc: 'Edison, NJ', status: 'On hold', pct: 22, val: '$310K' },
+    { name: 'Sample Residences', loc: 'Brooklyn, NY', status: 'Active', pct: 74, val: '$1.2M' },
+    { name: 'Sample Remodel', loc: 'Linden, NJ', status: 'Active', pct: 38, val: '$420K' },
+    { name: 'Sample Commercial', loc: 'Princeton, NJ', status: 'Planning', pct: 12, val: '$3.1M' },
+    { name: 'Demo Townhomes', loc: 'Newark, NJ', status: 'Active', pct: 91, val: '$880K' },
+    { name: 'Demo Duplex', loc: 'Edison, NJ', status: 'On hold', pct: 22, val: '$310K' },
   ]
   return (
     <div className="space-y-3">
@@ -235,11 +240,11 @@ function ProjectsPanel() {
 
 function CalendarPanel() {
   const days = [
-    { day: 'Mon', events: [{ t: 'Steel delivery · Harborview', tone: 'bg-warn' }] },
-    { day: 'Tue', events: [{ t: 'Framing start · Cedar Lane', tone: 'bg-accent' }, { t: 'Client walk · Linden', tone: 'bg-info' }] },
+    { day: 'Mon', events: [{ t: 'Steel delivery · Demo Lofts', tone: 'bg-warn' }] },
+    { day: 'Tue', events: [{ t: 'Framing start · Demo Duplex', tone: 'bg-accent' }, { t: 'Client walk · Sample Remodel', tone: 'bg-info' }] },
     { day: 'Wed', events: [] },
-    { day: 'Thu', events: [{ t: 'Rough inspection · Maple St', tone: 'bg-info' }] },
-    { day: 'Fri', events: [{ t: 'Draw #2 due · Linden Ave', tone: 'bg-success-solid' }, { t: 'COI expires · Volt Bros', tone: 'bg-danger-solid' }] },
+    { day: 'Thu', events: [{ t: 'Rough inspection · Sample Residences', tone: 'bg-info' }] },
+    { day: 'Fri', events: [{ t: 'Draw #2 due · Sample Remodel', tone: 'bg-success-solid' }, { t: 'COI expires · Volt Bros', tone: 'bg-danger-solid' }] },
   ]
   return (
     <div className="space-y-3">
@@ -309,11 +314,11 @@ function MoneyPanel() {
 
 function InvoicesPanel() {
   const invoices = [
-    { no: 'INV-1042', job: 'Maple Street', amt: '$44,550', status: 'Paid' },
-    { no: 'INV-1041', job: 'Linden Ave', amt: '$29,700', status: 'Pending' },
-    { no: 'INV-1039', job: 'Harborview Lofts', amt: '$61,200', status: 'Overdue' },
-    { no: 'INV-1038', job: 'Oak Park', amt: '$18,900', status: 'Paid' },
-    { no: 'INV-1036', job: 'Cedar Lane', amt: '$12,300', status: 'Pending' },
+    { no: 'INV-1042', job: 'Sample Residences', amt: '$44,550', status: 'Paid' },
+    { no: 'INV-1041', job: 'Sample Remodel', amt: '$29,700', status: 'Pending' },
+    { no: 'INV-1039', job: 'Demo Lofts', amt: '$61,200', status: 'Overdue' },
+    { no: 'INV-1038', job: 'Demo Townhomes', amt: '$18,900', status: 'Paid' },
+    { no: 'INV-1036', job: 'Demo Duplex', amt: '$12,300', status: 'Pending' },
   ]
   const tone = (s: string) =>
     s === 'Paid' ? 'bg-success-tint text-success'

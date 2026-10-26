@@ -5,14 +5,14 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
 
 // start/span are day indexes into DAYS.
 const JOBS = [
-  { name: 'Maple St · rough-in', start: 0, span: 4, tone: 'bg-accent text-accent-ink', crew: '3 crew' },
-  { name: 'Harborview · panel swap', start: 3, span: 2, tone: 'bg-info/80 text-surface', crew: '2 crew' },
+  { name: 'Sample Residences · rough-in', start: 0, span: 4, tone: 'bg-accent text-accent-ink', crew: '3 crew' },
+  { name: 'Demo Lofts · panel swap', start: 3, span: 2, tone: 'bg-info/80 text-surface', crew: '2 crew' },
   { name: 'Riverside · trim-out', start: 5, span: 1, tone: 'bg-success-solid/80 text-surface', crew: '2 crew' },
 ] as const
 
 export function ScheduleMock() {
   return (
-    <div className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
+    <div aria-hidden="true" data-nosnippet="" className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
       <div className="flex items-center justify-between mb-4">
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
           <CalendarDays className="h-4 w-4 text-accent-fg" /> My week · all jobs
@@ -48,13 +48,13 @@ export function ScheduleMock() {
         <AlertTriangle className="h-4 w-4 text-warn shrink-0 mt-px" />
         <div className="text-[11px] leading-snug">
           <p className="font-semibold text-warn">Overlap on Thursday</p>
-          <p className="text-muted-fg mt-0.5">Maple St and Harborview both need your crew, 5 required, 4 available.</p>
+          <p className="text-muted-fg mt-0.5">Sample Residences and Demo Lofts both need your crew, 5 required, 4 available.</p>
         </div>
       </div>
       <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-accent-tint/60 px-3 py-2.5">
         <Sparkles className="h-4 w-4 text-accent-fg shrink-0 mt-px" />
         <p className="text-[11px] text-accent-fg leading-snug">
-          <span className="font-semibold">Suggestion:</span> shift Harborview to start Friday. No milestones slip.
+          <span className="font-semibold">Suggestion:</span> shift Demo Lofts to start Friday. No milestones slip.
         </p>
       </div>
     </div>

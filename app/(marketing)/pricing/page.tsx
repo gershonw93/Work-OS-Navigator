@@ -7,6 +7,8 @@ import { marketingMeta } from '@/components/marketing/meta'
 import { Reveal } from '@/components/marketing/reveal'
 import { Eyebrow, SectionHead } from '@/components/marketing/section'
 import { PricingPlans } from '@/components/marketing/pricing-plans'
+import { FaqSection } from '@/components/marketing/faq'
+import { FAQ_VS, FAQ_WHAT_IS, type FaqItem } from '@/lib/marketing-faq'
 
 export const metadata: Metadata = marketingMeta({
   title: 'Pricing · SyteNav',
@@ -37,7 +39,9 @@ export const metadata: Metadata = marketingMeta({
 // behind a waitlist, so the fifteen days are stated as what happens once you
 // are approved, never as a button a stranger can press. The BUTTON still says
 // Request access, because that is still what pressing it does.
-const FAQ = [
+const FAQ: FaqItem[] = [
+  // What a person (or a model) asks first, from the one home every page shares.
+  FAQ_WHAT_IS,
   {
     q: 'What happens when I reach my project limit?',
     a: 'You can move up a plan or close out a finished job. Nothing is deleted either way, and a closed job stays fully readable. Planning and on-hold jobs count towards the limit; completed and cancelled ones do not.',
@@ -66,6 +70,7 @@ const FAQ = [
     q: 'So what am I paying today?',
     a: `Nothing for your first ${TRIAL_DAYS} days. SyteNav is invite-only: once you are approved you get the whole product on a real job for ${TRIAL_DAYS} days, with no card taken and nothing to cancel. After that you pick one of the plans above. Anybody already in the beta stays free - we are not putting a clock on people who were here before billing was.`,
   },
+  FAQ_VS,
 ]
 
 export default function PricingPage() {
@@ -167,26 +172,8 @@ export default function PricingPage() {
         </div>
       </section>
 
-      {/* FAQ */}
-      <section className="border-b border-line bg-panel">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 py-20 sm:py-24">
-          <Reveal>
-            <h2 className="mb-12 text-center text-3xl font-extrabold tracking-tight text-ink sm:text-4xl">
-              Fair questions
-            </h2>
-          </Reveal>
-          <div className="divide-y divide-line">
-            {FAQ.map((f, i) => (
-              <Reveal key={f.q} delay={i * 60}>
-                <div className="py-7">
-                  <h3 className="text-lg font-bold text-ink">{f.q}</h3>
-                  <p className="mt-2.5 leading-relaxed text-muted-fg">{f.a}</p>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* FAQ, with its FAQPage structured data */}
+      <FaqSection items={FAQ} title="Fair questions" />
 
       {/* Closing */}
       <section aria-label="Get started" className="mx-auto max-w-6xl px-4 sm:px-6 py-20 sm:py-28">
