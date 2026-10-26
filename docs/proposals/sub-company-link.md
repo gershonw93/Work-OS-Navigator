@@ -32,8 +32,14 @@ The decision this implements (the owner's, Oct 2026):
 | Pending team / vendor invite | `company_invites` (`company_id`, `email`, `role`, `status`) | For a vendor, `company_id` is the GC's Directory row. |
 
 `companies.added_by_company_id` and `projects.created_by_company_id` are NOT in
-any numbered migration (they were added by hand). The live column is a bare
-`uuid` with **no foreign key and no index**.
+any numbered migration (they were added by hand). On the live database the
+column DID carry a foreign key, `ON DELETE SET NULL`, that no file recorded -
+this doc first said it had none, which was read off the migration files rather
+than the database. 155 added the missing index and a not-self check and kept
+the SET NULL. **Consequence:** deleting a company leaves its Directory entries
+with no owner, and an entry with no owner looks exactly like a business with
+its own account. 20 vendor rows today have no owner, no people and no
+subcontracts - almost certainly such orphans or legacy rows.
 
 ### How a sub's person gets into a company - three doors, all into the GC's row
 
@@ -114,8 +120,8 @@ Found by a full sweep (file list in the PR). Grouped by what they ask:
 ## 2. Proposed migration (summary - full SQL in `sub-company-link.sql`)
 
 1. **`companies.added_by_company_id` gets its foreign key and index**
-   (`ON DELETE CASCADE` - a Directory entry is a fact about the GC that made
-   it), with a guard that it never points at itself. Cheap and independent.
+   (production already had this FK as `ON DELETE SET NULL`, unrecorded in any
+   migration; 155 kept it and added the rest), with a guard that it never points at itself. Cheap and independent.
 2. **`directory_links`** - one row per (GC Directory entry -> real sub
    company), with its whole lifecycle:
    `directory_company_id`, `gc_company_id`, `sub_company_id`,
@@ -130,7 +136,10 @@ Found by a full sweep (file list in the PR). Grouped by what they ask:
      pick one, and the second is refused with a reason rather than silently
      double-linked.
    - A trigger refuses a link whose `sub_company_id` is a Directory entry
-     itself, or whose Directory entry is not the GC's.
+     itself, or whose Directory entry is not the GC's - **and one whose
+     `sub_company_id` has nobody signed in to it.** "No owner" is not proof of
+     a real business (see the SET NULL orphans above); "an account belongs to
+     it" is, and the link is accepted by that account anyway.
 3. **`sub_company_ids(actor_company uuid)`** - a STABLE SQL function: the
    actor's own company plus every Directory entry with an ACTIVE link to it.
    Mirrored by one TypeScript reader, `vendorIdentity()` in a new

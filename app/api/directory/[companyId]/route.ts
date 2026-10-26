@@ -48,7 +48,8 @@ export async function DELETE(request: Request, { params }: { params: { companyId
   // `profiles.company_id` is ON DELETE CASCADE - so removing the entry removed
   // their sign-in, and everything of theirs that cascades from a profile, with
   // no warning to either side. An entry somebody has built an address book
-  // in (`added_by_company_id`, CASCADE since 155) goes the same way. Both are
+  // in (`added_by_company_id`) is orphaned by the delete - its entries lose
+  // their owner and start looking like businesses with their own account. Both are
   // refused, and said, before anything is deleted. Read failures refuse too:
   // a count we could not take is not a count of zero.
   const [people, book] = await Promise.all([

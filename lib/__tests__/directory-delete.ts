@@ -91,7 +91,7 @@ ok(/notEmailed\.length \? notify\(\{ \.\.\.bell, userIds: notEmailed \}\) : null
 // ON DELETE CASCADE, and a sub invited before they had an account lives inside
 // the GC's entry - so a Directory delete removed their sign-in. Refused (409)
 // before the delete, as is an entry holding an address book of its own
-// (added_by_company_id cascades since migration 155); a failed count refuses.
+// (whose entries a delete would orphan - added_by_company_id is SET NULL); a failed count refuses.
 const del = route.slice(route.indexOf('export async function DELETE'))
 const pre = del.indexOf(".from('profiles').select('id', { count: 'exact', head: true }).eq('company_id', params.companyId)")
 const bookAt = del.indexOf(".eq('added_by_company_id', params.companyId)")

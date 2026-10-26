@@ -1,26 +1,12 @@
 -- PROPOSAL - NOT A MIGRATION. Kept outside supabase/migrations/ on purpose.
--- Would become 155_directory_links.sql once approved. See sub-company-link.md.
+-- Would become 156_directory_links.sql (table design approved Oct 26, 2026). See sub-company-link.md.
 --
 -- Additive only: no existing row changes owner, no row is rewritten, and with
 -- no links the product behaves exactly as it does today.
 
--- ── 1. Directory ownership gets the constraint it never had ──────────────────
--- companies.added_by_company_id was added by hand: a bare uuid, no FK, no index.
--- Fails loudly if any row points at a company that no longer exists - those
--- would be found and reported first, never nulled silently.
-DO $$
-BEGIN
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'companies_added_by_company_id_fkey') THEN
-    ALTER TABLE companies
-      ADD CONSTRAINT companies_added_by_company_id_fkey
-      FOREIGN KEY (added_by_company_id) REFERENCES companies (id) ON DELETE CASCADE;
-  END IF;
-  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'companies_added_by_not_self') THEN
-    ALTER TABLE companies
-      ADD CONSTRAINT companies_added_by_not_self CHECK (added_by_company_id IS DISTINCT FROM id);
-  END IF;
-END $$;
-CREATE INDEX IF NOT EXISTS idx_companies_added_by ON companies (added_by_company_id);
+-- ── 1. Directory ownership constraint - SHIPPED as migration 155 ────────────
+-- Production already had the FK (ON DELETE SET NULL, unrecorded in any file);
+-- 155 kept it and added the not-self check and the index. Not repeated here.
 
 -- ── 2. The link: a GC's Directory entry -> the sub's real company ─────────────
 CREATE TABLE IF NOT EXISTS directory_links (
@@ -79,6 +65,12 @@ BEGIN
     END IF;
     IF sub_type NOT IN ('subcontractor', 'supplier') THEN
       RAISE EXCEPTION 'company % is not a subcontractor or supplier', NEW.sub_company_id;
+    END IF;
+    -- "No owner" is not proof of a real business: added_by_company_id is
+    -- ON DELETE SET NULL, so a deleted GC's entries lose their owner and look
+    -- self-owned. A real business is one somebody is signed in to.
+    IF NEW.status = 'active' AND NOT EXISTS (SELECT 1 FROM profiles WHERE company_id = NEW.sub_company_id) THEN
+      RAISE EXCEPTION 'company % has no account holder, so it cannot be linked', NEW.sub_company_id;
     END IF;
   END IF;
   RETURN NEW;
