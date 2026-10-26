@@ -24,7 +24,8 @@ export async function GET(request: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Select defensively - permission_overrides column may not exist yet
-  let role = (user.user_metadata?.role as string) ?? 'read_only'
+  // From the profile only - user_metadata is writable by the user (see actorForUser).
+  let role = 'read_only'
   let overrides: OverrideMap | null = null
   let companyId: string | null = null
 

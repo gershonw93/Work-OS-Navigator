@@ -307,10 +307,11 @@ ok(/if \(meters\) \{/.test(signup), '...the whole billing write is inside that b
 // the same shape as a role out of a request body.
 ok(/const meters = \(company as \{ type\?: string \| null \}\)\.type/.test(signup),
   '...and the decision reads the company row rather than the request body')
-// The existing-company branch has to carry the type or the check above reads
-// undefined and meters a Directory sub - the quiet version of the same bug.
-ok(/\.select\('id, type'\)/.test(signup),
-  'and a person joining a company that already exists is judged on that company\'s type')
+// There is no "existing company" branch any more: signup always creates the
+// person's own company (it used to join one matched by email - see
+// lockdown-personal.ts), so the row the meter reads is the row just inserted.
+ok(/const \{ data: company, error: companyError \} = await admin\s*\.from\('companies'\)\s*\.insert\(/.test(signup),
+  'and the company that decision reads is the one signup just made')
 ok(!/company_billing/.test(read('app/api/invite/route.ts')),
   'and the GC-invited vendor door still creates no billing row at all')
 

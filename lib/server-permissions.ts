@@ -33,7 +33,7 @@ export async function getActor(db: SupabaseClient, token: string | null | undefi
   if (!token) return null
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return null
-  return actorForUser(db, user.id, user.user_metadata?.role as string | undefined)
+  return actorForUser(db, user.id)
 }
 
 /**
@@ -45,10 +45,16 @@ export async function getActor(db: SupabaseClient, token: string | null | undefi
 export async function actorForUser(
   db: SupabaseClient,
   userId: string,
-  metadataRole?: string | null,
 ): Promise<ActorPerms> {
   // permission_overrides may not exist on older deployments - degrade to role only.
-  let role = metadataRole ?? 'read_only'
+  //
+  // THE PROFILE IS THE ONLY SOURCE OF A ROLE. This started from
+  // `user_metadata.role`, which the signed-in user can write themselves
+  // (`auth.updateUser({ data: { role: 'admin' } })`), and kept it whenever the
+  // profile read came back empty - so an account with no profile row was
+  // whatever role it said it was, on every route behind `getActor`. No profile
+  // means the least a role can be.
+  let role = 'read_only'
   let overrides: OverrideMap | null = null
   let companyId: string | null = null
 

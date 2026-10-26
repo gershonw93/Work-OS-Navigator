@@ -48,7 +48,7 @@ export async function GET(
   // sub on it, its team) - the plan viewer is in every sub's lane. Resolved
   // from the cookie's user through the same `actorForUser` the bearer routes
   // use, so the two doors cannot answer differently.
-  const actor = await actorForUser(db, user.id, user.user_metadata?.role as string | undefined)
+  const actor = await actorForUser(db, user.id)
   const gate = await actorJobGate(db, actor, params.id, 'plans', 'view')
   if ('denied' in gate) {
     // Plain text, like every other answer here - `<img>` and pdf.js read it.
