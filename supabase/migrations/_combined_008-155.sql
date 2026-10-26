@@ -4682,10 +4682,15 @@ ALTER TABLE companies ADD COLUMN IF NOT EXISTS added_by_company_id uuid;
 DO $$
 BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'companies_added_by_company_id_fkey') THEN
-    -- CASCADE: an entry is a fact about the company whose book it is in.
+    -- SET NULL, to match production. This constraint turned out to EXIST
+    -- already on the live database (added by hand, like the column), so the
+    -- guard skipped it when 155 ran and production kept SET NULL. A fresh
+    -- environment gets the same rule rather than a different one. Whether it
+    -- should be CASCADE is an open question: SET NULL leaves a deleted
+    -- company's entries looking like businesses with their own account.
     ALTER TABLE companies
       ADD CONSTRAINT companies_added_by_company_id_fkey
-      FOREIGN KEY (added_by_company_id) REFERENCES companies (id) ON DELETE CASCADE;
+      FOREIGN KEY (added_by_company_id) REFERENCES companies (id) ON DELETE SET NULL;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'companies_added_by_not_self') THEN
     ALTER TABLE companies
