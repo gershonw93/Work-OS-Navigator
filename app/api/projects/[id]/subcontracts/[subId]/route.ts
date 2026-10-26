@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { requirePermission, denied } from '@/lib/api-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { updateSubcontract } from '@/lib/writes/subcontract'
 
 const admin = () => createClient(
@@ -14,6 +14,11 @@ export async function PATCH(
 ) {
   const gate = await requirePermission(admin(), request, 'team', 'edit')
   if (denied(gate)) return gate.denied
+  // A subcontract is the GC's commitment on the GC's job. `team: edit` alone let
+  // any company holding it - a sub's own admin included - change a contract
+  // amount or delete the contract on a job that was not theirs.
+  const owns = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owns) return owns.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -34,6 +39,11 @@ export async function DELETE(
 ) {
   const gate = await requirePermission(admin(), request, 'team', 'edit')
   if (denied(gate)) return gate.denied
+  // A subcontract is the GC's commitment on the GC's job. `team: edit` alone let
+  // any company holding it - a sub's own admin included - change a contract
+  // amount or delete the contract on a job that was not theirs.
+  const owns = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owns) return owns.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -289,6 +289,10 @@ export default function TeamPage({ params }: { params: { id: string } }) {
         setSubError(e2.error ?? `Could not save those changes (${res.status}).`)
         setSubSaving(false); return
       }
+      // The contract saved, but a name/contact change on a company that keeps
+      // its own account was refused - say so, or it reads as a save that lost it.
+      const saved = await res.json().catch(() => ({}))
+      if (saved?.notice) notify(saved.notice)
       setShowAddSub(false); setEditingSubId(null); setSubSaving(false); resetSubForm(); load()
       return
     }

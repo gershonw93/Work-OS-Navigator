@@ -124,6 +124,7 @@ async function main() {
     ['daily-logs/[logId]/photos/[photoId]/route.ts', 'DELETE', /jobGate\(db, request, params\.id, 'daily-logs', 'view', \{ write: true \}\)/, "from('daily_log_photos')"],
     ['daily-logs/[logId]/updates/route.ts', 'POST', /jobGate\(db, request, params\.id, 'daily-logs', 'view', \{ write: true \}\)/, "from('daily_log_updates')"],
     ['tasks/route.ts', 'GET', /jobGate\(db, request, params\.id, 'tasks', 'view'\)/, "from('project_tasks')"],
+    ['tasks/route.ts', 'POST', /jobGate\(db, request, params\.id, 'tasks', 'view', \{ write: true \}\)/, 'createTask('],
     ['tasks/[taskId]/route.ts', 'PATCH', /jobGate\(db, request, params\.id, 'tasks', 'view', \{ write: true \}\)/, 'updateTask('],
     ['tasks/[taskId]/route.ts', 'DELETE', /jobGate\(db, request, params\.id, 'tasks', 'delete'\)/, '.delete()'],
     ['tasks/[taskId]/signoff/route.ts', 'POST', /jobGate\(db, request, params\.id, 'tasks', 'view', \{ write: true \}\)/, "from('project_tasks')"],

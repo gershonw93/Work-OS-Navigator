@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { requirePermission, denied, billingLock } from '@/lib/api-guard'
 import { taskIdsFor } from '@/lib/task-assignees'
 import { createTask } from '@/lib/writes/task'
 import { jobGate } from '@/lib/job-access'
@@ -117,12 +116,15 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // adds one from My Jobs (tasks V). Gating on create would close both
   // silently. This still shuts the door on anybody with no task access at all,
   // and the Tasks tab's own button asks for create.
-  const gate = await requirePermission(db, request, 'tasks', 'view')
-  if (denied(gate)) return gate.denied
-  // A `view` gate skips the read-only lock (it only runs for write actions),
-  // and this IS a write - so it is asked here, as the hand-gated routes do.
-  const locked = await billingLock(db, gate.actor.companyId)
-  if (locked) return locked
+  //
+  // AND ON THIS JOB. The permission was the whole check, and every built-in
+  // role holds `tasks: view`, so any account at all - another company's
+  // worker included - could add a task to any job whose id it had. `jobGate`
+  // is the same question the GET above asks (owner, a sub with a subcontract,
+  // or a team member), and `write: true` keeps the read-only lock this handler
+  // used to ask by hand.
+  const gate = await jobGate(db, request, params.id, 'tasks', 'view', { write: true })
+  if ('denied' in gate) return gate.denied
   const user = { id: gate.actor.userId }
 
   const body = await request.json()

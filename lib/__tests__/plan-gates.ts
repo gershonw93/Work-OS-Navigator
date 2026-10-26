@@ -54,8 +54,10 @@ ok(/requirePermission\(db, request, 'projects', 'view'\)/.test(children) && /own
   'the group roll-up - every house\'s money - needs projects:view and the group to be the caller\'s')
 
 const tasks = gateOf((code('app/api/projects/[id]/tasks/route.ts') + code('lib/writes/task.ts')), 'POST') ?? ''
-ok(/requirePermission\(db, request, 'tasks', 'view'\)/.test(tasks), 'creating a task needs at least tasks:view')
-ok(/billingLock\(db, gate\.actor\.companyId\)/.test(tasks), '...and since a view gate skips the read-only lock, the route asks for it itself')
+ok(/jobGate\(db, request, params\.id, 'tasks', 'view', \{ write: true \}\)/.test(tasks),
+  'creating a task needs at least tasks:view AND a place on this job (it asked the permission alone, so any account could add a task to any job)')
+// `write: true` is what applies the read-only lock to a view-level gate - the
+// lock this handler used to ask for by hand.
 
 for (const f of ['route.ts', 'upload/route.ts', 'upload-url/route.ts', '[planId]/route.ts', 'folders/[folderId]/route.ts', '[planId]/pins/route.ts']) {
   ok(/requirePermission/.test(code(P + f)), `${f}: no plan route is left on "signed in" alone`)

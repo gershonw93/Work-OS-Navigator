@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { getActor, actorCan } from '@/lib/server-permissions'
+import { actorCan } from '@/lib/server-permissions'
+import { jobGate, companyProfileIds } from '@/lib/job-access'
 import { projectSite } from '@/lib/project-site'
 
 const admin = () => createClient(
@@ -9,26 +10,31 @@ const admin = () => createClient(
 )
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
   // Everyone's punches, including selfies, locations and approval state, used
   // to go to any signed-in user. Only someone who manages time (edit rights)
   // sees the crew's entries; everyone else sees their own.
-  const actor = await getActor(db, token)
-  const canManage = actorCan(actor, 'time', 'edit')
-
+  //
+  // AND ONLY ON A JOB THEY ARE ON, with the export's narrowing. The manage
+  // check was the whole gate, so an admin of ANY company holding a job id got
+  // that job's whole crew - selfies and locations included. `jobGate` asks
+  // whether they are on it; a manager on somebody else's job (a sub's admin on
+  // a GC's job) gets their own company's crew, not the GC's. Same rule as
+  // `time/export`, which already did this for the CSV of the same list.
+  const db = admin()
+  const gate = await jobGate(db, request, params.id, 'time', 'view')
+  if ('denied' in gate) return gate.denied
+  const user = { id: gate.actor.userId }
+  const canManage = actorCan(gate.actor, 'time', 'edit')
   let query = db
     .from('time_entries')
     .select('*')
     .eq('project_id', params.id)
     .order('clock_in_at', { ascending: false })
-
   if (!canManage) query = query.eq('profile_id', user.id)
+  else if (gate.side !== 'gc') {
+    const crew = await companyProfileIds(db, gate.actor.companyId)
+    query = query.in('profile_id', crew?.length ? crew : [user.id])
+  }
 
   // Whether this job has a usable place on the map. Every punch is measured
   // against it, so a screen full of flagged entries with no explanation is
