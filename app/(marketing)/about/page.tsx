@@ -7,6 +7,7 @@ import { CountUp } from '@/components/marketing/count-up'
 import { SHOW_TRACTION_STATS } from '@/lib/traction'
 import { Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
+import { SYTENAV_DEFINITION } from '@/lib/definition'
 
 export const metadata: Metadata = marketingMeta({
   title: 'About · SyteNav',
@@ -49,6 +50,7 @@ export default function AboutPage() {
         <h1 className="mt-3 text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight text-ink leading-[1.04]">
           We build software the way you build. To last.
         </h1>
+        <p className="mt-6 text-lg text-muted-fg leading-relaxed">{SYTENAV_DEFINITION}</p>
       </section>
 
       {/* Story */}

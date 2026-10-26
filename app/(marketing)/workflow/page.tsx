@@ -72,7 +72,7 @@ function BudgetMock() {
       <div className="flex items-center justify-between px-5 py-3 border-b border-line bg-panel">
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-accent-fg" />
-          <span className="text-sm font-bold text-ink">Budget · Linden Ave Remodel</span>
+          <span className="text-sm font-bold text-ink">Budget · Sample Remodel</span>
         </div>
         <div className="flex items-center gap-2 text-[10px] font-semibold">
           <span className="rounded-full bg-info-tint text-info px-2.5 py-1">Interior $45,450</span>

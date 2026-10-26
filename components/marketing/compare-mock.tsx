@@ -17,7 +17,7 @@ function Cell({ v }: { v: string }) {
 
 export function CompareMock() {
   return (
-    <div className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
+    <div aria-hidden="true" data-nosnippet="" className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm font-semibold text-ink">Compare bids · Electrical</span>
         <span className="inline-flex items-center gap-1 text-[11px] text-accent-fg font-semibold">

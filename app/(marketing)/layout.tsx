@@ -7,6 +7,8 @@ import { MarketingNav } from '@/components/marketing/marketing-nav'
 import { MarketingFooter } from '@/components/marketing/marketing-footer'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import { PLANS } from '@/lib/plans'
+import { SYTENAV_DEFINITION } from '@/lib/definition'
+import { APP_STORE_URL, PLAY_STORE_URL } from '@/lib/app-stores'
 
 // Structured data for the whole marketing site.
 //
@@ -43,7 +45,9 @@ const jsonLd = {
       '@id': `${CANONICAL_ORIGIN}/#organization`,
       name: 'SyteNav',
       url: `${CANONICAL_ORIGIN}/`,
-      description: 'Construction management software built for the field, for general contractors, subcontractors, and remodelers.',
+      // The one definition (lib/definition.ts) - the same sentence as the
+      // homepage, About and the store listings.
+      description: SYTENAV_DEFINITION,
       email: SUPPORT_EMAIL,
       address: { '@type': 'PostalAddress', addressRegion: 'NJ', addressCountry: 'US' },
     },
@@ -52,7 +56,10 @@ const jsonLd = {
       name: 'SyteNav',
       url: `${CANONICAL_ORIGIN}/`,
       applicationCategory: 'BusinessApplication',
-      operatingSystem: 'Web',
+      applicationSubCategory: 'Construction management software',
+      // Read off lib/app-stores.ts: a platform with no listing is not claimed.
+      operatingSystem: ['Web', 'Android', ...(APP_STORE_URL ? ['iOS'] : [])].join(', '),
+      downloadUrl: [PLAY_STORE_URL, ...(APP_STORE_URL ? [APP_STORE_URL] : [])],
       description:
         'AI-powered construction management: quote scanning, budgets, client payments and escrow, invoices, scheduling, daily logs, time clock, permits, inspections, compliance, and RFIs.',
       // STRUCTURED DATA HAS TO MATCH THE PAGE, and the page now publishes a

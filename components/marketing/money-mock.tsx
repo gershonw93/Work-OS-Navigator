@@ -17,10 +17,10 @@ const BADGE: Record<string, string> = {
 
 export function MoneyMock() {
   return (
-    <div className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
+    <div aria-hidden="true" data-nosnippet="" className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
       <div className="flex items-center justify-between mb-4">
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
-          <Landmark className="h-4 w-4 text-accent-fg" /> Payments · Linden Ave Remodel
+          <Landmark className="h-4 w-4 text-accent-fg" /> Payments · Sample Remodel
         </span>
         <span className="text-[11px] text-faint font-mono">Contract $148,500</span>
       </div>

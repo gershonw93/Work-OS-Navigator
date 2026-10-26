@@ -17,11 +17,15 @@ import { SectionHead, Eyebrow } from '@/components/marketing/section'
 import { CtaBand } from '@/components/marketing/cta-band'
 import { FlowCard } from '@/components/marketing/flow-card'
 import { FLOWS } from '@/lib/flows'
+import { FaqSection } from '@/components/marketing/faq'
+import { HOME_FAQ } from '@/lib/marketing-faq'
+import { SYTENAV_DEFINITION } from '@/lib/definition'
 
 export const metadata: Metadata = marketingMeta({
   title: 'SyteNav · Construction management built for the field',
-  description:
-    'Run the whole build from one place. AI quote scanning, budgets, client payments and escrow, invoices, scheduling, daily logs, and compliance, for GCs and subs.',
+  // The plain definition, not the tagline: this is the sentence a result
+  // snippet and a model's summary lift.
+  description: SYTENAV_DEFINITION,
   path: '/',
 })
 
@@ -330,6 +334,10 @@ export default function HomePage() {
           ))}
         </div>
       </section>}
+
+      {/* The questions people type into a search box or a chat assistant,
+          with FAQPage structured data built from the same list. */}
+      <FaqSection items={HOME_FAQ} className="bg-surface" />
 
       <CtaBand />
       </div>

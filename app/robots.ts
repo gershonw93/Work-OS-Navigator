@@ -14,6 +14,14 @@ import { HELP_URL, isHelpHost } from '@/lib/help-host'
  *
  * Anything that is not the canonical host now refuses the whole tree.
  */
+/** Assistant and AI-search crawlers. None is blocked; see the rule below. */
+const AI_CRAWLERS = [
+  'GPTBot', 'OAI-SearchBot', 'ChatGPT-User',
+  'ClaudeBot', 'Claude-User', 'Claude-SearchBot',
+  'PerplexityBot', 'Perplexity-User',
+  'Google-Extended', 'Applebot-Extended',
+]
+
 export default function robots(): MetadataRoute.Robots {
   const host = headers().get('host')
 
@@ -31,34 +39,38 @@ export default function robots(): MetadataRoute.Robots {
     }
   }
 
+  // The app's private paths, refused to every crawler alike.
+  const disallow = [
+    '/dashboard',
+    '/projects',
+    '/settings',
+    '/directory',
+    '/approvals',
+    '/admin',
+    '/api',
+    '/portal',
+    '/bid',
+    '/rfi',
+    '/compliance',
+    '/share',
+    '/shared-report',
+    '/reports',
+    '/bill',
+    '/field',
+    '/my-jobs',
+    '/auth',
+    '/login',
+    '/signup',
+  ]
+
   return {
     rules: [
-      {
-        userAgent: '*',
-        allow: ['/'],
-        disallow: [
-          '/dashboard',
-          '/projects',
-          '/settings',
-          '/directory',
-          '/approvals',
-          '/admin',
-          '/api',
-          '/portal',
-          '/bid',
-          '/rfi',
-          '/compliance',
-          '/share',
-          '/shared-report',
-          '/reports',
-          '/bill',
-          '/field',
-          '/my-jobs',
-          '/auth',
-          '/login',
-          '/signup',
-        ],
-      },
+      // AI CRAWLERS ARE WELCOME, AND SAID SO BY NAME. The '*' group below
+      // already lets them in; naming them makes the answer to "is GPTBot
+      // blocked?" readable in robots.txt itself rather than inferred. A named
+      // group REPLACES '*' for that bot, so it carries the same disallow list.
+      { userAgent: AI_CRAWLERS, allow: ['/'], disallow },
+      { userAgent: '*', allow: ['/'], disallow },
     ],
     sitemap: `${CANONICAL_ORIGIN}/sitemap.xml`,
     host: CANONICAL_ORIGIN,

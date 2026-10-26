@@ -16,7 +16,7 @@ type Item = { icon: ComponentType<{ className?: string }>; title: string; body: 
 // Compact inline visuals for the tabs that don't have a big dedicated mock.
 function ComplianceVisual() {
   const rows = [
-    { icon: ShieldCheck, name: 'Building permit · Maple St', state: 'Approved', tone: 'bg-success-tint text-success' },
+    { icon: ShieldCheck, name: 'Building permit · Sample Residences', state: 'Approved', tone: 'bg-success-tint text-success' },
     { icon: ClipboardCheck, name: 'Rough inspection · Thu 9am', state: 'Scheduled', tone: 'bg-info-tint text-info' },
     { icon: ClipboardCheck, name: 'Final inspection · assigned to Sal', state: 'Requested', tone: 'bg-warn-tint text-warn' },
     { icon: FileText, name: 'GL insurance · Volt Bros', state: 'Expires 12d', tone: 'bg-warn-tint text-warn' },

@@ -13,7 +13,9 @@ import { SyteNavLogo } from '@/components/ui/logo'
 // toolbar, and the same card: status strip, type, address, client, dates,
 // task progress, and the Contract / Paid / Outstanding tiles. A marketing
 // picture of a screen the product does not have is a promise it cannot keep.
-// Invented jobs, no real data.
+// Invented jobs, no real data - and NAMED so nobody could mistake one for a
+// customer. "Summit Medical Group" read like a client list to anything that
+// quoted the page; "Sample Residences" cannot.
 type Status = 'active' | 'planning' | 'on_hold' | 'completed'
 
 const PROJECTS: {
@@ -21,15 +23,15 @@ const PROJECTS: {
   start: number; months: number; done: number; tasks: number
   contract: number; paid: number; owed: number
 }[] = [
-  { name: 'Maple Street Residences', type: 'Residential', address: '41 Maple St, Brooklyn, NY 11225', client: 'Maple Street Holdings LLC', status: 'active', start: -5, months: 11, done: 14, tasks: 19, contract: 1200000, paid: 610000, owed: 84000 },
-  { name: 'Harborview Lofts', type: 'Commercial', address: '200 Washington Blvd, Jersey City, NJ', client: 'Harborview Partners', status: 'active', start: -3, months: 14, done: 9, tasks: 16, contract: 2400000, paid: 920000, owed: 140000 },
-  { name: 'Princeton Commercial', type: 'Commercial', address: '12 Nassau St, Princeton, NJ 08542', client: 'Nassau Street Realty', status: 'planning', start: 2, months: 12, done: 1, tasks: 8, contract: 3100000, paid: 0, owed: 0 },
-  { name: 'Oak Park Townhomes', type: 'Residential', address: '88 Oak Park Rd, Newark, NJ 07104', client: 'Daniel Okafor', status: 'active', start: -9, months: 11, done: 21, tasks: 23, contract: 880000, paid: 702000, owed: 36000 },
-  { name: 'Cedar Lane Duplex', type: 'Residential', address: '7 Cedar Ln, Edison, NJ 08817', client: 'Priya & Sam Mehta', status: 'on_hold', start: -2, months: 8, done: 2, tasks: 9, contract: 310000, paid: 45000, owed: 12000 },
-  { name: 'Summit Office Fit-out', type: 'Commercial', address: '55 Springfield Ave, Summit, NJ', client: 'Summit Medical Group', status: 'active', start: -4, months: 7, done: 8, tasks: 12, contract: 640000, paid: 330000, owed: 58000 },
-  { name: 'Garden State Plaza Unit 4', type: 'Commercial', address: '1 Garden State Plaza, Paramus, NJ', client: 'GSP Retail LLC', status: 'planning', start: 1, months: 6, done: 0, tasks: 4, contract: 1700000, paid: 0, owed: 0 },
-  { name: 'Riverside Kitchen Reno', type: 'Residential', address: '310 Hudson St, Hoboken, NJ 07030', client: 'Laura Chen', status: 'completed', start: -7, months: 5, done: 11, tasks: 11, contract: 190000, paid: 190000, owed: 0 },
-  { name: 'Bergen Point Warehouse', type: 'Industrial', address: '900 Ave A, Bayonne, NJ 07002', client: 'Bergen Logistics Inc.', status: 'active', start: -6, months: 16, done: 10, tasks: 22, contract: 2900000, paid: 1100000, owed: 210000 },
+  { name: 'Sample Residences', type: 'Residential', address: '100 Sample St, Anytown', client: 'Sample Client LLC', status: 'active', start: -5, months: 11, done: 14, tasks: 19, contract: 1200000, paid: 610000, owed: 84000 },
+  { name: 'Demo Lofts', type: 'Commercial', address: '200 Example Ave, Anytown', client: 'Demo Client Partners', status: 'active', start: -3, months: 14, done: 9, tasks: 16, contract: 2400000, paid: 920000, owed: 140000 },
+  { name: 'Sample Commercial', type: 'Commercial', address: '300 Sample Blvd, Anytown', client: 'Sample Owner LLC', status: 'planning', start: 2, months: 12, done: 1, tasks: 8, contract: 3100000, paid: 0, owed: 0 },
+  { name: 'Demo Townhomes', type: 'Residential', address: '400 Demo Rd, Anytown', client: 'Sample Homeowner', status: 'active', start: -9, months: 11, done: 21, tasks: 23, contract: 880000, paid: 702000, owed: 36000 },
+  { name: 'Demo Duplex', type: 'Residential', address: '500 Example Ln, Anytown', client: 'Demo Homeowner', status: 'on_hold', start: -2, months: 8, done: 2, tasks: 9, contract: 310000, paid: 45000, owed: 12000 },
+  { name: 'Demo Office Fit-out', type: 'Commercial', address: '600 Sample Ave, Anytown', client: 'Sample Tenant Co.', status: 'active', start: -4, months: 7, done: 8, tasks: 12, contract: 640000, paid: 330000, owed: 58000 },
+  { name: 'Sample Retail Unit 4', type: 'Commercial', address: '700 Demo Plaza, Anytown', client: 'Demo Retail LLC', status: 'planning', start: 1, months: 6, done: 0, tasks: 4, contract: 1700000, paid: 0, owed: 0 },
+  { name: 'Sample Kitchen Reno', type: 'Residential', address: '800 Example St, Anytown', client: 'Sample Homeowner', status: 'completed', start: -7, months: 5, done: 11, tasks: 11, contract: 190000, paid: 190000, owed: 0 },
+  { name: 'Demo Warehouse', type: 'Industrial', address: '900 Sample Way, Anytown', client: 'Demo Logistics Inc.', status: 'active', start: -6, months: 16, done: 10, tasks: 22, contract: 2900000, paid: 1100000, owed: 210000 },
 ]
 
 const STATUS_BADGE: Record<Status, string> = {
