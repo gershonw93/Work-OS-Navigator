@@ -43,6 +43,30 @@ export async function DELETE(request: Request, { params }: { params: { companyId
   const gate = await directoryGate(db, request, params.companyId, 'delete')
   if ('denied' in gate) return gate.denied
 
+  // A DIRECTORY ENTRY CAN HAVE PEOPLE IN IT, AND DELETING IT DELETED THEM.
+  // A sub invited before they had an account lands inside the GC's entry, and
+  // `profiles.company_id` is ON DELETE CASCADE - so removing the entry removed
+  // their sign-in, and everything of theirs that cascades from a profile, with
+  // no warning to either side. An entry somebody has built an address book
+  // in (`added_by_company_id`, CASCADE since 155) goes the same way. Both are
+  // refused, and said, before anything is deleted. Read failures refuse too:
+  // a count we could not take is not a count of zero.
+  const [people, book] = await Promise.all([
+    db.from('profiles').select('id', { count: 'exact', head: true }).eq('company_id', params.companyId),
+    db.from('companies').select('id', { count: 'exact', head: true }).eq('added_by_company_id', params.companyId),
+  ])
+  if (people.error || book.error) {
+    console.error('[directory DELETE] pre-check failed', { company: params.companyId, error: (people.error ?? book.error)?.message })
+    return NextResponse.json({ error: 'Could not check that contact before removing it. Try again.' }, { status: 500 })
+  }
+  if ((people.count ?? 0) > 0 || (book.count ?? 0) > 0) {
+    return NextResponse.json({
+      error: (people.count ?? 0) > 0
+        ? 'People from this company sign in to SyteNav under this contact, so removing it would remove their accounts. It stays; contact support to separate them.'
+        : 'This company keeps its own contacts in SyteNav under this entry, so removing it would remove them too. It stays; contact support to separate them.',
+    }, { status: 409 })
+  }
+
   const { error } = await db.from('companies').delete().eq('id', params.companyId)
   if (error) {
     // A foreign key still pointing here is a SENTENCE, not a 500 with

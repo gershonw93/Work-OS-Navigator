@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { escapeLike } from '@/lib/personal-access'
 import { hashKey } from '@/lib/delete-key'
 import { actorForUser, actorCan } from '@/lib/server-permissions'
 import { billingLock } from '@/lib/api-guard'
@@ -32,23 +33,34 @@ export async function GET(request: Request) {
     .eq('id', user.id)
     .single()
 
-  // Auto-create profile if missing
+  // A MISSING PROFILE IS FILLED FROM A PENDING INVITE, OR NOT AT ALL.
+  //
+  // This used to take `company_id` and `role` out of `user_metadata`, which
+  // the signed-in user can write themselves (`auth.updateUser({ data })`) - so
+  // an account with no profile could name ANY company and `admin` and become
+  // its admin. With no metadata it created a brand-new GC company with no
+  // billing row: a free, unmetered account that went round the invite-only
+  // signup. The company and role now come only from a `company_invites` row,
+  // which only someone holding `settings_team` / `directory` could have
+  // written, for this verified address. Anybody else is sent to finish signup,
+  // which is the door that checks the invite and starts the trial.
   if (!profile) {
-    // Check if this user was invited - invited users have company_id + role in their metadata
-    const metaCompanyId = user.user_metadata?.company_id as string | undefined
-    const metaRole = user.user_metadata?.role as string | undefined
-
-    let assignedCompanyId: string | null = metaCompanyId ?? null
-
-    if (!assignedCompanyId) {
-      // Brand-new user (not via invite) - create a company for them
-      const { data: newCompany } = await db
-        .from('companies')
-        .insert({ name: user.email?.split('@')[0] ?? 'My Company', type: 'gc', contact_email: user.email ?? '', insurance_status: 'missing' })
-        .select()
-        .single()
-      assignedCompanyId = newCompany?.id ?? null
+    const { data: invites } = await db
+      .from('company_invites')
+      .select('company_id, role')
+      .ilike('email', escapeLike(user.email ?? ''))
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(1)
+    const invite = invites?.[0]
+    if (!invite?.company_id) {
+      return NextResponse.json(
+        { error: 'Your account is not set up yet. Finish signing up from your invitation link.', needsSignup: true },
+        { status: 409 },
+      )
     }
+    const assignedCompanyId: string = invite.company_id
+    const metaRole: string = invite.role ?? 'read_only'
 
     const { data: newProfile } = await db
       .from('profiles')
@@ -56,7 +68,7 @@ export async function GET(request: Request) {
         id: user.id,
         email: user.email ?? '',
         full_name: user.user_metadata?.full_name ?? '',
-        role: metaRole ?? 'admin',
+        role: metaRole,
         company_id: assignedCompanyId,
       })
       .select('id, full_name, email, phone, role, company_id')
@@ -106,17 +118,11 @@ export async function GET(request: Request) {
       .limit(1)
       .maybeSingle()
 
-    // Fallback: find any project where their auth email matches company contact email
-    let foundCompanyId = projectRow?.gc_company_id
-    if (!foundCompanyId) {
-      const { data: companyRow } = await db
-        .from('companies')
-        .select('id')
-        .eq('contact_email', user.email ?? '')
-        .limit(1)
-        .maybeSingle()
-      foundCompanyId = companyRow?.id
-    }
+    // NOT by email. This also joined any company whose contact email matched -
+    // a GC's Directory entry for this person included - which is how one
+    // business ends up inside another's address book. A Directory entry is
+    // the GC's record ABOUT somebody, never a company they belong to.
+    const foundCompanyId = projectRow?.gc_company_id
 
     if (foundCompanyId) {
       await db.from('profiles').update({ company_id: foundCompanyId }).eq('id', user.id)
@@ -172,7 +178,7 @@ export async function GET(request: Request) {
   // open it see them. Every screen in the app calls this route - the idle
   // sign-out, the delete guard, the project form - so a Worker loading any page
   // was being handed the addresses of everybody the company had invited.
-  const actor = await actorForUser(db, user.id, user.user_metadata?.role as string | undefined)
+  const actor = await actorForUser(db, user.id)
   const seesInvites = actorCan(actor, 'settings_team', 'view')
 
   // Also fetch pending invites - select * to avoid column-not-found if role column missing
@@ -237,7 +243,7 @@ export async function PATCH(request: Request) {
   const wantsProtection = !!delete_protection && typeof delete_protection === 'object'
   let companyId: string | null = null
   if (wantsCompany || wantsProtection) {
-    const actor = await actorForUser(db, user.id, user.user_metadata?.role as string | undefined)
+    const actor = await actorForUser(db, user.id)
     companyId = actor.companyId
     if (wantsProtection && (!companyId || !mayManageCompanySetting(actor))) {
       return NextResponse.json({ error: 'Only an admin can change delete protection.' }, { status: 403 })

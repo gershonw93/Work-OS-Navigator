@@ -42,7 +42,10 @@ export default function MyJobsPage() {
   const [awarded, setAwarded] = useState<AwardedJob[]>([])
   const [own, setOwn] = useState<OwnProject[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'awarded' | 'own'>('awarded')
+  // ONE LIST, FILTERED - not two tabs. It opened on Awarded, so somebody whose
+  // work is their own jobs landed on an empty tab every time. All is the
+  // default; the pills narrow it.
+  const [filter, setFilter] = useState<JobFilter>('all')
   const [showForm, setShowForm] = useState(false)
   const [creating, setCreating] = useState(false)
 
@@ -161,124 +164,145 @@ export default function MyJobsPage() {
           <p className="text-sm text-muted-fg mt-0.5">Projects you're working on - awarded and your own.</p>
         </div>
         {!cannotCreate && (
-          <Button onClick={() => { setActiveTab('own'); setShowForm(true) }} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Project</Button>
+          <Button onClick={() => setShowForm(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Project</Button>
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-line overflow-x-auto">
+      {/* Filter pills. A strip that does not fit scrolls, with the fade. */}
+      <div className="scroll-fade flex gap-2 overflow-x-auto pb-1">
         {([
-          { key: 'awarded', label: 'Awarded Jobs', count: awarded.length, icon: Award },
-          { key: 'own', label: 'My Projects', count: own.length, icon: FolderOpen },
-        ] as const).map(t => {
-          const Icon = t.icon
-          return (
-            <button key={t.key} onClick={() => setActiveTab(t.key)}
-              className={cn('shrink-0 whitespace-nowrap flex items-center gap-2 px-3 sm:px-5 py-2.5 text-sm font-medium transition-colors',
-                activeTab === t.key ? 'border-b-2 border-accent text-accent-fg -mb-px' : 'text-muted-fg hover:text-ink-soft')}>
-              <Icon className="h-4 w-4" />
-              {t.label}
-              {t.count > 0 && (
-                <span className={cn('whitespace-nowrap text-xs rounded-full px-1.5 py-0.5 font-semibold min-w-[20px] text-center',
-                  activeTab === t.key ? 'bg-accent-tint text-accent-fg' : 'bg-muted text-muted-fg')}>
-                  {t.count}
-                </span>
-              )}
-            </button>
-          )
-        })}
+          { key: 'all', label: 'All', count: own.length + awarded.length },
+          { key: 'own', label: 'My projects', count: own.length },
+          { key: 'awarded', label: 'Awarded', count: awarded.length },
+        ] as const).map(t => (
+          <button key={t.key} type="button" onClick={() => setFilter(t.key)} aria-pressed={filter === t.key}
+            className={cn('shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors',
+              filter === t.key ? 'bg-accent-tint border-accent/40 text-accent-fg' : 'bg-panel border-line text-muted-fg hover:text-ink-soft')}>
+            {t.label}
+            <span className="text-xs tabular-nums opacity-80">{t.count}</span>
+          </button>
+        ))}
       </div>
 
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
-      ) : activeTab === 'awarded' ? (
-        awarded.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
-            <Award className="h-8 w-8 text-faint mx-auto mb-3" />
-            <p className="text-sm font-medium text-muted-fg">No awarded jobs yet</p>
-            <p className="text-xs text-faint mt-1">When a GC awards you a bid, it will appear here.</p>
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {awarded.map(sub => {
-              const proj = sub.projects
-              return (
-                <Link key={sub.id} href={`/my-jobs/${proj.id}`}
-                  className="flex items-center gap-3 sm:gap-4 bg-panel rounded-xl border border-line px-4 sm:px-5 py-4 hover:border-accent hover:shadow-sm transition-all group">
-                  <div className="h-10 w-10 rounded-lg bg-accent-tint border border-accent/20 flex items-center justify-center shrink-0">
-                    <Award className="h-5 w-5 text-accent-fg" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-ink">{proj.name}</span>
-                      <span className="whitespace-nowrap text-xs bg-accent-tint border border-accent/40 text-accent-fg rounded-full px-2 py-0.5 font-medium">{sub.trade}</span>
-                      <span className={cn('whitespace-nowrap text-xs rounded-full px-2 py-0.5 font-medium border',
-                        sub.status === 'active' ? 'bg-success-tint border-success/30 text-success' :
-                        sub.status === 'completed' ? 'bg-surface border-line text-muted-fg' :
-                        'bg-warn-tint border-warn/30 text-warn')}>
-                        {sub.status}
-                      </span>
-                    </div>
-                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 text-xs text-faint">
-                      {proj.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{proj.address}</span>}
-                      {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(proj.start_date)}</span>}
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="font-bold text-ink">{contractAmountLabel(sub.contract_amount, 'Price TBC')}</p>
-                    <p className="text-xs text-faint capitalize">{proj.type?.replace('_', ' ')}</p>
-                  </div>
-                  <ChevronRight className="h-4 w-4 text-faint group-hover:text-accent-fg transition-colors shrink-0" />
-                </Link>
-              )
-            })}
-          </div>
-        )
       ) : (
-        own.length === 0 ? (
-          <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
-            <FolderOpen className="h-8 w-8 text-faint mx-auto mb-3" />
-            <p className="text-sm font-medium text-muted-fg">No projects yet</p>
-            {cannotCreate ? (
-              <p className="text-xs text-faint mt-1">Your account shows the jobs you are invited to. It cannot create jobs of its own.</p>
-            ) : (
-              <>
-                <p className="text-xs text-faint mt-1">Create and manage your own projects - permits, inspections, plans, daily logs, and more.</p>
-                <button onClick={() => setShowForm(true)} className="mt-4 text-sm text-accent-fg hover:underline font-medium">
-                  + Create your first project
-                </button>
-              </>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-2">
-            {own.map(proj => (
-              <Link key={proj.id} href={`/projects/${proj.id}`}
-                className="flex items-center gap-4 bg-panel rounded-xl border border-line px-5 py-4 hover:border-accent hover:shadow-sm transition-all group">
-                <div className="h-10 w-10 rounded-lg bg-info-tint border border-blue-100 flex items-center justify-center shrink-0">
-                  <FolderOpen className="h-5 w-5 text-info" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-ink">{proj.name}</span>
-                    <span className={cn('whitespace-nowrap text-xs rounded-full px-2 py-0.5 font-medium border',
-                      proj.status === 'active' ? 'bg-success-tint border-success/30 text-success' :
-                      proj.status === 'completed' ? 'bg-surface border-line text-muted-fg' :
-                      'bg-warn-tint border-warn/30 text-warn')}>
-                      {proj.status}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 mt-0.5 text-xs text-faint">
-                    {proj.customers?.name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{proj.customers.name}</span>}
-                    {proj.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{proj.address}</span>}
-                    {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(proj.start_date)}</span>}
-                  </div>
-                </div>
-                <ChevronRight className="h-4 w-4 text-faint group-hover:text-accent-fg transition-colors shrink-0" />
-              </Link>
-            ))}
-          </div>
-        )
+        (() => {
+          const showOwn = filter !== 'awarded'
+          const showAwarded = filter !== 'own'
+          const rows = (showOwn ? own.length : 0) + (showAwarded ? awarded.length : 0)
+          if (rows === 0) {
+            return (
+              <EmptyJobs
+                filter={filter}
+                cannotCreate={cannotCreate}
+                onCreate={() => setShowForm(true)}
+              />
+            )
+          }
+          return (
+            <div className="space-y-2">
+              {showOwn && own.map(proj => <OwnRow key={`own-${proj.id}`} proj={proj} />)}
+              {showAwarded && awarded.map(sub => <AwardedRow key={`awarded-${sub.id}`} sub={sub} />)}
+            </div>
+          )
+        })()
+      )}
+    </div>
+  )
+}
+
+type JobFilter = 'all' | 'own' | 'awarded'
+
+function statusPill(status: string) {
+  return cn('whitespace-nowrap text-xs rounded-full px-2 py-0.5 font-medium border',
+    status === 'active' ? 'bg-success-tint border-success/30 text-success' :
+    status === 'completed' ? 'bg-surface border-line text-muted-fg' :
+    'bg-warn-tint border-warn/30 text-warn')
+}
+
+// Hoisted, never declared inside the page: a component declared in a
+// component is a new type on every render and React rebuilds its subtree.
+function AwardedRow({ sub }: { sub: AwardedJob }) {
+  const proj = sub.projects
+  return (
+    <Link href={`/my-jobs/${proj.id}`}
+      className="flex items-center gap-3 sm:gap-4 bg-panel rounded-xl border border-line px-4 sm:px-5 py-4 hover:border-accent hover:shadow-sm transition-all group">
+      <div className="h-10 w-10 rounded-lg bg-accent-tint border border-accent/20 flex items-center justify-center shrink-0">
+        <Award className="h-5 w-5 text-accent-fg" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-ink">{proj.name}</span>
+          <span className="whitespace-nowrap text-xs bg-accent-tint border border-accent/40 text-accent-fg rounded-full px-2 py-0.5 font-medium">{sub.trade}</span>
+          <span className={statusPill(sub.status)}>{sub.status}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 text-xs text-faint">
+          <span className="whitespace-nowrap">Awarded</span>
+          {proj.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{proj.address}</span>}
+          {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(proj.start_date)}</span>}
+        </div>
+      </div>
+      <div className="shrink-0 text-right">
+        <p className="font-bold text-ink">{contractAmountLabel(sub.contract_amount, 'Price TBC')}</p>
+        <p className="text-xs text-faint capitalize">{proj.type?.replace('_', ' ')}</p>
+      </div>
+      <ChevronRight className="h-4 w-4 text-faint group-hover:text-accent-fg transition-colors shrink-0" />
+    </Link>
+  )
+}
+
+function OwnRow({ proj }: { proj: OwnProject }) {
+  return (
+    <Link href={`/projects/${proj.id}`}
+      className="flex items-center gap-3 sm:gap-4 bg-panel rounded-xl border border-line px-4 sm:px-5 py-4 hover:border-accent hover:shadow-sm transition-all group">
+      <div className="h-10 w-10 rounded-lg bg-info-tint border border-blue-100 flex items-center justify-center shrink-0">
+        <FolderOpen className="h-5 w-5 text-info" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-ink">{proj.name}</span>
+          <span className={statusPill(proj.status)}>{proj.status}</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5 text-xs text-faint">
+          <span className="whitespace-nowrap">My project</span>
+          {proj.customers?.name && <span className="flex items-center gap-1"><User className="h-3 w-3" />{proj.customers.name}</span>}
+          {proj.address && <span className="flex items-center gap-1"><MapPin className="h-3 w-3" />{proj.address}</span>}
+          {proj.start_date && <span className="flex items-center gap-1"><Calendar className="h-3 w-3" />{formatDate(proj.start_date)}</span>}
+        </div>
+      </div>
+      <ChevronRight className="h-4 w-4 text-faint group-hover:text-accent-fg transition-colors shrink-0" />
+    </Link>
+  )
+}
+
+function EmptyJobs({ filter, cannotCreate, onCreate }: { filter: JobFilter; cannotCreate: boolean; onCreate: () => void }) {
+  if (filter === 'awarded') {
+    return (
+      <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
+        <Award className="h-8 w-8 text-faint mx-auto mb-3" />
+        <p className="text-sm font-medium text-muted-fg">No awarded jobs yet</p>
+        <p className="text-xs text-faint mt-1">When a GC awards you a bid, it will appear here.</p>
+      </div>
+    )
+  }
+  return (
+    <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
+      <FolderOpen className="h-8 w-8 text-faint mx-auto mb-3" />
+      <p className="text-sm font-medium text-muted-fg">{filter === 'all' ? 'No jobs yet' : 'No projects yet'}</p>
+      {cannotCreate ? (
+        <p className="text-xs text-faint mt-1">Your account shows the jobs you are invited to. It cannot create jobs of its own.</p>
+      ) : (
+        <>
+          <p className="text-xs text-faint mt-1">
+            {filter === 'all'
+              ? 'Jobs a GC awards you appear here, beside the projects you run yourself.'
+              : 'Create and manage your own projects - permits, inspections, plans, daily logs, and more.'}
+          </p>
+          <button onClick={onCreate} className="mt-4 text-sm text-accent-fg hover:underline font-medium">
+            + Create your first project
+          </button>
+        </>
       )}
     </div>
   )

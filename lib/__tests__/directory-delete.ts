@@ -87,4 +87,18 @@ ok(/emailedCompanies/.test(invites) && /inAppOnly: true/.test(invites),
 ok(/notEmailed\.length \? notify\(\{ \.\.\.bell, userIds: notEmailed \}\) : null/.test(invites),
   '...and one we could NOT email still gets the notification email, as the fallback rather than a duplicate')
 
+// DELETING AN ENTRY MUST NOT DELETE THE PEOPLE IN IT. profiles.company_id is
+// ON DELETE CASCADE, and a sub invited before they had an account lives inside
+// the GC's entry - so a Directory delete removed their sign-in. Refused (409)
+// before the delete, as is an entry holding an address book of its own
+// (added_by_company_id cascades since migration 155); a failed count refuses.
+const del = route.slice(route.indexOf('export async function DELETE'))
+const pre = del.indexOf(".from('profiles').select('id', { count: 'exact', head: true }).eq('company_id', params.companyId)")
+const bookAt = del.indexOf(".eq('added_by_company_id', params.companyId)")
+const delAt = del.indexOf(".from('companies').delete()")
+ok(pre > 0 && bookAt > 0 && delAt > 0 && pre < delAt && bookAt < delAt,
+  'Directory delete counts the people and the address book in an entry BEFORE deleting it')
+ok(/if \(people\.error \|\| book\.error\)/.test(del) && /\(people\.count \?\? 0\) > 0 \|\| \(book\.count \?\? 0\) > 0/.test(del),
+  '...refuses when either is there, and refuses when it could not count')
+
 done()

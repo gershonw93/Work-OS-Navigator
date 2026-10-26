@@ -8,7 +8,6 @@ import { TRIAL_DAYS } from '@/lib/plans'
 import { dayWords } from '@/lib/dates'
 import { resolveCopy } from '@/lib/email-copy-read'
 import { paragraphs } from '@/lib/email-copy'
-import { escapeLike } from '@/lib/personal-access'
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('Authorization')
@@ -103,27 +102,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, created: false, trialStarted: false })
   }
 
-  // Check if a company already exists with this email (manually added to directory)
-  // If so, link to that company instead of creating a duplicate
-  const { data: existingCompany } = await admin
+  // ALWAYS THE PERSON'S OWN COMPANY - NEVER ONE FOUND BY EMAIL.
+  //
+  // This joined any company whose `contact_email` matched, across the whole
+  // table, and made the new account its ADMIN. The likeliest match is a GC's
+  // Directory entry for this person - the GC's private record ABOUT them - so
+  // a sub signing up became the admin of a row in somebody else's address
+  // book. On the live data 15 contact emails sit on more than one company, so
+  // even the "right" match was a guess. A GC that already works with them
+  // links its entry to this company later, with the sub's consent
+  // (docs/proposals/sub-company-link.md); nothing is ever joined by a match.
+  const { data: company, error: companyError } = await admin
     .from('companies')
-    .select('id, type')
-    .ilike('contact_email', escapeLike(email))
+    .insert({ name: companyName, type: companyType, contact_email: email })
+    .select()
     .single()
 
-  let company = existingCompany
-
-  if (!company) {
-    const { data: newCompany, error: companyError } = await admin
-      .from('companies')
-      .insert({ name: companyName, type: companyType, contact_email: email })
-      .select()
-      .single()
-
-    if (companyError) {
-      return NextResponse.json({ error: companyError.message }, { status: 500 })
-    }
-    company = newCompany
+  if (companyError) {
+    return NextResponse.json({ error: companyError.message }, { status: 500 })
   }
 
   if (!company) {

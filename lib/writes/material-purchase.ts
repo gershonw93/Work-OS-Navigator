@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { escapeLike } from '@/lib/personal-access'
 import { logActivity } from '@/lib/log-activity'
 import { withVia, type WriteResult } from './result'
 
@@ -28,7 +29,14 @@ export async function createMaterialPurchase(
   // Optionally save the store as a supplier in the Directory (find or create by name).
   let store_company_id: string | null = null
   if (save_store && store_name?.trim()) {
-    const { data: existing } = await db.from('companies').select('id').ilike('name', store_name.trim()).limit(1).maybeSingle()
+    // In THIS company's Directory only, and escaped. It matched a bare name
+    // across every company on the platform, so a receipt from "Home Depot"
+    // attached itself to whichever company's row of that name came back first -
+    // another tenant's Directory entry included.
+    const { data: existing } = await db.from('companies').select('id')
+      .eq('added_by_company_id', companyId)
+      .ilike('name', escapeLike(store_name.trim()))
+      .limit(1).maybeSingle()
     if (existing) store_company_id = existing.id
     else {
       const { data: created } = await db.from('companies').insert({

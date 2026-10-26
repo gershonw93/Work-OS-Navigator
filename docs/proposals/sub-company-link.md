@@ -1,8 +1,9 @@
 # One real sub company, linked from each GC's Directory (proposal)
 
-Status: **PROPOSAL FOR REVIEW - nothing here is built or applied.**
-The SQL is in `sub-company-link.sql` beside this file, deliberately outside
-`supabase/migrations/` so nothing can apply it by accident.
+Status (Oct 26, 2026): **the `directory_links` table design is APPROVED by the
+owner; section 6 has SHIPPED (with migration 155, the FK). Steps 2-6 of the
+build order are not built yet.** Still open: decisions 2 and 3 in section 5
+(the sub's read-only bill history, and which compliance copies a GC keeps).
 
 The decision this implements (the owner's, Oct 2026):
 
@@ -220,12 +221,23 @@ already viewed (recommendation: no - it keeps job-tied copies only).
 
 ---
 
-## 6. Also needed, regardless of the link (small, can ship first)
+## 6. Also needed, regardless of the link - SHIPPED
 
-- `complete-signup` and `settings` stop joining a company by email.
-- Material purchase stops matching a store by name across every company
-  (scope to the buyer's own book, escape the name).
-- `companies.added_by_company_id` gets its FK and index.
+- `complete-signup` always creates the person's own company; `settings` no
+  longer joins one by email.
+- Material purchase matches a store by name only inside the buyer's own
+  Directory, escaped.
+- `companies.added_by_company_id` has its FK, a not-self check and an index
+  (migration 155).
+- Found while doing it, and fixed in the same change:
+  - **A role was taken from `user_metadata`, which the user can write.**
+    `getActor` started from it and kept it when no profile row existed, and
+    `/api/settings` created a missing profile with the metadata's company and
+    role. Roles now come from the profile only; a missing profile is filled
+    only from a pending `company_invites` row.
+  - **Deleting a Directory entry deleted the people inside it**
+    (`profiles.company_id` cascades). The delete now refuses an entry that has
+    people signed in under it or an address book of its own.
 
 ## 7. Build order once approved
 

@@ -111,9 +111,31 @@ ok(!/\buserId\b/.test(signup) && /const targetId = user\.id/.test(signup),
 const bodyFields = (signup.match(/const \{([^}]*)\} = await request\.json\(\)/)?.[1] ?? '').split(',').map(f => f.trim())
 ok(bodyFields.includes('companyName') && !bodyFields.includes('email') && !bodyFields.includes('userId') &&
    /const email = \(user\.email \?\? ''\)\.trim\(\)/.test(signup),
-  '...and the address that picks an existing company to join is the verified one, not the body\'s')
-ok(/\.ilike\('contact_email', escapeLike\(email\)\)/.test(signup),
-  '...matched the way a typed contact address is stored')
+  '...and the address on the account is the verified one, not the body\'s')
+// NEVER JOINS A COMPANY BY EMAIL. It did - any company whose contact_email
+// matched, as ADMIN, which was usually a GC's Directory entry for the person.
+// Section 6 of docs/proposals/sub-company-link.md. Same for /api/settings,
+// which also took company and role out of user_metadata (writable by the user).
+ok(!/from\('companies'\)[^;]*contact_email/.test(signup.replace(/\.insert\(\{[^}]*\}\)/g, '')),
+  'complete-signup never looks a company up by contact email')
+const settingsSrc = code('app/api/settings/route.ts')
+ok(!/\.eq\('contact_email'|\.ilike\('contact_email'/.test(settingsSrc),
+  'settings never joins a company by contact email')
+ok(!/user_metadata\?\.(company_id|role)/.test(settingsSrc),
+  'settings never takes a company or a role from user_metadata, which the user can write')
+ok(/from\('company_invites'\)[\s\S]{0,200}\.eq\('status', 'pending'\)/.test(settingsSrc) && /needsSignup: true/.test(settingsSrc),
+  '...a missing profile is filled only from a pending invite, else sent to finish signup')
+// A ROLE COMES FROM THE PROFILE, NEVER FROM user_metadata. getActor - the
+// check behind every gated route - started from the metadata role and kept it
+// when no profile row came back, so an account with no profile was whatever
+// role it wrote into its own metadata. Scanned across every route and lib file.
+for (const f of ['lib/server-permissions.ts', 'app/api/me/permissions/route.ts', 'app/api/settings/route.ts', 'app/api/projects/[id]/plans/[planId]/file/route.ts']) {
+  ok(!/user_metadata\??\.role/.test(code(f)), `${f}: no role is read out of user_metadata`)
+}
+ok(/let role = 'read_only'/.test(code('lib/server-permissions.ts')), 'actorForUser: no profile means the least a role can be')
+const purchase = code('lib/writes/material-purchase.ts')
+ok(/\.eq\('added_by_company_id', companyId\)\s*\.ilike\('name', escapeLike\(store_name\.trim\(\)\)\)/.test(purchase),
+  'a saved store is matched by name only inside the buyer\'s own Directory, escaped')
 
 // ── invite/accept POST ──────────────────────────────────────────────────────
 const accept = code('app/api/invite/accept/route.ts')

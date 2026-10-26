@@ -514,6 +514,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     summary: 'What a sub sees on a job they were awarded, and what they can do there.',
     blocks: [
       { type: 'text', text: 'BEFORE THE AWARD a sub sees only the quote request - the scope, the plans you attached and the conversation with you. Nothing else about the job.' },
+      { type: 'text', text: 'ONE LIST. My Jobs opens on All - the jobs a GC awarded them and the projects they run themselves, together - and the pills along the top narrow it to My projects or Awarded.' },
       { type: 'text', text: 'ONCE AWARDED, the job appears on their My Jobs page with: the job\'s Schedule (every trade in date order, theirs marked), their own tasks, RFIs (they can submit them, with a change order attached if they need one), inspections, the bills they have sent you, and compliance.' },
       { type: 'steps', items: [
         'Running late? On the Schedule tab, the sub presses Report a delay on their own line, says how many days and why.',

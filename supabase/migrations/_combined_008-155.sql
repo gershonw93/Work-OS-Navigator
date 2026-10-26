@@ -4675,3 +4675,22 @@ CREATE TABLE IF NOT EXISTS quickbooks_inbound_events (
 ALTER TABLE quickbooks_inbound_events ENABLE ROW LEVEL SECURITY;
 CREATE INDEX IF NOT EXISTS idx_qbo_inbound_pending ON quickbooks_inbound_events (status, received_at);
 CREATE INDEX IF NOT EXISTS idx_qbo_inbound_company ON quickbooks_inbound_events (company_id, received_at DESC);
+
+-- 155_directory_added_by_fk.sql
+ALTER TABLE companies ADD COLUMN IF NOT EXISTS added_by_company_id uuid;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'companies_added_by_company_id_fkey') THEN
+    -- CASCADE: an entry is a fact about the company whose book it is in.
+    ALTER TABLE companies
+      ADD CONSTRAINT companies_added_by_company_id_fkey
+      FOREIGN KEY (added_by_company_id) REFERENCES companies (id) ON DELETE CASCADE;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'companies_added_by_not_self') THEN
+    ALTER TABLE companies
+      ADD CONSTRAINT companies_added_by_not_self CHECK (added_by_company_id IS DISTINCT FROM id);
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_companies_added_by ON companies (added_by_company_id);
