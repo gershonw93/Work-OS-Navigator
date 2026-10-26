@@ -28,9 +28,12 @@ const lerp = (a: number, b: number, t: number) => a + (b - a) * t
 // and then one screen, and only the CLASSES differ by breakpoint - the desktop
 // choreography is driven by CSS variables read under `md:`.
 //
-// THE SCREEN IS A PICTURE, NOT CONTENT: `aria-hidden` and `data-nosnippet`, and
-// no headings inside it. Google honours data-nosnippet; the rest skip what is
-// hidden from the accessibility tree.
+// THE SCREEN IS A PICTURE, NOT CONTENT. The first fix wrapped the live HTML in
+// aria-hidden + data-nosnippet, and a plain fetch still returned 120 lines of
+// sidebar, counters and "0, $0, $0" (the count-up started at zero and waited
+// for a scroll no crawler makes). It is an image now (ProjectsMock ->
+// MockImage), with alt text, so the text layer is the headline, the one
+// definition and the two buttons - and nothing else.
 export function ScrollHero() {
   const ref = useRef<HTMLDivElement>(null)
   const [p, setP] = useState(0)
@@ -138,8 +141,6 @@ export function ScrollHero() {
             mock overfills the screen and clips, so the monitor never shows
             empty glass. */}
         <div
-          aria-hidden="true"
-          data-nosnippet=""
           className={cn(
             'px-4 pb-14',
             animate && 'md:absolute md:inset-0 md:flex md:items-center md:justify-center md:p-0 md:[opacity:var(--hero-app-o)]',
@@ -154,15 +155,16 @@ export function ScrollHero() {
                 )}
               >
                 {/* Browser chrome on a phone; the monitor bezel replaces it on a desktop */}
-                <div className={cn('flex items-center gap-2 px-3 py-2 border-b border-line-soft bg-surface', animate && 'md:hidden')}>
+                <div aria-hidden="true" className={cn('flex items-center gap-2 px-3 py-2 border-b border-line-soft bg-surface', animate && 'md:hidden')}>
                   <span className="h-3 w-3 rounded-full bg-danger-solid/70" />
                   <span className="h-3 w-3 rounded-full bg-warn/70" />
                   <span className="h-3 w-3 rounded-full bg-success-solid/70" />
-                  <div className="ml-3 flex-1 max-w-md mx-auto rounded-md bg-panel border border-line px-3 py-1 text-[11px] text-faint text-center truncate">app.sytenav.com/projects</div>
+                  {/* The address is drawn by CSS, so it is not a word in the page. */}
+                  <div className="ml-3 flex-1 max-w-md mx-auto rounded-md bg-panel border border-line px-3 py-1 text-[11px] text-faint text-center truncate before:content-['app.sytenav.com/projects']" />
                 </div>
                 {/* Capped so the mock always overfills the glass, even on tall displays */}
                 <div className={cn('h-[380px] overflow-hidden bg-surface', animate && 'md:h-[76vh] md:max-h-[940px] md:rounded-lg')}>
-                  <ProjectsMock />
+                  <ProjectsMock priority />
                 </div>
               </div>
               {animate && (
@@ -181,7 +183,8 @@ export function ScrollHero() {
             className="absolute bottom-6 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center text-faint [opacity:var(--hero-hint-o)]"
             aria-hidden
           >
-            <span className="font-mono text-[10px] uppercase tracking-[0.2em] mb-1">Scroll</span>
+            {/* CSS-drawn for the same reason: "Scroll" was an orphan word in the text. */}
+            <span className="font-mono text-[10px] uppercase tracking-[0.2em] mb-1 before:content-['Scroll']" />
             <ChevronDown className="h-4 w-4 animate-bounce" />
           </div>
         )}

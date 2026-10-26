@@ -1,4 +1,5 @@
 import { Sparkles, AlertTriangle, Check, Minus } from 'lucide-react'
+import { MockImage } from './mock-image'
 
 // AI bid comparison: three quotes side by side with gap analysis and a pick.
 const ROWS = [
@@ -15,9 +16,11 @@ function Cell({ v }: { v: string }) {
   return <span className="font-mono text-[11px] text-ink-soft">{v}</span>
 }
 
-export function CompareMock() {
+// The source of a picture: rendered by scripts/render-mocks.mjs, shown as
+// CompareMock below. Live HTML put every line item into the page's text.
+export function CompareScreen() {
   return (
-    <div aria-hidden="true" data-nosnippet="" className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
+    <div className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
       <div className="flex items-center justify-between mb-4">
         <span className="text-sm font-semibold text-ink">Compare bids · Electrical</span>
         <span className="inline-flex items-center gap-1 text-[11px] text-accent-fg font-semibold">
@@ -71,4 +74,8 @@ export function CompareMock() {
       </div>
     </div>
   )
+}
+
+export function CompareMock() {
+  return <MockImage name="compare" alt="SyteNav comparing three electrical bids side by side and flagging what each one leaves out" />
 }

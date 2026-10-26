@@ -1,4 +1,5 @@
 import { AlertTriangle, CalendarDays, Sparkles } from 'lucide-react'
+import { MockImage } from './mock-image'
 
 // A subcontractor's week across multiple jobs, with a crew-overlap warning.
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const
@@ -10,9 +11,11 @@ const JOBS = [
   { name: 'Riverside · trim-out', start: 5, span: 1, tone: 'bg-success-solid/80 text-surface', crew: '2 crew' },
 ] as const
 
-export function ScheduleMock() {
+// The source of a picture: rendered by scripts/render-mocks.mjs, shown as
+// ScheduleMock below. Live HTML put every line item into the page's text.
+export function ScheduleScreen() {
   return (
-    <div aria-hidden="true" data-nosnippet="" className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
+    <div className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
       <div className="flex items-center justify-between mb-4">
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
           <CalendarDays className="h-4 w-4 text-accent-fg" /> My week · all jobs
@@ -59,4 +62,8 @@ export function ScheduleMock() {
       </div>
     </div>
   )
+}
+
+export function ScheduleMock() {
+  return <MockImage name="schedule" alt="SyteNav schedule warning that two jobs need the same crew on the same days" />
 }

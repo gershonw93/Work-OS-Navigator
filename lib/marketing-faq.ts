@@ -16,7 +16,8 @@
 //   - nothing here states a fact about another vendor. A comparison claim needs
 //     a link to that vendor's own page, and the guides carry those - so the
 //     Procore / Buildertrend answer says what SyteNav does and links to them;
-//   - "does it work offline" is answered honestly: no (Help, install-the-app);
+//   - "does it work offline" is answered honestly: no (Help, install-the-app),
+//     and stops there - advice on when not to use the app is not an answer;
 //   - the platforms are read from lib/app-stores.ts: no iPhone listing, no
 //     "on iPhone".
 // ─────────────────────────────────────────────────────────────────────────────
@@ -65,7 +66,7 @@ export const FAQ_PRICING: FaqItem = {
 
 export const FAQ_OFFLINE: FaqItem = {
   q: 'Does SyteNav work offline?',
-  a: 'No. SyteNav needs a connection - it is not an offline app. On a weak signal it is slow rather than broken, and on a phone it runs as an installed app. If you are about to lose signal completely, write the daily log once you are back in range rather than lose what you typed.',
+  a: 'No. SyteNav needs a connection - it is not an offline app. On a weak signal it is slower, not broken.',
 }
 
 export const FAQ_AI_SCAN: FaqItem = {

@@ -1,4 +1,5 @@
 import { Banknote, Check, Clock, Landmark } from 'lucide-react'
+import { MockImage } from './mock-image'
 
 // Client payments & escrow for one project: what's in, what's held, what's due.
 const STAGES = [
@@ -15,12 +16,14 @@ const BADGE: Record<string, string> = {
   Upcoming: 'bg-muted text-muted-fg',
 }
 
-export function MoneyMock() {
+// The source of a picture: rendered by scripts/render-mocks.mjs, shown as
+// MoneyMock below. Live HTML put every line item into the page's text.
+export function MoneyScreen() {
   return (
-    <div aria-hidden="true" data-nosnippet="" className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
+    <div className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl text-left">
       <div className="flex items-center justify-between mb-4">
         <span className="inline-flex items-center gap-2 text-sm font-semibold text-ink">
-          <Landmark className="h-4 w-4 text-accent-fg" /> Payments · Sample Remodel
+          <Landmark className="h-4 w-4 text-accent-fg" /> Payments · Electrical · Demo Office Fit-out
         </span>
         <span className="text-[11px] text-faint font-mono">Contract $148,500</span>
       </div>
@@ -71,4 +74,8 @@ export function MoneyMock() {
       </div>
     </div>
   )
+}
+
+export function MoneyMock() {
+  return <MockImage name="money" alt="SyteNav payments screen for one job, showing what has been received, held and owed" />
 }

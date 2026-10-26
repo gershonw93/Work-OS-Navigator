@@ -7,7 +7,7 @@ import {
   CalendarDays, BookOpen, CheckSquare, Clock, Camera, ShieldCheck, Wrench, ClipboardCheck,
   UsersRound, FolderOpen, Users, Lock, ArrowRight, FileText, Check, ReceiptText,
 } from 'lucide-react'
-import { QuoteScanMock } from './quote-scan-mock'
+import { CompareMock } from './compare-mock'
 import { MoneyMock } from './money-mock'
 import { ScheduleMock } from './schedule-mock'
 
@@ -91,7 +91,9 @@ const TABS: { key: string; label: string; blurb: string; items: Item[]; visual: 
       { icon: FileText, title: 'Invoice & permit reading', body: 'Key fields pulled off invoices and permits automatically. No retyping.' },
       { icon: Sparkles, title: 'Smart recommendations', body: 'The best bid for your requirements, flagged before you award.' },
     ],
-    visual: <QuoteScanMock />,
+    // NOT the quote scan: the homepage already shows that one in the AI band,
+    // and the same picture twice reads as a page with one idea.
+    visual: <CompareMock />,
   },
   {
     key: 'money',

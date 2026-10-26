@@ -1,38 +1,23 @@
-'use client'
-
 import {
   Search, Plus, MapPin, User, Calendar, Pencil, Trash2, LayoutGrid, List, Map as MapIcon,
   LayoutDashboard, FolderKanban, Users, BookUser, Folder, Wrench, ShoppingCart, CheckSquare,
   CalendarDays, DollarSign, Bell, Building2, SlidersHorizontal, ArrowUpDown, ChevronsUpDown,
 } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
 import { SyteNavLogo } from '@/components/ui/logo'
+import { SAMPLE_PROJECTS as PROJECTS, STATUS_LABEL, fmtMoney, type SampleStatus as Status } from './sample-company'
+import { MockImage } from './mock-image'
 
 // The Projects screen, the star of the scroll hero. It is drawn to look like
 // the REAL screen (app/(dashboard)/projects/page.tsx) - sidebar, stat boxes,
 // toolbar, and the same card: status strip, type, address, client, dates,
 // task progress, and the Contract / Paid / Outstanding tiles. A marketing
 // picture of a screen the product does not have is a promise it cannot keep.
-// Invented jobs, no real data - and NAMED so nobody could mistake one for a
-// customer. "Summit Medical Group" read like a client list to anything that
-// quoted the page; "Sample Residences" cannot.
-type Status = 'active' | 'planning' | 'on_hold' | 'completed'
-
-const PROJECTS: {
-  name: string; type: string; address: string; client: string; status: Status
-  start: number; months: number; done: number; tasks: number
-  contract: number; paid: number; owed: number
-}[] = [
-  { name: 'Sample Residences', type: 'Residential', address: '100 Sample St, Anytown', client: 'Sample Client LLC', status: 'active', start: -5, months: 11, done: 14, tasks: 19, contract: 1200000, paid: 610000, owed: 84000 },
-  { name: 'Demo Lofts', type: 'Commercial', address: '200 Example Ave, Anytown', client: 'Demo Client Partners', status: 'active', start: -3, months: 14, done: 9, tasks: 16, contract: 2400000, paid: 920000, owed: 140000 },
-  { name: 'Sample Commercial', type: 'Commercial', address: '300 Sample Blvd, Anytown', client: 'Sample Owner LLC', status: 'planning', start: 2, months: 12, done: 1, tasks: 8, contract: 3100000, paid: 0, owed: 0 },
-  { name: 'Demo Townhomes', type: 'Residential', address: '400 Demo Rd, Anytown', client: 'Sample Homeowner', status: 'active', start: -9, months: 11, done: 21, tasks: 23, contract: 880000, paid: 702000, owed: 36000 },
-  { name: 'Demo Duplex', type: 'Residential', address: '500 Example Ln, Anytown', client: 'Demo Homeowner', status: 'on_hold', start: -2, months: 8, done: 2, tasks: 9, contract: 310000, paid: 45000, owed: 12000 },
-  { name: 'Demo Office Fit-out', type: 'Commercial', address: '600 Sample Ave, Anytown', client: 'Sample Tenant Co.', status: 'active', start: -4, months: 7, done: 8, tasks: 12, contract: 640000, paid: 330000, owed: 58000 },
-  { name: 'Sample Retail Unit 4', type: 'Commercial', address: '700 Demo Plaza, Anytown', client: 'Demo Retail LLC', status: 'planning', start: 1, months: 6, done: 0, tasks: 4, contract: 1700000, paid: 0, owed: 0 },
-  { name: 'Sample Kitchen Reno', type: 'Residential', address: '800 Example St, Anytown', client: 'Sample Homeowner', status: 'completed', start: -7, months: 5, done: 11, tasks: 11, contract: 190000, paid: 190000, owed: 0 },
-  { name: 'Demo Warehouse', type: 'Industrial', address: '900 Sample Way, Anytown', client: 'Demo Logistics Inc.', status: 'active', start: -6, months: 16, done: 10, tasks: 22, contract: 2900000, paid: 1100000, owed: 210000 },
-]
+//
+// THIS IS THE SOURCE OF A PICTURE, NOT A PAGE ELEMENT. `ProjectsScreen` is
+// rendered once by scripts/render-mocks.mjs and screenshotted; the website
+// shows `ProjectsMock`, the image. As live HTML it was the first 120 lines of
+// text a crawler read on the homepage - and aria-hidden does not take text out
+// of a fetch. The jobs are the shared sample company (sample-company.ts).
 
 const STATUS_BADGE: Record<Status, string> = {
   active: 'bg-success-tint text-success',
@@ -48,10 +33,6 @@ const STATUS_STRIP: Record<Status, string> = {
   on_hold: 'bg-warn-solid',
   completed: 'bg-muted2',
 }
-const STATUS_LABEL: Record<Status, string> = {
-  active: 'Active', planning: 'Planning', on_hold: 'On hold', completed: 'Completed',
-}
-
 // Dates are offsets from the month the page was built, so the picture never
 // shows a job "starting" two years ago. A fixed month table and UTC: this
 // renders on the server, which must not ask its own machine how to spell a date.
@@ -60,58 +41,6 @@ function monthFrom(offset: number, day: number): string {
   const now = new Date()
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, day))
   return `${MONTHS[d.getUTCMonth()]} ${d.getUTCDate()}, ${d.getUTCFullYear()}`
-}
-
-// Same shape as the real card's fmtMoney.
-function fmtMoney(n: number) {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`
-  return `$${Math.round(n).toLocaleString('en-US')}`
-}
-
-// THE COUNT-UP RUNS ONCE PER PAGE LOAD. The numbers start at zero and the bars
-// empty; the first scroll that happens while this screen is on view starts it,
-// and once it has run it never goes back - scrolling to the top again leaves
-// everything full. A gauge that drains every time you scroll up reads as a
-// screen that lost its data. Reduced motion skips straight to the end, and so
-// does a mock that was never on view (display: none has no size).
-const DURATION = 1400
-const STAGGER = 70
-const ease = (t: number) => 1 - Math.pow(1 - Math.min(Math.max(t, 0), 1), 3)
-
-function useCountUpOnScroll() {
-  const ref = useRef<HTMLDivElement>(null)
-  const [elapsed, setElapsed] = useState(0)
-  useEffect(() => {
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-      setElapsed(Infinity)
-      return
-    }
-    let raf = 0
-    let started = false
-    const inView = () => {
-      const r = ref.current?.getBoundingClientRect()
-      return !!r && r.width > 0 && r.bottom > 0 && r.top < window.innerHeight
-    }
-    const onScroll = () => {
-      if (started || !inView()) return
-      started = true
-      window.removeEventListener('scroll', onScroll)
-      const t0 = performance.now()
-      const tick = (t: number) => {
-        const ms = t - t0
-        setElapsed(ms)
-        if (ms < DURATION + STAGGER * PROJECTS.length) raf = requestAnimationFrame(tick)
-      }
-      raf = requestAnimationFrame(tick)
-    }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => {
-      window.removeEventListener('scroll', onScroll)
-      cancelAnimationFrame(raf)
-    }
-  }, [])
-  return { ref, elapsed }
 }
 
 const NAV = [
@@ -125,12 +54,10 @@ const NAV = [
   { icon: CheckSquare, label: 'Approvals' },
 ]
 
-export function ProjectsMock() {
-  const { ref, elapsed } = useCountUpOnScroll()
-  const head = ease(elapsed / DURATION)
-  const count = (s: Status) => Math.round(PROJECTS.filter(p => p.status === s).length * head)
+export function ProjectsScreen() {
+  const count = (s: Status) => PROJECTS.filter(p => p.status === s).length
   const stats = [
-    { label: 'Total', value: Math.round(PROJECTS.length * head), tone: 'text-ink', on: true },
+    { label: 'Total', value: PROJECTS.length, tone: 'text-ink', on: true },
     { label: 'Active', value: count('active'), tone: 'text-success' },
     { label: 'Planning', value: count('planning'), tone: 'text-info' },
     { label: 'On Hold', value: count('on_hold'), tone: 'text-warn' },
@@ -138,7 +65,7 @@ export function ProjectsMock() {
   ]
 
   return (
-    <div ref={ref} className="bg-panel text-left h-full overflow-hidden flex">
+    <div className="bg-panel text-left h-full overflow-hidden flex">
       {/* Sidebar */}
       <aside className="hidden lg:flex w-44 shrink-0 flex-col border-r border-line bg-panel">
         <div className="flex items-center gap-1.5 px-4 h-11 border-b border-line">
@@ -219,8 +146,8 @@ export function ProjectsMock() {
           {/* Cards - the real card, smaller. Clips at the bottom like a real
               screen, so the hero monitor never shows empty glass. */}
           <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 flex-1 min-h-0 overflow-hidden content-start auto-rows-max">
-            {PROJECTS.map((p, i) => {
-              const e = ease((elapsed - i * STAGGER) / DURATION)
+            {PROJECTS.map(p => {
+              const pct = Math.round((p.done / p.tasks) * 100)
               return (
               <div key={p.name} className="rounded-lg border border-line bg-panel overflow-hidden">
                 <div className={`h-1 ${STATUS_STRIP[p.status]}`} />
@@ -237,25 +164,19 @@ export function ProjectsMock() {
                     <p className="flex items-center gap-1.5 min-w-0"><User className="h-2.5 w-2.5 shrink-0 text-faint" /><span className="truncate">{p.client}</span></p>
                     <p className="flex items-center gap-1.5" suppressHydrationWarning><Calendar className="h-2.5 w-2.5 shrink-0 text-faint" />{monthFrom(p.start, 11)} → {monthFrom(p.start + p.months, 19)}</p>
                   </div>
-                  {(() => {
-                    const final = Math.round((p.done / p.tasks) * 100)
-                    const pct = Math.round(final * e)
-                    return (
-                      <div className="mt-2.5">
-                        <div className="flex items-center justify-between text-[9px] mb-1">
-                          <span className="text-muted-fg">Progress</span>
-                          <span className="font-semibold text-ink-soft">{pct}%<span className="font-normal text-faint"> · {Math.round(p.done * e)}/{p.tasks} tasks</span></span>
-                        </div>
-                        <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
-                          <div className={`h-full rounded-full ${final === 100 && e === 1 ? 'bg-success-solid' : 'bg-accent'}`} style={{ width: `${final * e}%` }} />
-                        </div>
-                      </div>
-                    )
-                  })()}
+                  <div className="mt-2.5">
+                    <div className="flex items-center justify-between text-[9px] mb-1">
+                      <span className="text-muted-fg">Progress</span>
+                      <span className="font-semibold text-ink-soft">{pct}%<span className="font-normal text-faint"> · {p.done}/{p.tasks} tasks</span></span>
+                    </div>
+                    <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                      <div className={`h-full rounded-full ${pct === 100 ? 'bg-success-solid' : 'bg-accent'}`} style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
                   <div className="mt-2.5 grid grid-cols-3 gap-1.5 text-center">
-                    <div className="rounded-md bg-surface py-1"><p className="text-[8px] text-faint">Contract</p><p className="text-[10px] font-semibold text-ink-soft">{fmtMoney(p.contract * e)}</p></div>
-                    <div className="rounded-md bg-success-tint py-1"><p className="text-[8px] text-success/70">Paid</p><p className="text-[10px] font-semibold text-success">{fmtMoney(p.paid * e)}</p></div>
-                    <div className="rounded-md bg-warn-tint py-1"><p className="text-[8px] text-warn/70">Outstanding</p><p className="text-[10px] font-semibold text-warn">{fmtMoney(p.owed * e)}</p></div>
+                    <div className="rounded-md bg-surface py-1"><p className="text-[8px] text-faint">Contract</p><p className="text-[10px] font-semibold text-ink-soft">{fmtMoney(p.contract)}</p></div>
+                    <div className="rounded-md bg-success-tint py-1"><p className="text-[8px] text-success/70">Paid</p><p className="text-[10px] font-semibold text-success">{fmtMoney(p.paid)}</p></div>
+                    <div className="rounded-md bg-warn-tint py-1"><p className="text-[8px] text-warn/70">Outstanding</p><p className="text-[10px] font-semibold text-warn">{fmtMoney(p.owed)}</p></div>
                   </div>
                 </div>
                 <div className="flex items-center justify-between border-t border-line-soft px-3 py-1.5">
@@ -269,5 +190,17 @@ export function ProjectsMock() {
         </div>
       </div>
     </div>
+  )
+}
+
+/** The Projects screen as the website shows it: a picture, with alt text. */
+export function ProjectsMock({ priority = false }: { priority?: boolean }) {
+  return (
+    <MockImage
+      name="projects"
+      alt="SyteNav projects dashboard showing active jobs, budgets and progress"
+      fill
+      priority={priority}
+    />
   )
 }
