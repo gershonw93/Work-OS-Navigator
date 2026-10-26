@@ -6,7 +6,7 @@ import { crumbsFor } from '@/lib/breadcrumbs'
 import { MarketingNav } from '@/components/marketing/marketing-nav'
 import { MarketingFooter } from '@/components/marketing/marketing-footer'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
-import { PLANS } from '@/lib/plans'
+import { PLANS, TRIAL_DAYS } from '@/lib/plans'
 import { SYTENAV_DEFINITION } from '@/lib/definition'
 import { APP_STORE_URL, PLAY_STORE_URL } from '@/lib/app-stores'
 
@@ -75,7 +75,7 @@ const jsonLd = {
         highPrice: Math.max(...PLANS.map(p => p.monthly)),
         offerCount: PLANS.length,
         availability: 'https://schema.org/LimitedAvailability',
-        description: 'Launch pricing, billed per month by active project. Invite-only beta, free while in beta.',
+        description: `Billed per month by active project. Invite-only; once approved, the first ${TRIAL_DAYS} days are free with no card.`,
       },
       publisher: { '@id': `${CANONICAL_ORIGIN}/#organization` },
     },

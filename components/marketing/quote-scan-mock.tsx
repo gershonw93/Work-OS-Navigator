@@ -1,4 +1,5 @@
 import { FileText, ScanLine, Sparkles, Check } from 'lucide-react'
+import { MockImage } from './mock-image'
 
 // "Pile of PDFs in, structured job out." Left: the raw document. Right: the
 // extracted line items and payment schedule. Used on the home dark band and
@@ -19,9 +20,11 @@ const STAGES = [
   ['Final', '15%'],
 ] as const
 
-export function QuoteScanMock() {
+// The source of a picture: rendered by scripts/render-mocks.mjs, shown as
+// QuoteScanMock below. Live HTML put every line item into the page's text.
+export function QuoteScanScreen() {
   return (
-    <div aria-hidden="true" data-nosnippet="" className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl">
+    <div className="rounded-2xl border border-line bg-panel p-4 sm:p-5 shadow-2xl">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 gap-2">
         <span className="inline-flex items-center gap-2 text-xs sm:text-sm text-ink-soft font-mono min-w-0">
@@ -96,4 +99,8 @@ export function QuoteScanMock() {
       </div>
     </div>
   )
+}
+
+export function QuoteScanMock() {
+  return <MockImage name="quote-scan" alt="SyteNav reading a subcontractor's electrical quote into line items, totals and a payment schedule" />
 }

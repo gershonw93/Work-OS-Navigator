@@ -8,6 +8,8 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrowserMock } from './browser-mock'
+import { MockImage } from './mock-image'
+import { SAMPLE_SUMMARY, SAMPLE_PROJECTS, SAMPLE_ACTIVE_BY_SIZE, STATUS_LABEL, fmtMoney, progressPct } from './sample-company'
 
 const NAV = [
   { icon: LayoutDashboard, label: 'Dashboard', path: 'dashboard' },
@@ -90,25 +92,23 @@ export function DashboardMock() {
 
 // ─── Panels ───────────────────────────────────────────────────────────────
 
+const WEEK = [
+  { icon: ShieldCheck, text: 'Rough inspection · Sample Residences', when: 'Thu', tone: 'text-info' },
+  { icon: Banknote, text: 'Draw #2 · Demo Office Fit-out', when: 'Fri', tone: 'text-success' },
+  { icon: Truck, text: 'Steel delivery · Demo Lofts', when: 'Mon', tone: 'text-warn' },
+]
+
 function DashboardPanel() {
   const stats = [
-    { label: 'Active Projects', value: '18', icon: FolderKanban, color: 'text-accent-fg' },
-    { label: 'Under Contract', value: '$4.2M', icon: DollarSign, color: 'text-success' },
-    { label: 'Open Tasks', value: '63', icon: CheckSquare, color: 'text-info' },
-    { label: 'Due This Week', value: '11', icon: Clock, color: 'text-warn' },
+    { label: 'Active Projects', value: String(SAMPLE_SUMMARY.activeCount), icon: FolderKanban, color: 'text-accent-fg' },
+    { label: 'Under Contract', value: fmtMoney(SAMPLE_SUMMARY.underContract), icon: DollarSign, color: 'text-success' },
+    { label: 'Open Tasks', value: String(SAMPLE_SUMMARY.openTasks), icon: CheckSquare, color: 'text-info' },
+    { label: 'Due This Week', value: String(WEEK.length), icon: Clock, color: 'text-warn' },
   ]
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug']
   const bars = [40, 65, 50, 80, 72, 95, 60, 88]
-  const week = [
-    { icon: ShieldCheck, text: 'Rough inspection · Sample Residences', when: 'Thu', tone: 'text-info' },
-    { icon: Banknote, text: 'Draw #2 · Sample Remodel', when: 'Fri', tone: 'text-success' },
-    { icon: Truck, text: 'Steel delivery · Demo Lofts', when: 'Mon', tone: 'text-warn' },
-  ]
-  const rows = [
-    ['Sample Residences', 74],
-    ['Sample Remodel', 38],
-    ['Demo Townhomes', 91],
-  ] as const
+  const week = WEEK
+  const rows = SAMPLE_ACTIVE_BY_SIZE.slice(0, 3).map(p => [p.name, progressPct(p)] as const)
   return (
     <div className="space-y-3.5">
       <div className="flex items-center justify-between">
@@ -196,22 +196,19 @@ function StatusPill({ label }: { label: string }) {
   const tone =
     label === 'Active' ? 'bg-success-tint text-success'
     : label === 'Planning' ? 'bg-info-tint text-info'
+    : label === 'Completed' ? 'bg-muted text-muted-fg'
     : 'bg-warn-tint text-warn'
   return <span className={cn('rounded-full px-2 py-0.5 text-[9px] font-semibold', tone)}>{label}</span>
 }
 
 function ProjectsPanel() {
-  const projects = [
-    { name: 'Sample Residences', loc: 'Brooklyn, NY', status: 'Active', pct: 74, val: '$1.2M' },
-    { name: 'Sample Remodel', loc: 'Linden, NJ', status: 'Active', pct: 38, val: '$420K' },
-    { name: 'Sample Commercial', loc: 'Princeton, NJ', status: 'Planning', pct: 12, val: '$3.1M' },
-    { name: 'Demo Townhomes', loc: 'Newark, NJ', status: 'Active', pct: 91, val: '$880K' },
-    { name: 'Demo Duplex', loc: 'Edison, NJ', status: 'On hold', pct: 22, val: '$310K' },
-  ]
+  const projects = SAMPLE_PROJECTS.filter(p => p.status !== 'completed').slice(0, 5).map(p => ({
+    name: p.name, loc: p.address, status: STATUS_LABEL[p.status], pct: progressPct(p), val: fmtMoney(p.contract),
+  }))
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-bold text-ink">Projects <span className="text-faint font-normal text-xs">· 18 active</span></p>
+        <p className="text-sm font-bold text-ink">Projects <span className="text-faint font-normal text-xs">· {SAMPLE_SUMMARY.activeCount} active</span></p>
         <span className="rounded-md bg-accent text-accent-ink text-[10px] font-bold px-2.5 py-1">+ New project</span>
       </div>
       <div className="space-y-2">
@@ -241,10 +238,10 @@ function ProjectsPanel() {
 function CalendarPanel() {
   const days = [
     { day: 'Mon', events: [{ t: 'Steel delivery · Demo Lofts', tone: 'bg-warn' }] },
-    { day: 'Tue', events: [{ t: 'Framing start · Demo Duplex', tone: 'bg-accent' }, { t: 'Client walk · Sample Remodel', tone: 'bg-info' }] },
+    { day: 'Tue', events: [{ t: 'Framing start · Demo Duplex', tone: 'bg-accent' }, { t: 'Client walk · Demo Office Fit-out', tone: 'bg-info' }] },
     { day: 'Wed', events: [] },
     { day: 'Thu', events: [{ t: 'Rough inspection · Sample Residences', tone: 'bg-info' }] },
-    { day: 'Fri', events: [{ t: 'Draw #2 due · Sample Remodel', tone: 'bg-success-solid' }, { t: 'COI expires · Volt Bros', tone: 'bg-danger-solid' }] },
+    { day: 'Fri', events: [{ t: 'Draw #2 due · Demo Office Fit-out', tone: 'bg-success-solid' }, { t: 'COI expires · Volt Bros', tone: 'bg-danger-solid' }] },
   ]
   return (
     <div className="space-y-3">
@@ -287,7 +284,7 @@ function MoneyPanel() {
   ]
   return (
     <div className="space-y-3">
-      <p className="text-sm font-bold text-ink">Master Money <span className="text-faint font-normal text-xs">· across 18 jobs</span></p>
+      <p className="text-sm font-bold text-ink">Master Money <span className="text-faint font-normal text-xs">· across {SAMPLE_SUMMARY.jobCount} jobs</span></p>
       <div className="grid grid-cols-3 gap-2.5">
         {tiles.map(t => (
           <div key={t.label} className="rounded-lg border border-line bg-panel p-3">
@@ -315,7 +312,7 @@ function MoneyPanel() {
 function InvoicesPanel() {
   const invoices = [
     { no: 'INV-1042', job: 'Sample Residences', amt: '$44,550', status: 'Paid' },
-    { no: 'INV-1041', job: 'Sample Remodel', amt: '$29,700', status: 'Pending' },
+    { no: 'INV-1041', job: 'Demo Office Fit-out', amt: '$29,700', status: 'Pending' },
     { no: 'INV-1039', job: 'Demo Lofts', amt: '$61,200', status: 'Overdue' },
     { no: 'INV-1038', job: 'Demo Townhomes', amt: '$18,900', status: 'Paid' },
     { no: 'INV-1036', job: 'Demo Duplex', amt: '$12,300', status: 'Pending' },
@@ -343,4 +340,13 @@ function InvoicesPanel() {
       </div>
     </div>
   )
+}
+
+/**
+ * The dashboard as a picture, for the homepage. The interactive DashboardMock
+ * stays on /features and /contractors; on the homepage its text was a second
+ * wall of sample numbers in front of the real copy.
+ */
+export function DashboardImage() {
+  return <MockImage name="dashboard" alt="SyteNav company dashboard showing active projects, money under contract, cash in and out, and the week ahead" />
 }

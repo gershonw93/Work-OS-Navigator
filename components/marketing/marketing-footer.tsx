@@ -88,6 +88,9 @@ export function MarketingFooter() {
       <div className="border-t border-line-soft">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5 flex flex-wrap items-center justify-between gap-2 text-xs text-faint">
           <span>© 2026 SyteNav. All rights reserved.</span>
+          {/* A real space: flex drops the gap from the text, and a fetch read
+              "All rights reserved.Built for builders". */}
+          {' '}
           <span className="font-mono uppercase tracking-[0.16em]">Built for builders</span>
         </div>
       </div>

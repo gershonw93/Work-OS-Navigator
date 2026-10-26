@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
 import { appHref } from '@/lib/hosts'
+import { TRIAL_DAYS } from '@/lib/plans'
 
 // The closing CTA used at the bottom of every marketing page.
 export function CtaBand({
@@ -36,9 +37,13 @@ export function CtaBand({
               Book a setup
             </Link>
           </div>
-          {/* We're an invite-only beta, and the sign-up page says so. Promising
-              a self-serve free start here would just break at the door. */}
-          <p className="mt-5 text-xs text-accent-ink/60">Invite-only beta. Free while you&apos;re in it. Tell us about your company and we&apos;ll get you set up.</p>
+          {/* ONE STORY ABOUT WHAT IT COSTS. This said "Invite-only beta. Free
+              while you're in it." two sections below a pricing FAQ saying the
+              first fifteen days are free and then a plan - two answers on one
+              page, and a model quoting it picks one at random. The door is
+              still invite-only; what happens after it is TRIAL_DAYS, read from
+              lib/plans.ts like every other public sentence about it. */}
+          <p className="mt-5 text-xs text-accent-ink/60">Invite-only. Once you&apos;re approved, your first {TRIAL_DAYS} days are free, with no card. Tell us about your company and we&apos;ll get you set up.</p>
         </div>
       </div>
     </section>

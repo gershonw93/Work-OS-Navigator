@@ -7,7 +7,7 @@ import {
 import { marketingMeta } from '@/components/marketing/meta'
 import { ScrollHero } from '@/components/marketing/scroll-hero'
 import { StatMarquee } from '@/components/marketing/stat-marquee'
-import { DashboardMock } from '@/components/marketing/dashboard-mock'
+import { DashboardImage } from '@/components/marketing/dashboard-mock'
 import { QuoteScanMock } from '@/components/marketing/quote-scan-mock'
 import { FeatureTabs } from '@/components/marketing/feature-tabs'
 import { Reveal } from '@/components/marketing/reveal'
@@ -81,13 +81,17 @@ export default function HomePage() {
       {/* Proof-point marquee - hidden until the numbers are real (lib/traction.ts) */}
       {SHOW_TRACTION_STATS && <StatMarquee />}
 
-      {/* The problem - the "$25k / 8 apps / broken spreadsheets" positioning */}
+      {/* The problem. It used to lead with "$25k a year" and "8 apps" and a
+          "Zero broken spreadsheets" tile - numbers nothing on the page backed,
+          and a joke shaped like a statistic sitting where a statistic goes. A
+          model quotes a number as a fact. The tiles are now things that are
+          TRUE of the product, each checkable on /pricing. */}
       <section className="bg-panel border-y border-line">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 py-20 sm:py-28 text-center">
           <Reveal>
             <Eyebrow>The problem</Eyebrow>
             <h2 className="mt-3 text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-ink leading-[1.06]">
-              Stop paying $25k a year to<br className="hidden sm:block" /> patch 8 apps together.
+              Stop running the job across<br className="hidden sm:block" /> a stack of apps that don&apos;t talk.
             </h2>
             <p className="mt-5 text-lg text-muted-fg max-w-2xl mx-auto leading-relaxed">
               Bids in one tool. Field time in another. Daily reports somewhere else. Budgets in a spreadsheet with a formula that broke last week. SyteNav puts the whole job - bids, budgets, field time, daily logs, compliance, and materials - in one place.
@@ -95,9 +99,9 @@ export default function HomePage() {
           </Reveal>
           <div className="mt-12 grid sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
             {[
-              { big: '8+ → 1', small: 'tools, consolidated' },
-              { big: 'A fraction', small: 'of enterprise pricing' },
-              { big: 'Zero', small: 'broken spreadsheets' },
+              { big: 'One app', small: 'quotes, budget, field and billing' },
+              { big: 'Every feature', small: 'on every plan, priced by active project' },
+              { big: 'Unlimited', small: 'team members, subs and clients' },
             ].map((s, i) => (
               <Reveal key={s.small} delay={i * 100}>
                 <div className="rounded-2xl border border-line bg-surface px-5 py-6">
@@ -168,7 +172,7 @@ export default function HomePage() {
             </Link>
           </Reveal>
           <Reveal delay={150} className="min-w-0">
-            <DashboardMock />
+            <DashboardImage />
           </Reveal>
         </div>
       </section>
@@ -221,7 +225,9 @@ export default function HomePage() {
           <Reveal>
             <SectionHead
               eyebrow="How it actually works"
-              title="The client picks the paint they cannot afford"
+              // NOT the flow's own title: the card below prints that as its
+              // heading, and the page had it twice, as an h2 and an h3.
+              title="One change order, start to finish"
               lead="Every product has change orders. Here is what actually happens between a client tapping an upgrade and $3,500 landing on the right budget line - including what it costs you today when it does not."
             />
           </Reveal>
