@@ -49,6 +49,8 @@ const SUB_NAV: { label: string; href: string; icon: typeof LayoutDashboard; reso
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
   { label: 'My Jobs', href: '/my-jobs', icon: Briefcase, resource: null },
   { label: 'My Bids', href: '/my-bids', icon: ClipboardList, resource: null },
+  // Every role: the route scopes every row to the person (lib/calendar-items.ts).
+  { label: 'Calendar', href: '/calendar', icon: CalendarDays, resource: null },
   { label: 'Customers', href: '/customers', icon: UsersRound, resource: 'customers' },
   { label: 'Directory', href: '/directory', icon: Building2, resource: 'directory' },
   { label: 'Files', href: '/files', icon: FolderOpen, resource: 'files' },
@@ -242,7 +244,9 @@ export function Sidebar() {
         {isAdmin && (
           <div className="pt-3 mt-2 border-t border-line">
             <p className="nav-label px-3 pb-1 text-[10px] font-semibold uppercase tracking-wider text-faint">Master</p>
-            {MASTER_NAV_ITEMS.map(item => {
+            {/* A sub has Calendar in their own menu; a second entry here would
+                open the same screen under a different name. */}
+            {MASTER_NAV_ITEMS.filter(item => !(isSubcontractor && item.href === '/master-calendar')).map(item => {
               const Icon = item.icon
               const isActive = pathname.startsWith(item.href)
               return (

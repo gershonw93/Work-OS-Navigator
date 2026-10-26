@@ -16,6 +16,7 @@ const sectionLabels: Record<string, string> = {
   '/equipment': 'Equipment',
   '/materials': 'Materials',
   '/master-calendar': 'Master Calendar',
+  '/calendar': 'Calendar',
   '/master-money': 'Master Money',
   '/reports': 'Reports',
   '/files': 'Files',

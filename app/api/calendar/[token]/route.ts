@@ -1,10 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { actorForUser } from '@/lib/server-permissions'
-import { myJobs } from '@/lib/my-jobs'
-import { taskIdsFor } from '@/lib/task-assignees'
-import { isAssignedOnly } from '@/lib/permissions'
-import { feedScope, feedProjects } from '@/lib/calendar-feed'
+import { loadCalendar } from '@/lib/calendar-load'
 
 export const runtime = 'nodejs'
 
@@ -33,58 +29,23 @@ export async function GET(_request: Request, { params }: { params: { token: stri
 
   // THE HOLDER'S OWN PERMISSIONS, read at every poll - so a role change or a
   // removal reaches the feed on the calendar app's next refresh rather than
-  // never. See lib/calendar-feed.ts for the rule.
-  const actor = await actorForUser(db, profile.id)
-  let assignment = null
-  if (isAssignedOnly(actor.role)) {
-    const { projectIds, memberIds } = await myJobs(db, profile.id, profile)
-    assignment = { projectIds, taskIds: await taskIdsFor(db, { memberIds, name: profile.full_name ?? null }) }
-  }
-  const scope = feedScope(actor, assignment)
+  // never. `loadCalendar` is the same answer the Calendar page shows: own jobs
+  // by the holder's permissions, a GC's awarded jobs only for their own work
+  // (lib/calendar-items.ts).
+  const items = await loadCalendar(db, { ...profile, company_id: profile.company_id })
   // 503, not an empty calendar: a calendar app keeps its last good copy on an
   // error, and replaces it with nothing on an empty one.
-  if (!scope) return new NextResponse('Calendar temporarily unavailable', { status: 503 })
-
-  const { data: owned } = await db
-    .from('projects').select('id, name')
-    .or(`gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`)
-  const projects = feedProjects((owned ?? []) as { id: string; name: string }[], scope)
-  const ids = projects.map(p => p.id)
-  const nameById = new Map(projects.map(p => [p.id, p.name]))
+  if (!items) return new NextResponse('Calendar temporarily unavailable', { status: 503 })
 
   type Ev = { uid: string; start: string; end: string; summary: string; desc: string }
-  const events: Ev[] = []
-
-  if (ids.length) {
-    const none = Promise.resolve({ data: [] as any[] })
-    const taskQuery = db.from('project_tasks').select('id, project_id, title, due_date, status').in('project_id', ids).not('due_date', 'is', null)
-    const [{ data: sched }, { data: tasks }, { data: inspections }] = await Promise.all([
-      scope.schedule
-        ? db.from('schedule_items').select('id, project_id, start_date, end_date, label, subcontracts(scope, trade, companies(name))').in('project_id', ids)
-        : none,
-      !scope.tasks ? none
-        : scope.taskIds === null ? taskQuery
-        : scope.taskIds.length ? taskQuery.in('id', scope.taskIds) : none,
-      scope.inspections
-        ? db.from('inspections').select('id, project_id, type, trade, status, scheduled_date').in('project_id', ids).not('scheduled_date', 'is', null)
-        : none,
-    ])
-
-    for (const s of sched ?? []) {
-      const sub: any = (s as any).subcontracts
-      const title = s.label || sub?.companies?.name || sub?.scope || sub?.trade || 'Scheduled work'
-      const start = s.start_date
-      if (!start) continue
-      events.push({ uid: `sched-${s.id}@sytenav`, start, end: s.end_date || start, summary: `${title}`, desc: `${nameById.get(s.project_id) ?? ''}` })
-    }
-    for (const t of tasks ?? []) {
-      events.push({ uid: `task-${t.id}@sytenav`, start: t.due_date, end: t.due_date, summary: `Task: ${t.title}`, desc: `${nameById.get(t.project_id) ?? ''}${t.status === 'completed' ? ' (done)' : ''}` })
-    }
-    for (const ins of inspections ?? []) {
-      const label = `Inspection: ${ins.type ?? ''}${ins.trade ? ` (${ins.trade})` : ''}`
-      events.push({ uid: `insp-${ins.id}@sytenav`, start: ins.scheduled_date, end: ins.scheduled_date, summary: label, desc: `${nameById.get(ins.project_id) ?? ''} · ${ins.status ?? ''}` })
-    }
-  }
+  const UID: Record<string, string> = { schedule: 'sched', task: 'task', inspection: 'insp' }
+  const events: Ev[] = items.map(it => ({
+    uid: `${UID[it.kind]}-${it.id.slice(2)}@sytenav`,
+    start: it.start,
+    end: it.end,
+    summary: it.kind === 'task' ? `Task: ${it.title}` : it.kind === 'inspection' ? `Inspection: ${it.title}` : it.title,
+    desc: `${it.project_name}${it.kind === 'task' && it.done ? ' (done)' : ''}`,
+  }))
 
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')
   const lines: string[] = [

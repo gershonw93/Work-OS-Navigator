@@ -310,11 +310,12 @@ ok(!/from\('contacts'\)/.test((code('app/api/directory/route.ts') + code('lib/wr
 // ── the calendar and the feed only ever see booked rows ─────────────────────
 for (const f of [
   'app/api/master/calendar/route.ts',
-  'app/api/calendar/[token]/route.ts',
+  // The calendar-app feed reads through the shared loader now.
+  'lib/calendar-load.ts',
 ]) {
   const src = code(f)
   ok(/from\('inspections'\)[\s\S]{0,200}?\.not\('scheduled_date', 'is', null\)/.test(src),
-    `${f.split('/').slice(-2)[0]} only shows inspections with a booked date`)
+    `${f.split('/').slice(-2).join('/')} only shows inspections with a booked date`)
 }
 const seed = code('lib/seed-demo.ts')
 ok(/scheduled_date: isBooked \? wanted : null/.test(seed),

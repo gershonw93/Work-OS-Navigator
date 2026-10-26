@@ -47,10 +47,3 @@ export function feedScope(
   if (!assignment || (kinds.tasks && assignment.taskIds === null)) return null
   return { ...kinds, projectIds: assignment.projectIds, taskIds: assignment.taskIds ?? [] }
 }
-
-/** The jobs the feed reads: the company's own, narrowed by the scope. */
-export function feedProjects<T extends { id: string }>(companyProjects: T[], scope: FeedScope): T[] {
-  if (scope.projectIds === null) return companyProjects
-  const allowed = new Set(scope.projectIds)
-  return companyProjects.filter(p => allowed.has(p.id))
-}

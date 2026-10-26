@@ -13,6 +13,8 @@ import { formatDate } from '@/lib/dates'
 interface Item {
   id: string; kind: 'schedule' | 'task' | 'inspection'; project_id: string; project_name: string
   title: string; start: string; end: string; color: string; done?: boolean; href: string
+  /** On a sub's calendar: whether it is their own job or a GC's awarded one. */
+  source?: 'own' | 'awarded'
 }
 
 const COLOR: Record<string, string> = {
@@ -39,22 +41,43 @@ export default function MasterCalendarPage() {
   const router = useRouter()
   // `role`, not `realRole`, so previewing a role shows what that role sees.
   // The API behind this page checks the real role and 403s regardless.
-  const { role, loading: permLoading } = usePermissions()
+  const { role, companyType, loading: permLoading } = usePermissions()
   const [items, setItems] = useState<Item[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  // A SUBCONTRACTOR GETS THIS SCREEN TOO, AS THEIR OWN CALENDAR. They had none:
+  // this page was admin-only and its route reads only jobs the company OWNS,
+  // so a GC's awarded work never appeared and a sub's crew had nothing at all.
+  // For a sub it reads /api/my-calendar - their own jobs by their permissions,
+  // a GC's job only for their own work, crew only what they are on - and every
+  // role may open it, because the route scopes every row to the person.
+  const isSub = companyType === 'subcontractor'
   const [cursor, setCursor] = useState(() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() } })
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
 
   const isAdmin = role === 'admin' || role === 'manager'
 
   useEffect(() => {
-    (async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      const res = await fetch('/api/master/calendar', { headers: { Authorization: `Bearer ${session?.access_token}` } })
-      if (res.ok) setItems((await res.json()).items ?? [])
-      setLoading(false)
+    // Wait for the company type: it decides which calendar this is.
+    if (permLoading) return
+    let live = true
+    ;(async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        const res = await fetch(isSub ? '/api/my-calendar' : '/api/master/calendar', { headers: { Authorization: `Bearer ${session?.access_token}` } })
+        const body = await res.json().catch(() => ({}))
+        if (!live) return
+        // A failed read says so - an empty month reads as "nothing booked".
+        if (res.ok) { setItems(body.items ?? []); setLoadError(null) }
+        else setLoadError(body.error ?? 'Could not load the calendar. Try again.')
+      } catch {
+        if (live) setLoadError('Could not load the calendar. Check your connection and reload.')
+      } finally {
+        if (live) setLoading(false)
+      }
     })()
-  }, [])
+    return () => { live = false }
+  }, [permLoading, isSub])
 
   // Map each calendar day (ISO) to its items (an item shows on every day in its span).
   const byDay = useMemo(() => {
@@ -75,8 +98,9 @@ export default function MasterCalendarPage() {
   // role, which is why it showed zeros), but the surface did, and "you may not
   // be here" arriving a second late is not a guard.
   if (permLoading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
-  if (!isAdmin) return <div className="p-8 text-sm text-muted-fg">This view is for admins only.</div>
+  if (!isAdmin && !isSub) return <div className="p-8 text-sm text-muted-fg">This view is for admins only.</div>
   if (loading) return <div className="text-sm text-faint py-12 text-center">Loading…</div>
+  if (loadError) return <div className="p-8 text-sm text-danger">{loadError}</div>
 
   const first = new Date(cursor.y, cursor.m, 1)
   const startPad = first.getDay()
@@ -96,8 +120,12 @@ export default function MasterCalendarPage() {
     <div className="p-6 space-y-5 max-w-6xl mx-auto">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><CalendarDays className="h-6 w-6 text-accent-fg" /> Master Calendar</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Every project's schedule and task due dates in one place. Click an item to jump to its project.</p>
+          <h1 className="text-2xl font-bold text-ink flex items-center gap-2"><CalendarDays className="h-6 w-6 text-accent-fg" /> {isSub ? 'Calendar' : 'Master Calendar'}</h1>
+          <p className="text-sm text-muted-fg mt-0.5">
+            {isSub
+              ? 'Your own jobs, and your work on jobs a GC awarded you. Click an item to open its job.'
+              : "Every project's schedule and task due dates in one place. Click an item to jump to its project."}
+          </p>
         </div>
         {/* Below lg the controls cannot share one 390px row: month nav and
             Today take the first line, Connect takes the second whole. It ran
@@ -148,7 +176,7 @@ export default function MasterCalendarPage() {
                   {dayItems.slice(0, 4).map(it => (
                     <button key={it.id} onClick={(e) => { e.stopPropagation(); router.push(it.href) }} title={`${it.project_name} · ${it.title}`}
                       className={cn('w-full text-left rounded px-1.5 py-0.5 text-[10px] leading-tight truncate hover:opacity-80', COLOR[it.color] ?? COLOR.blue, it.done && 'line-through opacity-60')}>
-                      <span className="font-medium">{it.project_name}</span> · {it.title}
+                      <span className="font-medium">{it.project_name}</span>{it.source === 'awarded' ? ' (GC)' : ''} · {it.title}
                     </button>
                   ))}
                   {dayItems.length > 4 && <p className="text-[10px] font-medium text-accent-fg px-1">+{dayItems.length - 4} more</p>}
@@ -181,7 +209,7 @@ export default function MasterCalendarPage() {
           rows={(byDay.get(selectedDay) ?? []).map(it => ({
             id: it.id,
             title: it.title,
-            subtitle: `${it.project_name} · ${it.kind === 'inspection' ? 'Inspection' : it.kind === 'task' ? 'Task' : 'Schedule'}`,
+            subtitle: `${it.project_name}${it.source === 'awarded' ? ' (GC job)' : ''} · ${it.kind === 'inspection' ? 'Inspection' : it.kind === 'task' ? 'Task' : 'Schedule'}`,
             // The same dot as the phone grid and its legend, so the sheet a
             // day opens agrees with the square that opened it.
             dot: KIND_DOT[it.kind],
