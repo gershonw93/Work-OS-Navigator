@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard, FolderKanban, CheckSquare, Briefcase,
-  ClipboardList, Menu, HardHat,
+  ClipboardList, Menu, HardHat, CalendarDays,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/lib/use-permissions'
@@ -56,6 +56,7 @@ const SUB_TABS: Tab[] = [
   { href: '/dashboard', label: 'Home', icon: LayoutDashboard, exact: true },
   { href: '/my-jobs', label: 'My Jobs', icon: Briefcase },
   { href: '/my-bids', label: 'My Bids', icon: ClipboardList },
+  { href: '/calendar', label: 'Calendar', icon: CalendarDays },
 ]
 
 export function MobileTabBar() {

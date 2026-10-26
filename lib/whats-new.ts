@@ -54,6 +54,23 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-10-26',
+    title: 'A calendar for subcontractors',
+    items: [
+      {
+        kind: 'new',
+        title: 'Calendar, for subcontractors and their crews',
+        text: 'Subcontractors have a Calendar in their menu. It shows your own jobs in full, and on a job a GC awarded you, only your own work: your schedule dates, tasks assigned to your company and inspections for your trade. Crew see only the jobs and tasks they are on. Connect to Calendar puts the same thing in Google, Apple or Outlook.',
+        help: 'master-calendar',
+      },
+      {
+        kind: 'improved',
+        title: 'My Jobs is one list',
+        text: 'My Jobs opens on all your work - your own projects and the jobs GCs awarded you - with My projects and Awarded to narrow it, instead of two tabs that opened on Awarded.',
+      },
+    ],
+  },
+  {
     date: '2026-10-23',
     title: 'Money pages, one look',
     items: [

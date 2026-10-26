@@ -2295,7 +2295,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'master-calendar',
     title: 'See every job on the Master Calendar',
     category: 'cross-project',
-    keywords: ['master calendar', 'all projects', 'schedule', 'due dates', 'overview', 'admin'],
+    keywords: ['master calendar', 'all projects', 'schedule', 'due dates', 'overview', 'admin', 'calendar', 'subcontractor', 'sub', 'crew', 'awarded jobs'],
     summary: 'All projects\' schedules and task due dates in one view.',
     blocks: [
       { type: 'text', text: 'Master Calendar (admins and managers) shows every project\'s schedule, booked inspections and task due dates together. It is not the only place they appear: each job\'s own Schedule tab has the same month view for that job, and anyone who can see the job can open it.' },
@@ -2305,6 +2305,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Click any item to jump straight to its project.',
       ] },
       { type: 'tip', text: 'On a phone each day shows dots instead of labels - blue for a schedule line, amber for a task due, purple for an inspection. Tap the day to see everything on it, then tap one to open it.' },
+      { type: 'text', text: 'IF YOU ARE A SUBCONTRACTOR, it is called Calendar and sits in your menu (and on the bar along the bottom of a phone). It shows your own jobs in full, and on a job a GC awarded you, only your own work: your schedule dates, tasks assigned to your company, and inspections for your trade - marked "(GC)". The other trades on that job and the GC\'s own dates are not shown. Your crew get it too, showing only the jobs and tasks they are on.' },
     ],
     related: ['schedule-milestones', 'master-money', 'calendar-subscribe'],
   },
@@ -2315,9 +2316,9 @@ export const HELP_ARTICLES: HelpArticle[] = [
     keywords: ['calendar', 'google', 'apple', 'outlook', 'ical', 'subscribe', 'sync', 'feed'],
     summary: 'Mirror your schedules, tasks, and inspections into your own calendar (optional, read-only).',
     blocks: [
-      { type: 'text', text: 'The in-app Master Calendar is always there - this just adds a copy of those events to your personal calendar. It\'s read-only, so it can never change anything in SyteNav.' },
+      { type: 'text', text: 'The in-app calendar is always there - this just adds a copy of those events to your personal calendar, showing exactly what the in-app one shows you. It\'s read-only, so it can never change anything in SyteNav.' },
       { type: 'steps', items: [
-        'Open Master Calendar and click Connect to Calendar.',
+        'Open Master Calendar (Calendar, if you are a subcontractor) and click Connect to Calendar.',
         'Pick your calendar - Google, Apple, or Outlook - and it opens that app with an "add calendar" prompt. Confirm and you\'re done.',
         'Schedule items, task due dates, and scheduled inspections now appear in your calendar and refresh automatically.',
       ] },
