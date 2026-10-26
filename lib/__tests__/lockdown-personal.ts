@@ -34,6 +34,21 @@ const note = code('app/api/notifications/[notifId]/route.ts')
 ok((note.match(/\.eq\('id', params\.notifId\)\s*\.eq\('user_id', user\.id\)/g) ?? []).length === 2,
   'notifications/[id]: marking read and deleting both need the id AND the caller to match')
 
+// ── settings/notifications GET, PATCH; me/device-token POST, DELETE; ────────
+// ── me/push-test GET, POST ──────────────────────────────────────────────────
+// Each signs in through a helper local to its file, which is why the sign-in
+// scan could not see them until it learned to. All keyed on the caller.
+const prefs = code('app/api/settings/notifications/route.ts')
+ok((prefs.match(/\.eq\('user_id', user\.id\)/g) ?? []).length === 2 && /user_id: user\.id,/.test(prefs),
+  'settings/notifications: reading and saving preferences are the caller\'s own rows')
+const device = code('app/api/me/device-token/route.ts')
+ok(/user_id: user\.id,/.test(device) && /\.delete\(\)\.eq\('token', value\)\.eq\('user_id', user\.id\)/.test(device),
+  'me/device-token: registers to the caller, and only removes a token that is the caller\'s')
+const pushTest = code('app/api/me/push-test/route.ts')
+ok(/\.eq\('user_id', userId\)/.test(pushTest) && /pushToPhones\(db, \[user\.id\]/.test(pushTest)
+  && !/request\.json\(\)[\s\S]{0,200}user_?id/i.test(pushTest),
+  'me/push-test: counts and pushes to the caller\'s own phones, never an id from the body')
+
 // ── my-jobs GET ─────────────────────────────────────────────────────────────
 const jobs = code('app/api/my-jobs/route.ts')
 ok(/if \(!profile\?\.company_id\) return NextResponse\.json\(\{ awarded: \[\], own: \[\] \}\)/.test(jobs),

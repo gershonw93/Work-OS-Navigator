@@ -4,7 +4,8 @@ import { isUntitled } from '@/lib/quote-comparison'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 import { awardEmail, sendEmail, reachableEmail } from '@/lib/email'
-import { requirePermission, denied } from '@/lib/api-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { escapeLike } from '@/lib/personal-access'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,6 +20,11 @@ export async function POST(request: Request, { params }: { params: { id: string;
   // the family answered anybody with a login.
   const gate = await requirePermission(admin(), request, 'quotes', 'edit')
   if (denied(gate)) return gate.denied
+  // Awarding spends the GC's money on the GC's job, so the job has to be the
+  // caller's. The permission alone let any company holding `quotes: edit` - a
+  // subcontractor's own admin included - award on a job that was not theirs.
+  const owns = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owns) return owns.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -48,16 +54,35 @@ export async function POST(request: Request, { params }: { params: { id: string;
 
   // Find an existing vendor company by name in this GC's directory, else create one
   let companyId: string | null = null
+  // THE VENDOR IS LOOKED FOR IN THIS COMPANY'S DIRECTORY, NOT IN EVERY
+  // COMPANY ON THE PLATFORM. The match was a bare name across the whole table,
+  // and the contact backfill below then wrote onto whatever it found - so GC B
+  // awarding "Blue Wave Pools" attached the job to GC A's directory row for
+  // them (or the sub's own company) and overwrote its contact name, email and
+  // phone. `added_by_company_id` is what makes a Directory row yours, the same
+  // fence `/api/invite` puts round a vendor. The name is escaped: `%` and `_`
+  // are wildcards to ilike.
   const { data: existing } = await db
     .from('companies')
     .select('id')
     .in('type', ['subcontractor', 'supplier'])
-    .ilike('name', vendorName)
+    .eq('added_by_company_id', myCompanyId)
+    .ilike('name', escapeLike(vendorName))
     .limit(1)
     .maybeSingle()
-  if (existing) {
+  // The company the GC INVITED to bid is the strongest answer there is - a key,
+  // not a name - so a quote pulled from a bid request carries it and wins.
+  // Quotes uploaded by hand have none and fall back to the Directory match.
+  const invitedId = typeof quote.data?.vendor_company_id === 'string' ? quote.data.vendor_company_id : null
+  const { data: invited } = invitedId
+    ? await db.from('companies').select('id').eq('id', invitedId).in('type', ['subcontractor', 'supplier']).maybeSingle()
+    : { data: null }
+  if (invited) {
+    companyId = invited.id
+  } else if (existing) {
     companyId = existing.id
-    // Backfill contact details from the quote if the company is missing them
+    // Backfill contact details from the quote. Only ever onto a row in THIS
+    // company's Directory (the lookup above), never onto another company's.
     const backfill: Record<string, any> = {}
     if (contact.name) backfill.contact_name = contact.name
     if (contact.email) backfill.contact_email = contact.email

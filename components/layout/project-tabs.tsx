@@ -247,9 +247,12 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
     return !isPlanning || !PLANNING_HIDDEN.has(slug)
   }
 
-  // The "Quote" tab is the sub's own-job starting point - only there.
+  // The "Quote" tab is the sub's own-job starting point - only there. And it
+  // asks `quotes` like every other tab asks its own resource: it skipped the
+  // check, so a sub's field worker opened a job and saw the one tab that is
+  // nothing but prices. The route behind it asks the same question.
   const tabAllowed = (slug: string) => {
-    if (slug === 'quote') return isSub && !!ctx?.owns
+    if (slug === 'quote') return isSub && !!ctx?.owns && can('quotes', 'view')
     return can(PERMISSION_RESOURCE[slug] ?? slug, 'view') && subAllows(slug) && billingAllows(slug) && statusAllows(slug)
   }
 

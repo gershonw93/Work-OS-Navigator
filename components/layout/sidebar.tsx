@@ -39,14 +39,20 @@ const MASTER_NAV_ITEMS = [
   { label: 'Master Money', href: '/master-money', icon: DollarSign },
 ]
 
-const SUB_NAV = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-  { label: 'My Jobs', href: '/my-jobs', icon: Briefcase },
-  { label: 'My Bids', href: '/my-bids', icon: ClipboardList },
-  { label: 'Customers', href: '/customers', icon: UsersRound },
-  { label: 'Directory', href: '/directory', icon: Building2 },
-  { label: 'Files', href: '/files', icon: FolderOpen },
-  { label: 'Approvals', href: '/approvals', icon: CheckSquare },
+// FILTERED BY PERMISSION LIKE THE GC MENU. It was not, so a sub's field worker
+// was offered Customers and Approvals - screens their role is denied - and a
+// link to a locked screen reads as a broken app. My Jobs and My Bids carry no
+// resource on purpose: they are the person's own lists (personal routes), and
+// the invited-vendor role holds `bids: N`, so gating My Bids on `bids` would
+// take it away from every sub a GC has ever invited.
+const SUB_NAV: { label: string; href: string; icon: typeof LayoutDashboard; resource: string | null }[] = [
+  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
+  { label: 'My Jobs', href: '/my-jobs', icon: Briefcase, resource: null },
+  { label: 'My Bids', href: '/my-bids', icon: ClipboardList, resource: null },
+  { label: 'Customers', href: '/customers', icon: UsersRound, resource: 'customers' },
+  { label: 'Directory', href: '/directory', icon: Building2, resource: 'directory' },
+  { label: 'Files', href: '/files', icon: FolderOpen, resource: 'files' },
+  { label: 'Approvals', href: '/approvals', icon: CheckSquare, resource: 'approvals' },
 ]
 
 // Every clickable row in the sidebar, in one string.
@@ -146,7 +152,7 @@ export function Sidebar() {
   // delete their only way back out of the office app. Do not "tidy" this by
   // moving the filter below the prepend.
   const navItems = isSubcontractor
-    ? SUB_NAV
+    ? SUB_NAV.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
     : isFieldRole(role)
       ? [{ label: FIELD_HOME.label, href: FIELD_HOME.href, icon: HardHat, resource: null as string | null },
          ...gcNav.filter(i => i.href !== '/dashboard')]

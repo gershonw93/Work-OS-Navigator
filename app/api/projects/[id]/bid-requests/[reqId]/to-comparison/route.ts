@@ -60,7 +60,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
   if (scanDenied(scan)) return scan.denied
 
   const { data: req } = await db.from('bid_requests')
-    .select('*, bid_submissions(*, bid_invites(vendor_name, vendor_email))')
+    .select('*, bid_submissions(*, bid_invites(vendor_name, vendor_email, vendor_company_id))')
     .eq('id', params.reqId).eq('project_id', params.id).single()
   if (!req) return NextResponse.json({ error: 'Bid request not found' }, { status: 404 })
 
@@ -110,6 +110,9 @@ export async function POST(request: Request, { params }: { params: { id: string;
         exclusions: parsed?.exclusions ?? [],
         payment_terms: parsed?.payment_terms ?? null,
         notes: parsed?.notes ?? s.notes ?? null,
+        // WHICH COMPANY WAS INVITED, carried so the award attaches the job to
+        // that company rather than to whatever shares its name.
+        vendor_company_id: s.bid_invites?.vendor_company_id ?? null,
         contact: {
           name: contactName,
           email: parsed?.contact_email ?? s.bid_invites?.vendor_email ?? null,

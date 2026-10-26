@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { billingLock } from '@/lib/api-guard'
 import { projectSlotProblem } from '@/lib/billing-read'
+import { myJobs } from '@/lib/my-jobs'
+import { isAssignedOnly } from '@/lib/permissions'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,8 +19,18 @@ export async function GET(request: Request) {
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
+  const { data: profile } = await db.from('profiles').select('company_id, role, email, full_name').eq('id', user.id).single()
   if (!profile?.company_id) return NextResponse.json({ awarded: [], own: [] })
+
+  // A CREW MEMBER SEES THE JOBS THEY ARE ON, NOT EVERY JOB THE COMPANY HAS.
+  // The GC side has always scoped assigned-only roles this way (the projects
+  // list, its stats, search); a subcontractor's own jobs were listed whole, so
+  // a sub's field worker was handed every private homeowner job the owner had.
+  // Awarded GC jobs are left as they are: nothing on the sub side assigns crew
+  // to one yet, so filtering them would hide every GC job from the crew.
+  const assigned = isAssignedOnly(profile.role)
+    ? (await myJobs(db, user.id, profile)).projectIds
+    : null
 
   // Awarded jobs: subcontracts for this company
   const { data: subcontracts } = await db
@@ -34,9 +46,13 @@ export async function GET(request: Request) {
     .eq('created_by_company_id', profile.company_id)
     .order('created_at', { ascending: false })
 
+  const own = assigned
+    ? (ownProjects ?? []).filter((p: { id: string }) => assigned.includes(p.id))
+    : ownProjects ?? []
+
   return NextResponse.json({
     awarded: subcontracts ?? [],
-    own: ownProjects ?? [],
+    own,
     company_id: profile.company_id,
   })
 }
