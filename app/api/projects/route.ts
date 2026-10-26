@@ -62,6 +62,15 @@ export async function GET(request: Request) {
         .select('id, name, status, start_date, end_date, address, client, type, created_at')
         .or(subScope).order('created_at', { ascending: false })).data as any
     }
+    // Assigned-only roles see the jobs they are ON - the same rule as the GC
+    // branch below, which this branch returned ahead of, so a sub's crew got
+    // every job the company had. See my-jobs/route.ts.
+    if (profile.role && RESTRICTED_ROLES.includes(profile.role)) {
+      const { data: who } = await db
+        .from('profiles').select('email, full_name, company_id').eq('id', user.id).single()
+      const { projectIds } = await myJobs(db, user.id, who)
+      ownProjects = (ownProjects ?? []).filter((p: any) => projectIds.includes(p.id)) as any
+    }
     return NextResponse.json({ projects: ownProjects ?? [] })
   }
 

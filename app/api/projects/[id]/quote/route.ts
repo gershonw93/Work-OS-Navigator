@@ -1,7 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { requirePermission, denied } from '@/lib/api-guard'
+import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
+import { getActor, actorCan } from '@/lib/server-permissions'
 import { guardActivation } from '@/lib/activation-check'
 import { budgetAmount } from '@/lib/validate'
 import { estimateRemovalProblem, QUOTE_CATEGORY } from '@/lib/estimate-removal'
@@ -78,11 +79,24 @@ function parseTerms(text: string | null): any[] | null {
 }
 
 // GET - quote file + status + line items for this project.
+//
+// THE ESTIMATE IS THE OWNER'S, AND THIS USED TO ASK ONLY FOR A SIGN-IN. It
+// hands back every budget line, the money received and the hours clocked, so
+// any account holding a project id - another company's admin, an invited sub
+// on a GC's job - could read a job's prices. The sign-in scan missed it because
+// the check was `authUser()`, a helper defined above. Now: the caller's company
+// owns the job, and they hold `quotes` (the Estimate tab) or `progress` (the
+// Progress tab on a sub's own job renders these same lines as % complete).
 export async function GET(request: Request, { params }: { params: { id: string } }) {
-  const user = await authUser(request)
-  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: profile } = await db.from('profiles').select('companies:company_id(default_payment_terms)').eq('id', user.id).single()
+  const actor = await getActor(db, request.headers.get('Authorization')?.replace('Bearer ', ''))
+  if (!actor) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  if (!actorCan(actor, 'quotes', 'view') && !actorCan(actor, 'progress', 'view')) {
+    return NextResponse.json({ error: 'You do not have permission to view this estimate.' }, { status: 403 })
+  }
+  const owned = await ownedProject(db, actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
+  const { data: profile } = await db.from('profiles').select('companies:company_id(default_payment_terms)').eq('id', actor.userId).single()
   const defaultTerms = (profile?.companies as any)?.default_payment_terms ?? null
   const [{ data: project }, { data: lines }, { data: materials }, { data: entries }, { data: payments }] = await Promise.all([
     db.from('projects').select('status, quote_file_url, quote_file_name, quote_total, payment_terms, payment_stages').eq('id', params.id).single(),
@@ -166,6 +180,10 @@ export async function GET(request: Request, { params }: { params: { id: string }
 export async function POST(request: Request, { params }: { params: { id: string } }) {
   const gate = await requirePermission(admin(), request, 'quotes', 'edit')
   if (denied(gate)) return gate.denied
+  // The permission says what this person may do; it does not say whose job
+  // this is. Same owner rule as the GET.
+  const owns = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owns) return owns.denied
 
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -248,6 +266,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
 export async function PATCH(request: Request, { params }: { params: { id: string } }) {
   const gate = await requirePermission(admin(), request, 'quotes', 'edit')
   if (denied(gate)) return gate.denied
+  // The permission says what this person may do; it does not say whose job
+  // this is. Same owner rule as the GET.
+  const owns = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owns) return owns.denied
 
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -322,6 +344,10 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 export async function DELETE(request: Request, { params }: { params: { id: string } }) {
   const gate = await requirePermission(admin(), request, 'quotes', 'edit')
   if (denied(gate)) return gate.denied
+  // The permission says what this person may do; it does not say whose job
+  // this is. Same owner rule as the GET.
+  const owns = await ownedProject(admin(), gate.actor, params.id, 'id')
+  if ('denied' in owns) return owns.denied
 
   const user = await authUser(request)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
