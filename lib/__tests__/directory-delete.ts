@@ -87,18 +87,37 @@ ok(/emailedCompanies/.test(invites) && /inAppOnly: true/.test(invites),
 ok(/notEmailed\.length \? notify\(\{ \.\.\.bell, userIds: notEmailed \}\) : null/.test(invites),
   '...and one we could NOT email still gets the notification email, as the fallback rather than a duplicate')
 
-// DELETING AN ENTRY MUST NOT DELETE THE PEOPLE IN IT. profiles.company_id is
-// ON DELETE CASCADE, and a sub invited before they had an account lives inside
-// the GC's entry - so a Directory delete removed their sign-in. Refused (409)
-// before the delete, as is an entry holding an address book of its own
-// (whose entries a delete would orphan - added_by_company_id is SET NULL); a failed count refuses.
+// DELETING AN ENTRY MUST NOT DELETE WHAT HANGS OFF IT. profiles.company_id,
+// subcontracts.company_id and compliance_documents.company_id all CASCADE, and
+// a subcontract cascades into the sub's bills, pay apps and schedule lines -
+// so one Directory delete could take a sub's whole billing history, paid and
+// QuickBooks-synced bills included. Each is counted before the delete and
+// refused (409); a count that failed refuses (500), it is not a zero.
 const del = route.slice(route.indexOf('export async function DELETE'))
-const pre = del.indexOf(".from('profiles').select('id', { count: 'exact', head: true }).eq('company_id', params.companyId)")
-const bookAt = del.indexOf(".eq('added_by_company_id', params.companyId)")
 const delAt = del.indexOf(".from('companies').delete()")
-ok(pre > 0 && bookAt > 0 && delAt > 0 && pre < delAt && bookAt < delAt,
-  'Directory delete counts the people and the address book in an entry BEFORE deleting it')
-ok(/if \(people\.error \|\| book\.error\)/.test(del) && /\(people\.count \?\? 0\) > 0 \|\| \(book\.count \?\? 0\) > 0/.test(del),
-  '...refuses when either is there, and refuses when it could not count')
+for (const [table, col] of [['profiles', 'company_id'], ['companies', 'added_by_company_id'], ['subcontracts', 'company_id'], ['invoices', 'company_id'], ['compliance_documents', 'company_id']]) {
+  const at = del.indexOf(`count(db.from('${table}')).eq('${col}', params.companyId)`)
+  ok(at > 0 && delAt > 0 && at < delAt, `Directory delete counts ${table}.${col} BEFORE deleting`)
+}
+ok(/const failed = \[people, book, contracts, bills, docs\]\.find\(r => r\.error\)/.test(del) && /if \(failed\)/.test(del),
+  '...and refuses when any count could not be taken')
+ok(/n\(contracts\) \+ n\(bills\) \+ n\(docs\) > 0/.test(del) && /if \(refusal\) return NextResponse\.json\(\{ error: refusal \}, \{ status: 409 \}\)/.test(del),
+  '...and refuses, saying how many, when the contact is on any of them')
+ok(/code === 'P0001'/.test(del), '...and reads the database guard\'s refusal as a sentence')
+
+// THE GUARD IS IN THE DATABASE TOO (migration 156), so a delete from any door -
+// the platform console, raw SQL, the GC's own cascade - cannot take people or
+// another company's records with it. And the cascade arrives WITH it.
+const m156 = read('supabase/migrations/156_directory_cascade_guarded.sql')
+ok(/IF OLD\.added_by_company_id IS NULL THEN\s*RETURN OLD;/.test(m156), '156: a company deleting itself is not stopped - only a Directory entry is guarded')
+ok(/EXISTS \(SELECT 1 FROM profiles WHERE company_id = OLD\.id\)/.test(m156), '156: an entry with people signed in under it is refused')
+ok(/FROM subcontracts s JOIN projects p[\s\S]{0,200}IS DISTINCT FROM p\.gc_company_id[\s\S]{0,120}IS DISTINCT FROM p\.created_by_company_id/.test(m156),
+  '156: an entry named on a subcontract on ANOTHER company\'s job is refused')
+ok(/FROM compliance_documents d JOIN projects p/.test(m156), '156: ...or on another company\'s compliance record')
+ok(/BEFORE DELETE ON companies/.test(m156), '156: the guard runs before every delete, so a cascade fires it per entry')
+ok(m156.indexOf('CREATE TRIGGER trg_companies_delete_guard') < m156.indexOf('ON DELETE CASCADE;'),
+  '156: the guard is in place BEFORE the cascade is switched on')
+ok(readCombined().includes('trg_companies_delete_guard') && /companies_added_by_company_id_fkey[\s\S]{0,200}ON DELETE CASCADE/.test(readCombined().slice(readCombined().indexOf('156_directory_cascade_guarded'))),
+  '156 is in the combined file')
 
 done()

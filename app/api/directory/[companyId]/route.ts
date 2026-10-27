@@ -43,30 +43,46 @@ export async function DELETE(request: Request, { params }: { params: { companyId
   const gate = await directoryGate(db, request, params.companyId, 'delete')
   if ('denied' in gate) return gate.denied
 
-  // A DIRECTORY ENTRY CAN HAVE PEOPLE IN IT, AND DELETING IT DELETED THEM.
-  // A sub invited before they had an account lands inside the GC's entry, and
-  // `profiles.company_id` is ON DELETE CASCADE - so removing the entry removed
-  // their sign-in, and everything of theirs that cascades from a profile, with
-  // no warning to either side. An entry somebody has built an address book
-  // in (`added_by_company_id`) is orphaned by the delete - its entries lose
-  // their owner and start looking like businesses with their own account. Both are
-  // refused, and said, before anything is deleted. Read failures refuse too:
-  // a count we could not take is not a count of zero.
-  const [people, book] = await Promise.all([
-    db.from('profiles').select('id', { count: 'exact', head: true }).eq('company_id', params.companyId),
-    db.from('companies').select('id', { count: 'exact', head: true }).eq('added_by_company_id', params.companyId),
+  // A DIRECTORY ENTRY IS NOT ONLY AN ADDRESS, AND DELETING IT DELETED WHAT
+  // HANGS OFF IT. Everything below cascades from the entry, silently:
+  //   - the people who sign in under it (a sub invited before they had an
+  //     account lands inside the GC's entry; profiles.company_id cascades);
+  //   - every subcontract naming it - and from each of those the sub's BILLS
+  //     (paid ones and ones already in QuickBooks, whose ids went with them),
+  //     pay apps and schedule lines, on every job, other companies' included;
+  //   - its compliance documents;
+  //   - the contacts in its own address book (added_by_company_id cascades).
+  // The route said "remove those first" only when a change order happened to
+  // block the delete. Each is counted BEFORE anything is deleted and refused by
+  // name; a count that could not be taken refuses too - it is not a zero.
+  // Migration 156 refuses the worst two (people, another company's job) in the
+  // database as well, so no other door can do it either.
+  const count = (q: any) => q.select('id', { count: 'exact', head: true })
+  const [people, book, contracts, bills, docs] = await Promise.all([
+    count(db.from('profiles')).eq('company_id', params.companyId),
+    count(db.from('companies')).eq('added_by_company_id', params.companyId),
+    count(db.from('subcontracts')).eq('company_id', params.companyId),
+    count(db.from('invoices')).eq('company_id', params.companyId),
+    count(db.from('compliance_documents')).eq('company_id', params.companyId),
   ])
-  if (people.error || book.error) {
-    console.error('[directory DELETE] pre-check failed', { company: params.companyId, error: (people.error ?? book.error)?.message })
+  const failed = [people, book, contracts, bills, docs].find(r => r.error)
+  if (failed) {
+    console.error('[directory DELETE] pre-check failed', { company: params.companyId, error: failed.error?.message })
     return NextResponse.json({ error: 'Could not check that contact before removing it. Try again.' }, { status: 500 })
   }
-  if ((people.count ?? 0) > 0 || (book.count ?? 0) > 0) {
-    return NextResponse.json({
-      error: (people.count ?? 0) > 0
-        ? 'People from this company sign in to SyteNav under this contact, so removing it would remove their accounts. It stays; contact support to separate them.'
-        : 'This company keeps its own contacts in SyteNav under this entry, so removing it would remove them too. It stays; contact support to separate them.',
-    }, { status: 409 })
-  }
+  const n = (r: { count: number | null }) => r.count ?? 0
+  const plural = (k: number, one: string, many: string) => `${k} ${k === 1 ? one : many}`
+  const refusal =
+    n(people) > 0 ? 'People from this company sign in to SyteNav under this contact, so removing it would remove their accounts. It stays; contact support to separate them.'
+    : n(book) > 0 ? 'This company keeps its own contacts in SyteNav under this entry, so removing it would remove them too. It stays; contact support to separate them.'
+    : n(contracts) + n(bills) + n(docs) > 0
+      ? `This contact is on ${[
+          n(contracts) && plural(n(contracts), 'subcontract', 'subcontracts'),
+          n(bills) && plural(n(bills), 'bill', 'bills'),
+          n(docs) && plural(n(docs), 'compliance document', 'compliance documents'),
+        ].filter(Boolean).join(', ')}. Removing it would delete those too, so it stays. Remove it from those jobs first.`
+    : null
+  if (refusal) return NextResponse.json({ error: refusal }, { status: 409 })
 
   const { error } = await db.from('companies').delete().eq('id', params.companyId)
   if (error) {
@@ -74,6 +90,11 @@ export async function DELETE(request: Request, { params }: { params: { companyId
     // Postgres's own words in it. 23503 means something of theirs is still on a
     // job, and the person needs to know which - not `violates foreign key
     // constraint "x_company_id_fkey"`.
+    // Migration 156's guard: the database refused, and said why.
+    if ((error as any).code === 'P0001') {
+      console.error('[directory DELETE] refused by the database guard', { company: params.companyId, error: error.message })
+      return NextResponse.json({ error: 'This contact is still tied to people or to another company\'s job, so it stays. Contact support to separate them.' }, { status: 409 })
+    }
     if ((error as any).code === '23503') {
       return NextResponse.json({
         error: 'That contact is still attached to something on a job - a subcontract, a bill or a submittal. Remove those first.',
