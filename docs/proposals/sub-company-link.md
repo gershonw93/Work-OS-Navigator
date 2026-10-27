@@ -1,9 +1,10 @@
 # One real sub company, linked from each GC's Directory (proposal)
 
-Status (Oct 26, 2026): **the `directory_links` table design is APPROVED by the
-owner; section 6 has SHIPPED (with migration 155, the FK). Steps 2-6 of the
-build order are not built yet.** Still open: decisions 2 and 3 in section 5
-(the sub's read-only bill history, and which compliance copies a GC keeps).
+Status (Oct 27, 2026): **the `directory_links` table design is APPROVED;
+section 6 has SHIPPED (migration 155); deleting a company now CASCADES to the
+entries in its Directory, behind a database guard (migration 156). All three
+open decisions are made (section 5). Steps 2-6 of the build order are not
+built yet.**
 
 The decision this implements (the owner's, Oct 2026):
 
@@ -224,9 +225,9 @@ exactly this fake data before anything touches production.
 | Activity history | Job | Kept. A retraction is an event: the link's end is logged on both sides. |
 | Notifications | - | Stop at once. |
 
-Open for the owner to confirm: the read-only bill history for the sub (the
-recommendation above), and whether a GC keeps company-wide compliance it
-already viewed (recommendation: no - it keeps job-tied copies only).
+DECIDED by the owner (Oct 27, 2026): the sub KEEPS a read-only view of the
+bills it submitted and their payment status; the GC keeps ONLY the compliance
+copies tied to its own jobs, never the sub's company-wide documents.
 
 ---
 

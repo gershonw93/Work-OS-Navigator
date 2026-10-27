@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-155.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-156.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -1520,6 +1520,18 @@ Full detail: [`docs/postmortems/mobile.md`](docs/postmortems/mobile.md).
   line and the amount - and the screen asks it too, so the refusal is on the
   control rather than arriving as a failed request. Check the `ON DELETE` rule
   of everything pointing at a row before writing the delete that removes it.
+- **A DIRECTORY ENTRY IS NOT ONLY AN ADDRESS, SO DELETING ONE IS GUARDED
+  TWICE.** It is a `companies` row, and `profiles`, `subcontracts` and
+  `compliance_documents` all CASCADE from it - with a subcontract cascading on
+  into the sub's BILLS (paid and QuickBooks-synced ones included), pay apps and
+  schedule lines. A Directory delete took all of that silently, on every job,
+  other companies' included. The route counts people, its own address book,
+  subcontracts, bills and compliance documents BEFORE deleting and refuses by
+  name; migration 156's `companies_delete_guard` refuses in the DATABASE an
+  entry with people under it or named on another company's job, so no door -
+  console, SQL, a GC's own cascade - can take either. That guard is what made
+  `added_by_company_id ON DELETE CASCADE` safe to switch on. Story in
+  `docs/postmortems/derived-state.md`, pinned in `directory-delete.ts`.
 - A record that a client will read must not be blank. Guard on the ROUTE as well
   as the form, since the field app posts to the same route, and count evidence
   (a photo, who was there) as a report, not just words.

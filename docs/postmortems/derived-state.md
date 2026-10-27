@@ -502,3 +502,36 @@ is a rule nobody is told.
 
 Shipped with the `category = 'Quote'` scope applied to **both** deletes, so
 Replace stops taking hand-entered lines with it.
+
+## Deleting a Directory contact deleted the sub's billing history (Oct 2026)
+
+**Found while switching on a cascade the owner had approved.** The owner chose
+`companies.added_by_company_id ON DELETE CASCADE` - a GC's Directory goes with
+the GC - instead of the `SET NULL` production turned out to have, which left a
+deleted GC's entries owner-less and looking exactly like businesses with their
+own accounts (20 such rows). Reading the live `ON DELETE` rules before writing
+the migration showed what a Directory entry drags with it:
+
+- `profiles.company_id` CASCADE: five people sign in UNDER a GC's entry (invited
+  before they had an account), so deleting the entry deleted their logins.
+- `subcontracts.company_id` CASCADE, and from a subcontract `invoices`,
+  `pay_applications`, `payment_schedule_items` and `schedule_items` CASCADE -
+  a sub's whole billing history on every job, paid bills and their QuickBooks
+  ids included, with nothing voided in QuickBooks.
+- `compliance_documents.company_id` CASCADE.
+- Three subcontracts on OTHER companies' jobs named a GC's entry (left by the
+  award route's old name match), so one GC's delete reached into another's job.
+
+The route already said "remove those first" - but only on a 23503, which only a
+`change_orders` row (NO ACTION) could raise. The sentence described a guard that
+fired by accident.
+
+**The fix is in two places on purpose.** The route counts each thing and refuses
+by name, which is the message a person can act on. Migration 156's trigger
+refuses in the database the two cases that destroy SOMEBODY ELSE's records -
+people under the entry, the entry on another company's job - because a cascade
+fires the trigger per entry, which no route sees. The cascade was switched on
+in the same migration, after the trigger. Both were run against fake companies
+on a real Postgres (PGlite) before production: a clean GC deletes with its book;
+a GC with a person under an entry, or an entry on another GC's job, is refused
+with nothing lost; a sub deleting its own account is not stopped.
