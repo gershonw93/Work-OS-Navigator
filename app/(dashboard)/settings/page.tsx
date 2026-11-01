@@ -30,7 +30,7 @@ import { ClaudeConnectorCard } from '@/components/settings/claude-connector-card
 import { PasswordInput } from '@/components/ui/password-input'
 import { ConnectCalendarButton } from '@/components/calendar/connect-calendar'
 import { ThemeToggle, useTheme } from '@/components/ui/theme-toggle'
-import { useCanSignUp } from '@/lib/use-native'
+import { useCanSignUp, useCanShowPricing } from '@/lib/use-native'
 
 import { formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
@@ -200,12 +200,23 @@ export default function SettingsPage() {
    * no permission check at all, so a hidden tab was still reachable by typing
    * its name. A filter on the menu is not a lock on the door.
    */
+  // THE BILLING TAB DOES NOT EXIST IN THE iOS APP. It used to stay, showing
+  // only the plan and the meters, on the theory that what you are using is a
+  // fact about your account and not an offer. Apple disagreed twice: 1.0 (15)
+  // came back under 3.1.1 with a reviewer signed in as an admin, where that
+  // tab read "Free access - Beta, free while you're in it" over an allowance
+  // of projects and AI scans. A screen whose whole subject is the plan you are
+  // on IS the subscription, and 3.1.3(f) wants none of it in the app. Asked
+  // here because this is the one predicate the tab strip AND the ?tab= deep
+  // link share; false until the platform is known, so it never flashes.
+  const billingShown = useCanShowPricing()
   const tabAllowed = useCallback((id: string) => {
     if (id === 'profile' || id === 'notifications') return true
+    if (id === 'billing' && !billingShown) return false
     if (permsLoading) return false
     const gate = SETTINGS_TAB_GATES[id]
     return gate ? canDo(gate.resource, gate.action) : false
-  }, [canDo, permsLoading])
+  }, [canDo, permsLoading, billingShown])
   // Anything that leads to buying a plan is hidden in the iOS build.
   const { allowed: canBuy } = useCanSignUp()
   const [activeTab, setActiveTab] = useState('profile')
@@ -1959,7 +1970,7 @@ export default function SettingsPage() {
               Every number on this tab is counted server-side and every price
               comes off lib/plans.ts. It used to be three progress bars drawn
               from literals under a tier name no plan has ever had. */}
-          {activeTab === 'billing' && <BillingPanel canBuy={canBuy} />}
+          {activeTab === 'billing' && billingShown && <BillingPanel canBuy={canBuy} />}
 
           {/* ══════════════════════════════════════ TAB: DANGER ZONE */}
           {activeTab === 'danger' && (

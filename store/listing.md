@@ -30,7 +30,7 @@ Run the whole job in one app:
 
 Built for the jobsite and the office. Works on your phone, tablet, and computer.
 
-SyteNav is free during its invite-only beta. Request access at sytenav.com, then sign in here.
+Sign in with the account your company already uses. Accounts are created by invitation.
 
 ## Keywords (Apple, 100 chars, comma-separated)
 construction,contractor,subcontractor,invoices,quotes,estimate,punch list,daily log,jobsite,builder
@@ -79,6 +79,14 @@ and a project. If any of those are empty the seed did not finish.
 
 ## App Review notes (paste into App Store Connect)
 
+**1.0 (15) was rejected AGAIN under 3.1.1 on 30 October 2026**, on an iPad,
+signed in as the demo admin - this time over SCREENS rather than controls:
+What's New quoted $99 / $299 / $499 and pointed at Settings > Billing, and the
+Billing tab itself showed the plan and an allowance. Both are gone from the iOS
+app (see CLAUDE.md, "Selling"). The App Store DESCRIPTION also said "Request
+access at sytenav.com" - a pointer outside the app in the submission itself;
+replace it in App Store Connect with the line above.
+
 **The second paragraph is the one that matters, and it is not optional.** Build
 1.0 (14) was rejected under 3.1.1 on 30 September 2026, and the notes in use at
 the time said accounts were "created and managed on our website" - which is
@@ -94,9 +102,9 @@ applies; Apple's own rejection message invited the explanation.
 > outside it: the app contains no prices, no plan or tier list, and no
 > purchase, upgrade or subscribe control anywhere, and it does not link to,
 > mention or direct users to our website or to any other purchasing mechanism.
-> The Billing screen in Settings shows only the plan the company is already on
-> and how much of its allowance it has used - a read-only statement of the
-> account's own state, with no control that leads to a purchase.
+> There is no billing or plan screen in the app at all, and nothing in it -
+> settings, notifications, help articles or the "What's new" list - mentions a
+> price, a plan, a trial or a subscription.
 >
 > Sign in at the first screen with the credentials provided. There is no
 > sign-up inside the app: accounts are created by invitation, and the app is

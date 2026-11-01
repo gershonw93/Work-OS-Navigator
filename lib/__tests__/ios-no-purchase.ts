@@ -2,6 +2,9 @@ import { ok, done, read, code, walk, readCombined, migrationFiles } from './_hel
 import { canSignUpHere, canShowPricing } from '../use-native'
 import { HELP_ARTICLES, getArticle, helpArticleAllowed } from '../help/articles'
 import { MARKETING_PATHS } from '../hosts'
+import { RELEASES, releasesFor } from '../whats-new'
+import { NOTIFICATION_TYPES, shownOnThisBuild, wantsPush } from '../notifications'
+import { IOS_LOCKED, lockSentence } from '../../components/layout/billing-banner'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NO WAY TO BUY A PLAN INSIDE THE iOS APP.
@@ -258,5 +261,86 @@ for (const f of appSide) {
 }
 ok(leaks.length === 0,
   `nothing in the app links to the marketing site${leaks.length ? ` - ${leaks.join(', ')}` : ''}`)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 1.0 (15), REJECTED AGAIN UNDER 3.1.1 - AND THE SCREENS THAT SAID SO.
+//
+// Everything above hid the CONTROLS. The reviewer, signed in as the demo
+// company's admin, still found the subscription in three places that were not
+// controls at all:
+//   - What's New, which read "Settings > Billing and the pricing page now show
+//     what each plan will cost: $99, $299 or $499 a month", linked to Settings
+//     - kept on the theory that a changelog is history, not an offer;
+//   - Settings -> Billing itself, "Free access - Beta, free while you're in it"
+//     over an allowance of projects and AI scans - kept on the theory that
+//     usage is a fact about your account;
+//   - and, for any account on a trial, a countdown banner, a "trial ending"
+//     bell entry and PUSH, each ending in "Choose a plan".
+// 3.1.3(f) wants no purchasing and no call to purchase ANYWHERE in the app.
+// A reviewer does not read our distinctions; they read the screen.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// The language that marks something as being about buying SyteNav. Construction
+// words ("price", "allowance", "upgrade") are deliberately absent - a selection
+// upgrade and a sale price are the product, not the subscription.
+const BUYING = /\$\d[\d,]*(?:\.\d+)?\s*(?:a|per|\/)\s*(?:month|year|mo\b)|pricing page|\/pricing|free trial|\btrial\b|subscription|\bstripe\b|settings\s*(?:>|→)\s*billing|\bbeta\b|choose a plan|card on file|your plan|which plan|plans and prices|AI scans|(?<![@.\w])sytenav\.com/i
+
+// What's New.
+const iosReleases = releasesFor(false)
+const iosItems = iosReleases.flatMap(r => r.items)
+const leaky = iosItems.filter(i => BUYING.test(`${i.title} ${i.text}`))
+ok(leaky.length === 0,
+  `What's New in the iOS app says nothing about buying SyteNav${leaky.length ? ` - mark webOnly: ${leaky.map(i => i.title).join(' / ')}` : ''}`)
+ok(iosItems.every(i => !i.webOnly), 'every webOnly item is dropped on iOS')
+ok(iosReleases.every(r => r.items.length > 0), 'a release left empty is dropped, not printed as a bare heading')
+ok(releasesFor(true) === RELEASES, 'the web still reads the whole changelog')
+ok(RELEASES.flatMap(r => r.items).filter(i => i.webOnly).length >= 10,
+  'the priced entries are still there for the web')
+ok(!/\$\d/.test(iosItems.filter(i => /plan/i.test(i.title)).map(i => i.text).join(' ')),
+  'no entry titled about plans prints a dollar figure on iOS')
+// Mutation check: the specific sentence the reviewer could read.
+ok(!iosItems.some(i => /\$99/.test(i.text)), 'the $99 / $299 / $499 entry is not on iOS')
+const wnPage = code('app/(dashboard)/whats-new/page.tsx')
+ok(/releasesFor\(pricingAllowed\)\.map/.test(wnPage), 'the page renders the filtered list')
+ok(!/\bRELEASES\b/.test(wnPage), '...and never the unfiltered one')
+
+// Settings -> Billing.
+const settings = code('app/(dashboard)/settings/page.tsx')
+ok(/const billingShown = useCanShowPricing\(\)/.test(settings), 'the Billing tab asks the pricing gate')
+ok(/if \(id === 'billing' && !billingShown\) return false/.test(settings),
+  '...inside tabAllowed, which the tab strip and the ?tab= deep link both ask')
+ok(/activeTab === 'billing' && billingShown && <BillingPanel/.test(settings),
+  '...and the panel cannot render without it either')
+
+// The banner.
+ok(!BUYING.test(IOS_LOCKED) && !/plan/i.test(IOS_LOCKED), 'a locked iOS account is told the fact with no plan in it')
+ok(/lockSentence\(access\.reason, canBuy\)/.test(banner), 'the lock banner swaps the sentence on iOS')
+ok(lockSentence('Choose a plan.', false) === IOS_LOCKED && lockSentence('Choose a plan.', true) === 'Choose a plan.',
+  '...to the plain one there, and only there')
+const bailAt = banner.indexOf('if (!canBuy) return null')
+ok(bailAt > 0 && bailAt < banner.indexOf("access.state === 'trial'"),
+  'no trial countdown or failed-card warning renders on iOS')
+
+// Notifications.
+const trial = NOTIFICATION_TYPES.find(t => t.key === 'trial_ending')
+ok(!!trial, 'the trial notification is in the catalog')
+ok(trial?.webOnly === true, '...marked webOnly')
+ok(wantsPush({} as any, 'trial_ending') === false, '...and never pushed, since every phone is a native app')
+ok(shownOnThisBuild('trial_ending', false) === false, '...nor shown in the iOS bell')
+ok(shownOnThisBuild('trial_ending', true) === true, '...while the web bell still has it')
+ok(shownOnThisBuild('rfi', false) === true, 'everything else rings on iOS as before')
+const bell = code('components/layout/notification-bell.tsx')
+ok(/fetched\.filter\(n => shownOnThisBuild\(n\.type, pricingAllowed\)\)/.test(bell), 'the bell filters before counting')
+for (const t of NOTIFICATION_TYPES) {
+  if (t.webOnly) continue
+  ok(!/\btrial\b|subscription|choose a plan/i.test(`${t.label} ${t.description}`),
+    `${t.key} is not about the subscription, or it would be webOnly`)
+}
+
+// Help, apart from the one web-only article.
+const helpLeaks = HELP_ARTICLES.filter(a => !a.webOnly)
+  .filter(a => BUYING.test(JSON.stringify([a.title, a.summary, a.blocks])))
+ok(helpLeaks.length === 0,
+  `no Help article the iOS app shows talks about buying SyteNav${helpLeaks.length ? ` - ${helpLeaks.map(a => a.slug).join(', ')}` : ''}`)
 
 done()

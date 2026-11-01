@@ -35,6 +35,13 @@ interface State {
 // trial was ending, or a shouting one on a day we sent nothing. One list, in
 // lib/trial-warning.ts, read by both.
 
+/** What a locked account is told inside the iOS app: the fact, and no way to buy. */
+export const IOS_LOCKED = 'This account is read-only right now. Nothing has been deleted - everything on your jobs is still here to read.'
+
+export function lockSentence(reason: string, pricingAllowed: boolean): string {
+  return pricingAllowed ? reason : IOS_LOCKED
+}
+
 export function BillingBanner() {
   const [access, setAccess] = useState<State | null>(null)
   // A CONTROL MUST LEAD TO THE THING IT NAMES, and in the iOS build none of
@@ -73,7 +80,11 @@ export function BillingBanner() {
     return (
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 bg-danger-solid px-4 py-1.5 text-sm font-medium text-white sm:px-6">
         <Lock className="h-4 w-4 shrink-0" />
-        <span className="min-w-0">{access.reason}</span>
+        {/* In the iOS app the FACT stays and the sentence goes. Every server
+            reason for a lock ends in "Choose a plan", which is a call to buy
+            somewhere other than the App Store - the thing 3.1.3(f) forbids.
+            Being told why a save will fail is still owed to the person. */}
+        <span className="min-w-0">{lockSentence(access.reason, canBuy)}</span>
         {canBuy ? (
           <Link href="/settings?tab=billing" className="shrink-0 underline underline-offset-2">
             Choose a plan
@@ -82,6 +93,10 @@ export function BillingBanner() {
       </div>
     )
   }
+
+  // A trial countdown and a failed card are both about paying, and neither is
+  // shown inside the iOS app at all - the emails carry them.
+  if (!canBuy) return null
 
   const ending = access.state === 'trial' && access.daysLeft !== null && access.daysLeft <= TRIAL_WARN_FROM
   const failed = access.state === 'overdue'

@@ -50,6 +50,14 @@ export interface NotificationType {
    */
   platform?: boolean
   /**
+   * About the subscription, so never shown or pushed inside the iOS app -
+   * Apple's 3.1.3(f) allows no call to purchase there, and "your trial ends in
+   * three days" is one. Email still goes; the web bell still shows it. The bell
+   * asks `shownOnThisBuild`, and `wantsPush` refuses it outright (the only
+   * phones we push to are the native apps).
+   */
+  webOnly?: boolean
+  /**
    * Who hears this NO MATTER WHAT the company configures, in plain words.
    *
    * Some recipients are structural - the person assigned to book an inspection,
@@ -253,7 +261,10 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     // names as its exception - finding out at your next login is too late,
     // because the thing being warned about is that there may not be a useful
     // next login. A bell nobody opens is exactly how this deadline is missed.
-    defaults: { inApp: true, email: true }, push: true, status: 'live',
+    // NO PUSH, AND NOT IN THE iOS BELL: a push only ever lands on the native
+    // app, and a trial countdown there is a call to buy - Apple rejected 1.0
+    // (15) under 3.1.1. The email is where this warning lives.
+    defaults: { inApp: true, email: true }, push: false, webOnly: true, status: 'live',
   },
 
   {
@@ -576,7 +587,13 @@ export function wants(prefs: Prefs, type: string, channel: Channel): boolean {
  * buzz off with it - which is the whole point of not inventing a third switch
  * that could disagree with the first one.
  */
+/** May this build's bell show a notification of this type? See `webOnly`. */
+export function shownOnThisBuild(type: string, pricingAllowed: boolean): boolean {
+  return pricingAllowed || !BY_KEY.get(canonicalType(type))?.webOnly
+}
+
 export function wantsPush(prefs: Prefs, type: string): boolean {
-  if (!BY_KEY.get(canonicalType(type))?.push) return false
+  const t = BY_KEY.get(canonicalType(type))
+  if (!t?.push || t.webOnly) return false
   return wants(prefs, type, 'inApp')
 }
