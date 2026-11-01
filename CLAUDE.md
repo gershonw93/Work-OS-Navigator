@@ -731,11 +731,25 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   entries use. A hide covering the browse list and not the deep link is a price
   list one URL away. Asserted per door, because any single working door
   satisfies a check written in aggregate.
-- **THE CHANGELOG'S OLD PRICES STAY.** `/whats-new` quotes `$99, $299 or $499`
-  and an older `$49` as dated record. It is history, not an offer, and nothing
-  in it is pressable - rewriting it to satisfy a store rule would be dishonest
-  and hiding entries would gut the changelog. A decision, written down so it is
-  not rediscovered as an oversight.
+- **THE CHANGELOG'S OLD PRICES STAY - ON THE WEB. THE iOS APP DOES NOT PRINT
+  THEM, AND IT HAS NO BILLING TAB.** This used to say the changelog's prices
+  were "history, not an offer" and that the plan and usage meters could stay
+  because they are facts about your own account. Apple rejected 1.0 (15) under
+  3.1.1 anyway, reviewing as the demo admin: What's New read "Settings > Billing
+  and the pricing page now show what each plan will cost: $99, $299 or $499 a
+  month", linked to Settings, and Settings -> Billing read "Free access - Beta,
+  free while you're in it" over an allowance. A reviewer does not read our
+  distinctions; under 3.1.3(f) nothing in the app may be about buying it. So:
+  What's New items about plans, prices, the trial or the website carry
+  `webOnly` and `releasesFor(pricingAllowed)` drops them (the web keeps the
+  dated record); the Billing tab is refused in `tabAllowed`; the banner shows no
+  trial or card warning and a lock reads `IOS_LOCKED` instead of "Choose a
+  plan"; `trial_ending` is `webOnly` - never pushed, not in the iOS bell, the
+  email carries it. `ios-no-purchase.ts` scans every iOS-visible What's New
+  item, Help article and notification for the language (`BUYING`), so a new
+  entry about plans fails until it is marked. A 402's server sentence still
+  says "Choose a plan"; only a LOCKED account sees it, and the banner above it
+  says what is true.
 - **AND IT IS A SCAN, NOT A LIST.** `ios-no-purchase.ts` walks `app/` and
   `components/` for a purchase verb and demands every file printing one read the
   native gate - so a NEW screen with an Upgrade button fails the suite instead

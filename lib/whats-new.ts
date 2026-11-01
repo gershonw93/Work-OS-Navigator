@@ -25,6 +25,18 @@ export interface ReleaseItem {
   help?: string
   /** Where to go and try it. */
   href?: string
+  /**
+   * About plans, prices, the trial or the website - so NOT shown in the iOS
+   * app. Apple rejected 1.0 (15) under 3.1.1 with this page reachable inside
+   * the app reading "Settings > Billing and the pricing page now show what each
+   * plan will cost: $99, $299 or $499 a month", linked to Settings. Under
+   * 3.1.3(f) the app may contain no price and no call to purchase anywhere, and
+   * a changelog is somewhere. The entry stays on the web as dated record; the
+   * iOS build simply does not print it. `releasesFor` is the one filter and
+   * `ios-no-purchase.ts` scans every item NOT carrying this for the language
+   * that would need it.
+   */
+  webOnly?: boolean
 }
 
 export interface Release {
@@ -405,18 +417,21 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Your first 15 days are free, and Billing says where you are',
+        webOnly: true,
         text: 'New companies now start on a 15-day free trial - the whole product on a real job, with no card taken and nothing to cancel. Settings > Billing tells you exactly where you stand: how many days are left, or which plan you are on and when it renews. We write to you before it runs out - three days out, the day before, and on the last day - so nobody finds out by having a save refused, and the app carries the same countdown over the top of every screen for the last three days. Anybody who was in the beta before this shipped keeps free access; we have not put a clock on people who were here first, and that screen says so in as many words.',
         help: 'plans-and-pricing',
       },
       {
         kind: 'new',
         title: 'A counter for active projects and AI scans',
+        webOnly: true,
         text: 'Settings > Billing counts what you are actually using: active projects against your plan, and AI scans used this month against your allowance. Both are counted at the moment you look. Jobs that are planning, active or on hold count towards the limit - completed and cancelled ones do not - and the screen says so rather than leaving you to find out. A scan only counts when it gives you an answer back; a read that fails is free, and the allowance refills on the 1st.',
         help: 'plans-and-pricing',
       },
       {
         kind: 'fixed',
         title: 'The old usage bars were not measuring anything',
+        webOnly: true,
         text: 'The three bars on that screen - Team Members, Projects, Storage - were fixed numbers written into the page. Projects always read 0, the limits matched no plan SyteNav sells, storage is not something we meter at all, and the plan above them was called "Starter", a tier that does not exist. A company with nine live jobs saw an empty bar. They are gone, replaced by figures that are counted.',
         help: 'plans-and-pricing',
       },
@@ -735,6 +750,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'The page scrolled behind the phone menu',
+        webOnly: true,
         text: 'On a phone, opening the menu on sytenav.com left the page behind it still scrolling, so closing the menu could leave you somewhere else entirely. The page now holds still until you close it, the menu fits the screen properly, and Escape closes it.',
       },
     ],
@@ -762,6 +778,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Plans and prices are published',
+        webOnly: true,
         text: 'Settings > Billing and the pricing page now show what each plan will cost: $99, $299 or $499 a month, depending on how many projects you have running at once. Paying annually is ten months for twelve. Every plan is the whole product - you are only buying project capacity, so there is no feature locked behind a higher tier.',
         help: 'plans-and-pricing',
         href: '/settings',
@@ -769,18 +786,21 @@ const AUTHORED: Release[] = [
       {
         kind: 'improved',
         title: 'Finished jobs do not count toward your limit',
+        webOnly: true,
         text: 'Only active projects use your plan. Close a job out and it stays fully readable forever - budget, invoices, daily logs, photos, documents and Job History all stay where they are.',
         help: 'plans-and-pricing',
       },
       {
         kind: 'fixed',
         title: 'Billing showed three plans that did not exist',
+        webOnly: true,
         text: 'Settings > Billing was offering Starter, Pro and Enterprise with $49 a month on the middle one, which was never a real price or a real set of tiers. It now shows the same three plans as the website, from one list, so the two can never disagree again.',
         href: '/settings',
       },
       {
         kind: 'improved',
         title: 'You are still not paying anything',
+        webOnly: true,
         text: 'SyteNav is an invite-only beta and free while you are in it. The prices are published so nobody finds out later what this will cost - there is no card on file and no trial clock running.',
         help: 'plans-and-pricing',
       },
@@ -1388,6 +1408,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'A sub you invite gets an email written for a sub',
+        webOnly: true,
         text: 'Inviting a subcontractor from your Directory sent them the beta waitlist email - "you are approved, welcome to the beta, start putting jobs in". They had applied for nothing and they do not put jobs in. There are three different people who get invited and there are now three different emails: a waitlist approval, a teammate saying who added them and to what, and a sub or supplier telling them what the login is actually for - the jobs they are on, quoting work you send them, sending in bills, and keeping their insurance current.',
         help: 'invite-team-member',
       },
@@ -1973,6 +1994,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'fixed',
         title: 'The plans in Settings did not match the ones on our website',
+        webOnly: true,
         text: 'Settings showed Starter, Pro at $49 a month, and Enterprise. The website offers Crew, Company and Scale, and deliberately does not print a price - we work out a setup around your team. Settings now shows the same three, from the same list, so they cannot drift apart again. Everything is still free during beta.',
         href: '/settings?tab=billing',
       },
@@ -3022,6 +3044,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'improved',
         title: 'Marketing pages lost the /homepage in their address',
+        webOnly: true,
         text: 'Every public page used to sit under sytenav.com/homepage/... - a routing detail that was never meant to be seen, and which showed up in every Google result as "sytenav.com > homepage > pricing". The pages now live where you would expect: sytenav.com, sytenav.com/pricing, sytenav.com/features. Every old link still works and lands in the right place, so anything you have already shared or bookmarked is fine.',
         href: '/',
       },
@@ -3407,6 +3430,18 @@ export const RELEASES: Release[] = AUTHORED
 
 /** The newest release date, used for the "something new" badge. */
 export const LATEST_RELEASE = RELEASES[0]?.date ?? ''
+
+/**
+ * The releases a build may show. `pricingAllowed` is `useCanShowPricing()`:
+ * false in the iOS app (and until the platform is known), which drops every
+ * `webOnly` item and then any release left with nothing in it.
+ */
+export function releasesFor(pricingAllowed: boolean): Release[] {
+  if (pricingAllowed) return RELEASES
+  return RELEASES
+    .map(r => ({ ...r, items: r.items.filter(i => !i.webOnly) }))
+    .filter(r => r.items.length > 0)
+}
 
 export const SEEN_KEY = 'sytenav-whats-new-seen'
 

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { Sparkles, BookOpen, ArrowRight } from 'lucide-react'
-import { RELEASES, KIND_LABEL, KIND_TINT, LATEST_RELEASE, SEEN_KEY } from '@/lib/whats-new'
+import { releasesFor, KIND_LABEL, KIND_TINT, LATEST_RELEASE, SEEN_KEY } from '@/lib/whats-new'
 import { getArticle, helpArticleAllowed } from '@/lib/help/articles'
 import { useCanShowPricing } from '@/lib/use-native'
 
@@ -39,7 +39,7 @@ export default function WhatsNewPage() {
       </div>
 
       <div className="space-y-5">
-        {RELEASES.map((rel, i) => {
+        {releasesFor(pricingAllowed).map((rel, i) => {
           const isNew = !seenOnArrival || rel.date > seenOnArrival
           return (
             // Keyed by position, not by date: two batches can ship on one day,

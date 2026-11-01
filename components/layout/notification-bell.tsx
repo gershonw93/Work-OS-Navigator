@@ -8,6 +8,8 @@ import { cn } from '@/lib/utils'
 
 import { formatDate } from '@/lib/dates'
 import { timeAgo, absoluteTime } from '@/lib/time-ago'
+import { shownOnThisBuild } from '@/lib/notifications'
+import { useCanShowPricing } from '@/lib/use-native'
 interface Notification {
   id: string
   title: string
@@ -29,7 +31,11 @@ function TypeIcon({ type }: { type: string }) {
 export function NotificationBell() {
   const supabase = createClient()
   const router = useRouter()
-  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [fetched, setNotifications] = useState<Notification[]>([])
+  // A trial countdown is not shown inside the iOS app - see `webOnly` in
+  // lib/notifications.ts. Filtered here, once, so the count and the list agree.
+  const pricingAllowed = useCanShowPricing()
+  const notifications = fetched.filter(n => shownOnThisBuild(n.type, pricingAllowed))
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
