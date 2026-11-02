@@ -12,7 +12,7 @@
 // Pure: which kinds exist, what each is called, and which tab of the job it
 // opens on. The route does the reading.
 
-export type JobFileKind = 'plan' | 'photo' | 'submittal' | 'quote' | 'rfq' | 'bill'
+export type JobFileKind = 'plan' | 'photo' | 'submittal' | 'permit' | 'quote' | 'rfq' | 'bill'
 
 /**
  * `resource` is the permission that already guards the tab the file lives on.
@@ -24,6 +24,10 @@ export const JOB_FILE_KINDS: { kind: JobFileKind; label: string; tab: string; re
   { kind: 'plan', label: 'Plans', tab: 'plans', resource: 'plans' },
   { kind: 'photo', label: 'Site photos', tab: 'daily-logs', resource: 'daily-logs' },
   { kind: 'submittal', label: 'Submittals', tab: 'submittals', resource: 'submittals' },
+  // The permit itself (its latest approved file), everything sent and sent
+  // back on each submission, the fixes on its punch list, and what came back
+  // through a link. Read off the permit, never copied - one fact, one home.
+  { kind: 'permit', label: 'Permits', tab: 'permits', resource: 'permits' },
   { kind: 'quote', label: 'Quotes', tab: 'request-quotes', resource: 'quotes' },
   { kind: 'rfq', label: 'Sent with quote requests', tab: 'request-quotes', resource: 'request-quotes' },
   { kind: 'bill', label: 'Bills', tab: 'invoices', resource: 'invoices' },

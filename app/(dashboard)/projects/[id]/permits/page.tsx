@@ -17,7 +17,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { useNotice } from '@/components/ui/notice'
 import { permitProblem } from '@/lib/permit-rules'
 import { PERMIT_TYPES } from '@/lib/permit-board'
-import { allowedStatuses, permitStanding, todayIso, type PermitItem, type PermitRound } from '@/lib/permit-rounds'
+import { allowedStatuses, permitStanding, todayIso, type PermitItem, type PermitRound, type PermitShare } from '@/lib/permit-rounds'
 import { PermitThread, STANDING_CHIP } from '@/components/permits/permit-thread'
 import { PermitBoard, type BoardData } from '@/components/permits/permit-board'
 import { usePermissions } from '@/lib/use-permissions'
@@ -48,6 +48,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   // false means the read failed - then nothing may say "nothing logged".
   const [rounds, setRounds] = useState<PermitRound[]>([])
   const [items, setItems] = useState<PermitItem[]>([])
+  const [shares, setShares] = useState<PermitShare[]>([])
   const [historyOk, setHistoryOk] = useState(true)
   // Set only when this job is a development.
   const [board, setBoard] = useState<BoardData | null>(null)
@@ -140,6 +141,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         setPermits(json.permits ?? [])
         setRounds(json.rounds ?? [])
         setItems(json.items ?? [])
+        setShares(json.shares ?? [])
         setHistoryOk(json.history !== false)
       } else setFetchError(json.error ?? `Error ${res.status}`)
       void fetchBoard(token)
@@ -583,7 +585,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     {permit.notes && <div className="rounded-lg bg-surface border border-line-soft px-3 py-2 text-sm text-muted-fg">{permit.notes}</div>}
                     <div className="border-t border-line-soft pt-4">
                       <PermitThread projectId={params.id} permit={permit} rounds={roundsFor(permit.id)} items={itemsFor(permit.id)}
-                        historyOk={historyOk} canEdit={canEdit} onChanged={fetchPermits} />
+                        shares={shares.filter(x => x.permit_id === permit.id)} historyOk={historyOk} canEdit={canEdit} onChanged={fetchPermits} />
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {permit.file_url && (

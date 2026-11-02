@@ -28,9 +28,12 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     userId: gate.actor.userId, projectId: params.id, permitId: params.permitId, roundId: params.roundId,
     fields: {
       outcome: str('outcome'), outcome_on: str('outcome_on'), note: str('note'), items,
-      permit_number: str('permit_number'), issued_date: str('issued_date'),
+      permit_number: str('permit_number'), issued_date: str('issued_date'), expiry_date: str('expiry_date'),
     },
     uploadFiles: permitFilesUploader(db, params.id, filesFrom(form)),
+    // Files that came back through a link sent from this permit; the write
+    // looks each one up through the share's permit.
+    shareUploadIds: form.getAll('share_upload').filter((v): v is string => typeof v === 'string'),
   })
   return NextResponse.json(result.body, { status: result.status })
 }

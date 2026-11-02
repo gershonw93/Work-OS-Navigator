@@ -85,9 +85,30 @@ export async function POST(request: Request) {
   const name = String(body.name ?? '').trim() || (files.length ? 'Shared documents' : 'Job update')
   const expiresDays = Number(body.expires_days)
 
+  // SENT FROM A PERMIT, so what comes back lands in that permit's history.
+  // The id is checked against the permit's own job and that job's company -
+  // a permit id from somebody else's job must not route their expeditor's
+  // upload into this company's records, or this company's into theirs.
+  let permitId: string | null = null
+  if (body.permit_id) {
+    const { data: permit, error: pErr } = await db.from('permits')
+      .select('id, project_id, projects!inner ( gc_company_id )')
+      .eq('id', String(body.permit_id)).maybeSingle()
+    if (pErr) {
+      console.error('[file-shares] permit read failed', pErr.message)
+      return NextResponse.json({ error: 'Could not read the permit this is for. Try again.' }, { status: 500 })
+    }
+    if (!permit || (permit as any).projects?.gc_company_id !== profile.company_id
+      || (body.project_id && permit.project_id !== body.project_id)) {
+      return NextResponse.json({ error: 'That permit is not on one of your jobs.' }, { status: 403 })
+    }
+    permitId = permit.id
+  }
+
   const { data, error } = await db.from('file_shares').insert({
     company_id: profile.company_id,
     project_id: body.project_id || null,
+    permit_id: permitId,
     token: randomBytes(24).toString('base64url'),
     name,
     message: message || null,

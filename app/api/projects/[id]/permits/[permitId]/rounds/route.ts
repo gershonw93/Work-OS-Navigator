@@ -28,6 +28,8 @@ export async function POST(request: Request, { params }: { params: { id: string;
     userId: gate.actor.userId, projectId: params.id, permitId: params.permitId,
     fields: { submitted_on: str('submitted_on'), expected_by: str('expected_by'), note: str('note') },
     uploadFiles: permitFilesUploader(db, params.id, filesFrom(form)),
+    // Fixes already attached to this permit's items; the write keeps only those.
+    carry: form.getAll('carry').filter((v): v is string => typeof v === 'string'),
   })
   return NextResponse.json(result.body, { status: result.status })
 }

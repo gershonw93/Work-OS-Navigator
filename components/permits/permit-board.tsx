@@ -16,7 +16,7 @@ import {
   boardCells, boardColumns, boardCounts, bulkProblem, cellMatches, PERMIT_TYPES,
   type BoardCell, type BoardFilter, type BoardPermit, type BulkAction,
 } from '@/lib/permit-board'
-import { todayIso, type PermitItem, type PermitRound } from '@/lib/permit-rounds'
+import { todayIso, type PermitItem, type PermitRound, type PermitShare } from '@/lib/permit-rounds'
 import { PermitThread, STANDING_CHIP } from './permit-thread'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,9 +33,10 @@ export interface BoardHouse {
 export interface BoardData {
   site: { id: string; name: string }
   houses: BoardHouse[]
-  permits: (BoardPermit & { description?: string | null; issued_date?: string | null; expiry_date?: string | null })[]
+  permits: (BoardPermit & { description?: string | null; issued_date?: string | null; expiry_date?: string | null; file_url?: string | null })[]
   rounds: PermitRound[]
   items: PermitItem[]
+  shares?: PermitShare[]
   history: boolean
 }
 
@@ -98,6 +99,7 @@ function PermitDrawer({ data, rowName, permitId, canEdit, onChanged, onClose }: 
               <PermitThread projectId={permit.project_id} permit={permit}
                 rounds={data.rounds.filter(r => r.permit_id === permit.id)}
                 items={data.items.filter(i => i.permit_id === permit.id)}
+                shares={(data.shares ?? []).filter(x => x.permit_id === permit.id)}
                 historyOk={data.history} canEdit={canEdit} onChanged={onChanged} onDialogChange={setDialogOpen} />
               <Link href={`/projects/${permit.project_id}/permits`}
                 className="inline-flex items-center gap-1 text-sm text-accent-fg hover:underline">

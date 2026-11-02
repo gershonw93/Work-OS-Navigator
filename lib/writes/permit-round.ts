@@ -2,7 +2,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { logActivity } from '@/lib/log-activity'
 import { friendlyDbError } from '@/lib/db-error'
 import {
-  cleanItems, outcomeProblem, statusAfter, submitProblem,
+  carryableFiles, cleanItems, finalFileAfter, outcomeProblem, statusAfter, submitProblem,
   OUTCOME_LABEL, type Outcome, type PermitRound, type RoundFile,
 } from '@/lib/permit-rounds'
 import { ROUND_SELECT } from '@/lib/permit-history'
@@ -60,10 +60,12 @@ const label = (p: { permit_type: string; permit_number?: string | null }) =>
 
 export async function submitRound(
   db: SupabaseClient,
-  { userId, projectId, permitId, fields, uploadFiles, via }: {
+  { userId, projectId, permitId, fields, uploadFiles, via, carry }: {
     userId: string; projectId: string; permitId: string
     fields: { submitted_on?: string | null; expected_by?: string | null; note?: string | null }
     uploadFiles?: Upload; via?: string
+    /** URLs of fixes already attached to this permit's items, going in with this round. */
+    carry?: string[]
   },
 ): Promise<WriteResult> {
   const found = await permitOnJob(db, projectId, permitId)
@@ -74,11 +76,28 @@ export async function submitRound(
   const problem = submitProblem(fields, history.rounds)
   if (problem) return { status: 400, body: { error: problem } }
 
-  let sent_files: RoundFile[] = []
+  // A carried file comes OFF THE ROW, never the request: only a fix attached
+  // to one of this permit's own items, not yet sent, is accepted. A URL from a
+  // body would otherwise put any link at all into a record other people open.
+  let carried: RoundFile[] = []
+  if (carry?.length) {
+    const { data: itemRows, error: itemsErr } = await db.from('permit_items').select('label, files').eq('permit_id', permitId)
+    if (itemsErr) {
+      console.error('[permit-round] items read failed', itemsErr.message)
+      return { status: 500, body: { error: 'Could not read the fixes on this permit. Try again.' } }
+    }
+    const allowed = new Map(carryableFiles((itemRows ?? []) as any[], history.rounds).map(f => [f.url, f]))
+    carried = carry.filter(u => allowed.has(u)).map(u => {
+      const { item: _item, ...f } = allowed.get(u)!
+      return f
+    })
+  }
+
+  let sent_files: RoundFile[] = [...carried]
   if (uploadFiles) {
     const up = await uploadFiles()
     if ('error' in up) return { status: 500, body: { error: up.error } }
-    sent_files = up.files
+    sent_files = [...carried, ...up.files]
   }
 
   const name = await actorName(db, userId, via)
@@ -116,13 +135,16 @@ export async function submitRound(
 
 export async function answerRound(
   db: SupabaseClient,
-  { userId, projectId, permitId, roundId, fields, uploadFiles, via }: {
+  { userId, projectId, permitId, roundId, fields, uploadFiles, via, shareUploadIds }: {
     userId: string; projectId: string; permitId: string; roundId: string
     fields: {
       outcome?: string | null; outcome_on?: string | null; note?: string | null
       items?: string[] | null; permit_number?: string | null; issued_date?: string | null
+      expiry_date?: string | null
     }
     uploadFiles?: Upload; via?: string
+    /** Files the reviewer sent back through a share link made from THIS permit. */
+    shareUploadIds?: string[]
   },
 ): Promise<WriteResult> {
   const found = await permitOnJob(db, projectId, permitId)
@@ -135,11 +157,26 @@ export async function answerRound(
   if (problem) return { status: 400, body: { error: problem } }
   const outcome = fields.outcome as Outcome
 
-  let received_files: RoundFile[] = []
+  // What came back through a link sent from this permit. Looked up through the
+  // SHARE's permit, never taken from the body: an upload id from another job's
+  // link must not become this permit's paperwork.
+  let fromLinks: RoundFile[] = []
+  if (shareUploadIds?.length) {
+    const { data: ups, error: upErr } = await db.from('file_share_uploads')
+      .select('id, name, file_url, file_type, size_bytes, file_shares!inner ( permit_id )')
+      .in('id', shareUploadIds).eq('file_shares.permit_id', permitId)
+    if (upErr) {
+      console.error('[permit-round] share uploads read failed', upErr.message)
+      return { status: 500, body: { error: 'Could not read the files that came back through the link. Try again.' } }
+    }
+    fromLinks = (ups ?? []).map((u: any) => ({ name: u.name, url: u.file_url, type: u.file_type ?? null, size: u.size_bytes ?? null }))
+  }
+
+  let received_files: RoundFile[] = [...fromLinks]
   if (uploadFiles) {
     const up = await uploadFiles()
     if ('error' in up) return { status: 500, body: { error: up.error } }
-    received_files = up.files
+    received_files = [...fromLinks, ...up.files]
   }
 
   const name = await actorName(db, userId, via)
@@ -178,6 +215,11 @@ export async function answerRound(
   if (outcome === 'approved') {
     if (fields.permit_number?.trim()) permitPatch.permit_number = fields.permit_number.trim()
     if (fields.issued_date) permitPatch.issued_date = fields.issued_date
+    if (fields.expiry_date && /^\d{4}-\d{2}-\d{2}$/.test(fields.expiry_date)) permitPatch.expiry_date = fields.expiry_date
+    // The latest approved file IS the permit: it becomes the main document,
+    // which is what the Permits list, the client portal and Files show.
+    const final = finalFileAfter(outcome, received_files)
+    if (final) permitPatch.file_url = final
   }
   if (Object.keys(permitPatch).length) {
     const { error: pErr } = await db.from('permits').update(permitPatch).eq('id', permitId)
@@ -202,7 +244,7 @@ export async function addPermitItem(
   const name = await actorName(db, userId, via)
   const { data, error } = await db.from('permit_items')
     .insert({ permit_id: permitId, label: text, created_by_name: name })
-    .select('id, permit_id, round_id, label, done_at, done_by_name, created_at').single()
+    .select('id, permit_id, round_id, label, files, done_at, done_by_name, created_at').single()
   if (error) {
     console.error('[permit-round] item add failed', error.message)
     return { status: 500, body: { error: friendlyDbError(error) } }
@@ -220,7 +262,7 @@ export async function setPermitItemDone(
   const { data, error } = await db.from('permit_items')
     .update({ done_at: done ? new Date().toISOString() : null, done_by_name: name })
     .eq('id', itemId).eq('permit_id', permitId)
-    .select('id, permit_id, round_id, label, done_at, done_by_name, created_at').maybeSingle()
+    .select('id, permit_id, round_id, label, files, done_at, done_by_name, created_at').maybeSingle()
   if (error) {
     console.error('[permit-round] item update failed', error.message)
     return { status: 500, body: { error: friendlyDbError(error) } }
@@ -239,6 +281,54 @@ export async function removePermitItem(
   if (error) {
     console.error('[permit-round] item delete failed', error.message)
     return { status: 500, body: { error: friendlyDbError(error) } }
+  }
+  return { status: 200, body: { success: true } }
+}
+
+export async function attachItemFiles(
+  db: SupabaseClient,
+  { projectId, permitId, itemId, uploadFiles }: { projectId: string; permitId: string; itemId: string; uploadFiles?: Upload },
+): Promise<WriteResult> {
+  const found = await permitOnJob(db, projectId, permitId)
+  if (!found.ok) return found.fail
+  if (!uploadFiles) return { status: 400, body: { error: 'Pick a file to attach.' } }
+  const { data: item, error } = await db.from('permit_items').select('id, files').eq('id', itemId).eq('permit_id', permitId).maybeSingle()
+  if (error) {
+    console.error('[permit-round] item read failed', error.message)
+    return { status: 500, body: { error: 'Could not read that item. Try again.' } }
+  }
+  if (!item) return { status: 404, body: { error: 'That item is not on this permit.' } }
+  const up = await uploadFiles()
+  if ('error' in up) return { status: 500, body: { error: up.error } }
+  const files = [...(((item as any).files ?? []) as RoundFile[]), ...up.files]
+  const { data, error: saveErr } = await db.from('permit_items').update({ files })
+    .eq('id', itemId).eq('permit_id', permitId)
+    .select('id, permit_id, round_id, label, files, done_at, done_by_name, created_at').single()
+  if (saveErr) {
+    console.error('[permit-round] item files save failed', saveErr.message)
+    return { status: 500, body: { error: friendlyDbError(saveErr) } }
+  }
+  return { status: 200, body: { item: data } }
+}
+
+/** Take one file off an item. A file already sent with a round stays in that round's record. */
+export async function removeItemFile(
+  db: SupabaseClient,
+  { projectId, permitId, itemId, url }: { projectId: string; permitId: string; itemId: string; url?: string | null },
+): Promise<WriteResult> {
+  const found = await permitOnJob(db, projectId, permitId)
+  if (!found.ok) return found.fail
+  const { data: item, error } = await db.from('permit_items').select('id, files').eq('id', itemId).eq('permit_id', permitId).maybeSingle()
+  if (error) {
+    console.error('[permit-round] item read failed', error.message)
+    return { status: 500, body: { error: 'Could not read that item. Try again.' } }
+  }
+  if (!item) return { status: 404, body: { error: 'That item is not on this permit.' } }
+  const files = (((item as any).files ?? []) as RoundFile[]).filter(f => f.url !== url)
+  const { error: saveErr } = await db.from('permit_items').update({ files }).eq('id', itemId).eq('permit_id', permitId)
+  if (saveErr) {
+    console.error('[permit-round] item file remove failed', saveErr.message)
+    return { status: 500, body: { error: friendlyDbError(saveErr) } }
   }
   return { status: 200, body: { success: true } }
 }

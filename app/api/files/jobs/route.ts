@@ -4,6 +4,8 @@ import { requirePermission, denied } from '@/lib/api-guard'
 import { actorCan } from '@/lib/server-permissions'
 import { myJobs } from '@/lib/my-jobs'
 import { JOB_FILE_KINDS, nameFromUrl, type JobFile, type JobFileKind } from '@/lib/job-files'
+import { permitHistory } from '@/lib/permit-history'
+import { shortDay } from '@/lib/permit-rounds'
 
 export const runtime = 'nodejs'
 
@@ -54,13 +56,14 @@ export async function GET(request: Request) {
   const want = (k: JobFileKind) => allowed.has(k)
   const none = Promise.resolve({ data: [] as any[], error: null as any })
 
-  const [plans, photos, submittals, quotes, rfq, bills] = await Promise.all([
+  const [plans, photos, submittals, quotes, rfq, bills, permits] = await Promise.all([
     want('plan') ? db.from('project_plans').select('id, name, project_id, created_at').in('project_id', ids) : none,
     want('photo') ? db.from('daily_log_photos').select('id, photo_url, caption, created_at, daily_logs!inner ( project_id, log_date )').in('daily_logs.project_id', ids) : none,
     want('submittal') ? db.from('submittals').select('id, title, file_url, project_id, created_at').in('project_id', ids).not('file_url', 'is', null) : none,
     want('quote') ? db.from('quotes').select('id, file_url, file_name, vendor_name, created_at, quote_comparisons!inner ( project_id )').in('quote_comparisons.project_id', ids).not('file_url', 'is', null) : none,
     want('rfq') ? db.from('bid_request_attachments').select('id, file_url, file_name, created_at, bid_requests!inner ( project_id, title )').in('bid_requests.project_id', ids) : none,
     want('bill') ? db.from('invoices').select('id, document_url, document_name, company_name, invoice_number, project_id, created_at').in('project_id', ids).not('document_url', 'is', null) : none,
+    want('permit') ? db.from('permits').select('id, project_id, permit_type, permit_number, file_url, created_at').in('project_id', ids) : none,
   ])
 
   const failed: JobFileKind[] = []
@@ -98,6 +101,43 @@ export async function GET(request: Request) {
     id: r.id, name: r.document_name || [r.company_name, r.invoice_number].filter(Boolean).join(' ') || 'Bill',
     project_id: r.project_id, created_at: r.created_at, url: r.document_url,
   }))
+
+  // PERMITS: the permit's own document, then every file on its history. A
+  // file reaches this list once even when it is also the final permit.
+  if (want('permit')) {
+    if (permits.error) {
+      console.error('[files/jobs] permit read failed', permits.error.message)
+      failed.push('permit')
+    } else {
+      const rows = (permits.data ?? []) as any[]
+      const history = await permitHistory(db, rows.map(p => p.id))
+      if (!history.ok) failed.push('permit')
+      const byId = new Map(rows.map(p => [p.id, p]))
+      const seen = new Set<string>()
+      const push = (permitId: string, id: string, url: string | null | undefined, name: string, at: string) => {
+        const p = byId.get(permitId)
+        if (!p || !url || seen.has(url)) return
+        seen.add(url)
+        files.push({ id, kind: 'permit', name, project_id: p.project_id, project_name: jobName.get(p.project_id) ?? 'Job', created_at: at, url })
+      }
+      for (const p of rows) {
+        push(p.id, p.id, p.file_url, `${p.permit_type} permit${p.permit_number ? ` #${p.permit_number}` : ''}`, p.created_at)
+      }
+      for (const r of history.rounds) {
+        const type = byId.get(r.permit_id)?.permit_type ?? 'Permit'
+        ;(r.sent_files ?? []).forEach((f, i) => push(r.permit_id, `${r.id}-s${i}`, f.url, `${type}: ${f.name} (sent ${shortDay(r.submitted_on)})`, r.created_at ?? r.submitted_on))
+        ;(r.received_files ?? []).forEach((f, i) => push(r.permit_id, `${r.id}-r${i}`, f.url, `${type}: ${f.name} (back ${shortDay(r.outcome_on ?? r.submitted_on)})`, r.created_at ?? r.submitted_on))
+      }
+      for (const it of history.items) {
+        const type = byId.get(it.permit_id)?.permit_type ?? 'Permit'
+        ;(it.files ?? []).forEach((f, i) => push(it.permit_id, `${it.id}-f${i}`, f.url, `${type}: ${f.name} (fix for ${it.label})`, it.created_at ?? ''))
+      }
+      for (const sh of history.shares) {
+        const type = byId.get(sh.permit_id)?.permit_type ?? 'Permit'
+        sh.uploads.forEach(u => push(sh.permit_id, u.id, u.url, `${type}: ${u.name} (sent back by ${sh.recipient_name || sh.recipient_email || 'link'})`, u.created_at))
+      }
+    }
+  }
 
   files.sort((a, b) => b.created_at.localeCompare(a.created_at))
   return NextResponse.json({ files, failed })

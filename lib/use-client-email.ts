@@ -17,7 +17,15 @@ import { createClient } from '@/lib/supabase/client'
  * One reader means one key to get wrong, once.
  */
 export function useClientEmail(projectId: string): string {
-  const [email, setEmail] = useState('')
+  return useClientContact(projectId).email
+}
+
+/**
+ * The client's address AND name, off the same route and the same keys
+ * (`clientEmail`, `clientName`) - for a Send box that also wants to greet them.
+ */
+export function useClientContact(projectId: string): { email: string; name: string } {
+  const [contact, setContact] = useState({ email: '', name: '' })
 
   useEffect(() => {
     let active = true
@@ -29,10 +37,10 @@ export function useClientEmail(projectId: string): string {
       })
       if (!res.ok || !active) return
       const d = await res.json().catch(() => ({}))
-      if (active && d?.clientEmail) setEmail(d.clientEmail)
+      if (active && d?.clientEmail) setContact({ email: d.clientEmail, name: d.clientName ?? '' })
     })()
     return () => { active = false }
   }, [projectId])
 
-  return email
+  return contact
 }
