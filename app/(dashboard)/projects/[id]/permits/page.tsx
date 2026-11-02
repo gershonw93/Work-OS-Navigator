@@ -14,18 +14,14 @@ import { formatDate } from '@/lib/dates'
 import { expiryState, expiryLabel, expiredAgo } from '@/lib/expiry'
 import { sortPermits } from '@/lib/permit-order'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { useNotice } from '@/components/ui/notice'
 import { permitProblem } from '@/lib/permit-rules'
-const PERMIT_TYPES = [
-  'Building', 'Electrical', 'Plumbing', 'Mechanical/HVAC',
-  'Fire Protection', 'Fire Alarm', 'Sprinkler',
-  'Demolition', 'Excavation', 'Grading',
-  'Roofing', 'Siding', 'Windows/Doors',
-  'Sewage/Septic', 'Stormwater', 'Utilities',
-  'Fence/Wall', 'Pool/Spa', 'Solar',
-  'Sign', 'Zoning/Land Use',
-  'Notice of Commencement', 'Survey', 'Plans Review',
-  'Other',
-]
+import { PERMIT_TYPES } from '@/lib/permit-board'
+import { allowedStatuses, permitStanding, todayIso, type PermitItem, type PermitRound } from '@/lib/permit-rounds'
+import { PermitThread, STANDING_CHIP } from '@/components/permits/permit-thread'
+import { PermitBoard, type BoardData } from '@/components/permits/permit-board'
+import { usePermissions } from '@/lib/use-permissions'
+import { fetchProblem } from '@/lib/fetch-error'
 const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-warn-tint border-warn/30 text-warn',
   approved: 'bg-success-tint border-success/30 text-success',
@@ -44,9 +40,21 @@ interface Permit {
 
 export default function PermitsPage({ params }: { params: { id: string } }) {
   const guardDelete = useDeleteGuard()
+  const notify = useNotice()
   const supabase = createClient()
   const fileRef = useRef<HTMLInputElement>(null)
   const [permits, setPermits] = useState<Permit[]>([])
+  // Each permit's submissions and what the reviewer asked for. `historyOk`
+  // false means the read failed - then nothing may say "nothing logged".
+  const [rounds, setRounds] = useState<PermitRound[]>([])
+  const [items, setItems] = useState<PermitItem[]>([])
+  const [historyOk, setHistoryOk] = useState(true)
+  // Set only when this job is a development.
+  const [board, setBoard] = useState<BoardData | null>(null)
+  const [boardError, setBoardError] = useState('')
+  // Buttons go once the answer is KNOWN to be no, never on a failed read.
+  const perms = usePermissions()
+  const canEdit = perms.loading || !!perms.error || perms.can('permits', 'edit')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -122,13 +130,39 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   }
 
   async function fetchPermits() {
-    const token = await getToken()
-    const res = await fetch(`/api/projects/${params.id}/permits`, { headers: { Authorization: `Bearer ${token}` } })
-    const json = await res.json()
-    if (res.ok) setPermits(json.permits ?? [])
-    else setFetchError(json.error ?? `Error ${res.status}`)
-    setLoading(false)
+    // A loading state must have a way to end: finally, not a last statement.
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/permits`, { headers: { Authorization: `Bearer ${token}` } })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok) {
+        setFetchError('')
+        setPermits(json.permits ?? [])
+        setRounds(json.rounds ?? [])
+        setItems(json.items ?? [])
+        setHistoryOk(json.history !== false)
+      } else setFetchError(json.error ?? `Error ${res.status}`)
+      void fetchBoard(token)
+    } catch (e) {
+      setFetchError(fetchProblem(e, 'loading the permits'))
+    } finally {
+      setLoading(false)
+    }
   }
+
+  async function fetchBoard(token: string) {
+    try {
+      const res = await fetch(`/api/projects/${params.id}/permit-board`, { headers: { Authorization: `Bearer ${token}` } })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setBoardError(json.error ?? `Error ${res.status}`); return }
+      setBoardError('')
+      setBoard(json.isSite ? json as BoardData : null)
+    } catch (e) {
+      console.error('[permits] board read failed', e)
+      setBoardError('Could not load the development board. Reload to try again.')
+    }
+  }
+
 
   useEffect(() => { fetchPermits() }, [params.id])
 
@@ -268,12 +302,24 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     maybePromptInspectorContact(insName, insPhone)
   }
 
+  const roundsFor = (permitId: string) => rounds.filter(r => r.permit_id === permitId)
+  const itemsFor = (permitId: string) => items.filter(i => i.permit_id === permitId)
+  /** What the dropdown may offer: the history's answer, plus the value already stored so it still renders. */
+  const statusesFor = (permitId: string, current: string) => {
+    const allowed = allowedStatuses(roundsFor(permitId))
+    return allowed.includes(current) ? allowed : [current, ...allowed]
+  }
+
   async function updateStatus(permitId: string, newStatus: string) {
     const token = await getToken()
-    await fetch(`/api/projects/${params.id}/permits/${permitId}`, {
+    const res = await fetch(`/api/projects/${params.id}/permits/${permitId}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ status: newStatus }),
-    })
+    }).catch(() => null)
+    if (res && !res.ok) {
+      const json = await res.json().catch(() => ({}))
+      notify(json.error ?? `Could not change the status (${res.status})`)
+    }
     fetchPermits()
   }
 
@@ -375,7 +421,9 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     <Label>Status</Label>
                     <SearchableSelect value={status} onChange={e => setStatus(e.target.value)}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
-                      {['pending', 'approved', 'active', 'recorded', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
+                      {/* Once a permit has submissions logged, they decide pending / approved /
+                          rejected - the same set the route allows (statusMoveProblem). */}
+                      {(editingPermit ? statusesFor(editingPermit.id, editingPermit.status) : allowedStatuses([])).map(s => <option key={s}>{s}</option>)}
                     </SearchableSelect>
                   </div>
                   <div className="space-y-1.5">
@@ -435,6 +483,15 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add Permit</Button>
       </div>
 
+      {boardError && (
+        <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{boardError}</span>
+        </div>
+      )}
+      {board && <PermitBoard data={board} canEdit={canEdit} onChanged={fetchPermits} />}
+      {board && <h2 className="pt-2 text-lg font-semibold text-ink">The development&apos;s own permits</h2>}
+
       {fetchError && (
         <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
           <AlertCircle className="h-4 w-4 shrink-0" />
@@ -470,6 +527,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
             const statusText = (lapsed && expiredAgo(permit.expiry_date)) || shownStatus
             // "Expired Sep 8", never "Expires" under a date already gone.
             const dateLine = expiryLabel(permit.expiry_date)
+            const standing = permitStanding(permit, roundsFor(permit.id), itemsFor(permit.id), todayIso())
             return (
               <div key={permit.id} className="rounded-xl border border-line bg-panel overflow-hidden">
                 <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
@@ -483,6 +541,12 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                         {statusText}
                       </span>
                       {expiring && <span className="whitespace-nowrap text-xs font-medium bg-warn-tint border border-warn/30 text-warn rounded-full px-2 py-0.5">Expiring soon</span>}
+                      {/* Who has it now - only once there is history to say it from. */}
+                      {historyOk && standing.court !== 'none' && standing.court !== 'done' && (
+                        <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STANDING_CHIP[standing.tone])}>
+                          {standing.chase ? `Chase · ${standing.short.replace('With city · ', '')}` : standing.short}
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-muted-fg mt-0.5 truncate">
                       {permit.description
@@ -517,6 +581,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     </div>
                     {permit.description && <p className="text-sm text-muted-fg break-words">{permit.description}</p>}
                     {permit.notes && <div className="rounded-lg bg-surface border border-line-soft px-3 py-2 text-sm text-muted-fg">{permit.notes}</div>}
+                    <div className="border-t border-line-soft pt-4">
+                      <PermitThread projectId={params.id} permit={permit} rounds={roundsFor(permit.id)} items={itemsFor(permit.id)}
+                        historyOk={historyOk} canEdit={canEdit} onChanged={fetchPermits} />
+                    </div>
                     <div className="flex items-center gap-2 flex-wrap">
                       {permit.file_url && (
                         <a href={permit.file_url} target="_blank" rel="noopener noreferrer">
@@ -525,7 +593,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                       )}
                       <SearchableSelect value={permit.status} onChange={e => updateStatus(permit.id, e.target.value)}
                         className="rounded-md border border-muted2 px-2 py-1.5 text-xs bg-panel focus:border-accent focus:outline-none">
-                        {['pending', 'approved', 'active', 'recorded', 'expired', 'rejected'].map(s => <option key={s}>{s}</option>)}
+                        {statusesFor(permit.id, permit.status).map(s => <option key={s}>{s}</option>)}
                       </SearchableSelect>
                       <button onClick={() => openEdit(permit)} className="text-faint hover:text-muted-fg p-1" title="Edit permit">
                         <Pencil className="h-4 w-4" />

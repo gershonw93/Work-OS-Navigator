@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { createPermit } from '@/lib/writes/permit'
+import { permitHistory } from '@/lib/permit-history'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -23,7 +24,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     .order('created_at', { ascending: false })
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ permits: permits ?? [] })
+
+  // Each permit's history, so the list can say who has it. A failed read is
+  // REPORTED (`history: false`) rather than handed back as empty lists - an
+  // empty history reads as "No submission logged", which is a claim about the
+  // permit, not about the read.
+  const { rounds, items, ok } = await permitHistory(db, (permits ?? []).map(p => p.id))
+  return NextResponse.json({ permits: permits ?? [], rounds, items, history: ok })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
