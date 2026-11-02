@@ -56,14 +56,21 @@ ok(expiredAgo('2026-09-22', TODAY) === 'Expired 1 day ago', '...singular for one
 ok(expiredAgo('2026-09-23', TODAY) === null, '...and nothing for a permit still good today')
 
 // ── the screens ask it ───────────────────────────────────────────────────────
+// The redesigned Permits screen groups by WHOSE MOVE it is (permitStage) and
+// sorts each group by the stage's own key, which puts an expired permit at the
+// top of Your move - the job sortPermits did for the flat list. The words for
+// an expiry come from expiryLabel / expiredAgo inside permitStage.
 const permits = code('app/(dashboard)/projects/[id]/permits/page.tsx')
-ok(/sortPermits\(permits\)\.map/.test(permits), 'Permits renders the sorted list')
-ok(/expiryLabel\(permit\.expiry_date\)/.test(permits), 'Permits words the date through expiryLabel')
+ok(/permitStage\(p,/.test(permits) && /sort\(\(a, b\) => a\.st\.sortKey - b\.st\.sortKey\)/.test(permits),
+  'Permits renders each group sorted by the stage\'s urgency')
+const stageSrc = code('lib/permit-rounds.ts')
+ok(/expiryLabel\(permit\.expiry_date/.test(stageSrc) && /expiredAgo\(permit\.expiry_date/.test(stageSrc),
+  'the stage words the date through expiryLabel and expiredAgo')
 
 // Every screen that printed `Expires ${formatDate(...)}` by hand now asks the
 // shared labeller, so none can put a future verb on a past date.
 for (const f of [
-  'app/(dashboard)/projects/[id]/permits/page.tsx',
+  'lib/permit-rounds.ts',
   'app/(dashboard)/projects/[id]/compliance/page.tsx',
   'app/(dashboard)/projects/[id]/reports/page.tsx',
   'app/(dashboard)/directory/page.tsx',

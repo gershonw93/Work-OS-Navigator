@@ -1,23 +1,21 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { SearchableSelect } from '@/components/ui/searchable-select'
-import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
 import { fetchProblem } from '@/lib/fetch-error'
 import { lotTag } from '@/lib/lot-details'
 import { cn } from '@/lib/utils'
-import { AlertCircle, CheckCircle2, ExternalLink, Layers, X, XCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Layers, X, XCircle } from 'lucide-react'
 import {
   boardCells, boardColumns, boardCounts, bulkProblem, cellMatches, PERMIT_TYPES,
   type BoardCell, type BoardFilter, type BoardPermit, type BulkAction,
 } from '@/lib/permit-board'
 import { todayIso, type PermitItem, type PermitRound, type PermitShare } from '@/lib/permit-rounds'
-import { PermitThread, STANDING_CHIP } from './permit-thread'
+import { PermitPanel, STANDING_CHIP } from './permit-panel'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Every house in a development against every permit type, and who has each
@@ -68,48 +66,18 @@ function CellChip({ cell, onOpen, faded }: { cell: BoardCell | undefined; onOpen
   )
 }
 
-/** The drawer a cell opens: that one permit's history, editable in place. */
+/** The panel a cell opens: the same one the Permits list opens, as a drawer. */
 function PermitDrawer({ data, rowName, permitId, canEdit, onChanged, onClose }: {
   data: BoardData; rowName: string; permitId: string; canEdit: boolean; onChanged: () => void; onClose: () => void
 }) {
-  // A dialog opened from the history sits over this drawer; while it is up a
-  // drag inside it must not slide the drawer away, and a tap on its backdrop
-  // must close the dialog, not the drawer under it.
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const swipe = useSwipeDismiss(onClose)
   const permit = data.permits.find(p => p.id === permitId)
+  if (!permit) return null
   return (
-    <div className="overlay-drawer bg-black/20 backdrop-blur-[1px]" data-overlay onClick={() => { if (!dialogOpen) onClose() }}>
-      <div onClick={e => e.stopPropagation()}
-        {...(dialogOpen ? {} : swipe.handlers)} style={dialogOpen ? undefined : swipe.style}
-        className="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl">
-        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-line-soft px-5 py-3">
-          <div className="min-w-0">
-            <h2 className="truncate text-base font-semibold text-ink">{permit?.permit_type ?? 'Permit'}{permit?.permit_number ? ` #${permit.permit_number}` : ''}</h2>
-            <p className="truncate text-xs text-muted-fg">{rowName}</p>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close" title="Close"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-faint hover:text-ink lg:h-9 lg:w-9">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-          {permit ? (
-            <>
-              <PermitThread projectId={permit.project_id} permit={permit}
-                rounds={data.rounds.filter(r => r.permit_id === permit.id)}
-                items={data.items.filter(i => i.permit_id === permit.id)}
-                shares={(data.shares ?? []).filter(x => x.permit_id === permit.id)}
-                historyOk={data.history} canEdit={canEdit} onChanged={onChanged} onDialogChange={setDialogOpen} />
-              <Link href={`/projects/${permit.project_id}/permits`}
-                className="inline-flex items-center gap-1 text-sm text-accent-fg hover:underline">
-                <ExternalLink className="h-3.5 w-3.5" /> Open this job&apos;s permits
-              </Link>
-            </>
-          ) : <p className="text-sm text-muted-fg">That permit is no longer on this development.</p>}
-        </div>
-      </div>
-    </div>
+    <PermitPanel projectId={permit.project_id} permit={permit} title={rowName}
+      rounds={data.rounds.filter(r => r.permit_id === permit.id)}
+      items={data.items.filter(i => i.permit_id === permit.id)}
+      shares={(data.shares ?? []).filter(x => x.permit_id === permit.id)}
+      historyOk={data.history} canEdit={canEdit} docked={false} onChanged={onChanged} onClose={onClose} />
   )
 }
 

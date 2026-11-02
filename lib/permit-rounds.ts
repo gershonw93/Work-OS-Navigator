@@ -24,6 +24,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { GRANTED_STATUSES, permitProblem, type PermitFacts } from './permit-rules'
+import { expiredAgo, expiryLabel, expiryState } from './expiry'
 
 export const OUTCOMES = ['approved', 'corrections', 'rejected'] as const
 export type Outcome = typeof OUTCOMES[number]
@@ -146,83 +147,229 @@ export interface Standing {
   rounds: number
 }
 
+/** "Oct 3", with the year only when it is not this year's. */
+export function dayLabel(iso: string, today: string): string {
+  return iso.slice(0, 4) === today.slice(0, 4) ? shortDay(iso) : `${shortDay(iso)}, ${iso.slice(0, 4)}`
+}
+
+const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
+
+export type Stage = 'draft' | 'fix' | 'city' | 'renew' | 'issued' | 'closed'
+export type Group = 'you' | 'city' | 'iss'
+/** The four steps every permit walks, drawn as the bar on a row and the path in the panel. */
+export const STEP_NAMES = ['Apply', 'City review', 'Issued', 'Closed out'] as const
+const STEP_OF: Record<Stage, number> = { draft: 0, fix: 1, city: 1, renew: 2, issued: 2, closed: 3 }
+
+export interface PermitFactsForStage {
+  status?: string | null
+  issuing_authority?: string | null
+  expiry_date?: string | null
+  issued_date?: string | null
+  created_at?: string | null
+}
+
+export interface PermitStage {
+  stage: Stage
+  /** Which group of the list it sits in: your move, with the city, or issued. */
+  group: Group
+  /** 0-3 along Apply, City review, Issued, Closed out. */
+  step: number
+  rejected: boolean
+  /** The row's sentence: what happens next. */
+  next: string
+  time: string
+  timeTone: '' | 'warn' | 'bad'
+  /** Lower comes first within its group: most urgent, or waiting longest. */
+  sortKey: number
+  /** The panel's next-step card. */
+  head: string
+  sub: string
+  pill: string
+  /** With them past the promised date, or past CHASE_AFTER_DAYS with no promise. */
+  chase: boolean
+  /** Who it goes to - the issuing authority, or "the reviewer". */
+  who: string
+  /** The asks this round is about - what the checklist in the panel shows. */
+  asks: PermitItem[]
+  openAsks: number
+  waiting: PermitRound | null
+  rounds: PermitRound[]
+}
+
 /**
- * Where a permit stands. `status` is the permit's own column, read only when
- * there is no history to read instead - every permit filed before rounds
- * existed still has to say something true.
+ * Where a permit stands, worked out from its history - the ONE answer the list,
+ * the panel and the development board all read. `status` is the permit's own
+ * column, read only where there is no history to read instead (every permit
+ * filed before rounds existed still has to say something true) and for the two
+ * facts no round can hold: an expiry date that has passed, and closed out.
+ */
+export function permitStage(
+  permit: PermitFactsForStage,
+  roundsIn: PermitRound[],
+  items: PermitItem[],
+  today: string,
+): PermitStage {
+  const rounds = sortRounds(roundsIn)
+  const who = (permit.issuing_authority ?? '').trim() || 'the reviewer'
+  const waiting = openRound(rounds)
+  const last = rounds.length ? rounds[rounds.length - 1] : null
+  const status = permit.status ?? ''
+  // Expiry is asked of lib/expiry.ts - the one answer, anchored to local
+  // midnight, so "expires today" is still good today and the morning after it
+  // reads Expired whatever the row was last set to.
+  const todayDate = new Date(`${today}T12:00:00`)
+  const expiry = expiryState(permit.expiry_date, { today: todayDate })
+  const lapsed = expiry === 'expired'
+  const granted = GRANTED_STATUSES.indexOf(status) !== -1
+
+  // The asks this round is about: what the last answer asked for, anything
+  // typed in since, and anything still open from before - a list that hid an
+  // unfinished item because a new round started would be lying about the work.
+  const asks = items.filter(i =>
+    !i.done_at
+    || !last
+    || i.round_id === last.id
+    || (!i.round_id && String(i.created_at ?? '') >= String(last.created_at ?? '')))
+  const openAsks = asks.filter(i => !i.done_at).length
+
+  let stage: Stage
+  let rejected = false
+  if (status === 'closed') stage = 'closed'
+  else if (waiting) stage = 'city'
+  else if (!last) {
+    if (granted) stage = lapsed ? 'renew' : 'issued'
+    else if (status === 'expired') stage = 'renew'
+    else if (status === 'rejected') { stage = 'fix'; rejected = true }
+    else if (openAsks) stage = 'fix'
+    else stage = 'draft'
+  } else if (everApproved(rounds) && last.outcome !== 'corrections') {
+    // A rejected REVISION does not un-issue an approved permit.
+    stage = lapsed ? 'renew' : 'issued'
+  } else if (last.outcome === 'rejected') { stage = 'fix'; rejected = true }
+  else stage = 'fix'
+
+  const group: Group = stage === 'city' ? 'city' : stage === 'issued' || stage === 'closed' ? 'iss' : 'you'
+  const base = { stage, group, step: STEP_OF[stage], rejected, who, asks, openAsks, waiting, rounds }
+  const created = (permit.created_at ?? '').slice(0, 10)
+
+  if (stage === 'city') {
+    const w = waiting as PermitRound
+    const days = Math.max(0, daysBetween(w.submitted_on, today))
+    const promised = w.expected_by ?? null
+    const chase = promised ? daysBetween(promised, today) > 0 : days >= CHASE_AFTER_DAYS
+    const n = rounds.length
+    return {
+      ...base, chase, pill: 'With them',
+      next: `Waiting on round ${n} answer`,
+      time: days === 0 ? 'Sent today' : chase
+        ? (promised ? `${plural(days, 'day')}, was due ${dayLabel(promised, today)}` : `${days} days, follow up`)
+        : plural(days, 'day'),
+      timeTone: chase ? 'warn' : '',
+      sortKey: -days,
+      head: chase ? `${plural(days, 'day')} with ${who}. Follow up.` : `Waiting on ${who}`,
+      sub: `Round ${n} sent ${dayLabel(w.submitted_on, today)}${days ? `, ${plural(days, 'day')} ago.` : ', today.'}`
+        + (promised ? ` Answer expected ${dayLabel(promised, today)}.` : ''),
+    }
+  }
+
+  if (stage === 'renew') {
+    const ago = permit.expiry_date ? Math.max(0, daysBetween(permit.expiry_date, today)) : 0
+    return {
+      ...base, chase: false, pill: 'Your move',
+      next: 'Renew it, it expired',
+      time: expiredAgo(permit.expiry_date, todayDate) ?? 'Expired',
+      timeTone: 'bad',
+      sortKey: -100000 - ago,
+      head: permit.expiry_date ? `Expired ${dayLabel(permit.expiry_date, today)}. Renew it.` : 'Expired. Renew it.',
+      sub: `Send the renewal to ${who}.`,
+    }
+  }
+
+  if (stage === 'fix') {
+    const back = last?.outcome_on ?? null
+    const days = back ? Math.max(0, daysBetween(back, today)) : 0
+    const head = rejected && !asks.length ? 'Rejected. Fix it and send it back.'
+      : !asks.length ? 'Add what they asked for'
+      : openAsks ? `Fix ${plural(openAsks, 'thing')}, then send it back`
+      : 'All fixed. Send it back.'
+    return {
+      ...base, chase: false, pill: 'Your move',
+      next: rejected && !asks.length ? 'Rejected, fix it and resubmit'
+        : !asks.length ? 'Add what they asked for'
+        : openAsks ? `Fix ${plural(openAsks, 'thing')} and send it back`
+        : 'All fixed, send it back',
+      time: back ? (days === 0 ? 'Back today' : `Back ${plural(days, 'day')}`) : '',
+      timeTone: days >= 14 ? 'warn' : '',
+      sortKey: -50000 - days,
+      head,
+      sub: back ? `${who} ${rejected ? 'rejected it' : 'answered'} ${dayLabel(back, today)}.` : `${who} sent it back.`,
+    }
+  }
+
+  if (stage === 'draft') {
+    const days = created ? Math.max(0, daysBetween(created, today)) : 0
+    return {
+      ...base, chase: false, pill: 'Your move',
+      next: 'Send the application',
+      time: created ? `Added ${dayLabel(created, today)}` : '',
+      timeTone: '',
+      sortKey: -days,
+      head: 'Send the application',
+      sub: `Nothing is logged as sent to ${who}. If it already went in, log the day it did.`,
+    }
+  }
+
+  const approvedRound = [...rounds].reverse().find(r => r.outcome === 'approved')
+  const issuedOn = permit.issued_date ?? approvedRound?.outcome_on ?? null
+  if (stage === 'closed') {
+    return {
+      ...base, chase: false, pill: 'Closed',
+      next: 'Closed out', time: issuedOn ? `Issued ${dayLabel(issuedOn, today)}` : '', timeTone: '',
+      sortKey: 1_000_000,
+      head: 'Closed out', sub: 'Nothing left to do on this one.',
+    }
+  }
+  return {
+    ...base, chase: false, pill: 'Issued',
+    // Inside the expiry window the row warns before the renewal is due, and
+    // says the date in the column that is coloured.
+    next: expiry === 'soon' ? 'Expiring soon, plan the renewal' : (expiryLabel(permit.expiry_date, { today: todayDate }) ?? 'No expiry'),
+    time: expiry === 'soon' ? (expiryLabel(permit.expiry_date, { today: todayDate }) as string)
+      : issuedOn ? `Issued ${dayLabel(issuedOn, today)}` : 'Issued',
+    timeTone: expiry === 'soon' ? 'warn' : '',
+    sortKey: permit.expiry_date ? daysBetween(today, permit.expiry_date) : 500_000,
+    head: issuedOn ? `Issued ${dayLabel(issuedOn, today)}` : 'Issued',
+    sub: permit.expiry_date ? `Nothing to do. Expires ${dayLabel(permit.expiry_date, today)}.` : 'Nothing to do.',
+  }
+}
+
+/**
+ * The few words a development board cell has room for, and the filter it
+ * answers to - derived from `permitStage`, never computed a second way.
  */
 export function permitStanding(
-  permit: { status?: string | null; issuing_authority?: string | null },
-  roundsIn: PermitRound[],
-  items: Pick<PermitItem, 'done_at'>[],
+  permit: PermitFactsForStage,
+  rounds: PermitRound[],
+  items: PermitItem[],
   today: string,
 ): Standing {
-  const rounds = sortRounds(roundsIn)
-  const openItems = items.filter(i => !i.done_at).length
-  const who = (permit.issuing_authority ?? '').trim() || 'the reviewer'
-  const base = { openItems, rounds: rounds.length }
-
-  if (!rounds.length) {
-    // No history. A permit already marked granted was granted before anybody
-    // logged rounds; anything else simply has not been logged, which is NOT
-    // the same as "not submitted" - it may well be sitting at the city.
-    if (GRANTED_STATUSES.indexOf(permit.status ?? '') !== -1) {
-      return { ...base, court: 'done', label: 'Issued', short: 'Issued', tone: 'success', chase: false }
-    }
-    if (permit.status === 'rejected') {
-      return { ...base, court: 'us', label: 'Rejected', short: 'Rejected', tone: 'danger', chase: false }
-    }
-    if (openItems) {
-      return { ...base, court: 'us', label: `With us: ${openItems} to fix`, short: `${openItems} to fix`, tone: 'warn', chase: false }
-    }
-    return { ...base, court: 'none', label: 'No submission logged', short: 'Not logged', tone: 'neutral', chase: false }
-  }
-
-  const waiting = openRound(rounds)
-  if (waiting) {
-    const days = Math.max(0, daysBetween(waiting.submitted_on, today))
-    const promised = waiting.expected_by ?? null
-    const late = promised ? daysBetween(promised, today) > 0 : days >= CHASE_AFTER_DAYS
-    const n = rounds.length
-    const lead = `With ${who} since ${shortDay(waiting.submitted_on)}`
-    const age = days === 0 ? 'today' : `${days} day${days === 1 ? '' : 's'}`
-    const tail = promised && late
-      ? `answer was due ${shortDay(promised)}`
-      : age
-    return {
-      ...base,
-      court: 'them',
-      label: `${lead} (${tail})${n > 1 ? ` - round ${n}` : ''}`,
-      short: `With city · ${days}d`,
-      tone: late ? 'warn' : 'info',
-      chase: late,
-    }
-  }
-
-  // Every round has an answer. The latest one decides, except that a permit
-  // once approved stays approved: a later round is a REVISION to an issued
-  // permit, and a rejected revision does not un-issue the permit.
-  const last = rounds[rounds.length - 1]
-  if (everApproved(rounds) && last.outcome !== 'corrections') {
-    const approved = [...rounds].reverse().find(r => r.outcome === 'approved')!
-    return {
-      ...base, court: 'done',
-      label: `Approved ${shortDay(approved.outcome_on as string)}`,
-      short: 'Approved', tone: 'success', chase: false,
-    }
-  }
-  if (last.outcome === 'rejected') {
-    return { ...base, court: 'us', label: `Rejected ${shortDay(last.outcome_on as string)}`, short: 'Rejected', tone: 'danger', chase: false }
-  }
-  // corrections
-  if (openItems > 0) {
-    return {
-      ...base, court: 'us',
-      label: `With us: ${openItems} item${openItems === 1 ? '' : 's'} to fix`,
-      short: `${openItems} to fix`, tone: 'warn', chase: false,
-    }
-  }
-  return { ...base, court: 'us', label: 'Ready to resubmit', short: 'Resubmit', tone: 'warn', chase: false }
+  const st = permitStage(permit, rounds, items, today)
+  const court: Court = st.stage === 'draft' ? 'none'
+    : st.group === 'city' ? 'them' : st.group === 'iss' ? 'done' : 'us'
+  const days = st.waiting ? Math.max(0, daysBetween(st.waiting.submitted_on, today)) : 0
+  const short = st.stage === 'draft' ? 'Not sent'
+    : st.stage === 'city' ? `With city · ${days}d`
+    : st.stage === 'renew' ? 'Renew'
+    : st.stage === 'issued' ? 'Issued'
+    : st.stage === 'closed' ? 'Closed'
+    : st.openAsks ? `${st.openAsks} to fix`
+    : st.asks.length ? 'Resubmit'
+    : st.rejected ? 'Rejected' : 'Add asks'
+  const tone: StandingTone = st.stage === 'draft' ? 'neutral'
+    : st.stage === 'city' ? (st.chase ? 'warn' : 'info')
+    : st.stage === 'renew' || (st.rejected && !st.asks.length) ? 'danger'
+    : st.group === 'iss' ? 'success' : 'warn'
+  return { court, label: st.head, short, tone, chase: st.chase, openItems: st.openAsks, rounds: rounds.length }
 }
 
 // ── What each door refuses ──────────────────────────────────────────────────
@@ -278,9 +425,9 @@ export function outcomeProblem(
   if (input.outcome_on < round.submitted_on) {
     return `They cannot have answered before it was submitted (${shortDay(round.submitted_on)}).`
   }
-  if (input.outcome === 'corrections' && !cleanItems(input.items).length) {
-    return 'List what they asked for - one item per line. That list is what tells everybody the permit is waiting on us.'
-  }
+  // Corrections WITHOUT a list is allowed: the answer is usually recorded the
+  // moment the letter arrives, and the list is typed after reading it. The
+  // permit then says "Add what they asked for" until somebody does.
   if (input.outcome === 'approved') {
     const after = {
       ...permit,
@@ -309,7 +456,7 @@ export function cleanItems(items: string[] | null | undefined): string[] {
 
 // ── The status column, now that rounds exist ────────────────────────────────
 
-export const ALL_STATUSES = ['pending', 'approved', 'active', 'recorded', 'expired', 'rejected'] as const
+export const ALL_STATUSES = ['pending', 'approved', 'active', 'recorded', 'expired', 'rejected', 'closed'] as const
 
 /**
  * The statuses a permit may be SET to by hand. With no history, all of them -
@@ -321,7 +468,7 @@ export const ALL_STATUSES = ['pending', 'approved', 'active', 'recorded', 'expir
  */
 export function allowedStatuses(rounds: Pick<PermitRound, 'outcome' | 'submitted_on' | 'created_at'>[]): string[] {
   if (!rounds.length) return [...ALL_STATUSES]
-  if (everApproved(rounds)) return ['approved', 'active', 'recorded', 'expired']
+  if (everApproved(rounds)) return ['approved', 'active', 'recorded', 'expired', 'closed']
   const sorted = sortRounds(rounds)
   const last = sorted[sorted.length - 1]
   if (last.outcome === 'rejected') return ['rejected', 'expired']
