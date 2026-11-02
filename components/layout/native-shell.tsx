@@ -6,6 +6,7 @@ import { edgeColor } from '@/lib/edge-color'
 import { usePush } from '@/lib/use-push'
 import { useVisualViewport } from '@/lib/use-visual-viewport'
 import { useNativePlatform } from '@/lib/use-native'
+import { iosShellCookie } from '@/lib/native-request'
 import { SwipeBack } from './swipe-back'
 import { PullRefresh } from './pull-refresh'
 
@@ -24,6 +25,7 @@ export function NativeShell() {
   usePush()
   useStatusBar()
   useDeepLinks()
+  useShellCookie()
   // The one hook here that is NOT about being the native app: mobile Safari has
   // the same keyboard, and an overlay laid out against the layout viewport ends
   // up behind it either way. This is the only component mounted in both shells,
@@ -53,6 +55,20 @@ export function NativeShell() {
  * disappear. It follows the `dark` class the theme script sets on <html>, so
  * it tracks a theme change without being told about it.
  */
+/**
+ * Tell the SERVER this is the iOS app, so the sentences it writes - a locked
+ * account, the project or scan cap - name no plan. See lib/native-request.ts.
+ * The UA token in capacitor.config.ts does the same from the first request,
+ * but only once a build carries it; this reaches the builds already installed.
+ */
+function useShellCookie() {
+  const { platform, ready } = useNativePlatform()
+  useEffect(() => {
+    if (!ready || platform !== 'ios') return
+    try { document.cookie = iosShellCookie() } catch { /* private mode - the UA token still says it */ }
+  }, [ready, platform])
+}
+
 function useStatusBar() {
   const { isNative, ready, platform } = useNativePlatform()
   // Android's bands are painted from what is ON SCREEN at each edge, and the

@@ -87,6 +87,15 @@ const config = {
     },
   },
   ios: {
+    // THE SERVER HAS TO KNOW IT IS TALKING TO THE iOS APP, from the first
+    // request. A locked account's refusal, the project cap and the scan cap are
+    // sentences the SERVER writes, and on the web each one ends in a plan to
+    // buy - which the iOS app may not carry (3.1.3(f); rejected under 3.1.1 at
+    // 1.0 (14) and (15)). Appended, not replaced, so WebKit's own UA - which
+    // sites and Supabase read - is untouched. lib/native-request.ts reads it;
+    // `NativeShell` also sets a cookie, which covers the builds shipped before
+    // this line. NEEDS AN iOS REBUILD TO TAKE EFFECT.
+    appendUserAgent: 'SyteNavApp/ios',
     // 'never', and this is not a harmless default.
     //
     // THE BUG. The top bar sat flush under the Dynamic Island, then jumped down

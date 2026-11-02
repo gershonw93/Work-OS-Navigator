@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { billingAccess, type Access, type BillingRow } from './billing-state'
+import { requestIsIosShell } from './native-request-server'
 import { entitlement, projectLimitProblem, scanWindowStart, COUNTED_PROJECT_STATUSES, type Entitlement, type Usage } from './plan-limits'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,5 +132,5 @@ export async function projectSlotProblem(
   if (!companyId) return null
   const { access, entitlement: ent, usage } = await billingPicture(db, companyId, now)
   if (access.state === 'unmetered') return null
-  return projectLimitProblem(ent, usage.activeProjects, adding)
+  return projectLimitProblem(ent, usage.activeProjects, adding, requestIsIosShell())
 }

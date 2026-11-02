@@ -6,6 +6,7 @@ import { Lock, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { TRIAL_WARN_FROM } from '@/lib/trial-warning'
 import { useCanShowPricing } from '@/lib/use-native'
+import { IOS_LOCKED } from '@/lib/native-request'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "Why did my save just fail?"
@@ -35,8 +36,8 @@ interface State {
 // trial was ending, or a shouting one on a day we sent nothing. One list, in
 // lib/trial-warning.ts, read by both.
 
-/** What a locked account is told inside the iOS app: the fact, and no way to buy. */
-export const IOS_LOCKED = 'This account is read-only right now. Nothing has been deleted - everything on your jobs is still here to read.'
+// One sentence for the banner and the server's refusals - lib/native-request.ts.
+export { IOS_LOCKED }
 
 export function lockSentence(reason: string, pricingAllowed: boolean): string {
   return pricingAllowed ? reason : IOS_LOCKED

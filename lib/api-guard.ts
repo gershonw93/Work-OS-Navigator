@@ -1,4 +1,6 @@
 import { NextResponse } from 'next/server'
+import { requestIsIosShell } from './native-request-server'
+import { IOS_LOCKED } from './native-request'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getActor, actorCan, type ActorPerms } from '@/lib/server-permissions'
 import type { Action } from '@/lib/permissions'
@@ -50,7 +52,9 @@ const WRITE_ACTIONS: Action[] = ['create', 'edit', 'delete']
  * one status that says the account, not the person.
  */
 function paymentRequired(reason: string): NextResponse {
-  return NextResponse.json({ error: reason, billing: 'locked' }, { status: 402 })
+  // Every web reason ends in "Choose a plan" - a call to buy, which the iOS app
+  // may not carry (lib/native-request.ts). The fact goes out either way.
+  return NextResponse.json({ error: requestIsIosShell() ? IOS_LOCKED : reason, billing: 'locked' }, { status: 402 })
 }
 
 /**

@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { billingAccess } from '@/lib/billing-state'
 import { entitlement, scanLimitProblem } from '@/lib/plan-limits'
 import { readBilling, readUsage } from '@/lib/billing-read'
+import { requestIsIosShell } from '@/lib/native-request-server'
+import { IOS_LOCKED } from '@/lib/native-request'
 import type { ScanKind } from './scan-kinds'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -82,12 +84,12 @@ export async function guardScan(
   // here, but a scan route that only needs `view` would slip past that, so the
   // question is asked again rather than assumed.
   if (!access.writable) {
-    return { denied: NextResponse.json({ error: access.reason, billing: 'locked' }, { status: 402 }) }
+    return { denied: NextResponse.json({ error: requestIsIosShell() ? IOS_LOCKED : access.reason, billing: 'locked' }, { status: 402 }) }
   }
 
   const ent = entitlement(access)
   const usage = await readUsage(db, companyId, now)
-  const problem = scanLimitProblem(ent, usage.scansThisMonth, now)
+  const problem = scanLimitProblem(ent, usage.scansThisMonth, now, requestIsIosShell())
   if (problem) {
     return { denied: NextResponse.json({ error: problem, billing: 'scan_limit' }, { status: 402 }) }
   }
