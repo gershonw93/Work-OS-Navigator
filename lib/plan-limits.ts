@@ -149,10 +149,21 @@ export function nextResetIso(now: Date = new Date()): string {
  * is how a three-job plan ends up carrying forty-three. All or nothing - half
  * a subdivision is not a thing anybody asked for.
  */
-export function projectLimitProblem(ent: Entitlement, activeProjects: number, adding = 1): string | null {
+export function projectLimitProblem(ent: Entitlement, activeProjects: number, adding = 1, iosShell = false): string | null {
   if (ent.projects === null) return null
   const n = Math.max(1, Math.floor(adding))
   if (activeProjects + n <= ent.projects) return null
+  // THE iOS APP NAMES NO PLAN - see lib/native-request.ts. Same fact, same
+  // numbers, and the one remedy that is not a purchase.
+  if (iosShell) {
+    if (n > 1) {
+      const room = Math.max(0, ent.projects - activeProjects)
+      return `That is ${n} new jobs and this account has room for ${room} more (${activeProjects} of ${ent.projects} in use).` +
+        ' Close out finished jobs to make room - nothing is deleted.'
+    }
+    return `You are running ${activeProjects} active ${activeProjects === 1 ? 'job' : 'jobs'}, which is this account's limit.` +
+      ' Close out a finished job to open another - nothing is deleted.'
+  }
   const fits = planForProjects(activeProjects + n)
   const next = fits ? ` ${fits.name} covers ${activeProjects + n}.` : ''
   if (n > 1) {
@@ -165,9 +176,13 @@ export function projectLimitProblem(ent: Entitlement, activeProjects: number, ad
 }
 
 /** Why a scan cannot run, or null if it can. */
-export function scanLimitProblem(ent: Entitlement, scansThisMonth: number, now: Date = new Date()): string | null {
+export function scanLimitProblem(ent: Entitlement, scansThisMonth: number, now: Date = new Date(), iosShell = false): string | null {
   if (ent.scans === null) return null
   if (scansThisMonth < ent.scans) return null
+  if (iosShell) {
+    return `You have used all ${ent.scans.toLocaleString('en-US')} of this month's scans.` +
+      ` They refill on ${dayWords(nextResetIso(now))}; everything else in SyteNav keeps working.`
+  }
   const fits = planForScans(scansThisMonth + 1)
   const next = fits ? ` ${fits.name} includes ${fits.scans.toLocaleString('en-US')} a month.` : ''
   return `You have used all ${ent.scans.toLocaleString('en-US')} AI scans on your plan this month.` +

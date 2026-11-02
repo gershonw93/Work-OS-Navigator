@@ -5,6 +5,8 @@ import { MARKETING_PATHS } from '../hosts'
 import { RELEASES, releasesFor } from '../whats-new'
 import { NOTIFICATION_TYPES, shownOnThisBuild, wantsPush } from '../notifications'
 import { IOS_LOCKED, lockSentence } from '../../components/layout/billing-banner'
+import { IOS_LOCKED as SHARED_LOCKED, IOS_UA_TOKEN, IOS_SHELL_COOKIE, isIosShellRequest, iosShellCookie } from '../native-request'
+import { projectLimitProblem, scanLimitProblem } from '../plan-limits'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NO WAY TO BUY A PLAN INSIDE THE iOS APP.
@@ -342,5 +344,55 @@ const helpLeaks = HELP_ARTICLES.filter(a => !a.webOnly)
   .filter(a => BUYING.test(JSON.stringify([a.title, a.summary, a.blocks])))
 ok(helpLeaks.length === 0,
   `no Help article the iOS app shows talks about buying SyteNav${helpLeaks.length ? ` - ${helpLeaks.map(a => a.slug).join(', ')}` : ''}`)
+
+// ─────────────────────────────────────────────────────────────────────────────
+// AND THE SENTENCES THE SERVER WRITES. A locked save, the project cap and the
+// scan cap are error strings the page prints as it gets them, and on the web
+// every one ends in a plan to buy. The server learns it is talking to the iOS
+// app from a UA token (needs a rebuild) or a cookie the shell sets (does not).
+// ─────────────────────────────────────────────────────────────────────────────
+
+ok(SHARED_LOCKED === IOS_LOCKED, 'the banner and the server print ONE locked sentence')
+ok(isIosShellRequest(`Mozilla/5.0 (iPhone) AppleWebKit/605.1.15 Mobile/15E148 ${IOS_UA_TOKEN}`, null), 'the UA token says iOS')
+ok(isIosShellRequest('Mozilla/5.0 (Macintosh) AppleWebKit/605.1.15', `a=1; ${IOS_SHELL_COOKIE}=ios; b=2`), '...so does the cookie, alone')
+ok(!isIosShellRequest('Mozilla/5.0 (iPhone) Safari/604.1', null), 'Safari on an iPhone is the WEB - it may be sold to')
+ok(!isIosShellRequest(null, `${IOS_SHELL_COOKIE}=android`), 'only the iOS value counts')
+ok(!isIosShellRequest(null, `x${IOS_SHELL_COOKIE}=ios`), 'a cookie name is matched exactly')
+ok(iosShellCookie().startsWith(`${IOS_SHELL_COOKIE}=ios;`) && /secure/.test(iosShellCookie()), 'the cookie the shell writes is the one the server reads')
+
+const capCfg = read('capacitor.config.ts')
+ok(new RegExp(`appendUserAgent:\\s*'${IOS_UA_TOKEN.replace('/', '\\/')}'`).test(capCfg),
+  'the iOS build appends the token the server reads')
+ok(capCfg.indexOf('appendUserAgent') > capCfg.indexOf('ios: {'), '...inside the ios block, so Android keeps selling')
+const shell = code('components/layout/native-shell.tsx')
+ok(/useShellCookie\(\)/.test(shell) && /document\.cookie = iosShellCookie\(\)/.test(shell),
+  'the shell sets the cookie, reaching builds shipped before the token')
+ok(/platform !== 'ios'\) return/.test(shell), '...on iOS only')
+
+const ent = { projects: 3, scans: 50, source: 'plan' } as any
+const iosProject = projectLimitProblem(ent, 3, 1, true) ?? ''
+const iosBatch = projectLimitProblem(ent, 2, 4, true) ?? ''
+const iosScan = scanLimitProblem(ent, 50, new Date(2026, 10, 2), true) ?? ''
+for (const [name, text] of [['project cap', iosProject], ['batch cap', iosBatch], ['scan cap', iosScan]] as const) {
+  ok(text.length > 0, `the iOS ${name} still refuses, with a sentence`)
+  ok(!/\bplan\b|upgrade|move up|covers|includes/i.test(text) && !BUYING.test(text), `the iOS ${name} names no plan: "${text}"`)
+}
+ok(/3 of 3|3 active jobs/.test(iosProject) && /room for 1 more/.test(iosBatch), 'the numbers stay - it is the same fact')
+ok(/move up a plan/.test(projectLimitProblem(ent, 3, 1) ?? ''), 'the web project cap still names the remedy')
+ok(/on your plan/.test(scanLimitProblem(ent, 50, new Date(2026, 10, 2)) ?? ''), 'the web scan cap is unchanged')
+
+const guard = code('lib/api-guard.ts')
+ok(/error: requestIsIosShell\(\) \? IOS_LOCKED : reason/.test(guard), 'every 402 from requirePermission/billingLock asks which shell')
+const scanGuard = code('lib/scan-guard.ts')
+ok(/error: requestIsIosShell\(\) \? IOS_LOCKED : access\.reason/.test(scanGuard), 'the scan route lock asks too')
+ok(/scanLimitProblem\(ent, usage\.scansThisMonth, now, requestIsIosShell\(\)\)/.test(scanGuard), '...and the scan cap')
+ok(/projectLimitProblem\(ent, usage\.activeProjects, adding, requestIsIosShell\(\)\)/.test(code('lib/billing-read.ts')),
+  'the project cap (both doors go through projectSlotProblem) asks too')
+// No OTHER spelling of a lock response can bypass it.
+const lockSites = [...walk('app'), ...walk('lib')].filter(f => f.endsWith('.ts') && !f.includes('__tests__'))
+  .filter(f => /billing: 'locked'/.test(code(f)))
+ok(lockSites.every(f => /requestIsIosShell\(\)/.test(code(f))),
+  `every file building a locked response asks which shell (${lockSites.join(', ')})`)
+ok(!/native-request-server/.test(read('lib/native-request.ts').replace(/\/\/.*$/gm, '')), 'the pure half never imports next/headers')
 
 done()

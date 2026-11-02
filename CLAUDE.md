@@ -747,9 +747,18 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   plan"; `trial_ending` is `webOnly` - never pushed, not in the iOS bell, the
   email carries it. `ios-no-purchase.ts` scans every iOS-visible What's New
   item, Help article and notification for the language (`BUYING`), so a new
-  entry about plans fails until it is marked. A 402's server sentence still
-  says "Choose a plan"; only a LOCKED account sees it, and the banner above it
-  says what is true.
+  entry about plans fails until it is marked.
+- **AND THE SERVER'S OWN SENTENCES ASK WHICH SHELL IS LISTENING.** A locked
+  save's 402, the project cap and the scan cap are strings the page prints as
+  it receives them, and on the web each ends in a plan to buy. The iOS WKWebView
+  appends `SyteNavApp/ios` to its user agent (`capacitor.config.ts`, needs a
+  rebuild) and `NativeShell` sets a `sytenav-shell=ios` cookie (reaches the
+  builds already installed); `lib/native-request.ts` reads either, and
+  `requestIsIosShell()` (`-server.ts`, via `next/headers`, so no `req` threads
+  through twenty `billingLock` callers) picks the plan-free wording. WORDING
+  ONLY - nothing is permitted or refused on it, so a forged cookie buys a
+  sentence. Every file that builds a `billing: 'locked'` response must ask;
+  `ios-no-purchase.ts` walks for them.
 - **AND IT IS A SCAN, NOT A LIST.** `ios-no-purchase.ts` walks `app/` and
   `components/` for a purchase verb and demands every file printing one read the
   native gate - so a NEW screen with an Upgrade button fails the suite instead
