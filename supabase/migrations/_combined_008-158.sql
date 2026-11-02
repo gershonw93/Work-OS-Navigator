@@ -4818,7 +4818,6 @@ CREATE INDEX IF NOT EXISTS idx_permit_items_permit ON permit_items (permit_id);
 -- reads nothing, the same as the other recent tables.
 ALTER TABLE permit_rounds ENABLE ROW LEVEL SECURITY;
 ALTER TABLE permit_items ENABLE ROW LEVEL SECURITY;
-<<<<<<<< HEAD:supabase/migrations/_combined_008-158.sql
 
 
 -- ===== 158_permit_files_and_shares.sql =====
@@ -4841,5 +4840,3 @@ ALTER TABLE permit_items ADD COLUMN IF NOT EXISTS files jsonb NOT NULL DEFAULT '
 -- went to somebody outside the company and outlives the permit row.
 ALTER TABLE file_shares ADD COLUMN IF NOT EXISTS permit_id uuid REFERENCES permits (id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_file_shares_permit ON file_shares (permit_id) WHERE permit_id IS NOT NULL;
-========
->>>>>>>> origin/main:supabase/migrations/_combined_008-157.sql
