@@ -484,6 +484,21 @@ What a cron would need, if we decide the wait is worse than the silence:
 - The daily-log weather auto-fill keeps its own `getCurrentPosition` copy. It degrades correctly (falls back to the project address), so it was left alone in #444 - but it is the third copy and should read `lib/geo-position.ts`.
 - **Email/SMS for inspection notifications** (currently in-app bell only).
 - **Inspections on the per-project Schedule tab** (currently on Master Calendar).
+- **Permits - what the first cut left out** (permit rounds shipped Nov 2026):
+  - **Forward the township's email into the permit.** A per-permit (or
+    per-development) inbound address, so a reply lands in that permit's
+    history with its attachments and the corrections list is read out of it.
+    This is what actually replaces the 250-email thread rather than
+    organising around it. Needs inbound email, which SyteNav does not have.
+  - **Claude cannot log a round yet.** `update_permit` still sets fields and
+    status (and is refused a status the history contradicts); a
+    `log_permit_submission` / `record_permit_answer` pair belongs in
+    `lib/mcp/areas/permits-inspections.ts` over `lib/writes/permit-round.ts`.
+  - **No reminder for a permit to chase.** "Chase" is on the screen only; a
+    morning notification for permits past their promised answer would be a new
+    catalog type, audience `permits: edit`.
+  - **Bulk approvals** are refused on purpose (each house has its own permit
+    number). If a township issues one number for a batch, revisit.
 
 ## 📱 Misc
 - **Nine files still declare components inside components** (18 of them, ratcheted in `lib/__tests__/swipe-dismiss.ts`). Each rebuilds its whole subtree on every render of the component around it - mostly stateless cards, so the cost is wasted work and a lost scroll position rather than the visible blink #443 fixed on the task drawer. Hoist them file by file; the ratchet may only go down.
@@ -680,6 +695,7 @@ and why:
 
 ## ✅ Recently shipped (for reference)
 
+- Permits keep their back and forth (#PRPERMITS): each permit has rounds (a submission and the answer to it - approved, corrections, rejected - with files both ways) and items (what the reviewer asked for, ticked off). Who has it now is derived, never stored: with the reviewer since a date (Chase past the promised date or 21 days), with us N items to fix, ready to resubmit, approved. Once rounds exist they decide pending/approved/rejected, refused at the PATCH too. A development's Permits tab has a board (houses x permit types) with bulk add / log submission / record corrections across houses. Migration 157.
 - QuickBooks two-way, phase 1 (#PR2W): optional Bring changes back - payments and bill payments recorded in QuickBooks against SyteNav records come back; voids, deletes and amount changes there are flagged on the row, never applied. Webhook (signed) + daily Change Data Capture + Check now; inbound events table (migration 154). **Next:** phase 2 - an Unmatched inbox for invoices/bills created only in QuickBooks; job tracking (each job a QuickBooks Project, as an optional setting) so most of them file themselves; notifications for payments recorded in QuickBooks.
 - QuickBooks account selection (#637): Settings > Integrations > Where things go in QuickBooks - the account sub bills land on, the bank account bill payments come out of, the invoice item, and the deposit account for client payments, each listed live from the connected QuickBooks company. Stored per QuickBooks company (`quickbooks_account_choices`, migration 153); no row is Automatic. One choice per kind, not per budget line or trade.
 - QuickBooks step 1, a sync you can trust (#629): every void or delete of a synced client invoice, client payment, sub bill or bill payment now reaches QuickBooks, QuickBooks first, and a refusal keeps the record. The verbs were wrong for two of the four (`voidOperation`). The void badge is honest and is the retry, the Integrations card says one-way push and names all four, and every sync-log row carries its action and a record label (migration 150).

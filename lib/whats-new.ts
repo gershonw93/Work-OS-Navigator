@@ -66,6 +66,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-02',
+    title: 'Permits keep their back and forth',
+    items: [
+      {
+        kind: 'new',
+        title: 'Every submission, every answer, and who has the permit now',
+        text: 'Open a permit and log each submission and the answer to it - approved, corrections needed or rejected - with the files both ways. Corrections become a checklist to tick off, and each permit says in one line whose move it is: "With the township since Oct 3 (12 days)", "With us: 2 items to fix" or "Ready to resubmit". Anything waiting past the date they promised, or three weeks with no answer, is marked Chase.',
+        help: 'permits',
+      },
+      {
+        kind: 'new',
+        title: 'A permit board for developments',
+        text: 'A development\'s Permits tab shows every house against every permit type, with who has each one. Filter to the lots that are held up, and use Update several houses to add a permit to all of them, log one submission across the houses you pick, or record one corrections list against all of them.',
+        help: 'permits',
+      },
+    ],
+  },
+  {
     date: '2026-10-26',
     title: 'A calendar for subcontractors',
     items: [

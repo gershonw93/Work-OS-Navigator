@@ -73,6 +73,8 @@ const ACTIVITY_ICONS: Record<string, React.ElementType> = {
   scope_change_notice: Megaphone,
   permit_added: ScrollText,
   permit_updated: ScrollText,
+  permit_submitted: ScrollText,
+  permit_answered: ScrollText,
   inspection_added: CalendarCheck,
   inspection_updated: CalendarCheck,
   subcontractor_added: UserPlus,
