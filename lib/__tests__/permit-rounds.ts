@@ -5,8 +5,8 @@
 // the derivation, the rules each door asks, and that the doors ask them.
 
 import {
-  allowedStatuses, carryableFiles, cleanItems, finalFileAfter, unusedUploads, outcomeProblem, permitStanding, statusAfter, statusMoveProblem,
-  submitProblem, type PermitRound,
+  allowedStatuses, carryableFiles, cleanItems, finalFileAfter, unusedUploads, outcomeProblem, permitStage, permitStanding, statusAfter, statusMoveProblem,
+  submitProblem, type PermitItem, type PermitRound,
 } from '../permit-rounds'
 import { JOB_FILE_KINDS } from '../job-files'
 import { boardCells, boardColumns, boardCounts, bulkProblem } from '../permit-board'
@@ -17,38 +17,54 @@ const permit = { status: 'pending', issuing_authority: 'Lakewood Township', perm
 const round = (o: Partial<PermitRound>): PermitRound =>
   ({ id: o.id ?? 'r', permit_id: 'p', submitted_on: '2026-10-01', created_at: '2026-10-01T10:00:00Z', ...o })
 
-// ── who has it ──────────────────────────────────────────────────────────────
+// ── where it stands: permitStage, the ONE answer the list, panel and board read ──
+const item = (o: Partial<PermitItem>): PermitItem => ({ id: o.id ?? Math.random().toString(36), permit_id: 'p', label: o.label ?? 'x', ...o })
 {
-  const s = permitStanding(permit, [], [], TODAY)
-  ok(s.court === 'none' && s.label === 'No submission logged',
-    'no history is "not logged", never "not submitted" - it may be sitting at the township')
-  ok(permitStanding({ ...permit, status: 'approved' }, [], [], TODAY).court === 'done',
-    'a permit marked approved before rounds existed still reads as done')
+  const s = permitStage(permit, [], [], TODAY)
+  ok(s.stage === 'draft' && s.group === 'you' && s.step === 0, 'a permit nothing has been logged on is "Send the application", your move, step 1 of 4')
+  ok(/If it already went in, log the day it did/.test(s.sub),
+    '...and says it may already have gone in - no history is "not logged", never "not submitted"')
+  ok(permitStage({ ...permit, status: 'approved' }, [], [], TODAY).stage === 'issued',
+    'a permit marked approved before rounds existed is issued')
 }
 {
-  const s = permitStanding(permit, [round({ submitted_on: '2026-10-21' })], [], TODAY)
-  ok(s.court === 'them' && s.label.startsWith('With Lakewood Township since Oct 21') && s.label.includes('12 days'),
-    `an open round is with the reviewer, named, with the date and the age (got "${s.label}")`)
-  ok(!s.chase && s.tone === 'info', '...and 12 days with no promised date is not yet a chase')
+  // The design's Building: with Test Township since Oct 30, round 3.
+  const s = permitStage({ ...permit, issuing_authority: 'Test Township' }, [
+    round({ id: 'a', submitted_on: '2026-10-11', outcome: 'corrections', outcome_on: '2026-10-19' }),
+    round({ id: 'b', submitted_on: '2026-10-21', outcome: 'corrections', outcome_on: '2026-10-28' }),
+    round({ id: 'c', submitted_on: '2026-10-30' }),
+  ], [], TODAY)
+  ok(s.stage === 'city' && s.group === 'city' && s.next === 'Waiting on round 3 answer', `with the city, on round 3 (got "${s.next}")`)
+  ok(s.time === '3 days' && s.head === 'Waiting on Test Township' && /Round 3 sent Oct 30, 3 days ago/.test(s.sub),
+    `the row says how long and the panel says since when (got "${s.time}" / "${s.sub}")`)
+  ok(!s.chase, '...and 3 days is not a chase')
 }
 {
-  const s = permitStanding(permit, [round({ submitted_on: '2026-10-08' })], [], TODAY)
-  ok(s.chase && s.tone === 'warn', `25 days with no answer and no promised date is a chase (${s.label})`)
-}
-{
-  // Promised for Oct 30, nothing by Nov 2: overdue even though only 10 days in.
-  const s = permitStanding(permit, [round({ submitted_on: '2026-10-23', expected_by: '2026-10-30' })], [], TODAY)
-  ok(s.chase && s.label.includes('answer was due Oct 30'), `past the promised date is a chase, and says so (${s.label})`)
-  const early = permitStanding(permit, [round({ submitted_on: '2026-10-01', expected_by: '2026-11-20' })], [], TODAY)
+  const s = permitStage(permit, [round({ submitted_on: '2026-10-08' })], [], TODAY)
+  ok(s.chase && s.time === '25 days, follow up' && s.timeTone === 'warn' && /Follow up/.test(s.head),
+    `25 days with no answer and no promised date is a chase (${s.time})`)
+  const promised = permitStage(permit, [round({ submitted_on: '2026-10-23', expected_by: '2026-10-30' })], [], TODAY)
+  ok(promised.chase && /was due Oct 30/.test(promised.time), `past the promised date is a chase, and says so (${promised.time})`)
+  const early = permitStage(permit, [round({ submitted_on: '2026-10-01', expected_by: '2026-11-20' })], [], TODAY)
   ok(!early.chase, '...and a promised date still ahead wins over the 21-day default')
 }
 {
-  const rounds = [round({ outcome: 'corrections', outcome_on: '2026-10-15' })]
-  const items = [{ done_at: null }, { done_at: null }, { done_at: '2026-10-20' }]
-  const s = permitStanding(permit, rounds, items, TODAY)
-  ok(s.court === 'us' && s.label === 'With us: 2 items to fix', `corrections with open items is with us, counted (${s.label})`)
-  const all = permitStanding(permit, rounds, items.map(() => ({ done_at: 'x' })), TODAY)
-  ok(all.court === 'us' && all.label === 'Ready to resubmit', 'every item ticked off reads "ready to resubmit"')
+  // The design's Mechanical: answered Oct 28, three asks, one done.
+  const last = round({ id: 'r1', submitted_on: '2026-10-09', outcome: 'corrections', outcome_on: '2026-10-28', created_at: '2026-10-09T10:00:00Z' })
+  const asks = [item({ round_id: 'r1', label: 'Duct layout' }), item({ round_id: 'r1', label: 'Cut sheets' }), item({ round_id: 'r1', label: 'Load calc', done_at: '2026-10-30' })]
+  const s = permitStage(permit, [last], asks, TODAY)
+  ok(s.stage === 'fix' && s.next === 'Fix 2 things and send it back' && s.head === 'Fix 2 things, then send it back',
+    `corrections with open asks: your move, counted (${s.next})`)
+  ok(s.time === 'Back 5 days', `...and how long it has been back with us (${s.time})`)
+  const allDone = permitStage(permit, [last], asks.map(a => ({ ...a, done_at: 'x' })), TODAY)
+  ok(allDone.next === 'All fixed, send it back', 'every ask ticked reads "all fixed, send it back"')
+  const none = permitStage(permit, [last], [], TODAY)
+  ok(none.stage === 'fix' && none.next === 'Add what they asked for',
+    'an answer recorded before the list is typed says to add the list - the answer comes first, the list after reading it')
+  // An ask from an OLDER round that is still open stays on the card.
+  const older = item({ round_id: 'r0', label: 'Old open ask' })
+  ok(permitStage(permit, [last], [older], TODAY).asks.some(a => a.label === 'Old open ask'),
+    'an unfinished ask from an earlier round is never hidden by a new one')
 }
 {
   const rounds = [
@@ -56,13 +72,28 @@ const round = (o: Partial<PermitRound>): PermitRound =>
     round({ id: 'b', submitted_on: '2026-09-15', outcome: 'approved', outcome_on: '2026-09-30' }),
     round({ id: 'c', submitted_on: '2026-10-05', outcome: 'rejected', outcome_on: '2026-10-12' }),
   ]
-  const s = permitStanding(permit, rounds, [], TODAY)
-  ok(s.court === 'done' && s.label === 'Approved Sep 30',
-    'a REJECTED REVISION does not un-issue an approved permit')
-  // Given in the wrong order on purpose: the route does not sort.
-  const shuffled = permitStanding(permit, [rounds[2], rounds[0], rounds[1]], [], TODAY)
-  ok(shuffled.label === s.label, '...whatever order the rows arrive in')
+  const s = permitStage(permit, rounds, [], TODAY)
+  ok(s.stage === 'issued' && s.head === 'Issued Sep 30', `a REJECTED REVISION does not un-issue an approved permit (${s.head})`)
+  const shuffled = permitStage(permit, [rounds[2], rounds[0], rounds[1]], [], TODAY)
+  ok(shuffled.head === s.head, '...whatever order the rows arrive in')
 }
+{
+  // The design's Street Occupancy: issued Jul 30, expired Oct 30.
+  const s = permitStage({ ...permit, status: 'active', expiry_date: '2026-10-30' },
+    [round({ outcome: 'approved', outcome_on: '2026-07-30' })], [], TODAY)
+  ok(s.stage === 'renew' && s.group === 'you' && s.time === 'Expired 3 days ago' && s.timeTone === 'bad',
+    `an issued permit past its date is YOUR MOVE, "Renew it", whatever the row still says (${s.time})`)
+  const fix = permitStage(permit, [round({ outcome: 'corrections', outcome_on: '2026-10-01' })], [], TODAY)
+  ok(s.sortKey < fix.sortKey, 'an expired permit sorts to the top of Your move')
+  const soon = permitStage({ ...permit, status: 'approved', expiry_date: '2026-11-20' }, [], [], TODAY)
+  ok(soon.stage === 'issued' && soon.timeTone === 'warn' && soon.time === 'Expires Nov 20',
+    `inside the expiry window an issued permit warns, in the column that is coloured (${soon.time})`)
+  const fine = permitStage({ ...permit, status: 'approved', expiry_date: '2027-10-09' }, [], [], TODAY)
+  ok(fine.next === 'Expires Oct 9, 2027', `an expiry next year carries its year (${fine.next})`)
+}
+ok(permitStage({ ...permit, status: 'closed' }, [], [], TODAY).step === 3, 'closed out is the fourth step')
+ok(permitStanding(permit, [round({ submitted_on: '2026-10-08' })], [], TODAY).chase,
+  'the board\'s standing is derived from the same stage - never computed a second way')
 
 // ── what each door refuses ──────────────────────────────────────────────────
 ok(!!submitProblem({ submitted_on: '2026-11-01' }, [round({})]),
@@ -74,8 +105,8 @@ ok(submitProblem({ submitted_on: '2026-11-01' }, [round({ outcome: 'corrections'
 ok(!!submitProblem({ submitted_on: '' }, []), 'a submission with no date is refused')
 
 const waiting = round({})
-ok(!!outcomeProblem({ outcome: 'corrections', outcome_on: '2026-10-15', items: ['', '  '] }, waiting, permit),
-  'corrections with no list is refused - the list is what makes it "with us"')
+ok(outcomeProblem({ outcome: 'corrections', outcome_on: '2026-10-15', items: [] }, waiting, permit) === null,
+  'corrections can be recorded before the list - the permit then says "Add what they asked for"')
 ok(outcomeProblem({ outcome: 'corrections', outcome_on: '2026-10-15', items: ['Energy calc'] }, waiting, permit) === null,
   '...and with one item it goes through')
 ok(!!outcomeProblem({ outcome: 'approved', outcome_on: '2026-10-15' }, waiting, permit),
@@ -93,7 +124,7 @@ ok(pasted.join('|') === 'Revised site plan|Energy calc|HOA letter',
   `a list pasted from an email loses its bullets, blanks and repeats (got ${pasted.join('|')})`)
 
 // ── the status column, once history exists ─────────────────────────────────
-ok(allowedStatuses([]).length === 6, 'a permit with no history can still be set to anything, as before')
+ok(allowedStatuses([]).length === 7, 'a permit with no history can still be set to anything, as before (closed included)')
 ok(!!statusMoveProblem('pending', 'approved', [round({})]),
   'the dropdown cannot say "approved" over a submission still with the township')
 ok(statusMoveProblem('pending', 'expired', [round({})]) === null, '...but "expired" is a date, always allowed')
@@ -111,8 +142,8 @@ ok(statusAfter('submitted', 'active', [round({ outcome: 'approved', outcome_on: 
 // ── the board ───────────────────────────────────────────────────────────────
 ok(!!bulkProblem({ action: 'answer', permit_type: 'Building', project_ids: ['a'], outcome: 'approved' }),
   'an approval is not a batch - every house has its own number')
-ok(!!bulkProblem({ action: 'answer', permit_type: 'Building', project_ids: ['a'], outcome: 'corrections', items: [] }),
-  'bulk corrections with no list is refused once, not twenty times')
+ok(bulkProblem({ action: 'answer', permit_type: 'Building', project_ids: ['a'], outcome: 'corrections', items: [] }) === null,
+  '...the same in bulk: one door does not refuse what the other allows')
 ok(!!bulkProblem({ action: 'submit', permit_type: 'Building', project_ids: [] }), 'no houses picked is refused')
 
 const boardPermits = [
@@ -193,6 +224,26 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
   const itemFiles = code('app/api/projects/[id]/permits/[permitId]/items/[itemId]/files/route.ts')
   ok((itemFiles.match(/requirePermission\(/g) ?? []).length === 2 && (itemFiles.match(/ownedProject\(/g) ?? []).length === 2,
     'attaching or removing a fix asks the permission and the job, on both handlers')
+}
+
+
+// ── the redesigned screen asks the stage, and says no with words ────────────
+{
+  const page = code('app/(dashboard)/projects/[id]/permits/page.tsx')
+  const panel = code('components/permits/permit-panel.tsx')
+  const list = code('components/permits/permit-list.tsx')
+  ok(/permitStage\(/.test(page) && /permitStage\(/.test(panel) && !/permitStage\(/.test(list),
+    'the page and the panel ask permitStage; the list only lays out what it was given')
+  ok(/st\.openAsks > 0/.test(panel) && /confirmLabel: 'Send anyway'/.test(panel),
+    'sending with asks unticked ASKS, it is not a greyed-out button that explains nothing')
+  ok(!/disabled=\{[^}]*openAsks/.test(panel), '...and no button is disabled on the asks')
+  ok(/docked \?/.test(panel) && /className="overlay-drawer[^"]*" data-overlay/.test(panel),
+    'docked beside the list on a desktop; on a phone an overlay-drawer that freezes the page')
+  ok(/lg:hidden/.test(panel) && /hidden flex-wrap items-center gap-2 lg:flex/.test(panel),
+    'the card\'s buttons are pinned under the thumb on a phone and sit in the card on a desktop')
+  ok(allowedStatuses([round({ outcome: 'approved', outcome_on: '2026-10-01' })]).includes('closed'),
+    'an issued permit can be closed out')
+  ok(/'closed'/.test(read('supabase/migrations/159_permit_closed_out.sql')), 'and the database allows it')
 }
 
 done()

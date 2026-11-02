@@ -36,7 +36,7 @@ import { expiryState } from '@/lib/expiry'
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Permit statuses the table's check constraint allows (migration 012). */
-export const PERMIT_STATUSES = ['pending', 'approved', 'active', 'recorded', 'expired', 'rejected'] as const
+export const PERMIT_STATUSES = ['pending', 'approved', 'active', 'recorded', 'expired', 'rejected', 'closed'] as const
 
 /** Statuses update_inspection may set. Never `void` - that is the void route's, and it is a removal. */
 export const INSPECTION_TOOL_STATUSES = ['not_scheduled', 'requested', 'scheduled', 'passed', 'failed', 'pending_reinspection'] as const

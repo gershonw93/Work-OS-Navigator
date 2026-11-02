@@ -18,7 +18,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-const PERMIT_COLS = 'id, project_id, permit_type, permit_number, description, status, issued_date, expiry_date, issuing_authority, file_url, created_at'
+const PERMIT_COLS = 'id, project_id, permit_type, permit_number, description, status, issued_date, expiry_date, issuing_authority, inspector_name, inspector_phone, notes, file_url, created_at'
 
 /**
  * The development, its houses, and every permit on any of them. A job that

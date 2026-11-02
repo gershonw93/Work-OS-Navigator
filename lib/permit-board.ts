@@ -8,7 +8,7 @@
 // one step instead of twenty. Pure: the page and the route both ask it.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { cleanItems, permitStanding, type Court, type PermitItem, type PermitRound, type Standing } from './permit-rounds'
+import { permitStanding, type Court, type PermitItem, type PermitRound, type Standing } from './permit-rounds'
 
 /** The permit types the Add form offers. One list, so the board's "add to houses" offers the same. */
 export const PERMIT_TYPES = [
@@ -45,10 +45,6 @@ export function bulkProblem(input: {
   }
   if (input.action === 'answer' && input.outcome !== 'corrections' && input.outcome !== 'rejected') {
     return 'Pick what they said: corrections needed or rejected.'
-  }
-  // Asked once here rather than refused twenty times, once per house.
-  if (input.action === 'answer' && input.outcome === 'corrections' && !cleanItems(input.items).length) {
-    return 'List what they asked for - one item per line. Every house picked gets the list.'
   }
   return null
 }

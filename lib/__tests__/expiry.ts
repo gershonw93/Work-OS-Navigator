@@ -86,16 +86,15 @@ ok(/expiredDocs/.test(compliance),
 ok(/label: 'Expired'/.test(compliance) && /StatCard label="Expired"/.test(compliance),
   '...on the phone strip and the desktop tiles alike')
 
-const permits = code('app/(dashboard)/projects/[id]/permits/page.tsx')
-ok(/from '@\/lib\/expiry'/.test(permits), 'Permits asks the same question')
-ok(!/diff > 0/.test(permits), '...and has dropped its own copy too')
-ok(/state === 'expired' \? 'expired' : permit\.status/.test(permits),
+// The Permits screen reads expiry through permitStage, which asks lib/expiry:
+// an issued permit whose date has passed is "Renew it" in Your move, worded
+// "Expired N days ago", whatever the row was last set to.
+const stage = code('lib/permit-rounds.ts')
+ok(/from '\.\/expiry'/.test(stage), 'Permits asks the same question')
+ok(/const expiry = expiryState\(permit\.expiry_date, \{ today: todayDate \}\)/.test(stage) && /const lapsed = expiry === 'expired'/.test(stage),
   'a permit whose date has passed reads Expired whatever the row still says')
-// The how-long moved INTO the status chip (one status per expired row, not an
-// "expired" chip beside an "Expired 15 days ago" chip), worded by expiredAgo.
-ok(/expiredAgo\(permit\.expiry_date\)/.test(permits),
-  '...and says how long ago, in the ONE status chip')
-ok(!/`Expired \$\{lapsedDays\}/.test(permits),
-  '...not in a second chip beside it')
+ok(/expiredAgo\(permit\.expiry_date, todayDate\)/.test(stage),
+  '...and says how long ago, in the ONE time column')
+ok(!/permit\.expiry_date < today/.test(stage), '...with no second, string-compare copy of the rule')
 
 done()

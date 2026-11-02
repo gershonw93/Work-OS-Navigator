@@ -7,18 +7,17 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { cn } from '@/lib/utils'
-import { Plus, X, FileCheck, FileText, ChevronDown, ChevronUp, Phone, Building, ExternalLink, Sparkles, Loader2, AlertCircle, Trash2, Pencil, Check, UserPlus } from 'lucide-react'
+import { Plus, X, FileCheck, FileText, Building, Sparkles, Loader2, AlertCircle, Check, UserPlus, Search } from 'lucide-react'
 import { ContactPicker } from '@/components/contact-picker'
 
-import { formatDate } from '@/lib/dates'
-import { expiryState, expiryLabel, expiredAgo } from '@/lib/expiry'
-import { sortPermits } from '@/lib/permit-order'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { useNotice } from '@/components/ui/notice'
 import { permitProblem } from '@/lib/permit-rules'
 import { PERMIT_TYPES } from '@/lib/permit-board'
-import { allowedStatuses, permitStanding, todayIso, type PermitItem, type PermitRound, type PermitShare } from '@/lib/permit-rounds'
-import { PermitThread, STANDING_CHIP } from '@/components/permits/permit-thread'
+import { allowedStatuses, permitStage, todayIso, type PermitItem, type PermitRound, type PermitShare } from '@/lib/permit-rounds'
+import { PermitPanel } from '@/components/permits/permit-panel'
+import { PermitList, type ListRow } from '@/components/permits/permit-list'
+import { useMinWidth } from '@/lib/use-min-width'
 import { PermitBoard, type BoardData } from '@/components/permits/permit-board'
 import { usePermissions } from '@/lib/use-permissions'
 import { fetchProblem } from '@/lib/fetch-error'
@@ -58,7 +57,11 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const canEdit = perms.loading || !!perms.error || perms.can('permits', 'edit')
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [expanded, setExpanded] = useState<string | null>(null)
+  // The permit open in the panel, and whether it opened on "Their answer".
+  const [openId, setOpenId] = useState<string | null>(null)
+  const [answerNow, setAnswerNow] = useState(false)
+  const [q, setQ] = useState('')
+  const wide = useMinWidth(1024)
   const [submitting, setSubmitting] = useState(false)
 
   // Form
@@ -326,6 +329,38 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   }
 
 
+  // ── The list and the open permit ──
+  const today = todayIso()
+  const allRows: ListRow[] = permits.map(p => ({
+    id: p.id,
+    type: p.permit_type,
+    meta: `${p.permit_number || 'No number yet'} · ${p.issuing_authority?.trim() || 'No issuer set'}`,
+    st: permitStage(p, roundsFor(p.id), itemsFor(p.id), today),
+  }))
+  const order = (['you', 'city', 'iss'] as const).flatMap(g =>
+    allRows.filter(r => r.st.group === g).sort((a, b) => a.st.sortKey - b.st.sortKey))
+  const needle = q.trim().toLowerCase()
+  const shownRows = needle
+    ? order.filter(r => `${r.type} ${r.meta}`.toLowerCase().includes(needle))
+    : order
+  const counts = {
+    you: order.filter(r => r.st.group === 'you').length,
+    city: order.filter(r => r.st.group === 'city').length,
+    iss: order.filter(r => r.st.group === 'iss').length,
+  }
+  const openPermit = openId ? permits.find(p => p.id === openId) ?? null : null
+  function openOne(id: string, answer = false) { setOpenId(id); setAnswerNow(answer) }
+  function navOf(id: string) {
+    const list = shownRows.some(r => r.id === id) ? shownRows : order
+    const pos = list.findIndex(r => r.id === id)
+    if (pos === -1 || list.length < 2) return undefined
+    return {
+      pos: pos + 1, total: list.length,
+      prev: () => openOne(list[(pos - 1 + list.length) % list.length].id),
+      next: () => openOne(list[(pos + 1) % list.length].id),
+    }
+  }
+
   return (
     <div className="p-0 lg:p-6 space-y-5">
       {/* Post-save: offer to save a newly-typed inspector to contacts */}
@@ -477,140 +512,74 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-ink">Permits</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Project permits, approvals, and inspector contacts.</p>
-        </div>
-        <Button onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add Permit</Button>
-      </div>
+      <div className={cn('lg:grid lg:items-start lg:gap-6', openPermit && wide && 'lg:grid-cols-[minmax(0,1fr)_minmax(380px,480px)]')}>
+        <div className="min-w-0 space-y-5">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold text-ink">Permits</h1>
+              {!loading && permits.length > 0 && (
+                <p className="mt-1 text-[15px] text-muted-fg">
+                  <strong className="font-semibold text-ink">{counts.you ? `${counts.you} ${counts.you === 1 ? 'needs' : 'need'} you.` : 'Nothing needs you.'}</strong>
+                  {' '}{counts.city} with the city. {counts.iss} issued.
+                </p>
+              )}
+            </div>
+            {canEdit && <Button className="shrink-0" onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add Permit</Button>}
+          </div>
 
-      {boardError && (
-        <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>{boardError}</span>
-        </div>
-      )}
-      {board && <PermitBoard data={board} canEdit={canEdit} onChanged={fetchPermits} />}
-      {board && <h2 className="pt-2 text-lg font-semibold text-ink">The development&apos;s own permits</h2>}
+          {boardError && (
+            <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{boardError}</span>
+            </div>
+          )}
+          {board && <PermitBoard data={board} canEdit={canEdit} onChanged={fetchPermits} />}
+          {board && <h2 className="pt-2 text-lg font-semibold text-ink">The development&apos;s own permits</h2>}
 
-      {fetchError && (
-        <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          <span>Could not load permits: <strong>{fetchError}</strong></span>
-        </div>
-      )}
+          {fetchError && (
+            <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>Could not load permits: <strong>{fetchError}</strong></span>
+            </div>
+          )}
+          {!historyOk && (
+            <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>Could not load the permits&apos; submissions, so the groups below go by each permit&apos;s status only. Reload to try again.</span>
+            </div>
+          )}
 
-      {loading ? (
-        <div className="text-sm text-faint py-12 text-center">Loading...</div>
-      ) : permits.length === 0 ? (
-        <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
-          <FileCheck className="h-8 w-8 text-faint mx-auto mb-3" />
-          <p className="text-sm font-medium text-muted-fg">No permits added yet</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {/* What needs somebody goes FIRST - expired, then expiring, then
-              pending. The route returns newest-first, which put the one
-              expired permit at the bottom of the page. lib/permit-order.ts. */}
-          {sortPermits(permits).map(permit => {
-            const isExpanded = expanded === permit.id
-            // THE BUG: only "expiring soon" was ever asked, and that window sits
-            // BEFORE the date - so the morning a permit lapsed the warning went
-            // away and it went back to reading like an ordinary pending permit.
-            const state = expiryState(permit.expiry_date)
-            const expiring = state === 'soon'
-            const lapsed = state === 'expired'
-            // The row can say 'pending' for ever; the date cannot be argued with.
-            const shownStatus = state === 'expired' ? 'expired' : permit.status
-            // ONE chip for an expired row. It used to wear "expired" AND
-            // "Expired 15 days ago" - two chips saying one thing - so the
-            // status chip itself carries the how-long.
-            const statusText = (lapsed && expiredAgo(permit.expiry_date)) || shownStatus
-            // "Expired Sep 8", never "Expires" under a date already gone.
-            const dateLine = expiryLabel(permit.expiry_date)
-            const standing = permitStanding(permit, roundsFor(permit.id), itemsFor(permit.id), todayIso())
-            return (
-              <div key={permit.id} className="rounded-xl border border-line bg-panel overflow-hidden">
-                <button className="w-full flex items-center gap-4 px-5 py-4 hover:bg-surface transition-colors text-left"
-                  onClick={() => setExpanded(isExpanded ? null : permit.id)}>
-                  <FileCheck className="h-5 w-5 text-faint shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-ink">{permit.permit_type}</span>
-                      {permit.permit_number && <span className="text-xs font-mono text-muted-fg">#{permit.permit_number}</span>}
-                      <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STATUS_COLORS[shownStatus] ?? STATUS_COLORS.pending)}>
-                        {statusText}
-                      </span>
-                      {expiring && <span className="whitespace-nowrap text-xs font-medium bg-warn-tint border border-warn/30 text-warn rounded-full px-2 py-0.5">Expiring soon</span>}
-                      {/* Who has it now - only once there is history to say it from. */}
-                      {historyOk && standing.court !== 'none' && standing.court !== 'done' && (
-                        <span className={cn('whitespace-nowrap text-xs font-medium rounded-full border px-2 py-0.5', STANDING_CHIP[standing.tone])}>
-                          {standing.chase ? `Chase · ${standing.short.replace('With city · ', '')}` : standing.short}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-muted-fg mt-0.5 truncate">
-                      {permit.description
-                        ? <span className="text-muted-fg font-medium">{permit.description}</span>
-                        : null}
-                      {permit.description && (permit.issuing_authority || permit.expiry_date) && <span className="text-faint mx-1">·</span>}
-                      {permit.issuing_authority}
-                      {dateLine && ` · ${dateLine}`}
-                    </p>
-                  </div>
-                  {permit.file_url && <FileText className="h-4 w-4 text-accent-fg shrink-0" />}
-                  {isExpanded ? <ChevronUp className="h-4 w-4 text-faint shrink-0" /> : <ChevronDown className="h-4 w-4 text-faint shrink-0" />}
-                </button>
-
-                {isExpanded && (
-                  <div className="border-t border-line-soft px-5 py-5 space-y-4">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      {permit.issued_date && <div><p className="text-xs text-faint">Issued</p><p className="font-medium text-ink-soft">{formatDate(permit.issued_date)}</p></div>}
-                      {permit.expiry_date && <div><p className="text-xs text-faint">{lapsed ? 'Expired' : 'Expires'}</p><p className={cn('font-medium', lapsed ? 'text-danger' : expiring ? 'text-warn' : 'text-ink-soft')}>{formatDate(permit.expiry_date)}</p></div>}
-                      {permit.issuing_authority && <div><p className="text-xs text-faint">Issued By</p><p className="font-medium text-ink-soft">{permit.issuing_authority}</p></div>}
-                      {permit.inspector_name && (
-                        <div>
-                          <p className="text-xs text-faint">Inspector</p>
-                          <p className="font-medium text-ink-soft">{permit.inspector_name}</p>
-                          {permit.inspector_phone && (
-                            <a href={`tel:${permit.inspector_phone}`} className="flex items-center gap-1 text-xs text-accent-fg hover:underline mt-0.5">
-                              <Phone className="h-3 w-3" />{permit.inspector_phone}
-                            </a>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    {permit.description && <p className="text-sm text-muted-fg break-words">{permit.description}</p>}
-                    {permit.notes && <div className="rounded-lg bg-surface border border-line-soft px-3 py-2 text-sm text-muted-fg">{permit.notes}</div>}
-                    <div className="border-t border-line-soft pt-4">
-                      <PermitThread projectId={params.id} permit={permit} rounds={roundsFor(permit.id)} items={itemsFor(permit.id)}
-                        shares={shares.filter(x => x.permit_id === permit.id)} historyOk={historyOk} canEdit={canEdit} onChanged={fetchPermits} />
-                    </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {permit.file_url && (
-                        <a href={permit.file_url} target="_blank" rel="noopener noreferrer">
-                          <Button size="sm" variant="outline"><ExternalLink className="h-3.5 w-3.5" /> View Document</Button>
-                        </a>
-                      )}
-                      <SearchableSelect value={permit.status} onChange={e => updateStatus(permit.id, e.target.value)}
-                        className="rounded-md border border-muted2 px-2 py-1.5 text-xs bg-panel focus:border-accent focus:outline-none">
-                        {statusesFor(permit.id, permit.status).map(s => <option key={s}>{s}</option>)}
-                      </SearchableSelect>
-                      <button onClick={() => openEdit(permit)} className="text-faint hover:text-muted-fg p-1" title="Edit permit">
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button onClick={() => handleDeletePermit(permit.id)} className="text-danger hover:text-danger p-1" title="Delete permit">
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
+          {loading ? (
+            <div className="text-sm text-faint py-12 text-center">Loading...</div>
+          ) : permits.length === 0 ? (
+            <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
+              <FileCheck className="h-8 w-8 text-faint mx-auto mb-3" />
+              <p className="text-sm font-medium text-muted-fg">No permits added yet</p>
+            </div>
+          ) : (
+            <>
+              <div className="relative">
+                <label className="sr-only" htmlFor="permit-search">Search permits</label>
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-fg" aria-hidden="true" />
+                <Input id="permit-search" type="search" value={q} onChange={e => setQ(e.target.value)}
+                  placeholder="Search by type, number, or who issues it" className="h-11 pl-9" />
               </div>
-            )
-          })}
+              <PermitList rows={shownRows} openId={openPermit?.id ?? null} compact={!!openPermit && wide} canEdit={canEdit}
+                filtering={!!q.trim()} onOpen={id => openOne(id)} onAnswer={id => openOne(id, true)} />
+            </>
+          )}
         </div>
-      )}
+
+        {openPermit && (
+          <PermitPanel key={wide ? 'docked' : 'drawer'} projectId={params.id} permit={openPermit}
+            rounds={roundsFor(openPermit.id)} items={itemsFor(openPermit.id)}
+            shares={shares.filter(x => x.permit_id === openPermit.id)} historyOk={historyOk} canEdit={canEdit}
+            docked={wide} answerNow={answerNow} onChanged={fetchPermits} onClose={() => setOpenId(null)}
+            nav={navOf(openPermit.id)}
+            onEdit={() => openEdit(openPermit)}
+            onDelete={() => { handleDeletePermit(openPermit.id) }} />
+        )}
+      </div>
     </div>
   )
 }
