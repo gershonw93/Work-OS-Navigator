@@ -30,7 +30,7 @@ Run the whole job in one app:
 
 Built for the jobsite and the office. Works on your phone, tablet, and computer.
 
-Sign in with the account your company already uses. Accounts are created by invitation.
+SyteNav is available by invitation only. Sign in with the account provided by your company.
 
 ## Keywords (Apple, 100 chars, comma-separated)
 construction,contractor,subcontractor,invoices,quotes,estimate,punch list,daily log,jobsite,builder
@@ -85,7 +85,10 @@ What's New quoted $99 / $299 / $499 and pointed at Settings > Billing, and the
 Billing tab itself showed the plan and an allowance. Both are gone from the iOS
 app (see CLAUDE.md, "Selling"). The App Store DESCRIPTION also said "Request
 access at sytenav.com" - a pointer outside the app in the submission itself;
-replace it in App Store Connect with the line above.
+it now reads as above (the live listing, checked 2 November 2026).
+The review NOTES field could not be edited while the version sat in Rejected,
+so the 3.1.3(f) explanation went in the reply to App Review instead - update
+the notes below on the next version.
 
 **The second paragraph is the one that matters, and it is not optional.** Build
 1.0 (14) was rejected under 3.1.1 on 30 September 2026, and the notes in use at
