@@ -92,7 +92,7 @@ export function PermitList({ rows, openId, compact, canEdit, filtering, onOpen, 
           <>
             {collapsible && <ChevronRight className={cn('h-4 w-4 shrink-0 transition-transform', open && 'rotate-90')} aria-hidden="true" />}
             <span className="text-[15px] font-bold text-ink">{label}</span>
-            <span className={cn('inline-flex h-[22px] min-w-6 items-center justify-center rounded-full px-[7px] text-xs font-bold', GROUP_STYLE[g].pill)}>{mine.length}</span>
+            <span className={cn('inline-flex h-[22px] min-w-6 items-center whitespace-nowrap justify-center rounded-full px-[7px] text-xs font-bold', GROUP_STYLE[g].pill)}>{mine.length}</span>
             <span className="ml-auto text-[12.5px] text-muted-fg lg:ml-0 lg:text-[13px]">{sub}</span>
           </>
         )
