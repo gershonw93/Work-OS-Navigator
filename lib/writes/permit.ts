@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { logActivity } from '@/lib/log-activity'
 import { permitProblem } from '@/lib/permit-rules'
+import { statusMoveProblem } from '@/lib/permit-rounds'
 import { withVia, type WriteResult } from './result'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -143,6 +144,23 @@ export async function updatePermit(
   const after = { ...(current ?? {}), ...updates } as Parameters<typeof permitProblem>[0]
   const problem = permitProblem(after)
   if (problem) return { status: 400, body: { error: problem } }
+
+  // ONCE A PERMIT HAS A HISTORY, THE HISTORY DECIDES ITS REVIEW STATUS. The
+  // dropdown saying "approved" over a submission still waiting on the city is
+  // two controls answering one question, and the history is the one with
+  // evidence. Asked here so the Edit form, the row's dropdown and Claude all
+  // meet it. A failed read refuses: "no rounds" is the answer that allows
+  // everything, so it must not be what a failure looks like.
+  if ('status' in updates && updates.status !== (current as any)?.status) {
+    const { data: rounds, error: roundsErr } = await db
+      .from('permit_rounds').select('outcome, submitted_on, created_at').eq('permit_id', permitId)
+    if (roundsErr) {
+      console.error('[permit] rounds read failed', roundsErr.message)
+      return { status: 500, body: { error: 'Could not read this permit\'s history to check the status. Try again.' } }
+    }
+    const moveProblem = statusMoveProblem((current as any)?.status, String(updates.status), rounds ?? [])
+    if (moveProblem) return { status: 400, body: { error: moveProblem } }
+  }
 
   const { data: permit, error } = await db
     .from('permits')

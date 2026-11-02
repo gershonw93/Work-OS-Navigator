@@ -19,6 +19,8 @@ export const ACTIVITY_TAB: Record<string, string> = {
   scope_change_notice: 'plans',
   permit_added: 'permits',
   permit_updated: 'permits',
+  permit_submitted: 'permits',
+  permit_answered: 'permits',
   inspection_added: 'inspections',
   inspection_updated: 'inspections',
   subcontractor_added: 'team',
