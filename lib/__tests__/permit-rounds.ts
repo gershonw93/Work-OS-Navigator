@@ -5,9 +5,10 @@
 // the derivation, the rules each door asks, and that the doors ask them.
 
 import {
-  allowedStatuses, cleanItems, outcomeProblem, permitStanding, statusAfter, statusMoveProblem,
+  allowedStatuses, carryableFiles, cleanItems, finalFileAfter, unusedUploads, outcomeProblem, permitStanding, statusAfter, statusMoveProblem,
   submitProblem, type PermitRound,
 } from '../permit-rounds'
+import { JOB_FILE_KINDS } from '../job-files'
 import { boardCells, boardColumns, boardCounts, bulkProblem } from '../permit-board'
 import { ok, done, code, read, walk } from './_helpers'
 
@@ -129,7 +130,7 @@ ok(boardCounts(cells).them === 1, 'the filter counts count permits')
 // ── the doors ask ───────────────────────────────────────────────────────────
 const routes = walk('app/api/projects/[id]').filter(f =>
   /permits\/\[permitId\]\/(rounds|items)|permit-board/.test(f) && f.endsWith('route.ts'))
-ok(routes.length === 5, `found the five new routes (got ${routes.length})`)
+ok(routes.length === 6, `found the six permit routes (got ${routes.length})`)
 for (const f of routes) {
   const src = code(f)
   const handlers = (src.match(/export async function (GET|POST|PATCH|DELETE)/g) ?? []).length
@@ -150,5 +151,48 @@ ok(/bulkProblem\(/.test(board) && /submitRound\(/.test(board) && /answerRound\(/
 ok(/allowed\.has\(/.test(board), 'bulk ids are checked against this development\'s houses')
 ok(/maxDuration = 60/.test(board), 'a bulk over twenty houses has time to finish')
 ok(/history: ok/.test(code('app/api/projects/[id]/permits/route.ts')), 'a failed history read is reported, not handed back as empty')
+
+
+// ── files: the fixes, the final permit, what came back on a link ────────────
+{
+  const plan = { name: 'site-plan-rev2.pdf', url: 'u/plan2' }
+  const calc = { name: 'rescheck.pdf', url: 'u/calc' }
+  const items = [{ label: 'Revised site plan', files: [plan] }, { label: 'Energy calc', files: [calc] }, { label: 'HOA letter', files: [] }]
+  const c = carryableFiles(items, [round({ sent_files: [{ name: 'full set', url: 'u/set' }] })])
+  ok(c.map(f => f.url).join() === 'u/plan2,u/calc' && c[0].item === 'Revised site plan',
+    'a resubmission carries every fix attached to an item, named by the item it closes')
+  ok(carryableFiles(items, [round({ sent_files: [plan] })]).map(f => f.url).join() === 'u/calc',
+    '...and never one that already went in with a round')
+
+  const received = [{ name: 'letter.pdf', url: 'u/letter' }, { name: 'permit.pdf', url: 'u/permit' }]
+  ok(finalFileAfter('approved', received) === 'u/permit', 'the LATEST approved file becomes the permit itself')
+  ok(finalFileAfter('corrections', received) === null && finalFileAfter('approved', []) === null,
+    '...a corrections letter never does, and an approval with no file leaves the permit\'s document alone')
+
+  const share = { id: 's', permit_id: 'p', name: 'Permit set', created_at: '2026-10-01T00:00:00Z',
+    uploads: [{ id: 'up1', name: 'approved.pdf', url: 'u/approved', created_at: '2026-10-20T00:00:00Z' }, { id: 'up2', name: 'old.pdf', url: 'u/old', created_at: '2026-10-02T00:00:00Z' }] }
+  ok(unusedUploads([share], [round({ received_files: [{ name: 'old.pdf', url: 'u/old' }] })]).map(u => u.id).join() === 'up1',
+    'what came back through a link is offered for the answer until it has been used in one')
+}
+ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.resource === 'permits'),
+  'Files has a Permits folder, behind the same permission as the Permits tab')
+{
+  const w = code('lib/writes/permit-round.ts')
+  ok(/carryableFiles\(\(itemRows/.test(w) && /allowed\.has\(u\)/.test(w),
+    'a carried fix comes off this permit\'s own items, never a URL from the body')
+  ok(/\.eq\('file_shares\.permit_id', permitId\)/.test(w),
+    'a link upload is looked up through the SHARE\'s permit - another job\'s upload cannot become this permit\'s paperwork')
+  ok(/const final = finalFileAfter\(outcome, received_files\)\s*\n\s*if \(final\) permitPatch\.file_url = final/.test(w),
+    'the approval writes the final file onto the permit')
+  const shares = code('app/api/file-shares/route.ts')
+  ok(/gc_company_id !== profile\.company_id/.test(shares) && /permit_id: permitId/.test(shares),
+    'a share made from a permit is checked against the sender\'s own company before it is tied to it')
+  const filesRoute = code('app/api/files/jobs/route.ts')
+  ok(/permitHistory\(/.test(filesRoute) && /failed\.push\('permit'\)/.test(filesRoute),
+    'Files reads permits through the one history reader, and a failed read says so')
+  const itemFiles = code('app/api/projects/[id]/permits/[permitId]/items/[itemId]/files/route.ts')
+  ok((itemFiles.match(/requirePermission\(/g) ?? []).length === 2 && (itemFiles.match(/ownedProject\(/g) ?? []).length === 2,
+    'attaching or removing a fix asks the permission and the job, on both handlers')
+}
 
 done()

@@ -1,29 +1,32 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
+import { ShareFilesModal, type ShareableFile } from '@/components/files/share-files-modal'
+import { useClientContact } from '@/lib/use-client-email'
 import { fetchProblem } from '@/lib/fetch-error'
 import { cn } from '@/lib/utils'
 import {
-  AlertCircle, Check, CheckCircle2, Circle, Clock, FileText, Paperclip, Plus, Send, X,
+  AlertCircle, Check, CheckCircle2, Circle, Clock, FileText, Loader2, Paperclip, Plus, Send, Share2, Sparkles, X,
 } from 'lucide-react'
 import {
-  cleanItems, openRound, outcomeProblem, permitStanding, shortDay, sortRounds, submitProblem, todayIso,
-  OUTCOME_LABEL, type Outcome, type PermitItem, type PermitRound, type RoundFile, type StandingTone,
+  carryableFiles, cleanItems, openRound, outcomeProblem, permitStanding, shortDay, sortRounds, submitProblem, todayIso,
+  unusedUploads, OUTCOME_LABEL,
+  type Outcome, type PermitItem, type PermitRound, type PermitShare, type RoundFile, type StandingTone,
 } from '@/lib/permit-rounds'
 import type { PermitFacts } from '@/lib/permit-rules'
 
 // ─────────────────────────────────────────────────────────────────────────────
-// A permit's history: every submission, every answer, and what is still owed.
-// Rendered in the permit's own panel on the Permits tab AND in the development
-// board's drawer, so the two cannot drift. Nothing here decides anything - the
-// rules are lib/permit-rounds.ts, asked here before sending and again by the
-// route before writing.
+// A permit's history: every submission, every answer, what is still owed, and
+// every link sent from it. Rendered in the permit's own panel on the Permits
+// tab AND in the development board's drawer, so the two cannot drift. Nothing
+// here decides anything - the rules are lib/permit-rounds.ts, asked here
+// before sending and again by the route before writing.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const STANDING_CHIP: Record<StandingTone, string> = {
@@ -37,6 +40,8 @@ export const STANDING_CHIP: Record<StandingTone, string> = {
 export interface ThreadPermit extends PermitFacts {
   id: string
   permit_type: string
+  /** The permit's main document - the latest approved file once there is one. */
+  file_url?: string | null
 }
 
 async function token() {
@@ -58,13 +63,13 @@ function Files({ files }: { files?: RoundFile[] | null }) {
   )
 }
 
-function FilePicker({ files, onChange, label }: { files: File[]; onChange: (f: File[]) => void; label: string }) {
+function FilePicker({ files, onChange, label, hint }: { files: File[]; onChange: (f: File[]) => void; label: string; hint?: string }) {
   return (
     <div className="space-y-1.5">
       <Label>{label} <span className="text-faint font-normal">(optional)</span></Label>
       <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-dashed border-muted2 px-3 py-3 text-sm text-muted-fg hover:border-accent">
         <Paperclip className="h-4 w-4 shrink-0" />
-        <span className="min-w-0 truncate">{files.length ? files.map(f => f.name).join(', ') : 'Attach the letter, plans or forms'}</span>
+        <span className="min-w-0 truncate">{files.length ? files.map(f => f.name).join(', ') : (hint ?? 'Attach the letter, plans or forms')}</span>
         <input type="file" multiple className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"
           onChange={e => onChange(Array.from(e.target.files ?? []))} />
       </label>
@@ -72,14 +77,48 @@ function FilePicker({ files, onChange, label }: { files: File[]; onChange: (f: F
   )
 }
 
+/** A ticked list of files already in SyteNav that a dialog will include. */
+function PickList({ label, hint, files, picked, onToggle }: {
+  label: string; hint: string
+  files: (RoundFile & { key: string; detail?: string })[]
+  picked: Set<string>; onToggle: (key: string) => void
+}) {
+  if (!files.length) return null
+  return (
+    <div className="space-y-1.5">
+      <Label>{label} <span className="text-faint font-normal">(optional)</span></Label>
+      <p className="text-xs text-muted-fg">{hint}</p>
+      <div className="divide-y divide-line-soft rounded-lg border border-line">
+        {files.map(f => (
+          <label key={f.key} className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-1.5">
+            <input type="checkbox" checked={picked.has(f.key)} onChange={() => onToggle(f.key)} className="h-4 w-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm text-ink">{f.name}</span>
+              {f.detail && <span className="block truncate text-xs text-faint">{f.detail}</span>}
+            </span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+const toggleIn = (set: Set<string>, key: string) => {
+  const n = new Set(set); if (n.has(key)) n.delete(key); else n.add(key); return n
+}
+
 /** Log a submission (or a resubmission) for one permit. */
-export function SubmitRoundDialog({ projectId, permit, rounds, onClose, onSaved }: {
-  projectId: string; permit: ThreadPermit; rounds: PermitRound[]; onClose: () => void; onSaved: () => void
+export function SubmitRoundDialog({ projectId, permit, rounds, items, onClose, onSaved }: {
+  projectId: string; permit: ThreadPermit; rounds: PermitRound[]; items: PermitItem[]; onClose: () => void; onSaved: () => void
 }) {
   const [submittedOn, setSubmittedOn] = useState(todayIso())
   const [expectedBy, setExpectedBy] = useState('')
   const [note, setNote] = useState('')
   const [files, setFiles] = useState<File[]>([])
+  // The resubmission IS the fixes: every file attached to an item that has
+  // not gone in yet starts ticked.
+  const fixes = useMemo(() => carryableFiles(items, rounds), [items, rounds])
+  const [carry, setCarry] = useState<Set<string>>(() => new Set(fixes.map(f => f.url)))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const again = rounds.length > 0
@@ -93,6 +132,7 @@ export function SubmitRoundDialog({ projectId, permit, rounds, onClose, onSaved 
       form.append('submitted_on', submittedOn)
       if (expectedBy) form.append('expected_by', expectedBy)
       if (note.trim()) form.append('note', note.trim())
+      carry.forEach(u => form.append('carry', u))
       files.forEach(f => form.append('files', f))
       const res = await fetch(`/api/projects/${projectId}/permits/${permit.id}/rounds`, {
         method: 'POST', headers: { Authorization: `Bearer ${await token()}` }, body: form,
@@ -130,15 +170,18 @@ export function SubmitRoundDialog({ projectId, permit, rounds, onClose, onSaved 
             </div>
           </div>
           <p className="text-xs text-muted-fg">
-            If they gave no date, the permit is flagged for a chase after three weeks with no answer.
+            Only the date is needed - it starts the clock. If they gave no answer date, the permit is flagged for a chase after three weeks.
           </p>
+          <PickList label="Fixes going in" hint="The files attached to the items they asked for. Untick any that are not going in this time."
+            files={fixes.map(f => ({ ...f, key: f.url, detail: `For: ${f.item}` }))}
+            picked={carry} onToggle={k => setCarry(c => toggleIn(c, k))} />
           <div className="space-y-1.5">
             <Label>What was sent <span className="text-faint font-normal">(optional)</span></Label>
             <textarea rows={2} value={note} onChange={e => setNote(e.target.value)}
               placeholder={again ? 'e.g. Revised site plan and energy calc' : 'e.g. Full set, application, survey'}
               className="w-full resize-none rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
           </div>
-          <FilePicker files={files} onChange={setFiles} label="Files sent" />
+          <FilePicker files={files} onChange={setFiles} label={fixes.length ? 'Other files sent' : 'Files sent'} />
         </div>
         <div className="space-y-2 border-t border-line-soft px-5 py-4">
           {error && <p className="flex items-start gap-1 text-xs text-danger"><AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />{error}</p>}
@@ -153,8 +196,9 @@ export function SubmitRoundDialog({ projectId, permit, rounds, onClose, onSaved 
 }
 
 /** Record the reviewer's answer to the submission waiting on them. */
-export function AnswerRoundDialog({ projectId, permit, round, onClose, onSaved }: {
-  projectId: string; permit: ThreadPermit; round: PermitRound; onClose: () => void; onSaved: () => void
+export function AnswerRoundDialog({ projectId, permit, round, rounds, shares, onClose, onSaved }: {
+  projectId: string; permit: ThreadPermit; round: PermitRound; rounds: PermitRound[]; shares: PermitShare[]
+  onClose: () => void; onSaved: () => void
 }) {
   // EMPTY: which answer they gave is the whole question, and a default is a
   // claim nobody made.
@@ -164,9 +208,52 @@ export function AnswerRoundDialog({ projectId, permit, round, onClose, onSaved }
   const [itemsText, setItemsText] = useState('')
   const [permitNumber, setPermitNumber] = useState(permit.permit_number ?? '')
   const [issuedDate, setIssuedDate] = useState(permit.issued_date ?? '')
+  const [expiryDate, setExpiryDate] = useState(permit.expiry_date ?? '')
   const [files, setFiles] = useState<File[]>([])
+  // What came back through a link sent from this permit, not yet used.
+  const fromLinks = useMemo(() => unusedUploads(shares, rounds), [shares, rounds])
+  const [useLinks, setUseLinks] = useState<Set<string>>(() => new Set(fromLinks.map(u => u.id)))
+  const [reading, setReading] = useState(false)
+  const [readNote, setReadNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+
+  // THE APPROVED PERMIT, READ BY AI. The same reader as Add Permit (one AI
+  // scan). It only FILLS the boxes - nothing is saved until Record answer, so
+  // a misread number is corrected on the screen, not discovered later.
+  async function readWithAi(file: File) {
+    setReading(true); setReadNote('')
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      const res = await fetch(`/api/projects/${projectId}/permits/analyze`, {
+        method: 'POST', headers: { Authorization: `Bearer ${await token()}` }, body: form,
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setReadNote(json.error ?? 'Could not read it - fill the boxes in by hand.'); return }
+      const f = json.fields ?? {}
+      const got: string[] = []
+      if (f.permit_number) { setPermitNumber(String(f.permit_number)); got.push('number') }
+      if (f.issued_date) { setIssuedDate(String(f.issued_date)); got.push('issue date') }
+      if (f.expiry_date) { setExpiryDate(String(f.expiry_date)); got.push('expiry') }
+      setReadNote(got.length ? `Filled in the ${got.join(', ')} from ${file.name}. Check them before saving.` : `Nothing readable in ${file.name} - fill the boxes in by hand.`)
+    } catch (e) {
+      setReadNote(fetchProblem(e, 'reading the permit'))
+    } finally {
+      setReading(false)
+    }
+  }
+
+  async function readLinkUpload(u: PermitShare['uploads'][number]) {
+    try {
+      const res = await fetch(u.url)
+      if (!res.ok) throw new Error(`Could not open ${u.name}`)
+      const blob = await res.blob()
+      await readWithAi(new File([blob], u.name, { type: u.type || blob.type }))
+    } catch (e) {
+      setReadNote(fetchProblem(e, 'opening that file'))
+    }
+  }
 
   async function save() {
     const items = cleanItems(itemsText.split('\n'))
@@ -185,7 +272,9 @@ export function AnswerRoundDialog({ projectId, permit, round, onClose, onSaved }
       if (outcome === 'approved') {
         form.append('permit_number', permitNumber)
         form.append('issued_date', issuedDate)
+        if (expiryDate) form.append('expiry_date', expiryDate)
       }
+      useLinks.forEach(id => form.append('share_upload', id))
       files.forEach(f => form.append('files', f))
       const res = await fetch(`/api/projects/${projectId}/permits/${permit.id}/rounds/${round.id}`, {
         method: 'PATCH', headers: { Authorization: `Bearer ${await token()}` }, body: form,
@@ -230,39 +319,79 @@ export function AnswerRoundDialog({ projectId, permit, round, onClose, onSaved }
             <Label>Answered on <span className="text-danger">*</span></Label>
             <Input type="date" value={outcomeOn} onChange={e => setOutcomeOn(e.target.value)} />
           </div>
+
+          <PickList label="Sent back through the link" hint="Files they uploaded on a link sent from this permit. Ticked ones become part of this answer."
+            files={fromLinks.map(u => ({ ...u, key: u.id, detail: `Uploaded ${shortDay(u.created_at.slice(0, 10))}${u.note ? ` - ${u.note}` : ''}` }))}
+            picked={useLinks} onToggle={k => setUseLinks(c => toggleIn(c, k))} />
+
           {outcome === 'corrections' && (
             <div className="space-y-1.5">
               <Label>What they asked for <span className="text-danger">*</span></Label>
               <textarea rows={4} value={itemsText} onChange={e => setItemsText(e.target.value)}
                 placeholder={'One per line, e.g.\nRevised site plan showing setbacks\nEnergy calc (REScheck)\nHOA approval letter'}
                 className="w-full resize-y rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
-              <p className="text-xs text-muted-fg">Each line becomes an item to tick off. Pasting a list from their email works.</p>
+              <p className="text-xs text-muted-fg">Each line becomes a punch-list item. Pasting the list from their email works.</p>
             </div>
           )}
           {outcome === 'approved' && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <>
               <div className="space-y-1.5">
-                <Label>Permit number <span className="text-danger">*</span></Label>
-                <Input value={permitNumber} onChange={e => setPermitNumber(e.target.value)} placeholder="e.g. 2026-BLD-0412" />
+                <Label><Sparkles className="mr-1 inline h-3.5 w-3.5 text-accent-fg" />Approved permit <span className="text-faint font-normal">(optional)</span></Label>
+                <label className={cn('flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed px-3 py-3 text-sm',
+                  reading ? 'pointer-events-none border-accent bg-accent-tint text-accent-fg' : 'border-accent/40 bg-accent-tint/40 text-accent-fg hover:border-accent')}>
+                  {reading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <Sparkles className="h-4 w-4 shrink-0" />}
+                  <span className="min-w-0 truncate">
+                    {reading ? 'Reading the permit...' : files.length ? files.map(f => f.name).join(', ') : 'Drop the PDF or a screenshot - AI fills in the number and dates'}
+                  </span>
+                  <input type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp"
+                    onChange={e => {
+                      const f = e.target.files?.[0]
+                      if (!f) return
+                      setFiles([f])
+                      void readWithAi(f)
+                    }} />
+                </label>
+                {fromLinks.length > 0 && !files.length && (
+                  <div className="flex flex-wrap gap-2">
+                    {fromLinks.filter(u => /pdf|image/.test(u.type ?? '') || /\.(pdf|jpe?g|png|webp)$/i.test(u.name)).map(u => (
+                      <button key={u.id} type="button" onClick={() => void readLinkUpload(u)}
+                        className="min-h-9 max-w-full truncate whitespace-nowrap rounded-full border border-line px-3 py-1 text-xs text-accent-fg hover:bg-surface">
+                        Read {u.name} with AI
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {readNote && <p className="text-xs text-muted-fg">{readNote}</p>}
+                <p className="text-xs text-muted-fg">The latest approved file becomes the permit itself - what the list, Files and anyone you share it with see.</p>
               </div>
-              <div className="space-y-1.5">
-                <Label>Date issued <span className="text-danger">*</span></Label>
-                <Input type="date" value={issuedDate} onChange={e => setIssuedDate(e.target.value)} />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                <div className="space-y-1.5">
+                  <Label>Permit number <span className="text-danger">*</span></Label>
+                  <Input value={permitNumber} onChange={e => setPermitNumber(e.target.value)} placeholder="e.g. 2026-BLD-0412" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Date issued <span className="text-danger">*</span></Label>
+                  <Input type="date" value={issuedDate} onChange={e => setIssuedDate(e.target.value)} />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Expires <span className="text-faint font-normal">(optional)</span></Label>
+                  <Input type="date" value={expiryDate} onChange={e => setExpiryDate(e.target.value)} />
+                </div>
               </div>
-            </div>
+            </>
           )}
           <div className="space-y-1.5">
             <Label>Notes <span className="text-faint font-normal">(optional)</span></Label>
             <textarea rows={2} value={note} onChange={e => setNote(e.target.value)}
               className="w-full resize-none rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
           </div>
-          <FilePicker files={files} onChange={setFiles} label="What they sent back" />
+          {outcome !== 'approved' && <FilePicker files={files} onChange={setFiles} label="What they sent back" hint="Attach their letter or the marked-up set" />}
         </div>
         <div className="space-y-2 border-t border-line-soft px-5 py-4">
           {error && <p className="flex items-start gap-1 text-xs text-danger"><AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />{error}</p>}
           <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="button" onClick={save} disabled={saving}>{saving ? 'Saving...' : 'Record answer'}</Button>
+            <Button type="button" onClick={save} disabled={saving || reading}>{saving ? 'Saving...' : 'Record answer'}</Button>
           </div>
         </div>
       </div>
@@ -270,12 +399,35 @@ export function AnswerRoundDialog({ projectId, permit, round, onClose, onSaved }
   )
 }
 
+/** Everything on a permit that could be sent: the final permit first, then each round's files, then the fixes. */
+export function permitShareables(permit: ThreadPermit, rounds: PermitRound[], items: PermitItem[], shares: PermitShare[]): ShareableFile[] {
+  const out: ShareableFile[] = []
+  const seen = new Set<string>()
+  const add = (f: RoundFile, source: string) => {
+    if (!f.url || seen.has(f.url)) return
+    seen.add(f.url)
+    out.push({ id: f.url, name: f.name, file_url: f.url, file_type: f.type ?? null, size_bytes: f.size ?? null, source })
+  }
+  if (permit.file_url) {
+    add({ name: `${permit.permit_type} permit${permit.permit_number ? ` #${permit.permit_number}` : ''}`, url: permit.file_url }, 'The permit')
+  }
+  sortRounds(rounds).forEach((r, i) => {
+    for (const f of r.sent_files ?? []) add(f, `Round ${i + 1} - sent`)
+    for (const f of r.received_files ?? []) add(f, `Round ${i + 1} - came back`)
+  })
+  for (const it of items) for (const f of it.files ?? []) add(f, 'Fixes')
+  for (const s of shares) for (const u of s.uploads) add(u, 'Sent back through a link')
+  return out
+}
+
 /** The history panel itself. */
-export function PermitThread({ projectId, permit, rounds: roundsIn, items, historyOk, canEdit, onChanged, onDialogChange }: {
+export function PermitThread({ projectId, permit, rounds: roundsIn, items, shares = [], historyOk, canEdit, onChanged, onDialogChange }: {
   projectId: string
   permit: ThreadPermit
   rounds: PermitRound[]
   items: PermitItem[]
+  /** Links sent from this permit, with what came back on them. */
+  shares?: PermitShare[]
   /** False when the history could not be read - then nothing here may claim "nothing logged". */
   historyOk: boolean
   canEdit: boolean
@@ -285,7 +437,8 @@ export function PermitThread({ projectId, permit, rounds: roundsIn, items, histo
 }) {
   const notify = useNotice()
   const guard = useDeleteGuard()
-  const [dialog, setDialog] = useState<'submit' | 'answer' | null>(null)
+  const client = useClientContact(projectId)
+  const [dialog, setDialog] = useState<'submit' | 'answer' | 'share' | null>(null)
   const [newItem, setNewItem] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   useEffect(() => { onDialogChange?.(dialog !== null) }, [dialog, onDialogChange])
@@ -295,6 +448,12 @@ export function PermitThread({ projectId, permit, rounds: roundsIn, items, histo
   const standing = permitStanding(permit, rounds, items, todayIso())
   const open = items.filter(i => !i.done_at)
   const closed = items.filter(i => i.done_at)
+  const shareables = permitShareables(permit, rounds, items, shares)
+  // What a Share starts with: the permit itself once it is approved, otherwise
+  // what went in with the latest submission.
+  const preselect = standing.court === 'done' && permit.file_url
+    ? [permit.file_url]
+    : (rounds[rounds.length - 1]?.sent_files ?? []).map(f => f.url)
 
   async function call(key: string, url: string, init: RequestInit, action: string) {
     setBusy(key)
@@ -331,6 +490,31 @@ export function PermitThread({ projectId, permit, rounds: roundsIn, items, histo
     { title: 'Remove this item?', body: `"${item.label}" comes off the list. Use this for a typo; tick it instead when it is done.`, confirmLabel: 'Remove' },
   )
 
+  // The file that closes an item. Multipart, so not through `call`.
+  async function attach(item: PermitItem, picked: File[]) {
+    if (!picked.length) return
+    setBusy(item.id)
+    try {
+      const form = new FormData()
+      picked.forEach(f => form.append('files', f))
+      const res = await fetch(`/api/projects/${projectId}/permits/${permit.id}/items/${item.id}/files`, {
+        method: 'POST', headers: { Authorization: `Bearer ${await token()}` }, body: form,
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) notify(json.error ?? `Could not attach (${res.status})`)
+    } catch (e) {
+      notify(fetchProblem(e, 'attaching the file'))
+    } finally {
+      setBusy(null)
+      onChanged()
+    }
+  }
+
+  const detach = (item: PermitItem, f: RoundFile) => guard(
+    () => { void call(item.id, `/api/projects/${projectId}/permits/${permit.id}/items/${item.id}/files`, { method: 'DELETE', body: JSON.stringify({ url: f.url }) }, 'removing the file') },
+    { title: 'Take this file off the item?', body: `${f.name} comes off "${item.label}". If it already went in with a submission, that submission keeps its copy.`, confirmLabel: 'Take it off' },
+  )
+
   if (!historyOk) {
     return (
       <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-danger">
@@ -354,6 +538,7 @@ export function PermitThread({ projectId, permit, rounds: roundsIn, items, histo
           {waiting
             ? <Button size="sm" onClick={() => setDialog('answer')}><Check className="h-3.5 w-3.5" /> Record their answer</Button>
             : <Button size="sm" onClick={() => setDialog('submit')}><Send className="h-3.5 w-3.5" /> {rounds.length ? (standing.court === 'done' ? 'Log a revision' : 'Log resubmission') : 'Log submission'}</Button>}
+          <Button size="sm" variant="outline" onClick={() => setDialog('share')}><Share2 className="h-3.5 w-3.5" /> Share</Button>
         </div>
       )}
 
@@ -364,7 +549,7 @@ export function PermitThread({ projectId, permit, rounds: roundsIn, items, histo
           {items.length > 0 && (
             <div className="divide-y divide-line-soft rounded-lg border border-line">
               {[...open, ...closed].map(item => (
-                <div key={item.id} className="flex items-center gap-2 px-2 py-1">
+                <div key={item.id} className="flex items-start gap-2 px-2 py-1">
                   {canEdit ? <button type="button" onClick={() => toggle(item)} disabled={busy === item.id}
                     aria-label={item.done_at ? `Mark "${item.label}" not done` : `Mark "${item.label}" done`}
                     title={item.done_at ? 'Mark not done' : 'Mark done'}
@@ -375,10 +560,36 @@ export function PermitThread({ projectId, permit, rounds: roundsIn, items, histo
                       {item.done_at ? <CheckCircle2 className="h-5 w-5 text-success" /> : <Circle className="h-5 w-5" />}
                     </span>
                   )}
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 py-1.5 lg:py-1">
                     <p className={cn('break-words text-sm', item.done_at ? 'text-faint line-through' : 'text-ink')}>{item.label}</p>
                     {item.done_at && item.done_by_name && <p className="text-xs text-faint">Done by {item.done_by_name}</p>}
+                    {!!item.files?.length && (
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {item.files.map(f => (
+                          <span key={f.url} className="inline-flex max-w-full min-w-0 items-center rounded-md border border-line text-xs">
+                            <a href={f.url} target="_blank" rel="noopener noreferrer" className="flex min-w-0 items-center gap-1 px-2 py-1 text-accent-fg hover:bg-surface">
+                              <FileText className="h-3.5 w-3.5 shrink-0" /><span className="truncate">{f.name}</span>
+                            </a>
+                            {canEdit && (
+                              <button type="button" onClick={() => detach(item, f)} aria-label={`Take ${f.name} off`} title="Take it off"
+                                className="flex h-8 w-8 shrink-0 items-center justify-center text-faint hover:text-danger">
+                                <X className="h-3.5 w-3.5" />
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
+                  {canEdit && (
+                    <label aria-label={`Attach the fix for "${item.label}"`} title="Attach the fix"
+                      className={cn('flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-faint hover:text-ink lg:h-8 lg:w-8',
+                        busy === item.id && 'pointer-events-none opacity-50')}>
+                      {busy === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                      <input type="file" multiple className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.dwg"
+                        onChange={e => { void attach(item, Array.from(e.target.files ?? [])); e.target.value = '' }} />
+                    </label>
+                  )}
                   {canEdit && !item.done_at && (
                     <button type="button" onClick={() => remove(item)} aria-label={`Remove "${item.label}"`} title="Remove"
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-faint hover:text-danger lg:h-8 lg:w-8">
@@ -436,13 +647,40 @@ export function PermitThread({ projectId, permit, rounds: roundsIn, items, histo
         )}
       </div>
 
+      {shares.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-faint">Shared</p>
+          <div className="divide-y divide-line-soft rounded-lg border border-line">
+            {shares.map(s => (
+              <div key={s.id} className="px-3 py-2.5">
+                <p className="text-sm text-ink">
+                  <span className="font-medium">{s.recipient_name || s.recipient_email || 'A link'}</span>
+                  <span className="text-muted-fg"> - {s.name}, sent {shortDay(s.created_at.slice(0, 10))}</span>
+                </p>
+                <p className="text-xs text-faint">
+                  {s.revoked_at ? 'Link turned off' : s.viewed_at ? `Opened ${shortDay(s.viewed_at.slice(0, 10))}` : 'Not opened yet'}
+                  {s.uploads.length ? ` · sent back ${s.uploads.length} file${s.uploads.length === 1 ? '' : 's'}` : ''}
+                </p>
+                <Files files={s.uploads} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {dialog === 'submit' && (
-        <SubmitRoundDialog projectId={projectId} permit={permit} rounds={rounds}
+        <SubmitRoundDialog projectId={projectId} permit={permit} rounds={rounds} items={items}
           onClose={() => setDialog(null)} onSaved={() => { setDialog(null); onChanged() }} />
       )}
       {dialog === 'answer' && waiting && (
-        <AnswerRoundDialog projectId={projectId} permit={permit} round={waiting}
+        <AnswerRoundDialog projectId={projectId} permit={permit} round={waiting} rounds={rounds} shares={shares}
           onClose={() => setDialog(null)} onSaved={() => { setDialog(null); onChanged() }} />
+      )}
+      {dialog === 'share' && (
+        <ShareFilesModal files={shareables} preselected={preselect} projectId={projectId} permitId={permit.id}
+          defaultTitle={standing.court === 'done' ? `${permit.permit_type} permit${permit.permit_number ? ` #${permit.permit_number}` : ''}` : `${permit.permit_type} permit - documents`}
+          suggested={client.email ? [{ label: 'The client', name: client.name, email: client.email }] : []}
+          onClose={() => setDialog(null)} onShared={onChanged} />
       )}
     </div>
   )

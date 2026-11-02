@@ -18,7 +18,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-const PERMIT_COLS = 'id, project_id, permit_type, permit_number, description, status, issued_date, expiry_date, issuing_authority, created_at'
+const PERMIT_COLS = 'id, project_id, permit_type, permit_number, description, status, issued_date, expiry_date, issuing_authority, file_url, created_at'
 
 /**
  * The development, its houses, and every permit on any of them. A job that
@@ -69,13 +69,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     console.error('[permit-board] permits read failed', error.message)
     return NextResponse.json({ error: 'Could not read the permits.' }, { status: 500 })
   }
-  const { rounds, items, ok } = await permitHistory(db, (permits ?? []).map(p => p.id))
+  const { rounds, items, shares, ok } = await permitHistory(db, (permits ?? []).map(p => p.id))
   return NextResponse.json({
     isSite: true,
     site: { id: dev.site.id, name: dev.site.name },
     houses: dev.houses,
     permits: permits ?? [],
-    rounds, items, history: ok,
+    rounds, items, shares, history: ok,
   })
 }
 

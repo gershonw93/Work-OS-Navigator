@@ -38,11 +38,15 @@ interface Contact { id: string; name: string; email: string | null; company?: st
  * rule for what a share must carry, and the ROUTE asks it too.
  */
 export function ShareFilesModal({
-  files, preselected, projectId, defaultTitle, addTo, onClose, onShared,
+  files, preselected, projectId, permitId, suggested, defaultTitle, addTo, onClose, onShared,
 }: {
   files: ShareableFile[]
   preselected?: string[]
   projectId?: string
+  /** Sent from a permit: what comes back on the link lands in that permit's history. */
+  permitId?: string
+  /** One-tap recipients shown above the picker - "The client" with the address on their customer record. */
+  suggested?: { label: string; name: string; email: string }[]
   defaultTitle?: string
   /** Adding to a link already sent, instead of creating a new one. */
   addTo?: { id: string; name: string; alreadySent: string[] }
@@ -176,6 +180,7 @@ export function ShareFilesModal({
         name: title.trim() || (chosen.length ? `Documents for ${name || 'you'}` : `Update for ${name || 'you'}`),
         message: message.trim() || null,
         project_id: projectId ?? null,
+        permit_id: permitId ?? null,
         recipient_name: name.trim() || null,
         recipient_email: email.trim() || null,
         allow_upload: allowUpload,
@@ -236,6 +241,18 @@ export function ShareFilesModal({
                     </option>
                   ))}
                 </SearchableSelect>
+                {!!suggested?.length && (
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {suggested.map(sg => (
+                      <button key={sg.email} type="button"
+                        onClick={() => { setContactId(''); if (sg.name) setName(sg.name); setEmail(sg.email) }}
+                        className={cn('min-h-9 max-w-full truncate whitespace-nowrap rounded-full border px-3 py-1 text-sm',
+                          email === sg.email ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
+                        {sg.label} · {sg.email}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Name</Label>

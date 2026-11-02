@@ -64,9 +64,37 @@ export interface PermitItem {
   permit_id: string
   round_id?: string | null
   label: string
+  /** The file(s) that close the item - the revised site plan, the energy calc. */
+  files?: RoundFile[] | null
   done_at?: string | null
   done_by_name?: string | null
   created_at?: string | null
+}
+
+/** A Sharing link sent from a permit, and what came back on it. */
+export interface PermitShare {
+  id: string
+  permit_id: string
+  name: string
+  recipient_name?: string | null
+  recipient_email?: string | null
+  status?: string | null
+  created_at: string
+  viewed_at?: string | null
+  responded_at?: string | null
+  revoked_at?: string | null
+  uploads: (RoundFile & { id: string; note?: string | null; created_at: string })[]
+}
+
+/**
+ * Files that came back through a link and are not yet part of any answer -
+ * what "Record their answer" offers to use, so the expeditor's upload does not
+ * have to be downloaded and dropped in again.
+ */
+export function unusedUploads(shares: PermitShare[], rounds: Pick<PermitRound, 'received_files'>[]): PermitShare['uploads'] {
+  const used = new Set<string>()
+  for (const r of rounds) for (const f of r.received_files ?? []) used.add(f.url)
+  return shares.flatMap(s => s.uploads).filter(u => !used.has(u.url))
 }
 
 /** Oldest first: the order a thread is read in. Same-day rounds by when they were typed. */
@@ -329,4 +357,37 @@ export function statusAfter(
   // Approved over active/recorded would be a step backwards.
   if (next === 'approved' && GRANTED_STATUSES.indexOf(current ?? '') !== -1) return null
   return next === current ? null : next
+}
+
+// ── Files ───────────────────────────────────────────────────────────────────
+
+/**
+ * The fixes a resubmission should carry: every file attached to an item that
+ * has not already gone in with a round. The resubmission IS the fixes, so the
+ * dialog starts with these ticked and the route accepts only these.
+ */
+export function carryableFiles(
+  items: Pick<PermitItem, 'label' | 'files'>[],
+  rounds: Pick<PermitRound, 'sent_files'>[],
+): (RoundFile & { item: string })[] {
+  const sent = new Set<string>()
+  for (const r of rounds) for (const f of r.sent_files ?? []) sent.add(f.url)
+  const out: (RoundFile & { item: string })[] = []
+  const seen = new Set<string>()
+  for (const i of items) for (const f of i.files ?? []) {
+    if (sent.has(f.url) || seen.has(f.url)) continue
+    seen.add(f.url)
+    out.push({ ...f, item: i.label })
+  }
+  return out
+}
+
+/**
+ * The permit's main document after an approval: the LAST file that came back
+ * with it. "The latest one in the permit is the final file" - a revision
+ * approved later replaces it the same way. Null leaves the column alone.
+ */
+export function finalFileAfter(outcome: string, received: RoundFile[]): string | null {
+  if (outcome !== 'approved' || !received.length) return null
+  return received[received.length - 1].url
 }

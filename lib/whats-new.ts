@@ -72,7 +72,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Every submission, every answer, and who has the permit now',
-        text: 'Open a permit and log each submission and the answer to it - approved, corrections needed or rejected - with the files both ways. Corrections become a checklist to tick off, and each permit says in one line whose move it is: "With the township since Oct 3 (12 days)", "With us: 2 items to fix" or "Ready to resubmit". Anything waiting past the date they promised, or three weeks with no answer, is marked Chase.',
+        text: 'Open a permit and log each submission and the answer to it - approved, corrections needed or rejected - with the files both ways. Corrections become a punch list, and each item holds the file that fixes it, ready to go in with the resubmission. Each permit says in one line whose move it is: "With the township since Oct 3 (12 days)", "With us: 2 items to fix" or "Ready to resubmit"; anything waiting past the date they promised, or three weeks with no answer, is marked Chase. When it is approved, drop in the permit or a screenshot and AI fills in the number and dates, and that file becomes the permit. Share it from the permit to anyone by email or to your client in one tap - what comes back on the link lands on the permit - and every permit file is in Files under Permits.',
         help: 'permits',
       },
       {
