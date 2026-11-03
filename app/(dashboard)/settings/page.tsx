@@ -1138,7 +1138,7 @@ export default function SettingsPage() {
                         <p className="text-sm font-medium text-ink-soft">Company logo</p>
                         <p className="text-xs text-faint">PNG or JPG, up to 2MB. Appears on downloaded PDFs: daily logs, invoices, and reports.</p>
                         <div className="flex items-center gap-3 mt-1.5">
-                          <input ref={logoInputRef} type="file" accept="image/png,image/jpeg" className="sr-only"
+                          <input ref={logoInputRef} type="file" data-full-size accept="image/png,image/jpeg" className="sr-only"
                             onChange={e => { const f = e.target.files?.[0]; if (f) uploadLogo(f); e.target.value = '' }} />
                           <button type="button" onClick={() => logoInputRef.current?.click()} disabled={logoUploading}
                             className="text-sm font-medium text-accent-fg hover:underline disabled:opacity-50">

@@ -492,7 +492,7 @@ function ModelEditor({ siteId, model, templates, people, houseIds, names, onRelo
           <label className={cn('inline-flex min-h-[44px] cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-line px-3 text-sm font-medium text-ink hover:bg-surface lg:min-h-[36px]',
             busy === 'plan' && 'pointer-events-none opacity-60')}>
             {busy === 'plan' ? <><Loader2 className="h-4 w-4 animate-spin" /> Uploading…</> : <><Upload className="h-4 w-4" /> Upload plans</>}
-            <input ref={fileRef} type="file" multiple accept={ACCEPT_PLANS} className="sr-only" onChange={e => upload(e.target.files)} />
+            <input ref={fileRef} type="file" data-full-size multiple accept={ACCEPT_PLANS} className="sr-only" onChange={e => upload(e.target.files)} />
           </label>
         </div>
         <p className="text-xs text-faint">

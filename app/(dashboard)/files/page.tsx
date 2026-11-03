@@ -389,7 +389,7 @@ export default function FilesPage() {
                     {uploadFile
                       ? <><FileText className="h-4 w-4" /><span className="truncate">{uploadFile.name}</span><span className="ml-auto text-xs">{formatSize(uploadFile.size)}</span></>
                       : <><Upload className="h-4 w-4" /><span className="font-medium">Choose a file to upload</span></>}
-                    <input ref={fileRef} type="file" accept={ACCEPT_DOCS} className="sr-only"
+                    <input ref={fileRef} type="file" data-full-size accept={ACCEPT_DOCS} className="sr-only"
                       onChange={e => {
                         const f = e.target.files?.[0] ?? null
                         setUploadFile(f)
@@ -487,7 +487,7 @@ export default function FilesPage() {
                     <Label>Files in this packet ({packetFileIds.length} selected)</Label>
                     <label className={cn('inline-flex items-center gap-1 text-xs font-medium text-accent-fg hover:text-accent-fg', packetUploading && 'opacity-50 pointer-events-none')}>
                       {packetUploading ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Uploading...</> : <><Upload className="h-3.5 w-3.5" /> Upload new file</>}
-                      <input ref={packetFileRef} type="file" accept={ACCEPT_DOCS} className="sr-only"
+                      <input ref={packetFileRef} type="file" data-full-size accept={ACCEPT_DOCS} className="sr-only"
                         onChange={e => { const f = e.target.files?.[0]; if (f) uploadIntoPacket(f); e.target.value = '' }} />
                     </label>
                   </div>

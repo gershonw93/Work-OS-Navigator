@@ -66,6 +66,17 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-03',
+    title: 'Photos upload faster',
+    items: [
+      {
+        kind: 'improved',
+        title: 'Every photo is made smaller before it uploads',
+        text: 'A photo from a phone camera is shrunk on your phone before it is sent - to 2000 pixels on its long side, still sharp enough to read a permit or a receipt - so it goes up in a fraction of the time, even on site. It works on every upload in the app, including the links you send to clients and subs. PDFs, spreadsheets and documents are sent exactly as they are, and so are drawings: Plans, house model plans, plans sent with a quote request, submittal documents, the Files library and your company logo all keep the original.',
+      },
+    ],
+  },
+  {
     date: '2026-11-02',
     title: 'Permits keep their back and forth',
     items: [

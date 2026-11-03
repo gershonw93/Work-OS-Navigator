@@ -320,7 +320,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
             <label className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-accent hover:bg-accent text-accent-ink text-sm font-medium cursor-pointer transition-colors">
               <Upload className="h-4 w-4" />
               Upload Plans
-              <input ref={fileInputRef} type="file" multiple className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
+              <input ref={fileInputRef} type="file" data-full-size multiple className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
             </label>
           )}
         </div>
@@ -491,7 +491,7 @@ export default function PlansPage({ params }: { params: { id: string } }) {
         <div className="text-sm text-faint py-12 text-center">Loading...</div>
       ) : !searching && visibleFolders.length === 0 && visiblePlans.length === 0 && plans.length === 0 ? (
         <>
-          <input ref={emptyFileInputRef} type="file" multiple className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
+          <input ref={emptyFileInputRef} type="file" data-full-size multiple className="sr-only" accept=".pdf,.dwg,.dxf,.png,.jpg,.jpeg,.svg" onChange={handleFileChange} />
           <EmptyState
             icon={FileText}
             title={activeFolderId ? 'No plans in this folder' : 'No plans yet'}
