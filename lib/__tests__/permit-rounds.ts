@@ -9,6 +9,7 @@ import {
   submitProblem, type PermitItem, type PermitRound,
 } from '../permit-rounds'
 import { JOB_FILE_KINDS } from '../job-files'
+import { fitWithin } from '../shrink-image'
 import { boardCells, boardColumns, boardCounts, bulkProblem } from '../permit-board'
 import { ok, done, code, read, walk } from './_helpers'
 
@@ -244,6 +245,24 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
   ok(allowedStatuses([round({ outcome: 'approved', outcome_on: '2026-10-01' })]).includes('closed'),
     'an issued permit can be closed out')
   ok(/'closed'/.test(read('supabase/migrations/159_permit_closed_out.sql')), 'and the database allows it')
+}
+
+
+// ── a phone photo goes up small, once ───────────────────────────────────────
+// "The save button took a while": a 4032x3024 camera picture went up twice at
+// full size - for the AI read and again on Save.
+{
+  const f = fitWithin(4032, 3024)
+  ok(f.width === 2000 && f.height === 1500, `a camera photo is drawn at 2000px on its long side, shape kept (got ${f.width}x${f.height})`)
+  const portrait = fitWithin(3024, 4032)
+  ok(portrait.width === 1500 && portrait.height === 2000, '...portrait too')
+  ok(fitWithin(1200, 900).width === 1200, '...and a picture already small enough is left alone')
+  const page = code('app/(dashboard)/projects/[id]/permits/page.tsx')
+  ok(/const file = raw \? await shrinkImage\(raw\) : null[\s\S]{0,80}setPermitFile\(file\)[\s\S]{0,40}analyzePermitImage\(file\)/.test(page),
+    'Add Permit shrinks the photo BEFORE the AI read, so the read and the save send the same small copy')
+  const pnl = code('components/permits/permit-panel.tsx')
+  ok((pnl.match(/shrinkImages?\(/g) ?? []).length >= 3, 'the panel shrinks what it attaches, what it sends and the approved permit')
+  ok(/<span className="truncate">\{busy === 'send'/.test(pnl), 'a township\'s long name truncates on the Send button instead of running off the screen')
 }
 
 done()

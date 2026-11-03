@@ -18,6 +18,7 @@ import { allowedStatuses, permitStage, todayIso, type PermitItem, type PermitRou
 import { PermitPanel } from '@/components/permits/permit-panel'
 import { PermitList, type ListRow } from '@/components/permits/permit-list'
 import { useMinWidth } from '@/lib/use-min-width'
+import { shrinkImage } from '@/lib/shrink-image'
 import { PermitBoard, type BoardData } from '@/components/permits/permit-board'
 import { usePermissions } from '@/lib/use-permissions'
 import { fetchProblem } from '@/lib/fetch-error'
@@ -416,8 +417,11 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                       ? <><FileText className="h-4 w-4 shrink-0" /><span className="min-w-0 truncate">{permitFile.name}</span><span className="ml-auto text-xs text-success font-medium shrink-0">✓ Fields auto-filled</span></>
                       : <><Sparkles className="h-4 w-4" /><span className="font-medium">Upload a photo or PDF of your permit</span><span className="text-xs ml-1 text-accent-fg">- AI fills the fields automatically</span></>}
                     <input ref={fileRef} type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp"
-                    onChange={e => {
-                      const file = e.target.files?.[0] ?? null
+                    onChange={async e => {
+                      // Shrunk ONCE here, so the AI read and the save both send
+                      // the small copy - a phone photo went up twice at full size.
+                      const raw = e.target.files?.[0] ?? null
+                      const file = raw ? await shrinkImage(raw) : null
                       setPermitFile(file)
                       if (file) analyzePermitImage(file)
                     }} />

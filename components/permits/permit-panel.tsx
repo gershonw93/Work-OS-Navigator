@@ -11,6 +11,7 @@ import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { ShareFilesModal, type ShareableFile } from '@/components/files/share-files-modal'
 import { useClientContact } from '@/lib/use-client-email'
 import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
+import { shrinkImage, shrinkImages } from '@/lib/shrink-image'
 import { fetchProblem } from '@/lib/fetch-error'
 import { cn } from '@/lib/utils'
 import {
@@ -137,11 +138,11 @@ function AttachButton({ label, onPick, accept, big, multiple = true }: {
   label: string; onPick: (f: File[]) => void; accept?: string; big?: boolean; multiple?: boolean
 }) {
   return (
-    <label className={cn('inline-flex cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-muted2 bg-panel px-4 text-sm font-medium text-ink-soft hover:bg-surface',
+    <label className={cn('inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-muted2 bg-panel px-4 text-sm font-medium text-ink-soft hover:bg-surface',
       big ? 'min-h-11' : 'min-h-9')}>
       <Paperclip className="h-4 w-4 shrink-0" />{label}
       <input type="file" multiple={multiple} className="sr-only" accept={accept ?? '.pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.dwg'}
-        onChange={e => { onPick(Array.from(e.target.files ?? [])); e.target.value = '' }} />
+        onChange={async e => { const picked = Array.from(e.target.files ?? []); e.target.value = ''; onPick(await shrinkImages(picked)) }} />
     </label>
   )
 }
@@ -444,8 +445,12 @@ function PanelBody({
     if (sendStage) {
       actions = (
         <>
-          <Button className="min-h-11 flex-[2_1_0] lg:flex-none" onClick={send} disabled={busy === 'send'}>
-            {busy === 'send' ? 'Saving...' : st.stage === 'renew' ? 'Send renewal' : `Send to ${st.who}`}
+          {/* A township's full name does not fit a phone button - "City of
+              Brookside - Department of Buildings" ran off the screen. The
+              label truncates, and the full name is the button's title. */}
+          <Button className="min-h-11 min-w-0 flex-[2_1_0] lg:max-w-[22rem] lg:flex-none" onClick={send} disabled={busy === 'send'}
+            title={st.stage === 'renew' ? `Send the renewal to ${st.who}` : `Send to ${st.who}`}>
+            <span className="truncate">{busy === 'send' ? 'Saving...' : st.stage === 'renew' ? 'Send renewal' : `Send to ${st.who}`}</span>
           </Button>
           <AttachButton big label="Attach file" onPick={f => setSendFiles(cur => [...cur, ...f])} />
         </>
@@ -454,7 +459,7 @@ function PanelBody({
       actions = (
         <>
           <Button className="min-h-11 flex-[2_1_0] lg:flex-none" onClick={() => setAnswering(true)}>Record their answer</Button>
-          {phone && <a href={phone} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-muted2 bg-panel px-4 text-sm font-medium text-ink-soft hover:bg-surface lg:flex-none"><Phone className="h-4 w-4" />{callLabel}</a>}
+          {phone && <a href={phone} title={callLabel} className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 whitespace-nowrap rounded-lg border border-muted2 bg-panel px-4 text-sm font-medium text-ink-soft hover:bg-surface lg:max-w-[16rem] lg:flex-none"><Phone className="h-4 w-4 shrink-0" /><span className="truncate">{callLabel}</span></a>}
         </>
       )
     } else if (st.stage === 'city' && approving) {
@@ -506,7 +511,7 @@ function PanelBody({
           </>
         )}
         {canEdit && (
-          <RowMenu label="More actions" triggerClassName="h-11 w-11 lg:h-9 lg:w-9">
+          <RowMenu label="More actions" triggerClassName="h-11 w-11 border-transparent lg:h-9 lg:w-9 lg:p-0">
             {close => (
               <>
                 <MenuItem onClick={() => { close(); onShare() }}>Share</MenuItem>
@@ -564,7 +569,7 @@ function PanelBody({
                             className={cn('flex h-11 w-11 shrink-0 cursor-pointer items-center justify-center rounded-lg text-faint hover:text-ink', busy === i.id && 'pointer-events-none opacity-50')}>
                             {busy === i.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
                             <input type="file" multiple className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx,.dwg"
-                              onChange={e => { void attachToAsk(i, Array.from(e.target.files ?? [])); e.target.value = '' }} />
+                              onChange={async e => { const picked = Array.from(e.target.files ?? []); e.target.value = ''; void attachToAsk(i, await shrinkImages(picked)) }} />
                           </label>
                         )}
                         {canEdit && !i.done_at && (
@@ -669,7 +674,13 @@ function PanelBody({
                             {reading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <Sparkles className="h-4 w-4 shrink-0" />}
                             <span className="min-w-0 truncate">{reading ? 'Reading the permit...' : permitFile ? permitFile.name : 'Attach the permit - AI fills in the number and dates'}</span>
                             <input type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp"
-                              onChange={e => { const f = e.target.files?.[0]; if (f) { setPermitFile(f); void readWithAi(f) } e.target.value = '' }} />
+                              onChange={async e => {
+                                const raw = e.target.files?.[0]; e.target.value = ''
+                                if (!raw) return
+                                // Shrunk once: the AI read and the save send the same small copy.
+                                const f = await shrinkImage(raw)
+                                setPermitFile(f); void readWithAi(f)
+                              }} />
                           </label>
                           {fromLinks.length > 0 && !permitFile && (
                             <div className="flex flex-wrap gap-2 pt-1">
@@ -744,7 +755,7 @@ function PanelBody({
               </dl>
             ) : <p className="text-sm text-muted-fg">Nothing filled in yet.</p>}
             {permit.description && <p className="mt-3 break-words text-sm text-ink-soft">{permit.description}</p>}
-            {permit.notes && <p className="mt-2 break-words rounded-lg bg-surface px-3 py-2 text-sm text-muted-fg">{permit.notes}</p>}
+            {permit.notes && <Notes text={permit.notes} />}
             {permit.file_url && (
               <a href={permit.file_url} target="_blank" rel="noopener noreferrer"
                 className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-accent-fg hover:underline">
@@ -762,6 +773,26 @@ function PanelBody({
         </div>
       )}
     </>
+  )
+}
+
+/**
+ * The permit's notes, folded past four lines. A permit read by AI fills them
+ * with everything on the paper - owner, contractor, valuation, conditions -
+ * which pushed the rest of the panel a screen down on a phone.
+ */
+function Notes({ text }: { text: string }) {
+  const [all, setAll] = useState(false)
+  const long = text.length > 240
+  return (
+    <div className="mt-2 rounded-lg bg-surface px-3 py-2">
+      <p className={cn('whitespace-pre-line break-words text-sm text-muted-fg', long && !all && 'line-clamp-4')}>{text}</p>
+      {long && (
+        <button type="button" onClick={() => setAll(v => !v)} className="mt-1 min-h-9 text-sm font-medium text-accent-fg hover:underline">
+          {all ? 'Show less' : 'Show all'}
+        </button>
+      )}
+    </div>
   )
 }
 
