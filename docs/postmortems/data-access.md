@@ -124,3 +124,29 @@ each one was written the day something shipped broken.*
   error }` and a `console.error`, because `?? []` is the same swallow as a
   truthiness guard over an `undefined` key. It was found while moving these
   rows onto a different route, not by anybody using the app.
+
+## The browser could rewrite its own role (migration 160)
+
+Found on 2026-11-03 by a security pass asked for in so many words - "how can I
+double check the database is secure?". RLS was on for all 119 tables and the
+Supabase advisor reported nothing worse than "RLS enabled, no policy" (which is
+the SAFE state: only the service role reaches those tables). The hole was in
+one of the twenty tables that DID have a policy: `profiles` carried
+"Users can manage their profile", `FOR ALL USING (id = auth.uid())` with no
+`WITH CHECK`, and `authenticated` held UPDATE on every column. The row is
+yours, so every column in it was yours - `role`, `company_id` and
+`permission_overrides` included. `actorForUser` reads exactly those three to
+decide who a caller is, so one PATCH with the public anon key and your own
+session (`{"role":"admin","company_id":"<theirs>"}`) made you an admin of
+another company on every API route. "Allow profile insert on signup" was the
+same door for an account with no profile yet, such as a portal client login.
+
+The advisor cannot see this: it checks whether a policy EXISTS, not what the
+policy lets somebody write. `server-permissions.ts` already refused the same
+attack through `user_metadata.role`; nobody had asked the same question of the
+table it reads instead. Nothing in the browser writes `profiles`, so 160 left
+it one policy (read your own row) and revoked every write grant. Verified live
+by running an UPDATE as `authenticated` with a real user's claims: "permission
+denied for table profiles", one row visible. Pinned in
+`profiles-not-self-editable.ts`, which also refuses a later migration that
+grants a write back and a client component that tries one.

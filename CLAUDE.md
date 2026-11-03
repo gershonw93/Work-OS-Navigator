@@ -116,6 +116,16 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   that nobody logs is indistinguishable from an empty one. Pinned in
   `invoices-load.ts`.
 
+- **A COLUMN THE SERVER TRUSTS MUST NOT BE WRITABLE BY THE PERSON IT
+  DESCRIBES.** `profiles` had `FOR ALL USING (id = auth.uid())`, so `role` and
+  `company_id` were editable with the public anon key - and `actorForUser`
+  reads them to decide who you are. One PATCH made anybody an admin of any
+  company. The browser only READS its own profile (migration 160); every write
+  is a service-role route. The Supabase advisor cannot see this - it checks
+  that a policy exists, not what it lets you write - so a new policy on a table
+  the server trusts is read for its COLUMNS. Pinned in
+  `profiles-not-self-editable.ts`.
+
 - **A QUERY PARAM NAMED LIKE A PATH SEGMENT NEVER ARRIVES ON VERCEL.** Under
   `/api/projects/[id]/...`, `?id=` is dropped - the platform carries the
   segment through the query itself - so the GC's client-thread read answered
