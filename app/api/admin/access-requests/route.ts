@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { randomUUID } from 'crypto'
@@ -17,7 +18,7 @@ const admin = () => createClient(
 async function requireSuperAdmin(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return null
-  const { data: { user } } = await admin().auth.getUser(token)
+  const { data: { user } } = await verifiedUser(admin(), token)
   if (!user || !isSuperAdmin(user.email)) return null
   return user
 }

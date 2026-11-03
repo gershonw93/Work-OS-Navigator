@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { TERMS_VERSION } from '@/lib/legal/terms'
 import { NextResponse } from 'next/server'
@@ -24,7 +25,7 @@ export async function POST(request: Request) {
   )
 
   // Verify the token and get the user
-  const { data: { user }, error: userError } = await admin.auth.getUser(token)
+  const { data: { user }, error: userError } = await verifiedUser(admin, token)
 
   if (userError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

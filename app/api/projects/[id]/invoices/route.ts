@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { destinationsBySubcontract, rollupBudgetLines } from '@/lib/invoice-budget'
@@ -22,7 +23,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const [
@@ -182,7 +183,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json()

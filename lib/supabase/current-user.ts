@@ -1,6 +1,7 @@
 import { cache } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { checkAuth, type AuthCheck } from '@/lib/supabase/auth-check'
+import { secondStepOwed } from '@/lib/supabase/second-step'
 
 /**
  * Who is asking, resolved ONCE per request.
@@ -74,4 +75,16 @@ export const currentProfile = cache(async (): Promise<CurrentProfile | null> => 
   const { data } = await requestClient()
     .from('profiles').select('id, role, company_id').eq('id', user.id).maybeSingle()
   return (data as CurrentProfile) ?? { id: user.id, role: null, company_id: null }
+})
+
+/**
+ * Does this request's session still owe the two-step code? The layouts ask it
+ * right after `currentAuth`, as the second wall behind middleware (which only
+ * asks when it had a user in hand, and carries an 'unknown' through). Reads
+ * the token off the SAME request client - see `requestClient` above.
+ */
+export const currentSecondStepOwed = cache(async (): Promise<boolean> => {
+  const user = await currentUser()
+  if (!user) return false
+  return secondStepOwed(requestClient(), user)
 })

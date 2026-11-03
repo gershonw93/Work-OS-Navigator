@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getEffectivePermissions, resolveRoleBase, ROLE_DEFAULTS, type OverrideMap, type PermMap } from '@/lib/permissions'
@@ -20,7 +21,7 @@ export async function GET(request: Request) {
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Select defensively - permission_overrides column may not exist yet

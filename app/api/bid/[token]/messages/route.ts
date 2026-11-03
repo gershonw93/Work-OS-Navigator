@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { canUseThread, messageProblem } from '@/lib/bid-thread'
@@ -29,7 +30,7 @@ async function resolve(request: Request, token: string) {
 
   const bearer = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!bearer) return { denied: NextResponse.json({ needsAccount: true }, { status: 401 }) }
-  const { data: { user } } = await db.auth.getUser(bearer)
+  const { data: { user } } = await verifiedUser(db, bearer)
   if (!user) return { denied: NextResponse.json({ needsAccount: true }, { status: 401 }) }
 
   const { data: profile } = await db.from('profiles').select('company_id, full_name').eq('id', user.id).maybeSingle()

@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 
@@ -17,7 +18,7 @@ export async function PATCH(
   const db = admin()
   const {
     data: { user },
-  } = await db.auth.getUser(token)
+  } = await verifiedUser(db, token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { error } = await db
@@ -40,7 +41,7 @@ export async function DELETE(
   const db = admin()
   const {
     data: { user },
-  } = await db.auth.getUser(token)
+  } = await verifiedUser(db, token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { error } = await db

@@ -4,6 +4,8 @@ import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { checkAuth } from '@/lib/supabase/auth-check'
 import { AuthUnavailable } from '@/components/layout/auth-unavailable'
+import { secondStepOwed } from '@/lib/supabase/second-step'
+import { twoStepHref } from '@/lib/two-step'
 import { isSuperAdmin } from '@/lib/super-admin'
 import { ADMIN_GATE_COOKIE, verifyGate } from '@/lib/admin-gate'
 import { AdminNav } from '@/components/admin/admin-nav'
@@ -17,6 +19,8 @@ export default async function AdminLayout({ children }: { children: ReactNode })
 
   if (outcome === 'signed-out') redirect('/login')
   if (!user) return <AuthUnavailable />
+  // Two-step sign-in: the second wall behind middleware. See lib/two-step.ts.
+  if (await secondStepOwed(supabase, user)) redirect(twoStepHref('/admin'))
   if (!isSuperAdmin(user.email)) redirect('/dashboard')
 
   const gateOk = verifyGate(user.id, cookies().get(ADMIN_GATE_COOKIE)?.value)

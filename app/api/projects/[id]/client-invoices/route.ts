@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { cents, invoiceTotalCents, settlementOf } from '@/lib/invoice-settlement'
@@ -17,7 +18,7 @@ async function auth(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return null
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   return user ? { db, user } : null
 }
 

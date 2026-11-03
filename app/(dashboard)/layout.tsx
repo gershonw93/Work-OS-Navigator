@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation'
 import { ReactNode } from 'react'
-import { currentAuth, currentProfile } from '@/lib/supabase/current-user'
+import { currentAuth, currentProfile, currentSecondStepOwed } from '@/lib/supabase/current-user'
+import { twoStepHref } from '@/lib/two-step'
+import { headers } from 'next/headers'
 import { Sidebar } from '@/components/layout/sidebar'
 import { TopNav } from '@/components/layout/top-nav'
 import { MobileTabBar } from '@/components/layout/mobile-tab-bar'
@@ -28,6 +30,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     // 'unknown': we could not ask, twice. Say that, rather than showing a
     // login form to somebody whose session is fine.
     return <AuthUnavailable />
+  }
+
+  // Two-step sign-in: the second wall behind middleware. See lib/two-step.ts.
+  if (await currentSecondStepOwed()) {
+    redirect(twoStepHref(headers().get('x-pathname') ?? '/dashboard'))
   }
 
   // A CLIENT'S FREE LOGIN IS NOT AN ACCOUNT. It exists so a homeowner can

@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
@@ -55,7 +56,7 @@ export async function POST(request: Request) {
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Sharing documents outward is a files action, so it needs files rights.

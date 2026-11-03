@@ -12,6 +12,7 @@ import { useCanSignUp } from '@/lib/use-native'
 import { bidReturnPath } from '@/lib/bid-thread'
 import { oauthReturnPath } from '@/lib/mcp/oauth'
 import { trackAfterNavigation } from '@/lib/analytics-client'
+import { twoStepHref } from '@/lib/two-step'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -48,7 +49,17 @@ export default function LoginPage() {
     // send people here to sign in - a quote (`bidReturnPath`) or the page that
     // connects Claude (`oauthReturnPath`). Nothing else in `next` is followed.
     const next = new URLSearchParams(window.location.search).get('next')
-    window.location.href = bidReturnPath(next) ?? oauthReturnPath(next) ?? '/dashboard'
+    const destination = bidReturnPath(next) ?? oauthReturnPath(next) ?? '/dashboard'
+
+    // TWO-STEP. The password is right; for somebody who turned two-step on that
+    // is half a sign-in, and the code page finishes it. Asked off the session
+    // the sign-in just returned, so it costs no request.
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+    if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+      window.location.href = twoStepHref(destination)
+      return
+    }
+    window.location.href = destination
   }
 
   return (

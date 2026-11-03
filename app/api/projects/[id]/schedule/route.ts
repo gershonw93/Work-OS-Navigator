@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { progressReader } from '@/lib/schedule-progress-read'
 import { readGatePicture } from '@/lib/schedule-unblocked-read'
@@ -20,7 +21,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: items } = await db
@@ -184,7 +185,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Everything after the gate is `createScheduleItem`, which Claude's MCP

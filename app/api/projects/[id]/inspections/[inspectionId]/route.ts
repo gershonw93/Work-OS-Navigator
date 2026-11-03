@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
@@ -77,7 +78,7 @@ export async function DELETE(
   if (denied(gate)) return gate.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  const { data: { user } } = await db.auth.getUser(token ?? '')
+  const { data: { user } } = await verifiedUser(db, token ?? '')
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const { data: profile } = await db
@@ -130,7 +131,7 @@ export async function POST(
   if (denied(gate)) return gate.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
-  const { data: { user } } = await db.auth.getUser(token ?? '')
+  const { data: { user } } = await verifiedUser(db, token ?? '')
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))

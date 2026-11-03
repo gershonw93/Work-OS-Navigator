@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { myJobs } from './my-jobs'
 import {
@@ -31,7 +32,7 @@ export interface ActorPerms {
 /** Resolve the effective permissions of the user behind a bearer token. */
 export async function getActor(db: SupabaseClient, token: string | null | undefined): Promise<ActorPerms | null> {
   if (!token) return null
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return null
   return actorForUser(db, user.id)
 }

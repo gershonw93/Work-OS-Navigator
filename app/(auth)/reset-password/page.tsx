@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { PasswordInput } from '@/components/ui/password-input'
 import { Label } from '@/components/ui/label'
 import { bidReturnPath } from '@/lib/bid-thread'
+import { twoStepHref } from '@/lib/two-step'
 
 function ResetPasswordForm() {
   const router = useRouter()
@@ -46,6 +47,18 @@ function ResetPasswordForm() {
         if (code || accessToken) window.history.replaceState({}, '', '/reset-password' + (isInvite ? '?type=invite' : ''))
 
         const { data: { session } } = await supabase.auth.getSession()
+
+        // TWO-STEP. A reset link signs somebody in with nothing but their
+        // inbox. For a person who turned two-step on, that must not be enough
+        // to set a new password - an inbox is exactly what gets taken over - so
+        // the code comes first, and the code page sends them back here.
+        if (session) {
+          const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+          if (aal?.nextLevel === 'aal2' && aal.currentLevel !== 'aal2') {
+            window.location.href = twoStepHref('/reset-password' + (isInvite ? '?type=invite' : ''))
+            return
+          }
+        }
         if (active) setLinkState(session ? 'ready' : 'invalid')
       } catch {
         if (active) setLinkState('invalid')

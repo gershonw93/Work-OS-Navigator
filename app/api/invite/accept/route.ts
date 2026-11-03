@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { linkTeamRows } from '@/lib/my-jobs'
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user?.email) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const email = user.email

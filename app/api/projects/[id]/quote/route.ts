@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
@@ -24,7 +25,7 @@ const admin = () => createClient(
 async function authUser(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return null
-  const { data: { user } } = await admin().auth.getUser(token)
+  const { data: { user } } = await verifiedUser(admin(), token)
   return user
 }
 

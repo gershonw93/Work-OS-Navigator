@@ -1,6 +1,7 @@
 // The server half of the client's free login: hashing (needs a secret), and
 // resolving "is the person holding this session the job's client?".
 
+import { verifiedUser } from '@/lib/verified-user'
 import { createHmac, randomInt, timingSafeEqual } from 'node:crypto'
 import { sameEmail } from './portal-login'
 
@@ -43,7 +44,7 @@ export async function signedInClient(db: any, request: Request, clientEmail: str
   if (!clientEmail) return { ok: false, reason: 'no_email_on_file' }
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return { ok: false, reason: 'no_session' }
-  const { data } = await db.auth.getUser(token)
+  const { data } = await verifiedUser(db, token)
   const email = data?.user?.email ?? null
   if (!email) return { ok: false, reason: 'no_session' }
   if (!sameEmail(email, clientEmail)) return { ok: false, reason: 'wrong_person', email }

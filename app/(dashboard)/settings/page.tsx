@@ -7,6 +7,7 @@ import { NotificationSettings } from '@/components/settings/notification-setting
 import { NotificationRouting } from '@/components/settings/notification-routing'
 import { BillingPanel } from '@/components/settings/billing-panel'
 import { DeleteAccountCard } from '@/components/settings/delete-account-card'
+import { TwoStepCard } from '@/components/settings/two-step-card'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -1105,6 +1106,10 @@ export default function SettingsPage() {
                   <ConnectCalendarButton />
                 </CardContent>
               </Card>
+
+              {/* Two-step sign-in is PERSONAL, so it is here on the tab everybody
+                  can open - not on Security, which is the company's and admin-only. */}
+              <TwoStepCard />
 
               {/* EVERYBODY'S OWN ACCOUNT, ON THE TAB EVERYBODY CAN OPEN. Apple
                   requires any user to be able to start deleting their account in

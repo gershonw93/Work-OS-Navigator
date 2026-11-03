@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { escapeLike } from '@/lib/personal-access'
@@ -17,7 +18,7 @@ async function getUser(request: Request) {
   if (!token) return null
   const {
     data: { user },
-  } = await admin().auth.getUser(token)
+  } = await verifiedUser(admin(), token)
   return user
 }
 

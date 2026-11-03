@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { myJobs } from '@/lib/my-jobs'
@@ -16,7 +17,7 @@ const admin = () => createClient(
 async function getUser(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return null
-  const { data: { user } } = await admin().auth.getUser(token)
+  const { data: { user } } = await verifiedUser(admin(), token)
   return user
 }
 
@@ -158,7 +159,7 @@ export async function POST(request: Request) {
   )
 
   // Verify token and get user
-  const { data: { user }, error: userError } = await admin.auth.getUser(token)
+  const { data: { user }, error: userError } = await verifiedUser(admin, token)
   if (userError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { createClient as cookieClient } from '@/lib/supabase/server'
@@ -39,7 +40,7 @@ export async function GET(
 ) {
   // Cookies, not a Bearer token: this is loaded by `<img src>` and by pdf.js,
   // and neither of those can be given an Authorization header.
-  const { data: { user } } = await cookieClient().auth.getUser()
+  const { data: { user } } = await verifiedUser(cookieClient())
   if (!user) return new NextResponse('Unauthorized', { status: 401 })
 
   const db = admin()

@@ -4,6 +4,7 @@ import { APP_URL, SITE_URL, splitHosts, isAppPath, isMarketingPath } from '@/lib
 import { CANONICAL_ORIGIN, isIndexableHost, isSiteVerificationPath, shouldRedirectToCanonical } from '@/lib/canonical'
 import { checkAuth } from '@/lib/supabase/auth-check'
 import { treatAsSignedIn } from '@/lib/auth-outcome'
+import { isGatedPath, needsSecondStep, twoStepHref } from '@/lib/two-step'
 import { HELP_PREFIX, HELP_URL, helpHostLive, helpRewrite, isHelpHost } from '@/lib/help-host'
 
 export async function middleware(request: NextRequest) {
@@ -186,6 +187,20 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
+  }
+
+  // TWO-STEP SIGN-IN. A password alone is a valid session; for somebody who
+  // turned two-step on it is HALF of one, and every app screen sends it to the
+  // code. `user` is the auth server's fresh answer (its factors are current -
+  // the cookie's copy is from sign-in time, so an authenticator added on
+  // another device would not be in it); the level is read off the token in
+  // the cookie, which getSession reads locally. Only a user we HAVE: an
+  // 'unknown' carries on to the page, whose layout asks again.
+  if (user && isGatedPath(pathname)) {
+    const { data: { session } } = await supabase.auth.getSession()
+    if (needsSecondStep(user as Parameters<typeof needsSecondStep>[0], session?.access_token)) {
+      return NextResponse.redirect(new URL(twoStepHref(pathname + request.nextUrl.search), request.url))
+    }
   }
 
   // A logged-out visitor on the root now RENDERS the marketing homepage rather

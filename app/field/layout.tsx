@@ -3,6 +3,8 @@ import { ReactNode } from 'react'
 import { createClient } from '@/lib/supabase/server'
 import { checkAuth } from '@/lib/supabase/auth-check'
 import { AuthUnavailable } from '@/components/layout/auth-unavailable'
+import { secondStepOwed } from '@/lib/supabase/second-step'
+import { twoStepHref } from '@/lib/two-step'
 import { FIELD_ROLES } from '@/lib/permissions'
 import { IdleLogout } from '@/components/layout/idle-logout'
 import { NativeShell } from '@/components/layout/native-shell'
@@ -23,6 +25,8 @@ export default async function FieldLayout({ children }: { children: ReactNode })
   const { outcome, user } = await checkAuth(supabase, { attempts: 2 })
   if (outcome === 'signed-out') redirect('/login')
   if (!user) return <AuthUnavailable />
+  // Two-step sign-in: the second wall behind middleware. See lib/two-step.ts.
+  if (await secondStepOwed(supabase, user)) redirect(twoStepHref('/field'))
 
   const { data: profile } = await supabase
     .from('profiles').select('role').eq('id', user.id).single()

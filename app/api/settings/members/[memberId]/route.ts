@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { ROLE_DEFAULTS } from '@/lib/permissions'
@@ -50,7 +51,7 @@ function adminClient() {
 
 async function getCallerProfile(token: string) {
   const db = adminClient()
-  const { data: { user }, error } = await db.auth.getUser(token)
+  const { data: { user }, error } = await verifiedUser(db, token)
   if (error || !user) return null
 
   const { data: profile } = await db

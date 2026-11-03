@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import {
@@ -26,7 +27,7 @@ async function requireAdmin(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return null
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return null
   const { data: profile } = await db.from('profiles').select('id, role, company_id').eq('id', user.id).single()
   if (!profile?.company_id || !['admin', 'manager'].includes(profile.role ?? '')) return null

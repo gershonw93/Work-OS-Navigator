@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { resolveRoleBase, type OverrideMap, type PermMap } from '@/lib/permissions'
@@ -10,7 +11,7 @@ const admin = () => createClient(
 
 async function getCaller(token: string) {
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return null
   const { data: profile } = await db.from('profiles').select('id, role, company_id').eq('id', user.id).single()
   return profile ?? null

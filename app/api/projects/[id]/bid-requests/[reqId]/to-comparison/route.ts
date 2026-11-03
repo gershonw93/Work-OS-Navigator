@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
@@ -47,7 +48,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   const gate = await requirePermission(db, request, 'request-quotes', 'edit')
   if (denied(gate)) return gate.denied

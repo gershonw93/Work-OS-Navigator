@@ -1,3 +1,4 @@
+import { verifiedUser } from '@/lib/verified-user'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { isSuperAdmin } from '@/lib/super-admin'
@@ -32,7 +33,7 @@ async function gate(request: Request) {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) return { denied: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   const db = admin()
-  const { data: { user } } = await db.auth.getUser(token)
+  const { data: { user } } = await verifiedUser(db, token)
   if (!user) return { denied: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   if (!isSuperAdmin(user.email)) return { denied: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
   return { db, user }
