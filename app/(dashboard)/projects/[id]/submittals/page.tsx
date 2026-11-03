@@ -336,7 +336,7 @@ export default function SubmittalsPage({ params }: { params: { id: string } }) {
                       the AI scan above lives in state, and this input is still
                       empty, so a bare `required` would refuse a form that has
                       its document. */}
-                  <Input type="file" accept={ACCEPT_DOCS} required={!file}
+                  <Input type="file" data-full-size accept={ACCEPT_DOCS} required={!file}
                     onChange={e => { setFile(e.target.files?.[0] ?? null); if (e.target.files?.[0]) setFormError('') }} />
                   {file && <p className="text-xs text-muted-fg">Attached: <span className="font-medium text-ink-soft">{file.name}</span></p>}
                 </div>

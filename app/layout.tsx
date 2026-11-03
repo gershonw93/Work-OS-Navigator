@@ -3,6 +3,7 @@ import { Archivo, Saira_Condensed, Space_Mono } from 'next/font/google'
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 import { NoticeProvider } from '@/components/ui/notice'
 import { DeleteGuardProvider } from '@/components/ui/delete-guard'
+import { ShrinkUploads } from '@/components/ui/shrink-uploads'
 import { sidebarCollapseScript } from '@/lib/sidebar-collapse'
 import { Analytics } from '@/components/analytics/analytics'
 import './globals.css'
@@ -147,6 +148,8 @@ export default function RootLayout({
         {/* Both at the root for the same reason: each replaces a blocking
             native dialog, and a screen that falls outside the provider would
             quietly get the native one back. */}
+        {/* Every photo picked anywhere goes up small - one listener, not fifty. */}
+        <ShrinkUploads />
         <NoticeProvider><DeleteGuardProvider>{children}</DeleteGuardProvider></NoticeProvider>
         {/* Google Analytics via GTM. Who is and is not measured: lib/analytics.ts. */}
         <Analytics />

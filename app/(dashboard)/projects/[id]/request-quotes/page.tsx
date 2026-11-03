@@ -416,7 +416,7 @@ export default function RequestQuotesPage({ params }: { params: { id: string } }
 
   return (
     <div className="space-y-6">
-      <input ref={planRef} type="file" multiple accept={ACCEPT_DOCS} className="sr-only" onChange={e => { if (e.target.files) setFiles(p => [...p, ...Array.from(e.target.files!)]) }} />
+      <input ref={planRef} type="file" data-full-size multiple accept={ACCEPT_DOCS} className="sr-only" onChange={e => { if (e.target.files) setFiles(p => [...p, ...Array.from(e.target.files!)]) }} />
       <input ref={newRef} type="file" accept="application/pdf,image/*" multiple className="sr-only"
         onChange={e => { if (e.target.files?.length) uploadNewSet(e.target.files); e.target.value = '' }} />
       <div className="flex flex-wrap items-start justify-between gap-3">

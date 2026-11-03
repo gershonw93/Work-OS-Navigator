@@ -2294,7 +2294,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'files',
     title: 'Store and share files',
     category: 'workspace',
-    keywords: ['files', 'documents', 'upload', 'storage', 'share', 'packet', 'job files', 'plans', 'photos', 'quotes', 'bills', 'submittals', 'files blank', 'where are my files', 'all files'],
+    keywords: ['files', 'documents', 'upload', 'storage', 'share', 'packet', 'job files', 'plans', 'photos', 'quotes', 'bills', 'submittals', 'compress', 'shrink', 'file size', 'slow upload', 'upload takes long', 'photo quality', 'resolution', 'original', 'files blank', 'where are my files', 'all files'],
     summary: 'Company documents, every file on your jobs, and packets - in one place.',
     blocks: [
       { type: 'steps', items: [
@@ -2305,6 +2305,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       ] },
       { type: 'tip', text: 'Job Files only shows what your role can already open on the job. Somebody who cannot see Invoices does not see bills here either.' },
       { type: 'tip', text: 'Plans open on the job\'s Plans tab, where they can be viewed and marked up.' },
+      { type: 'text', text: 'PHOTOS ARE MADE SMALLER BEFORE THEY UPLOAD. A phone photo is shrunk on your phone to 2000 pixels on its long side before it is sent, everywhere in the app, so it uploads quickly and still reads clearly. PDFs, spreadsheets and documents go up exactly as they are, and so do drawings: Plans, house model plans, plans sent with a quote request, submittal documents, the Files library and your company logo keep the original.' },
     ],
     related: ['daily-log-pdf'],
   },
