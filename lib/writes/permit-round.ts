@@ -60,12 +60,20 @@ const label = (p: { permit_type: string; permit_number?: string | null }) =>
 
 export async function submitRound(
   db: SupabaseClient,
-  { userId, projectId, permitId, fields, uploadFiles, via, carry }: {
+  { userId, projectId, permitId, fields, uploadFiles, via, carry, beforeInsert }: {
     userId: string; projectId: string; permitId: string
     fields: { submitted_on?: string | null; expected_by?: string | null; note?: string | null }
     uploadFiles?: Upload; via?: string
     /** URLs of fixes already attached to this permit's items, going in with this round. */
     carry?: string[]
+    /**
+     * Runs once every check has passed and the files are known, BEFORE the
+     * round is written - the "Email it" door sends the email here. A refusal
+     * writes nothing: a permit must not read "with the township" over an
+     * email that never left. `note` is added to the round's note.
+     */
+    beforeInsert?: (ctx: { permit: any; files: RoundFile[]; round: number }) =>
+      Promise<{ ok: true; note?: string } | { ok: false; result: WriteResult }>
   },
 ): Promise<WriteResult> {
   const found = await permitOnJob(db, projectId, permitId)
@@ -100,13 +108,20 @@ export async function submitRound(
     sent_files = [...carried, ...up.files]
   }
 
+  let note = fields.note?.trim() || null
+  if (beforeInsert) {
+    const gate = await beforeInsert({ permit: found.permit, files: sent_files, round: history.rounds.length + 1 })
+    if (!gate.ok) return gate.result
+    if (gate.note) note = note ? `${note} - ${gate.note}` : gate.note
+  }
+
   const name = await actorName(db, userId, via)
   const { data: round, error } = await db.from('permit_rounds').insert({
     permit_id: permitId,
     project_id: projectId,
     submitted_on: fields.submitted_on,
     expected_by: fields.expected_by || null,
-    submitted_note: fields.note?.trim() || null,
+    submitted_note: note,
     sent_files,
     created_by: userId,
     created_by_name: name,

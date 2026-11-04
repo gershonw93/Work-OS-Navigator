@@ -66,6 +66,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-04',
+    title: 'Email a permit to the township',
+    items: [
+      {
+        kind: 'new',
+        title: 'Email it, with a copy to you',
+        text: 'On a permit, Email it sends the files you attached to the township as a download link and marks the permit as sent - only once the email has actually gone. You are copied, and a reply comes straight to you. The township\'s address fills in from your Directory or from the last time you emailed them, and one tick saves it for every house. Anything they upload back on the link - the approved permit or their comments - lands on the permit. Many townships still only take applications on their own website; there, apply as usual and press I sent it.',
+        help: 'permits',
+      },
+    ],
+  },
+  {
     date: '2026-11-03',
     title: 'Photos upload faster',
     items: [
