@@ -8,6 +8,7 @@ import { projectSlotProblem } from '@/lib/billing-read'
 import { cleanRow, fullAddress, lotRowProblem, lotJobName, sharedPlace, MAX_LOTS } from '@/lib/lot-list'
 import { cleanLotDetails, type LotDetails } from '@/lib/lot-details'
 import { distinctModelNames } from '@/lib/site-models'
+import { customerForNewProject } from '@/lib/project-customer'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -221,14 +222,33 @@ export async function POST(request: Request) {
       : children.map(() => siteCoords)
   }
 
+  // THE CLIENT IS A CUSTOMER CARD, NOT A STRING - the single-project rule
+  // (`lib/writes/project.ts`), on this door too. "its not populating my client
+  // list": the box here was free text, so a batch never reached Customers and
+  // the jobs read "No customer" in Project Settings. A picked id must be one
+  // of THIS company's customers (an id from a body is a claim); a typed name
+  // becomes one, reusing a card with the same name.
+  let customerId: string | null = null
+  let clientName: string | null = typeof client === 'string' && client.trim() ? client.trim() : null
+  if (customer_id) {
+    const { data: c } = await db.from('customers').select('id, name')
+      .eq('id', customer_id).eq('gc_company_id', profile.company_id).maybeSingle()
+    if (!c) return NextResponse.json({ error: 'That customer is not one of yours. Reload and pick again.' }, { status: 400 })
+    customerId = (c as any).id
+    clientName = (c as any).name
+  } else if (clientName) {
+    const made = await customerForNewProject(db as any, profile.company_id, clientName)
+    if (made) { customerId = made.id; clientName = made.name }
+  }
+
   const shared = {
-    client: client || null,
+    client: clientName,
     type: type || 'residential',
     start_date: start_date || null,
     status: 'planning',
     gc_company_id: profile.company_id,
     created_by_company_id: profile.company_id,
-    ...(customer_id ? { customer_id } : {}),
+    ...(customerId ? { customer_id: customerId } : {}),
   }
 
   const geo = (c: { lat: number; lng: number } | null, addr: string) =>

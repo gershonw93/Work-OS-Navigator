@@ -280,6 +280,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Go to Projects and click Bulk Add (it is also on the Customers page and inside a customer, if you want the batch tied to that client).',
         'Pick what you are setting up: Units (one building, a job per unit), Floors (one building, a job per floor - the usual shape for a commercial fit-out), or Street numbers (a run of houses on one street).',
         'Enter a name prefix. Every job is named from it, e.g. "95 Edgecomb - Unit 3".',
+        'Pick the client from your Customers list, or choose "+ New client..." and type a name - it is added to Customers, and every job in the batch is linked to it. Leave it on "No client" for a build you are selling.',
         'For Units and Floors, enter the building address once - start typing and pick the suggestion so it is a complete address.',
         'For Street numbers, enter the street name plus the city AND state (or ZIP) - it will not create houses it cannot place - then the first house number, the increment (2 for odd or even sides) and how many.',
         'Set the range, project type and start date, check the preview, and create. Up to 100 jobs per batch.',
