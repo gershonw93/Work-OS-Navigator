@@ -161,6 +161,7 @@ export const STEP_NAMES = ['Apply', 'City review', 'Issued', 'Closed out'] as co
 const STEP_OF: Record<Stage, number> = { draft: 0, fix: 1, city: 1, renew: 2, issued: 2, closed: 3 }
 
 export interface PermitFactsForStage {
+  permit_type?: string | null
   status?: string | null
   issuing_authority?: string | null
   expiry_date?: string | null
@@ -310,12 +311,16 @@ export function permitStage(
     const days = created ? Math.max(0, daysBetween(created, today)) : 0
     return {
       ...base, chase: false, pill: 'Your move',
-      next: 'Send the application',
+      // SyteNav does not send anything to the township. The first version
+      // said "Send the application" over a button reading "Send to Toms River
+      // Township", and read as an app that would file the permit - it records
+      // that a person did, and now says so.
+      next: 'Apply for it',
       time: created ? `Added ${dayLabel(created, today)}` : '',
       timeTone: '',
       sortKey: -days,
-      head: 'Send the application',
-      sub: `Nothing is logged as sent to ${who}. If it already went in, log the day it did.`,
+      head: 'Apply for it',
+      sub: `This job needs ${permit.permit_type ? `a ${permit.permit_type} permit` : 'this permit'} from ${who}. When you apply, attach what you sent and press I sent it. Already applied? Press it with the day it went in.`,
     }
   }
 

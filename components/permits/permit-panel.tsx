@@ -375,8 +375,8 @@ function PanelBody({
     if (st.stage === 'fix' && st.openAsks > 0) {
       guard(() => { void doSend() }, {
         title: `${st.openAsks} not ticked off`,
-        body: `${st.openAsks === 1 ? 'One thing they asked for is' : `${st.openAsks} things they asked for are`} not ticked off. Send it to ${st.who} anyway?`,
-        confirmLabel: 'Send anyway',
+        body: `${st.openAsks === 1 ? 'One thing they asked for is' : `${st.openAsks} things they asked for are`} not ticked off. Record it as sent back to ${st.who} anyway?`,
+        confirmLabel: 'Yes, I sent it',
       })
       return
     }
@@ -445,12 +445,13 @@ function PanelBody({
     if (sendStage) {
       actions = (
         <>
-          {/* A township's full name does not fit a phone button - "City of
-              Brookside - Department of Buildings" ran off the screen. The
-              label truncates, and the full name is the button's title. */}
-          <Button className="min-h-11 min-w-0 flex-[2_1_0] lg:max-w-[22rem] lg:flex-none" onClick={send} disabled={busy === 'send'}
-            title={st.stage === 'renew' ? `Send the renewal to ${st.who}` : `Send to ${st.who}`}>
-            <span className="truncate">{busy === 'send' ? 'Saving...' : st.stage === 'renew' ? 'Send renewal' : `Send to ${st.who}`}</span>
+          {/* A RECORD, NOT A SEND. It read "Send to Toms River Township", and a
+              verb on a button is a promise about what pressing it does -
+              SyteNav sends nothing to the township; it records that you did.
+              The township's name is in the card above and in the title. */}
+          <Button className="min-h-11 min-w-0 flex-[2_1_0] lg:flex-none" onClick={send} disabled={busy === 'send'}
+            title={`Records that it went to ${st.who} - SyteNav does not send it`}>
+            <span className="truncate">{busy === 'send' ? 'Saving...' : st.stage === 'renew' ? 'I sent the renewal' : st.stage === 'fix' ? 'I sent it back' : 'I sent it'}</span>
           </Button>
           <AttachButton big label="Attach file" onPick={f => setSendFiles(cur => [...cur, ...f])} />
         </>
@@ -481,11 +482,12 @@ function PanelBody({
     }
   }
 
-  const hint = st.stage === 'draft' ? 'Logs it as sent today. Already went in? Set the day below.'
-    : st.stage === 'renew' ? 'Logs the renewal as sent today.'
-    : !st.asks.length ? 'Add what they asked for, or send it as it is.'
-    : st.openAsks ? `Check off ${st.openAsks} more, or send it as it is.`
-    : 'Ready to go.'
+  // What the button does, said plainly under it: it RECORDS, it does not send.
+  const hint = st.stage === 'draft' ? 'Records that you sent it, dated today. SyteNav does not send it for you.'
+    : st.stage === 'renew' ? 'Records that you sent the renewal, dated today.'
+    : !st.asks.length ? 'Add each thing they asked for, then tick them off as you fix them.'
+    : st.openAsks ? `Check off ${st.openAsks} more. Press I sent it back once it has gone.`
+    : 'All fixed. Press I sent it back once it has gone.'
 
   const kv: [string, ReactNode][] = ([
     ['Permit #', permit.permit_number],
@@ -550,7 +552,10 @@ function PanelBody({
                   <p className="mt-0.5 text-sm text-ink-soft">{st.sub}</p>
                 </div>
 
-                {sendStage && st.stage !== 'renew' && (st.stage === 'fix' || st.asks.length > 0) && (
+                {/* What they asked for exists only once they have answered -
+                    before that there is nothing to list, and an empty "They
+                    also want..." box asked a question nobody had been asked. */}
+                {st.stage === 'fix' && (
                   <div className="overflow-hidden rounded-lg border border-line bg-panel">
                     {st.asks.length === 0 && <p className="px-3 py-3 text-sm text-muted-fg">Nothing listed yet. Add each thing they asked for below.</p>}
                     {st.asks.map(i => (
@@ -588,7 +593,7 @@ function PanelBody({
                   </div>
                 )}
 
-                {sendStage && canEdit && st.stage !== 'renew' && (
+                {st.stage === 'fix' && canEdit && (
                   <div className="flex gap-2">
                     <label className="sr-only" htmlFor={`ask-add-${permit.id}`}>Add what they want</label>
                     <Input id={`ask-add-${permit.id}`} value={newAsk} onChange={e => setNewAsk(e.target.value)} placeholder="They also want..."
