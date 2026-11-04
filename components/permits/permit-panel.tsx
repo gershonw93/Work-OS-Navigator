@@ -15,13 +15,14 @@ import { shrinkImage, shrinkImages } from '@/lib/shrink-image'
 import { fetchProblem } from '@/lib/fetch-error'
 import { cn } from '@/lib/utils'
 import {
-  AlertCircle, Check, ChevronDown, ChevronUp, FileText, Loader2, Paperclip, Phone, Sparkles, X,
+  AlertCircle, Check, ChevronDown, ChevronUp, FileText, Loader2, Mail, Paperclip, Phone, Sparkles, X,
 } from 'lucide-react'
 import {
   carryableFiles, cleanItems, dayLabel, permitStage, sortRounds, todayIso, unusedUploads, OUTCOME_LABEL, STEP_NAMES,
   type Group, type Outcome, type PermitItem, type PermitRound, type PermitShare, type PermitStage, type RoundFile, type StandingTone,
 } from '@/lib/permit-rounds'
 import type { PermitFacts } from '@/lib/permit-rules'
+import { emailProblem, splitAddresses, type Suggested } from '@/lib/permit-email'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // One permit, opened from the list: where it is on its four steps, the ONE
@@ -198,10 +199,12 @@ export function PermitPanel({
 }) {
   const swipe = useSwipeDismiss(onClose)
   const [sharing, setSharing] = useState(false)
+  const [blocked, setBlocked] = useState(false)
+  const holdStill = sharing || blocked
   const body = (
     <PanelBody projectId={projectId} permit={permit} rounds={rounds} items={items} shares={shares} historyOk={historyOk}
       canEdit={canEdit} nav={nav} onChanged={onChanged} onClose={onClose} onEdit={onEdit} onDelete={onDelete}
-      onShare={() => setSharing(true)} title={title} answerNow={answerNow} />
+      onShare={() => setSharing(true)} title={title} answerNow={answerNow} onBlockSwipe={setBlocked} />
   )
   return (
     <>
@@ -211,9 +214,9 @@ export function PermitPanel({
           {body}
         </aside>
       ) : (
-        <div className="overlay-drawer bg-black/20" data-overlay onClick={() => { if (!sharing) onClose() }}>
+        <div className="overlay-drawer bg-black/20" data-overlay onClick={() => { if (!holdStill) onClose() }}>
           <aside aria-label="Permit details" onClick={e => e.stopPropagation()}
-            {...(sharing ? {} : swipe.handlers)} style={sharing ? undefined : swipe.style}
+            {...(holdStill ? {} : swipe.handlers)} style={holdStill ? undefined : swipe.style}
             className="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl">
             {body}
           </aside>
@@ -248,12 +251,13 @@ function ShareFor({ projectId, permit, rounds, items, shares, onClose, onShared 
 }
 
 function PanelBody({
-  projectId, permit, rounds: roundsIn, items, shares, historyOk, canEdit, nav, onChanged, onClose, onEdit, onDelete, onShare, title, answerNow,
+  projectId, permit, rounds: roundsIn, items, shares, historyOk, canEdit, nav, onChanged, onClose, onEdit, onDelete, onShare, title, answerNow, onBlockSwipe,
 }: {
   projectId: string; permit: PanelPermit; rounds: PermitRound[]; items: PermitItem[]; shares: PermitShare[]
   historyOk: boolean; canEdit: boolean; nav?: PanelNav
   onChanged: () => void; onClose: () => void; onEdit?: () => void; onDelete?: () => void; onShare: () => void; title?: string
   answerNow?: boolean
+  onBlockSwipe?: (blocked: boolean) => void
 }) {
   const notify = useNotice()
   const guard = useDeleteGuard()
@@ -287,6 +291,9 @@ function PanelBody({
 
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const [emailing, setEmailing] = useState(false)
+  // A dialog over the drawer: the drawer must not swipe away under it.
+  useEffect(() => { onBlockSwipe?.(emailing) }, [emailing, onBlockSwipe])
 
   // A different permit, a fresh card: nothing typed for one may be sent with another.
   useEffect(() => {
@@ -371,6 +378,18 @@ function PanelBody({
     const ok = await form('send', `${base}/rounds`, 'POST', fd, 'logging the submission')
     if (ok) { setNote(''); setSendFiles([]); setOtherDay(false); setExpectedBy('') }
   }
+  // The same question I sent it asks: a rule on one door belongs on the other.
+  function openEmail() {
+    if (st.stage === 'fix' && st.openAsks > 0) {
+      guard(() => setEmailing(true), {
+        title: `${st.openAsks} not ticked off`,
+        body: `${st.openAsks === 1 ? 'One thing they asked for is' : `${st.openAsks} things they asked for are`} not ticked off. Email it to ${st.who} anyway?`,
+        confirmLabel: 'Email it anyway',
+      })
+      return
+    }
+    setEmailing(true)
+  }
   function send() {
     if (st.stage === 'fix' && st.openAsks > 0) {
       guard(() => { void doSend() }, {
@@ -453,7 +472,12 @@ function PanelBody({
             title={`Records that it went to ${st.who} - SyteNav does not send it`}>
             <span className="truncate">{busy === 'send' ? 'Saving...' : st.stage === 'renew' ? 'I sent the renewal' : st.stage === 'fix' ? 'I sent it back' : 'I sent it'}</span>
           </Button>
-          <AttachButton big label="Attach file" onPick={f => setSendFiles(cur => [...cur, ...f])} />
+          {/* The door that DOES send: emails the files to the township,
+              copies you, and logs it only once the email has gone. */}
+          <Button variant="outline" className="min-h-11 min-w-0 flex-1 lg:flex-none" onClick={openEmail}
+            title={`Email the files to ${st.who} and log it as sent`}>
+            <Mail className="h-4 w-4 shrink-0" /><span className="truncate">Email it</span>
+          </Button>
         </>
       )
     } else if (st.stage === 'city' && !answering) {
@@ -614,12 +638,11 @@ function PanelBody({
                       <Input id={`send-note-${permit.id}`} value={note} onChange={e => setNote(e.target.value)}
                         placeholder="What are you sending? (optional)" />
                     </div>
-                    {(fixes.length > 0 || sendFiles.length > 0) && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {fixes.map(f => <FileChip key={f.url} f={{ ...f, name: `${f.name} (fix)` }} />)}
-                        {sendFiles.map((f, k) => <LocalChip key={k} name={f.name} onRemove={() => setSendFiles(cur => cur.filter((_, j) => j !== k))} />)}
-                      </div>
-                    )}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {fixes.map(f => <FileChip key={f.url} f={{ ...f, name: `${f.name} (fix)` }} />)}
+                      {sendFiles.map((f, k) => <LocalChip key={k} name={f.name} onRemove={() => setSendFiles(cur => cur.filter((_, j) => j !== k))} />)}
+                      <AttachButton label={fixes.length || sendFiles.length ? 'Attach more' : 'Attach what you sent'} onPick={f => setSendFiles(cur => [...cur, ...f])} />
+                    </div>
                     {otherDay && (
                       <div className="grid grid-cols-2 gap-2">
                         <div className="space-y-1">
@@ -771,6 +794,14 @@ function PanelBody({
         </div>
       </div>
 
+      {emailing && (
+        <EmailItDialog base={base} permit={permit} who={st.who} round={st.rounds.length + 1}
+          fixes={fixes} files={sendFiles} note={note.trim() || (st.stage === 'renew' ? 'Renewal' : '')}
+          sentOn={otherDay ? sentOn : todayIso()} expectedBy={otherDay ? expectedBy : ''}
+          onClose={() => setEmailing(false)}
+          onSent={() => { setEmailing(false); setNote(''); setSendFiles([]); setOtherDay(false); setExpectedBy(''); onChanged() }} />
+      )}
+
       {/* Phone: the card's buttons, pinned under the thumb. */}
       {actions && (
         <div className="flex shrink-0 gap-2 border-t border-line bg-panel px-4 py-3 lg:hidden [&>*]:min-w-0">
@@ -778,6 +809,147 @@ function PanelBody({
         </div>
       )}
     </>
+  )
+}
+
+/**
+ * Email it: the permit set goes to the township as a link (the Sharing tab's
+ * token link, tied to this permit, so what they send back lands here), you are
+ * copied, a reply comes to you - and only once it has gone is it logged as
+ * sent. Same files, note and date the card above was holding.
+ */
+function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, expectedBy, onClose, onSent }: {
+  base: string; permit: PanelPermit; who: string; round: number
+  fixes: RoundFile[]; files: File[]; note: string; sentOn: string; expectedBy: string
+  onClose: () => void; onSent: () => void
+}) {
+  const notify = useNotice()
+  const [loading, setLoading] = useState(true)
+  const [suggested, setSuggested] = useState<Suggested | null>(null)
+  const [mine, setMine] = useState<{ email: string | null; name: string | null }>({ email: null, name: null })
+  const [to, setTo] = useState('')
+  const [copyMe, setCopyMe] = useState(true)
+  const [cc, setCc] = useState('')
+  const [message, setMessage] = useState('')
+  const [save, setSave] = useState(true)
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      try {
+        const res = await fetch(`${base}/email`, { headers: { Authorization: `Bearer ${await token()}` } })
+        const out = await res.json().catch(() => ({}))
+        if (!live) return
+        if (res.ok) {
+          setSuggested(out.suggested ?? null)
+          setMine(out.me ?? { email: null, name: null })
+          if (out.suggested?.email) setTo(out.suggested.email)
+        }
+      } catch { /* the box starts empty; typing the address still works */ }
+      finally { if (live) setLoading(false) }
+    })()
+    return () => { live = false }
+  }, [base])
+
+  const authority = (permit.issuing_authority ?? '').trim()
+  // Offer to save only what would be new: no Directory address yet, or a different one typed.
+  const offerSave = !!authority && !!to.trim() && !(suggested?.source === 'directory' && suggested.email.toLowerCase() === to.trim().toLowerCase())
+  const fileCount = fixes.length + files.length
+
+  async function sendIt() {
+    const problem = emailProblem({ to, cc: splitAddresses(cc) })
+    if (problem) { setError(problem); return }
+    setSending(true); setError('')
+    try {
+      const fd = new FormData()
+      fd.append('to', to.trim())
+      if (copyMe) fd.append('cc_me', '1')
+      if (cc.trim()) fd.append('cc', cc)
+      if (message.trim()) fd.append('message', message.trim())
+      if (note) fd.append('note', note)
+      fd.append('submitted_on', sentOn)
+      if (expectedBy) fd.append('expected_by', expectedBy)
+      if (offerSave && save) fd.append('save_address', '1')
+      fixes.forEach(f => fd.append('carry', f.url))
+      files.forEach(f => fd.append('files', f))
+      const res = await fetch(`${base}/email`, { method: 'POST', headers: { Authorization: `Bearer ${await token()}` }, body: fd })
+      const out = await res.json().catch(() => ({}))
+      if (res.status === 207) { notify(out.error, { tone: 'info', title: 'Email sent' }); onSent(); return }
+      if (!res.ok) { setError(out.error ?? `Could not send (${res.status})`); return }
+      notify(`Sent to ${out.to}${out.cc?.length ? `, copy to ${out.cc.join(', ')}` : ''}. It now reads With ${who}.`, { tone: 'success', title: 'Emailed' })
+      onSent()
+    } catch (e) {
+      // A request that did not come back says nothing about whether it went.
+      setError(fetchProblem(e, 'sending the email'))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={onClose}>
+      <div className="w-full min-w-0 max-w-full overflow-y-auto rounded-xl bg-panel shadow-xl sm:max-w-lg" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between gap-3 border-b border-line-soft px-5 py-3">
+          <h2 className="min-w-0 truncate font-semibold text-ink">Email it - {permit.permit_type}{round > 1 ? ` (round ${round})` : ''}</h2>
+          <button type="button" onClick={onClose} aria-label="Close" title="Close"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-faint hover:text-ink lg:h-9 lg:w-9">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-5">
+          <div className="space-y-1.5">
+            <Label>To <span className="text-danger">*</span></Label>
+            <Input type="email" value={to} onChange={e => setTo(e.target.value)} placeholder={loading ? 'Looking up their address...' : `${who === 'the reviewer' ? 'The township' : who}'s email`} />
+            {suggested && to.trim().toLowerCase() === suggested.email.toLowerCase() && (
+              <p className="text-xs text-muted-fg">{suggested.source === 'directory' ? `From your Directory (${authority}).` : `The address ${authority} was last emailed at.`}</p>
+            )}
+            {offerSave && (
+              <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-ink-soft">
+                <input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} className="h-4 w-4 shrink-0" />
+                Save it as {authority}&apos;s address, for every permit from them
+              </label>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-ink">
+              <input type="checkbox" checked={copyMe} onChange={e => setCopyMe(e.target.checked)} className="h-4 w-4 shrink-0" disabled={!mine.email} />
+              <span className="min-w-0">Send me a copy{mine.email ? <span className="text-muted-fg"> ({mine.email})</span> : <span className="text-muted-fg"> - there is no email on your profile</span>}</span>
+            </label>
+            <Label>Also copy <span className="font-normal text-faint">(optional)</span></Label>
+            <Input value={cc} onChange={e => setCc(e.target.value)} placeholder="expeditor@example.com, office@example.com" />
+          </div>
+          <div className="space-y-1.5">
+            <Label>Message <span className="font-normal text-faint">(optional)</span></Label>
+            <textarea rows={3} value={message} onChange={e => setMessage(e.target.value)}
+              placeholder={round > 1 ? 'e.g. Revised site plan and energy calc attached, as asked.' : 'e.g. Application, plans and survey attached. Please let me know if you need anything else.'}
+              className="w-full resize-none rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none" />
+          </div>
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-ink-soft">{fileCount ? `${fileCount} file${fileCount === 1 ? '' : 's'} go with it` : 'No files attached'}</p>
+            {fileCount > 0 ? (
+              <div className="flex flex-wrap gap-1.5">
+                {fixes.map(f => <span key={f.url} className="max-w-full truncate rounded-md border border-line px-2 py-1 text-xs text-ink-soft">{f.name}</span>)}
+                {files.map((f, k) => <span key={k} className="max-w-full truncate rounded-md border border-line px-2 py-1 text-xs text-ink-soft">{f.name}</span>)}
+              </div>
+            ) : (
+              <p className="text-xs text-muted-fg">Close this and use Attach what you sent first, or send it as a message only.</p>
+            )}
+          </div>
+          <p className="text-xs text-muted-fg">
+            They get a link to download the files and can send the approved permit or their comments back on it - it lands on this permit. A reply comes to you. Once it has gone, the permit reads With {who}.
+          </p>
+        </div>
+        <div className="space-y-2 border-t border-line-soft px-5 py-4">
+          {error && <p className="flex items-start gap-1 text-xs text-danger"><AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />{error}</p>}
+          <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
+            <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
+            <Button type="button" onClick={sendIt} disabled={sending}>{sending ? 'Sending...' : 'Send email'}</Button>
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
 

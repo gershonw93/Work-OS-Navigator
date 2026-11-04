@@ -83,6 +83,34 @@ export interface OutgoingEmail {
    * password reset is offering something we will not honour.
    */
   unsubscribeUrl?: string | null
+  /**
+   * Copies. Asked for so a GC emailing a permit set to the township has the
+   * letter in their own inbox too. `copyList` drops a bad address, a repeat
+   * and the TO address (SendGrid refuses a mail naming one address twice).
+   */
+  cc?: string[] | null
+  /**
+   * Where a reply goes, when it should not be our support inbox. A township
+   * answering a permit set must reach the GC who sent it, not SyteNav.
+   */
+  replyTo?: string | null
+  /** The name beside the From address - "Jay at Bulk Houses via SyteNav". The address stays ours. */
+  fromName?: string | null
+}
+
+/** Copies SendGrid will take: real addresses, no repeats, never the TO address, at most five. */
+export function copyList(to: string, cc: (string | null | undefined)[] | null | undefined): string[] {
+  const seen = new Set([to.trim().toLowerCase()])
+  const out: string[] = []
+  for (const raw of cc ?? []) {
+    const a = String(raw ?? '').trim()
+    const k = a.toLowerCase()
+    if (!a || seen.has(k) || !isEmailAddress(a) || isPlaceholderEmail(a)) continue
+    seen.add(k)
+    out.push(a)
+    if (out.length === 5) break
+  }
+  return out
 }
 
 /**
@@ -109,10 +137,12 @@ export function buildSendGridPayload(email: OutgoingEmail, cfg: EmailConfig) {
     }
     : undefined
 
+  const cc = copyList(email.to, email.cc)
+  const replyTo = email.replyTo && isEmailAddress(email.replyTo) && !isPlaceholderEmail(email.replyTo) ? email.replyTo.trim() : cfg.replyTo
   return {
-    personalizations: [{ to: [{ email: email.to }] }],
-    from: { email: cfg.from, name: cfg.fromName },
-    reply_to: { email: cfg.replyTo },
+    personalizations: [{ to: [{ email: email.to }], ...(cc.length ? { cc: cc.map(a => ({ email: a })) } : {}) }],
+    from: { email: cfg.from, name: (email.fromName ?? '').trim() || cfg.fromName },
+    reply_to: { email: replyTo },
     subject: email.subject,
     content,
     ...(headers ? { headers } : {}),
