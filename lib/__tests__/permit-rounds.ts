@@ -22,9 +22,10 @@ const round = (o: Partial<PermitRound>): PermitRound =>
 const item = (o: Partial<PermitItem>): PermitItem => ({ id: o.id ?? Math.random().toString(36), permit_id: 'p', label: o.label ?? 'x', ...o })
 {
   const s = permitStage(permit, [], [], TODAY)
-  ok(s.stage === 'draft' && s.group === 'you' && s.step === 0, 'a permit nothing has been logged on is "Send the application", your move, step 1 of 4')
-  ok(/If it already went in, log the day it did/.test(s.sub),
-    '...and says it may already have gone in - no history is "not logged", never "not submitted"')
+  ok(s.stage === 'draft' && s.group === 'you' && s.step === 0 && s.head === 'Apply for it',
+    'a permit nothing has been logged on is "Apply for it", your move, step 1 of 4')
+  ok(/This job needs a Building permit from Lakewood Township/.test(s.sub) && /Already applied\?/.test(s.sub),
+    '...says what is needed and from whom, and that it may already have gone in')
   ok(permitStage({ ...permit, status: 'approved' }, [], [], TODAY).stage === 'issued',
     'a permit marked approved before rounds existed is issued')
 }
@@ -235,7 +236,7 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
   const list = code('components/permits/permit-list.tsx')
   ok(/permitStage\(/.test(page) && /permitStage\(/.test(panel) && !/permitStage\(/.test(list),
     'the page and the panel ask permitStage; the list only lays out what it was given')
-  ok(/st\.openAsks > 0/.test(panel) && /confirmLabel: 'Send anyway'/.test(panel),
+  ok(/st\.openAsks > 0/.test(panel) && /confirmLabel: 'Yes, I sent it'/.test(panel),
     'sending with asks unticked ASKS, it is not a greyed-out button that explains nothing')
   ok(!/disabled=\{[^}]*openAsks/.test(panel), '...and no button is disabled on the asks')
   ok(/docked \?/.test(panel) && /className="overlay-drawer[^"]*" data-overlay/.test(panel),
@@ -263,6 +264,18 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
   const pnl = code('components/permits/permit-panel.tsx')
   ok((pnl.match(/shrinkImages?\(/g) ?? []).length >= 3, 'the panel shrinks what it attaches, what it sends and the approved permit')
   ok(/<span className="truncate">\{busy === 'send'/.test(pnl), 'a township\'s long name truncates on the Send button instead of running off the screen')
+}
+
+
+// ── a record, not a send ────────────────────────────────────────────────────
+// "Send to Toms River Township" read as SyteNav filing the permit. It records.
+{
+  const pnl = code('components/permits/permit-panel.tsx')
+  ok(!/`Send to \$\{st\.who\}`/.test(pnl) && /'I sent it'/.test(pnl) && /'I sent it back'/.test(pnl) && /'I sent the renewal'/.test(pnl),
+    'the button says what it records - I sent it / I sent it back / I sent the renewal - never "Send to <township>"')
+  ok(/SyteNav does not send it for you/.test(pnl), '...and the line under it says SyteNav does not send it')
+  ok(/\{st\.stage === 'fix' && \(/.test(pnl) && /\{st\.stage === 'fix' && canEdit && \(/.test(pnl),
+    'the list of what they asked for, and its "They also want..." box, appear only once they have answered')
 }
 
 done()

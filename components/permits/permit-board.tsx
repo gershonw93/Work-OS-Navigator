@@ -156,7 +156,7 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
     }
   }
 
-  const label = (a: BulkAction) => a === 'add' ? 'Add a permit' : a === 'submit' ? 'Log submission' : 'Record an answer'
+  const label = (a: BulkAction) => a === 'add' ? 'Add a permit' : a === 'submit' ? 'Mark as sent' : 'Record an answer'
 
   return (
     <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={onClose}>

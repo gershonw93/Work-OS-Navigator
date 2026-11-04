@@ -32,7 +32,7 @@ function Row({ r, first, selected, compact, canEdit, onOpen, onAnswer }: {
   onOpen: () => void; onAnswer: () => void
 }) {
   const st = r.st
-  const btn = st.stage === 'draft' ? 'Send it' : st.stage === 'fix' ? 'Fix it' : st.stage === 'renew' ? 'Renew' : st.stage === 'city' ? 'Their answer' : ''
+  const btn = st.stage === 'draft' ? 'Apply' : st.stage === 'fix' ? 'Fix it' : st.stage === 'renew' ? 'Renew' : st.stage === 'city' ? 'Their answer' : ''
   return (
     <div className={cn('group relative grid min-h-[60px] items-center gap-x-3 gap-y-0.5 px-4 py-2.5 lg:gap-x-4 lg:px-[18px]',
       'grid-cols-[minmax(0,1fr)_auto]',
