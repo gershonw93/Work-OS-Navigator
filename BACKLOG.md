@@ -164,6 +164,27 @@ does not claim either. Both are real features, not copy changes:
   are true because a human is the enforcement - fine while the beta is free,
   not fine on the day billing starts.
 
+- **A "before you go" offer when somebody cancels** (asked for Nov 2026, with
+  a screenshot of StoreRocket's cancel screen: "50% off for 3 months - Save
+  $12.50 - Redeem discount" above the confirm button). That screen IS Stripe's
+  own customer portal, so this is mostly configuration, not a build - which
+  fits the rule in `app/api/billing/portal/route.ts` that cancelling stays in
+  Stripe's portal and is never a button of ours. What it needs:
+  - a coupon in Stripe (percent off, `duration: repeating`, N months), then
+    Stripe -> Settings -> Billing -> Customer portal -> Cancellations ->
+    turn on the retention offer and pick it. Cancel AT PERIOD END, so the
+    "still available until ..." line holds.
+  - decide the offer (how much, how long, once per company?) - a product
+    decision before it is a setting.
+  - check the webhook: a redeemed coupon arrives as
+    `customer.subscription.updated` with a discount and NO status change, so
+    nothing should move - confirm the webhook does not read it as a plan
+    change. (`cancel_at_period_end` is already stored and read by
+    `lib/billing-state.ts`, so a confirmed cancel already says when it ends.)
+  - optionally pass a `configuration` id from the portal route if test and
+    live need different offers; the dashboard default needs no code.
+  - web only, like everything else here: the iOS build has no Billing tab.
+
 ---
 
 

@@ -38,7 +38,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-159.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-160.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -115,6 +115,16 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
   never as an error. Keep the `error` and `console.error` it - a refused query
   that nobody logs is indistinguishable from an empty one. Pinned in
   `invoices-load.ts`.
+
+- **A COLUMN THE SERVER TRUSTS MUST NOT BE WRITABLE BY THE PERSON IT
+  DESCRIBES.** `profiles` had `FOR ALL USING (id = auth.uid())`, so `role` and
+  `company_id` were editable with the public anon key - and `actorForUser`
+  reads them to decide who you are. One PATCH made anybody an admin of any
+  company. The browser only READS its own profile (migration 160); every write
+  is a service-role route. The Supabase advisor cannot see this - it checks
+  that a policy exists, not what it lets you write - so a new policy on a table
+  the server trusts is read for its COLUMNS. Pinned in
+  `profiles-not-self-editable.ts`.
 
 - **A QUERY PARAM NAMED LIKE A PATH SEGMENT NEVER ARRIVES ON VERCEL.** Under
   `/api/projects/[id]/...`, `?id=` is dropped - the platform carries the

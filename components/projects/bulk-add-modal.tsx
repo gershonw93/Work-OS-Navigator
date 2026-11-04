@@ -1,7 +1,7 @@
 'use client'
 
 import { todayDateInput } from '@/lib/dates'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -26,6 +26,43 @@ const MODES: { key: Mode; label: string; hint: string; icon: typeof Building2 }[
   { key: 'existing', label: 'Jobs you have', hint: 'Put existing jobs into a new development', icon: FolderInput },
 ]
 
+const NEW_CLIENT = '__new__'
+
+/**
+ * The client for the whole batch, picked from Customers - "its not populating
+ * my client list". The box used to be free text, so the list never showed and
+ * a batch never reached Customers. Same shape as the single project form: the
+ * company's customers, "+ New client..." to type one (the route turns the name
+ * into a card), or nobody. Hoisted, never declared inside the modal - a
+ * component declared in a component is a new type on every render.
+ */
+function ClientPicker({ id, customers, customerId, client, locked, onPick, onType }: {
+  id: string
+  customers: { id: string; name: string }[] | null
+  customerId: string
+  client: string
+  locked: { id: string; name: string } | null | undefined
+  onPick: (id: string) => void
+  onType: (name: string) => void
+}) {
+  if (locked) {
+    return <p className="rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink-soft">{locked.name}</p>
+  }
+  return (
+    <div className="space-y-2">
+      <Select id={id} value={customerId} onChange={e => onPick(e.target.value)}>
+        <option value="">{customers === null ? 'Loading your clients...' : 'No client'}</option>
+        {(customers ?? []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+        <option value={NEW_CLIENT}>+ New client...</option>
+      </Select>
+      {customerId === NEW_CLIENT && (
+        <Input id={`${id}-new`} value={client} onChange={e => onType(e.target.value)}
+          placeholder="New client's name, e.g. Acme Corp" />
+      )}
+    </div>
+  )
+}
+
 /**
  * Create a batch of related projects.
  *
@@ -49,6 +86,37 @@ export function BulkAddModal({
   const [mode, setMode] = useState<Mode>('list')
   const [namePrefix, setNamePrefix] = useState('')
   const [client, setClient] = useState(customer?.name ?? defaultClient ?? '')
+  // The picked customer card. A typed default (no card) starts on "+ New
+  // client..." so the name is still visible and still becomes a card.
+  const [customerId, setCustomerId] = useState(customer?.id ?? (defaultClient ? NEW_CLIENT : ''))
+  // null while loading - "No client" is only said over a read that answered.
+  const [customers, setCustomers] = useState<{ id: string; name: string }[] | null>(customer ? [] : null)
+  useEffect(() => {
+    if (customer) return
+    let live = true
+    ;(async () => {
+      try {
+        const res = await fetch('/api/customers', { headers: { Authorization: `Bearer ${token}` } })
+        const d = res.ok ? await res.json() : null
+        if (!live) return
+        if (!d) console.error('[bulk-add] could not read customers', res.status)
+        setCustomers(((d?.customers ?? []) as any[]).map(c => ({ id: c.id, name: c.name })))
+      } catch (e) {
+        console.error('[bulk-add] could not read customers', e)
+        if (live) setCustomers([])
+      }
+    })()
+    return () => { live = false }
+  }, [customer, token])
+
+  function pickClient(id: string) {
+    setCustomerId(id)
+    if (id === NEW_CLIENT) { setClient(''); return }
+    setClient((customers ?? []).find(c => c.id === id)?.name ?? '')
+  }
+  // What the batch is for: a card id, or a typed name for the route to make one of.
+  const pickedCustomerId = customer?.id ?? (customerId && customerId !== NEW_CLIENT ? customerId : null)
+  const clientPayload = { client: client.trim() || null, ...(pickedCustomerId ? { customer_id: pickedCustomerId } : {}) }
   const [type, setType] = useState('residential')
   const [startDate, setStartDate] = useState(today)
 
@@ -129,10 +197,9 @@ export function BulkAddModal({
     const payload: Record<string, unknown> = {
       mode,
       name_prefix: namePrefix.trim(),
-      client: client || null,
+      ...clientPayload,
       type,
       start_date: startDate || null,
-      ...(customer?.id ? { customer_id: customer.id } : {}),
     }
 
     if (mode === 'street') {
@@ -201,9 +268,8 @@ export function BulkAddModal({
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-1.5">
                   <Label htmlFor="bulk-client-l">Client <span className="text-faint font-normal">(optional)</span></Label>
-                  <Input id="bulk-client-l" value={client} onChange={e => setClient(e.target.value)}
-                    readOnly={!!customer} disabled={!!customer}
-                    className={customer ? 'bg-surface cursor-not-allowed' : undefined} placeholder="Who this is for" />
+                  <ClientPicker id="bulk-client-l" customers={customers} customerId={customerId} client={client}
+                    locked={customer} onPick={pickClient} onType={setClient} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="bulk-type-l">Project type *</Label>
@@ -220,7 +286,7 @@ export function BulkAddModal({
               </div>
               <LotListBuilder
                 token={token}
-                shared={{ client: client || null, type, start_date: startDate || null, ...(customer?.id ? { customer_id: customer.id } : {}) }}
+                shared={{ ...clientPayload, type, start_date: startDate || null }}
                 onCancel={onClose}
                 onSuccess={onSuccess}
               />
@@ -233,11 +299,9 @@ export function BulkAddModal({
                 required placeholder={mode === 'street' ? 'e.g. Maple Estates' : 'e.g. 95 Edgecomb'} />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="bulk-client">Client</Label>
-              <Input id="bulk-client" value={client} onChange={e => setClient(e.target.value)}
-                readOnly={!!customer} disabled={!!customer}
-                className={customer ? 'bg-surface cursor-not-allowed' : undefined}
-                placeholder="Who this is for" />
+              <Label htmlFor="bulk-client">Client <span className="text-faint font-normal">(optional)</span></Label>
+              <ClientPicker id="bulk-client" customers={customers} customerId={customerId} client={client}
+                locked={customer} onPick={pickClient} onType={setClient} />
             </div>
           </div>
 
