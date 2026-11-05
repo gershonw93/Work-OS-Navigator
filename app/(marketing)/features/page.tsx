@@ -8,7 +8,6 @@ import {
   LayoutDashboard, DollarSign, ReceiptText, CalendarCheck, Layers, TrendingUp, Building2,
 } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
-import { BrowserMock } from '@/components/marketing/browser-mock'
 import { DashboardMock } from '@/components/marketing/dashboard-mock'
 import { QuoteScanMock } from '@/components/marketing/quote-scan-mock'
 import { MoneyMock } from '@/components/marketing/money-mock'
@@ -120,7 +119,7 @@ const SECTIONS: {
       { icon: DollarSign, title: 'Master money', body: 'Cash in versus out across the company, escrow balances by job, and invoices outstanding, without opening a spreadsheet.' },
       { icon: BarChart2, title: 'Detailed reports', body: 'Build a report on one job, every job for a customer, or a sub or supplier across all their jobs. Pick the period and what goes in: the money summary, contracts and change orders, bills, budget against actual, margin, the schedule, permits, inspections, daily logs and hours. Save it to run again with fresh numbers, print it to PDF, or send the developer or the sub a link they open with no account. A report about a sub only ever shows their own numbers.' },
     ],
-    visual: <BrowserMock url="app.sytenav.com/dashboard"><DashboardMock /></BrowserMock>,
+    visual: <DashboardMock />,
   },
 ]
 

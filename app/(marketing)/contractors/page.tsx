@@ -5,7 +5,6 @@ import {
   Receipt, ShieldCheck, Quote as QuoteIcon, BookOpen,
 } from 'lucide-react'
 import { marketingMeta } from '@/components/marketing/meta'
-import { BrowserMock } from '@/components/marketing/browser-mock'
 import { DashboardMock } from '@/components/marketing/dashboard-mock'
 import { CompareMock } from '@/components/marketing/compare-mock'
 import { MoneyMock } from '@/components/marketing/money-mock'
@@ -88,7 +87,7 @@ export default function ContractorsPage() {
             </div>
           </div>
           <Reveal delay={150} className="min-w-0">
-            <BrowserMock url="app.sytenav.com/dashboard"><DashboardMock /></BrowserMock>
+            <DashboardMock />
           </Reveal>
         </div>
       </section>
