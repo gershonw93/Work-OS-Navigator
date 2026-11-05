@@ -12,7 +12,7 @@ import { lotTag } from '@/lib/lot-details'
 import { cn } from '@/lib/utils'
 import { AlertCircle, Check, CheckCircle2, Layers, X, XCircle } from 'lucide-react'
 import {
-  boardCells, boardColumns, boardCounts, bulkProblem, cellMatches, PERMIT_TYPES,
+  boardCells, boardColumns, boardCounts, bulkMisfit, bulkProblem, cellMatches, PERMIT_TYPES,
   type BoardCell, type BoardFilter, type BoardPermit, type BulkAction,
 } from '@/lib/permit-board'
 import { todayIso, type PermitItem, type PermitRound, type PermitShare } from '@/lib/permit-rounds'
@@ -114,6 +114,9 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
   const [addTypes, setAddTypes] = useState<string[]>([])
   const [sameAuthority, setSameAuthority] = useState(true)
   const [authorityFor, setAuthorityFor] = useState<Record<string, string>>({})
+  // A permit that is not on the list: named here, then a chip like the rest.
+  const [customTypes, setCustomTypes] = useState<string[]>([])
+  const [customName, setCustomName] = useState('')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -121,17 +124,17 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
 
   const existingTypes = boardColumns(data.permits)
   const typeOptions = action === 'add'
-    ? Array.from(new Set([...existingTypes, ...PERMIT_TYPES]))
+    ? Array.from(new Set([...existingTypes, ...PERMIT_TYPES.filter(t => t !== 'Other'), ...customTypes]))
     : existingTypes
 
   // Which houses this action makes sense for, so "select those" picks the
   // right twenty instead of making somebody tick them one at a time.
-  const fitsFor = (a: BulkAction, t: string, adding: string[] = addTypes) => rows.filter(r => {
-    if (a === 'add') return adding.some(x => !cells.get(r.id)?.get(x))
-    const cell = t ? cells.get(r.id)?.get(t) : undefined
-    if (a === 'submit') return !!cell && cell.standing.court !== 'them' && cell.standing.court !== 'done'
-    return !!cell && cell.standing.court === 'them'
-  })
+  // Why a house cannot be ticked for what is being done (null = it can).
+  const misfit = (a: BulkAction, t: string, r: Row, adding: string[] = addTypes): string | null => {
+    if (a === 'add') return adding.length && adding.every(x => cells.get(r.id)?.get(x)) ? 'Has them all' : null
+    return bulkMisfit(a, t, cells.get(r.id)?.get(t)?.standing)
+  }
+  const fitsFor = (a: BulkAction, t: string, adding: string[] = addTypes) => rows.filter(r => !misfit(a, t, r, adding))
   const fitting = fitsFor(action, type)
 
   function choose(next: { action?: BulkAction; type?: string; addTypes?: string[] }) {
@@ -142,11 +145,23 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
     const ready = a === 'add' ? adding.length > 0 : !!t
     setPicked(new Set(ready ? fitsFor(a, t, adding).map(r => r.id) : []))
   }
+  function addCustom() {
+    const name = customName.trim().replace(/\s+/g, ' ')
+    if (!name) return
+    // Same name as one already offered, whatever the case: pick that one.
+    const known = typeOptions.find(t => t.toLowerCase() === name.toLowerCase())
+    const t = known ?? name
+    if (!known) setCustomTypes(prev => [...prev, t])
+    setCustomName('')
+    if (!addTypes.includes(t)) choose({ addTypes: [...addTypes, t] })
+  }
   const toggleAddType = (t: string) =>
     choose({ addTypes: addTypes.includes(t) ? addTypes.filter(x => x !== t) : [...addTypes, t] })
   const authorityOf = (t: string) => (sameAuthority ? authority : authorityFor[t] ?? authority).trim()
 
   const togglePick = (id: string) => setPicked(prev => {
+    const r = rows.find(x => x.id === id)
+    if (r && misfit(action, type, r) && !prev.has(id)) return prev
     const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n
   })
 
@@ -277,6 +292,12 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
                       )
                     })}
                   </div>
+                  <div className="flex gap-2">
+                    <Input value={customName} onChange={e => setCustomName(e.target.value)} maxLength={60}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }}
+                      placeholder="Not on the list? Name it, e.g. Tree Removal" />
+                    <Button type="button" variant="outline" className="shrink-0" onClick={addCustom}>Add</Button>
+                  </div>
                 </div>
               ) : (
               <div className="space-y-1.5">
@@ -389,9 +410,10 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
                   <div className="max-h-64 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
                     {rows.map(r => {
                       const has = addTypes.filter(t => cells.get(r.id)?.get(t))
+                      const why = misfit('add', type, r)
                       return (
-                        <label key={r.id} className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-1.5">
-                          <input type="checkbox" checked={picked.has(r.id)} onChange={() => togglePick(r.id)} className="h-4 w-4 shrink-0" />
+                        <label key={r.id} className={cn('flex min-h-11 items-center gap-3 px-3 py-1.5', why ? 'cursor-not-allowed bg-surface/60' : 'cursor-pointer')}>
+                          <input type="checkbox" checked={picked.has(r.id)} disabled={!!why && !picked.has(r.id)} onChange={() => togglePick(r.id)} className="h-4 w-4 shrink-0" />
                           <span className="min-w-0 flex-1 truncate text-sm text-ink">{r.name}{r.tag ? <span className="text-faint"> · {r.tag}</span> : null}</span>
                           <span className="whitespace-nowrap text-xs text-faint">
                             {has.length === 0 ? 'Has none' : has.length === addTypes.length ? 'Has them all' : `Has ${has.join(', ')}`}
@@ -404,10 +426,14 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
                   <div className="max-h-64 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
                     {rows.map(r => {
                       const cell = cells.get(r.id)?.get(type)
+                      const why = misfit(action, type, r)
                       return (
-                        <label key={r.id} className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-1.5">
-                          <input type="checkbox" checked={picked.has(r.id)} onChange={() => togglePick(r.id)} className="h-4 w-4 shrink-0" />
-                          <span className="min-w-0 flex-1 truncate text-sm text-ink">{r.name}{r.tag ? <span className="text-faint"> · {r.tag}</span> : null}</span>
+                        <label key={r.id} className={cn('flex min-h-11 items-center gap-3 px-3 py-1.5', why ? 'cursor-not-allowed bg-surface/60' : 'cursor-pointer')}>
+                          <input type="checkbox" checked={picked.has(r.id)} disabled={!!why && !picked.has(r.id)} onChange={() => togglePick(r.id)} className="h-4 w-4 shrink-0" />
+                          <span className="min-w-0 flex-1">
+                            <span className={cn('block truncate text-sm', why ? 'text-faint' : 'text-ink')}>{r.name}{r.tag ? <span className="text-faint"> · {r.tag}</span> : null}</span>
+                            {why && <span className="block truncate text-xs text-muted-fg">{why}</span>}
+                          </span>
                           <span className={cn('whitespace-nowrap rounded-full border px-2 py-0.5 text-xs', cell ? STANDING_CHIP[cell.standing.tone] : 'border-line text-faint')}>
                             {cell ? cell.standing.short : 'None'}
                           </span>
@@ -419,7 +445,8 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
               </div>
             </div>
             <div className="space-y-2 border-t border-line-soft px-5 py-4">
-              {error && <p className="flex items-start gap-1 text-xs text-danger"><AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />{error}</p>}
+              {/* Big enough to be seen: a one-line 12px note under a long form read as "the button did nothing". */}
+              {error && <p role="alert" className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-danger"><AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{error}</p>}
               <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
                 <Button type="button" onClick={run} disabled={saving}>
