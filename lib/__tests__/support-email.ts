@@ -8,6 +8,7 @@
 // Changing the address meant finding all fourteen. That is the shape this file
 // exists to stop coming back.
 
+import { contactMessageMail } from '../contact-message'
 import { ok, done, code, read, walk, exists } from './_helpers'
 import { SUPPORT_EMAIL, supportMailto } from '../support-email'
 
@@ -102,8 +103,11 @@ console.log('\nsupport-email')
 
   // Four addresses became one, so the subject is the only thing separating a
   // security report from a cookie question in that inbox.
-  const contact = code('components/marketing/contact-form.tsx')
-  ok(/supportMailto\(subject, body\)/.test(contact),
+  // The form posts to /api/contact now (a mailto: did nothing without a mail
+  // app), so the label is the subject the route writes - contact-form.ts.
+  const contactRoute = code('app/api/contact/route.ts')
+  ok(/subject: mail\.subject/.test(contactRoute)
+    && contactMessageMail({ name: 'Pat', email: 'p@x.com', company: '', message: 'Hi' }).subject.startsWith('Contact form: '),
     'the contact form still sends its own subject rather than an unlabelled mail')
 }
 
