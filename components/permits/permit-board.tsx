@@ -1,5 +1,6 @@
 'use client'
 
+import { ContactPicker } from '@/components/contact-picker'
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -270,7 +271,8 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
               {action === 'add' && (
                 <div className="space-y-1.5">
                   <Label>Issuing authority <span className="text-danger">*</span></Label>
-                  <Input value={authority} onChange={e => setAuthority(e.target.value)} placeholder="e.g. Lakewood Township" />
+                  {/* From the Directory: the exact card name is what Email it looks the address up by. */}
+                  <ContactPicker filterType="inspector" value={authority} onChange={name => setAuthority(name)} placeholder="Search your Directory, e.g. Lakewood Township" />
                 </div>
               )}
 

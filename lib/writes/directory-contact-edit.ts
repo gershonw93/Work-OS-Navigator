@@ -1,3 +1,4 @@
+import { cleanApplyMethod, cleanApplyUrl } from '@/lib/permit-apply'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cleanTypeList } from '@/lib/inspection-types'
 import type { WriteResult } from './result'
@@ -61,9 +62,19 @@ export async function updateDirectoryContact(
   // Which inspections an inspector does lives in `extra` beside the
   // jurisdiction, so it is MERGED in - replacing `extra` wholesale would wipe
   // the jurisdiction and cert number this form never shows.
-  if (body.inspection_types !== undefined) {
+  // How they take permit applications lives there too (lib/permit-apply.ts),
+  // merged the same way. An unknown method is stored as "not said", never as
+  // whatever the body claimed.
+  const extraPatch: Record<string, unknown> = {}
+  if (body.inspection_types !== undefined) extraPatch.inspection_types = cleanTypeList(body.inspection_types)
+  if (body.apply_method !== undefined) {
+    const method = cleanApplyMethod(body.apply_method)
+    extraPatch.apply_method = method
+    extraPatch.apply_url = method === 'portal' ? cleanApplyUrl(body.apply_url) : null
+  }
+  if (Object.keys(extraPatch).length) {
     const { data: cur } = await db.from('companies').select('extra').eq('id', params.companyId).maybeSingle()
-    updates.extra = { ...(((cur as any)?.extra as Record<string, unknown>) ?? {}), inspection_types: cleanTypeList(body.inspection_types) }
+    updates.extra = { ...(((cur as any)?.extra as Record<string, unknown>) ?? {}), ...extraPatch }
   }
 
   const { data, error } = await db.from('companies').update(updates).eq('id', params.companyId).select().single()

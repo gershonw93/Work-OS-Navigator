@@ -467,11 +467,8 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   </div>
                   <div className="space-y-1.5">
                     <Label>Who do you apply to? <span className="text-danger">*</span></Label>
-                    <Input list="permit-authorities" placeholder="e.g. Toms River Township" value={issuingAuthority} onChange={e => setIssuingAuthority(e.target.value)} />
-                    <datalist id="permit-authorities">
-                      {Array.from(new Set(permits.map(p => (p.issuing_authority ?? '').trim()).filter(Boolean))).map(a => <option key={a} value={a} />)}
-                    </datalist>
-                    <p className="text-xs text-muted-fg">The township or department. Email it finds their address from this name.</p>
+                    <ContactPicker filterType="inspector" value={issuingAuthority} onChange={name => setIssuingAuthority(name)} placeholder="Search your Directory, e.g. Toms River Township" />
+                    <p className="text-xs text-muted-fg">The township or department, from your Directory - Email it uses their address and how they take applications. Not there yet? Add them from this box.</p>
                   </div>
                   <p className="text-sm text-muted-fg">That is all for now. The permit number and dates come when it is approved - drop the approved permit in then and AI fills them.</p>
                 </>) : (<>
@@ -549,7 +546,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 </div>
                 <div className="space-y-1.5">
                   <Label><Building className="inline h-3.5 w-3.5 mr-1 text-faint" />Issuing Authority</Label>
-                  <Input placeholder="e.g. NYC Department of Buildings" value={issuingAuthority} onChange={e => setIssuingAuthority(e.target.value)} />
+                  <ContactPicker filterType="inspector" value={issuingAuthority} onChange={name => setIssuingAuthority(name)} placeholder="Search your Directory, e.g. Toms River Township" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">

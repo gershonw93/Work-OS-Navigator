@@ -887,6 +887,8 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
   // one tap away. Typing a different address or asking for more opens it.
   const [full, setFull] = useState(false)
   const [repliesHere, setRepliesHere] = useState(false)
+  // Their Directory card says they do not take applications by email.
+  const [warning, setWarning] = useState<string | null>(null)
 
   useEffect(() => {
     let live = true
@@ -899,6 +901,7 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
           setSuggested(out.suggested ?? null)
           setMine(out.me ?? { email: null, name: null })
           setRepliesHere(out.replies === true)
+          setWarning(typeof out.warning === 'string' ? out.warning : null)
           if (out.suggested?.email) setTo(out.suggested.email)
         }
       } catch { /* the box starts empty; typing the address still works */ }
@@ -954,6 +957,11 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
           </button>
         </div>
         <div className="space-y-4 px-5 py-5">
+          {warning && (
+            <p className="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn-tint px-3 py-2.5 text-sm text-ink">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />{warning}
+            </p>
+          )}
           {loading ? (
             <p className="text-sm text-muted-fg">Looking up their address...</p>
           ) : quick && suggested ? (
@@ -1009,7 +1017,7 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
           {error && <p className="flex items-start gap-1 text-xs text-danger"><AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />{error}</p>}
           <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
             <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
-            <Button type="button" onClick={sendIt} disabled={sending}>{sending ? 'Sending...' : 'Send email'}</Button>
+            <Button type="button" onClick={sendIt} disabled={sending}>{sending ? 'Sending...' : warning ? 'Email it anyway' : 'Send email'}</Button>
           </div>
         </div>
       </div>
