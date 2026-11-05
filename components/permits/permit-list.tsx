@@ -39,7 +39,7 @@ function Row({ r, first, selected, compact, canEdit, onOpen, onAnswer }: {
       compact ? 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_118px]' : 'lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.5fr)_92px_140px_112px]',
       selected ? 'bg-accent-tint' : 'hover:bg-surface')}>
       <button type="button" onClick={onOpen}
-        className="min-w-0 text-left after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:rounded-sm focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-info">
+        className="col-start-1 row-start-1 min-w-0 text-left lg:col-start-auto lg:row-start-auto after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:rounded-sm focus-visible:after:ring-2 focus-visible:after:ring-inset focus-visible:after:ring-info">
         <span className="block truncate text-[15px] font-semibold text-ink">{r.type}</span>
         <span className="block truncate text-[12.5px] text-muted-fg">{r.meta}</span>
       </button>
@@ -48,7 +48,10 @@ function Row({ r, first, selected, compact, canEdit, onOpen, onAnswer }: {
         {st.next}
       </div>
       {!compact && <div className="hidden lg:block"><StepBar st={st} /></div>}
-      <div className={cn('row-start-1 text-right text-[13px] lg:row-start-auto',
+      {/* Placed by hand on a phone: a row-start alone lets auto-placement put
+          the time in the FIRST free cell, which is the title's, and the title
+          then lands beside it. */}
+      <div className={cn('col-start-2 row-start-1 self-start whitespace-nowrap pt-0.5 text-right text-[13px] lg:col-start-auto lg:row-start-auto lg:self-auto lg:pt-0',
         st.timeTone === 'bad' ? 'font-semibold text-danger' : st.timeTone === 'warn' ? 'font-semibold text-warn' : 'text-muted-fg')}>
         {st.time}
       </div>
