@@ -82,4 +82,7 @@ ok(/if \(sg\.outcome === 'approved'\) \{[\s\S]{0,160}setApproving\(true\)[\s\S]{
 const jobFiles = code('app/api/files/jobs/route.ts')
 ok(/for \(const rp of history\.replies\)/.test(jobFiles) && /emailed back by/.test(jobFiles),
   'a reply\'s attachments are in Files > Permits as soon as they land, not only once the answer is used')
+ok(/const replyFiles = fromReply \? \(replies\.find\(r => r\.id === fromReply\)\?\.attachments \?\? \[\]\) : \[\]/.test(panel)
+  && /replyFiles\.length > 0 && !permitFile && \(/.test(panel),
+  'an approval from a reply shows the permit file they emailed - it is never asked for again')
 done()

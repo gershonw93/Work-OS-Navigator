@@ -299,6 +299,10 @@ function PanelBody({
   // with the answer, and it is not offered again afterwards.
   const [fromReply, setFromReply] = useState<string | null>(null)
   const latestReply = [...replies].reverse().find(r => !r.used_at) ?? null
+  // The files that came with the reply this answer is being made from. They
+  // join the answer on the server (inbound), so the approved permit they sent
+  // becomes the permit without being uploaded again.
+  const replyFiles = fromReply ? (replies.find(r => r.id === fromReply)?.attachments ?? []) : []
   // A dialog over the drawer: the drawer must not swipe away under it.
   useEffect(() => { onBlockSwipe?.(emailing) }, [emailing, onBlockSwipe])
 
@@ -730,10 +734,17 @@ function PanelBody({
                     ) : (
                       <>
                         <div className="space-y-1">
+                          {replyFiles.length > 0 && !permitFile && (
+                            <div className="space-y-1.5 rounded-lg border border-line bg-panel px-3 py-2.5">
+                              <p className="text-xs text-muted-fg">From their email - saved with this answer, and the permit becomes this file</p>
+                              <div className="flex flex-wrap gap-1.5">{replyFiles.map(f => <FileChip key={f.url} f={f} />)}</div>
+                            </div>
+                          )}
                           <label className={cn('flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed px-3 py-3 text-sm',
-                            reading ? 'pointer-events-none border-accent bg-accent-tint text-accent-fg' : 'border-accent/50 bg-panel text-accent-fg hover:border-accent')}>
+                            reading ? 'pointer-events-none border-accent bg-accent-tint text-accent-fg' : 'border-accent/50 bg-panel text-accent-fg hover:border-accent',
+                            replyFiles.length > 0 && !permitFile && !reading && 'border-line py-2 text-muted-fg')}>
                             {reading ? <Loader2 className="h-4 w-4 shrink-0 animate-spin" /> : <Sparkles className="h-4 w-4 shrink-0" />}
-                            <span className="min-w-0 truncate">{reading ? 'Reading the permit...' : permitFile ? permitFile.name : 'Attach the permit - AI fills in the number and dates'}</span>
+                            <span className="min-w-0 truncate">{reading ? 'Reading the permit...' : permitFile ? permitFile.name : replyFiles.length ? 'Use a different file instead' : 'Attach the permit - AI fills in the number and dates'}</span>
                             <input type="file" className="sr-only" accept=".pdf,.jpg,.jpeg,.png,.webp"
                               onChange={async e => {
                                 const raw = e.target.files?.[0]; e.target.value = ''
@@ -1096,7 +1107,7 @@ function ReplyCard({ reply, today, canEdit, busy, onUse, onAnswerMyself }: {
       )}
       {canEdit && (
         <div className="row-even lg:flex lg:flex-wrap gap-2">
-          {usable && <Button className="min-h-11" onClick={onUse} disabled={busy}>{sg?.outcome === 'approved' ? 'Use this - check the details' : 'Use this answer'}</Button>}
+          {usable && <Button className="min-h-11" onClick={onUse} disabled={busy}>Use this answer</Button>}
           <Button variant="outline" className="min-h-11" onClick={onAnswerMyself}>Answer myself</Button>
         </div>
       )}
