@@ -278,4 +278,9 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
     'the list of what they asked for, and its "They also want..." box, appear only once they have answered')
 }
 
+{
+  const list = code('components/permits/permit-list.tsx')
+  ok(/className="col-start-1 row-start-1 min-w-0 text-left/.test(list) && /'col-start-2 row-start-1 self-start/.test(list),
+    'on a phone the permit name is placed first and the time beside it - a row-start alone put the time in the name\'s cell')
+}
 done()
