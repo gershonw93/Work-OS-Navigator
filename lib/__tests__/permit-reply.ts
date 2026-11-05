@@ -79,4 +79,7 @@ const panel = code('components/permits/permit-panel.tsx')
 ok(/if \(sg\.outcome === 'approved'\) \{[\s\S]{0,160}setApproving\(true\)[\s\S]{0,300}return\s*\}/.test(panel),
   'an approval read from a reply OPENS the issue form filled in - a permit number is a person\'s to confirm')
 
+const jobFiles = code('app/api/files/jobs/route.ts')
+ok(/for \(const rp of history\.replies\)/.test(jobFiles) && /emailed back by/.test(jobFiles),
+  'a reply\'s attachments are in Files > Permits as soon as they land, not only once the answer is used')
 done()

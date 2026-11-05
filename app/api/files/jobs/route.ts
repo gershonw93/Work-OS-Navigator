@@ -136,6 +136,12 @@ export async function GET(request: Request) {
         const type = byId.get(sh.permit_id)?.permit_type ?? 'Permit'
         sh.uploads.forEach(u => push(sh.permit_id, u.id, u.url, `${type}: ${u.name} (sent back by ${sh.recipient_name || sh.recipient_email || 'link'})`, u.created_at))
       }
+      // What the township attached to an emailed reply is here the moment it
+      // lands - not only once somebody presses Use this answer.
+      for (const rp of history.replies) {
+        const type = byId.get(rp.permit_id)?.permit_type ?? 'Permit'
+        ;(rp.attachments ?? []).forEach((f, i) => push(rp.permit_id, `${rp.id}-a${i}`, f.url, `${type}: ${f.name} (emailed back by ${rp.from_name || rp.from_email || 'the township'} ${shortDay(rp.received_at.slice(0, 10))})`, rp.received_at))
+      }
     }
   }
 
