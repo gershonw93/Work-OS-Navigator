@@ -319,7 +319,7 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
     'a refusal is a visible box, not a 12px line - "record an answer didn\'t do anything"')
   const route = code('app/api/projects/[id]/permit-board/route.ts')
   ok(/const why = bulkMisfit\('submit', permitType, permitStanding\([^\n]*\n\s*if \(why\) \{ say\(false, why\); continue \}/.test(route),'the route refuses the same houses the dialog greys out')
-  ok(/function addCustom\(\)/.test(board) && /Not on the list\? Name it/.test(board), 'a custom permit can be named and added in bulk')
+  ok(/function addCustom\(raw: string\)/.test(board) && /onCreate=\{addCustom\}/.test(board), 'a custom permit can be named and added in bulk, from the dropdown\'s search box')
   const pg = code('app/(dashboard)/projects/[id]/permits/page.tsx')
   ok((pg.match(/placeholder="Name the permit, e\.g\. Tree Removal"/g) ?? []).length === 2 && /Other - name it/.test(pg),
     '...and in Add Permit, both forms - "Other" asks for the name')
