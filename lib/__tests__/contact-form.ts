@@ -55,4 +55,12 @@ ok(insertAt > 0 && insertAt < route.indexOf('sendEmail('), 'the message is store
 ok(/if \(!sent\.sent\)[\s\S]{0,400}status: 502/.test(route),
   'a send that failed is NOT reported as sent')
 
+// ── and somebody can FIND it ────────────────────────────────────────────────
+// "we need contact us right on top - I just spent 30 seconds looking for it".
+// It lived in the footer only. A top-level link in the desktop nav AND in the
+// phone menu, never tucked into a dropdown.
+const nav = code('components/marketing/marketing-nav.tsx')
+ok((nav.match(/href="\/contact"/g) ?? []).length >= 2,
+  'Contact is in the top nav on the desktop and in the phone menu')
+
 done()
