@@ -10,7 +10,7 @@ import { useSheetDismiss } from '@/lib/use-sheet-dismiss'
 import {
   FileText, Users, Calendar, CheckSquare, TrendingUp, BookOpen,
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
-  ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid,
+  ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid, FolderOpen,
   Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet, Building2, Palette,
   LayoutDashboard, ChevronDown, Check,
 } from 'lucide-react'
@@ -89,6 +89,7 @@ const groups = [
     color: 'text-accent-fg',
     bg: 'bg-accent-tint',
     tabs: [
+      { label: 'Files', slug: 'files', icon: FolderOpen },
       { label: 'Permits', slug: 'permits', icon: FileCheck },
       { label: 'Inspections', slug: 'inspections', icon: ClipboardCheck },
       { label: 'Submittals', slug: 'submittals', icon: Wrench },
@@ -136,7 +137,7 @@ const SUB_OWN_HIDDEN = new Set(['submittals', 'request-quotes', 'quotes', 'bids'
 // many words: "there's a main budget and then a per-house budget" - land,
 // roads, sitework and anything shared by every house belong to the group, and
 // the Jobs tab adds it to the houses' total rather than hiding it inside one.
-const SITE_ALLOWED = new Set(['units', 'plans', 'budget', 'permits', 'submittals', 'compliance', 'team', 'rfis', 'sharing'])
+const SITE_ALLOWED = new Set(['units', 'plans', 'budget', 'permits', 'submittals', 'compliance', 'team', 'rfis', 'sharing', 'files'])
 
 //
 // 'payments' IS NOT IN THIS LIST, and that is deliberate.

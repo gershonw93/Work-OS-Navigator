@@ -10,11 +10,13 @@ import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/dates'
 import { JOB_FILE_KINDS, jobFileHref, type JobFile, type JobFileKind } from '@/lib/job-files'
 
-export function JobFilesPanel({ files, failed, state, query }: {
+export function JobFilesPanel({ files, failed, state, query, oneJob = false }: {
   files: JobFile[]
   failed: JobFileKind[]
   state: 'loading' | 'ready' | 'failed'
   query: string
+  /** Inside one job: grouped by KIND (Plans, Permits...), not by job. */
+  oneJob?: boolean
 }) {
   const [kind, setKind] = useState<JobFileKind | 'all'>('all')
 
@@ -28,15 +30,21 @@ export function JobFilesPanel({ files, failed, state, query }: {
   const byJob = useMemo(() => {
     const m = new Map<string, { name: string; files: JobFile[] }>()
     for (const f of shown) {
-      const g = m.get(f.project_id) ?? { name: f.project_name, files: [] }
+      const key = oneJob ? f.kind : f.project_id
+      const name = oneJob ? (JOB_FILE_KINDS.find(x => x.kind === f.kind)?.label ?? f.kind) : f.project_name
+      const g = m.get(key) ?? { name, files: [] }
       g.files.push(f)
-      m.set(f.project_id, g)
+      m.set(key, g)
     }
-    return Array.from(m.entries()).sort((a, b) => a[1].name.localeCompare(b[1].name))
-  }, [shown])
+    const entries = Array.from(m.entries())
+    // One job: the folders in the catalog's order. Many: jobs by name.
+    return oneJob
+      ? entries.sort((a, b) => JOB_FILE_KINDS.findIndex(k => k.kind === a[0]) - JOB_FILE_KINDS.findIndex(k => k.kind === b[0]))
+      : entries.sort((a, b) => a[1].name.localeCompare(b[1].name))
+  }, [shown, oneJob])
 
   if (state === 'loading') return <p className="py-12 text-center text-sm text-muted-fg">Loading job files…</p>
-  if (state === 'failed') return <p className="py-12 text-center text-sm text-danger">Could not load the files on your jobs. Reload to try again.</p>
+  if (state === 'failed') return <p className="py-12 text-center text-sm text-danger">Could not load the files on {oneJob ? 'this job' : 'your jobs'}. Reload to try again.</p>
 
   const kindsPresent = JOB_FILE_KINDS.filter(k => files.some(f => f.kind === k.kind))
   const label = (k: JobFileKind) => JOB_FILE_KINDS.find(x => x.kind === k)?.label ?? k
@@ -65,13 +73,17 @@ export function JobFilesPanel({ files, failed, state, query }: {
         <div className="rounded-xl border-2 border-dashed border-line py-14 text-center">
           <FolderOpen className="mx-auto mb-3 h-8 w-8 text-faint" />
           <p className="text-sm text-muted-fg">
-            {files.length === 0 ? 'No files on your jobs yet. Plans, photos, quotes and bills added to a job show up here.' : 'Nothing matches.'}
+            {files.length === 0
+              ? (oneJob ? 'No files on this job yet. Plans, site photos, permits, quotes and bills added to it show up here.' : 'No files on your jobs yet. Plans, photos, quotes and bills added to a job show up here.')
+              : 'Nothing matches.'}
           </p>
         </div>
       ) : byJob.map(([projectId, g]) => (
         <div key={projectId}>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <Link href={`/projects/${projectId}`} className="truncate text-sm font-semibold text-ink hover:underline">{g.name}</Link>
+            {oneJob
+              ? <h2 className="truncate text-sm font-semibold text-ink">{g.name}</h2>
+              : <Link href={`/projects/${projectId}`} className="truncate text-sm font-semibold text-ink hover:underline">{g.name}</Link>}
             <span className="shrink-0 text-xs text-faint">{g.files.length} file{g.files.length === 1 ? '' : 's'}</span>
           </div>
           <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel">
