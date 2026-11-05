@@ -156,6 +156,10 @@ export function MarketingNav() {
             />
           ))}
           <Link href="/pricing" className={linkCls('/pricing')}>Pricing</Link>
+          {/* Top level, never inside a dropdown: "I spent 30 seconds looking
+              for it and didn't find it" was the report when it lived only in
+              the footer. Pinned in contact-form.ts. */}
+          <Link href="/contact" className={linkCls('/contact')}>Contact</Link>
         </nav>
 
         <div className="hidden md:flex items-center gap-3">
@@ -214,6 +218,9 @@ export function MarketingNav() {
           ))}
           <Link href="/pricing" onClick={() => setOpen(false)} className="block text-[15px] font-medium text-ink-soft pt-4 pb-2.5">
             Pricing
+          </Link>
+          <Link href="/contact" onClick={() => setOpen(false)} className="block text-[15px] font-medium text-ink-soft pb-2.5">
+            Contact
           </Link>
           <div className="flex items-center gap-2 pt-4 pb-1">
             <Link href={appHref('/login')} onClick={() => setOpen(false)} className="flex-1 text-center rounded-lg border border-line text-sm font-medium py-2.5 text-ink-soft">

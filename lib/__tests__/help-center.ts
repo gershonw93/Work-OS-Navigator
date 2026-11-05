@@ -139,11 +139,14 @@ ok(/\['Help Center', helpHref\('\/'\)\]/.test(code('components/marketing/marketi
 const nav = code('components/marketing/marketing-nav.tsx')
 ok(/href: helpHref\('\/'\), label: 'Help Center'/.test(nav), '...and so does the Resources menu')
 
-// The bar stays compact: three menus and Pricing. Desktop links outside the
-// groups are counted, so the next page cannot quietly become a tenth item.
+// The bar stays compact: three menus, Pricing and Contact. Contact joined on
+// the owner's word ("we need contact us right on top - I just spent 30 seconds
+// looking for it"). Desktop links outside the groups are counted AND named, so
+// the next page cannot quietly become a tenth item.
 const desktop = nav.slice(nav.indexOf('aria-label="Main"'), nav.indexOf('</nav>'))
-const loose = desktop.match(/<Link /g) ?? []
-ok(loose.length === 1, `the desktop bar has one loose link, Pricing (${loose.length})`)
+const loose = (desktop.match(/<Link href="[^"]*"/g) ?? []).map(l => l.slice(12, -1))
+ok(loose.length === 2 && loose.includes('/pricing') && loose.includes('/contact'),
+  `the desktop bar has two loose links, Pricing and Contact (${loose.join(', ')})`)
 ok(/GROUPS\.map/.test(desktop), '...and everything else comes from the groups')
 ok((nav.match(/key: '/g) ?? []).length === 3, 'three dropdowns')
 // The phone menu reads the same groups, so a page reaches both from one entry.
