@@ -62,6 +62,17 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [showForm, setShowForm] = useState(false)
   // The permit open in the panel, and whether it opened on "Their answer".
   const [openId, setOpenId] = useState<string | null>(null)
+  // The docked panel slides shut before it goes. A TIMER, never animationend,
+  // which does not fire under reduced motion.
+  const [closingPanel, setClosingPanel] = useState(false)
+  const closeTimer = useRef<number | null>(null)
+  function closePanel() {
+    if (!wide) { setOpenId(null); return }
+    setClosingPanel(true)
+    if (closeTimer.current) window.clearTimeout(closeTimer.current)
+    closeTimer.current = window.setTimeout(() => { closeTimer.current = null; setOpenId(null); setClosingPanel(false) }, 200)
+  }
+  useEffect(() => () => { if (closeTimer.current) window.clearTimeout(closeTimer.current) }, [])
   const [answerNow, setAnswerNow] = useState(false)
   const [q, setQ] = useState('')
   const wide = useMinWidth(1024)
@@ -377,7 +388,11 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     iss: order.filter(r => r.st.group === 'iss').length,
   }
   const openPermit = openId ? permits.find(p => p.id === openId) ?? null : null
-  function openOne(id: string, answer = false) { setOpenId(id); setAnswerNow(answer) }
+  function openOne(id: string, answer = false) {
+    // A row pressed while the panel is sliding shut keeps it open on that row.
+    if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null }
+    setClosingPanel(false); setOpenId(id); setAnswerNow(answer)
+  }
   function navOf(id: string) {
     const list = shownRows.some(r => r.id === id) ? shownRows : order
     const pos = list.findIndex(r => r.id === id)
@@ -573,7 +588,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         </div>
       )}
 
-      <div className={cn('lg:grid lg:items-start lg:gap-6', openPermit && wide && 'lg:grid-cols-[minmax(0,1fr)_minmax(380px,480px)]')}>
+      <div className={cn('lg:grid lg:items-start', openPermit && wide && 'lg:grid-cols-[minmax(0,1fr)_auto]')}>
         <div className="min-w-0 space-y-5">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
@@ -646,7 +661,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
             rounds={roundsFor(openPermit.id)} items={itemsFor(openPermit.id)}
             shares={shares.filter(x => x.permit_id === openPermit.id)} replies={replies.filter(x => x.permit_id === openPermit.id)}
             historyOk={historyOk} canEdit={canEdit}
-            docked={wide} answerNow={answerNow} onChanged={fetchPermits} onClose={() => setOpenId(null)}
+            docked={wide} closing={closingPanel} answerNow={answerNow} onChanged={fetchPermits} onClose={closePanel}
             nav={navOf(openPermit.id)}
             onEdit={() => openEdit(openPermit)}
             onDelete={() => { handleDeletePermit(openPermit.id) }} />

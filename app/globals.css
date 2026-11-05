@@ -591,6 +591,26 @@
     to   { transform: none; }
   }
 
+  /* The permit panel docked beside the list (desktop) OPENS rather than
+     appearing: its column grows from nothing while the panel fades in, so the
+     list gives way instead of being shoved. The inner wrapper keeps the
+     final width throughout, so the text is revealed, never re-wrapped frame
+     by frame. Closing runs the same thing backwards before it unmounts. */
+  .dock-panel { --dock-w: clamp(380px, 32vw, 480px); width: var(--dock-w); margin-left: 1.5rem; }
+  .dock-panel > .dock-inner { width: var(--dock-w); }
+  @media (prefers-reduced-motion: no-preference) {
+    .dock-panel { animation: dock-in 260ms cubic-bezier(0.22, 1, 0.36, 1); }
+    .dock-panel.dock-closing { animation: dock-out 200ms cubic-bezier(0.4, 0, 1, 1) forwards; }
+  }
+  @keyframes dock-in {
+    from { width: 0; margin-left: 0; opacity: 0; }
+    to   { width: var(--dock-w); margin-left: 1.5rem; opacity: 1; }
+  }
+  @keyframes dock-out {
+    from { width: var(--dock-w); margin-left: 1.5rem; opacity: 1; }
+    to   { width: 0; margin-left: 0; opacity: 0; }
+  }
+
   /* A bottom sheet slides UP, the way a drawer slides in: it used to simply
      appear, which is the other tell of a website in a wrapper. Same guard as
      the drawer, and `overlay-geometry` switches both off for its measurements

@@ -283,4 +283,12 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
   ok(/className="col-start-1 row-start-1 min-w-0 text-left/.test(list) && /'col-start-2 row-start-1 self-start/.test(list),
     'on a phone the permit name is placed first and the time beside it - a row-start alone put the time in the name\'s cell')
 }
+{
+  const css = read('app/globals.css')
+  const pnl = code('components/permits/permit-panel.tsx')
+  const pg = code('app/(dashboard)/projects/[id]/permits/page.tsx')
+  ok(/@keyframes dock-in/.test(css) && /@keyframes dock-out/.test(css) && /\.dock-panel > \.dock-inner \{ width: var\(--dock-w\)/.test(css)
+    && /'dock-panel /.test(pnl) && /closing && 'dock-closing'/.test(pnl) && /onClose=\{closePanel\}/.test(pg) && /window\.setTimeout\(/.test(pg),
+    'the docked permit panel slides open and shut (its column grows, the text inside never re-wraps), and the close is a timer')
+}
 done()

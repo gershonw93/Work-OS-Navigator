@@ -178,7 +178,7 @@ export interface PanelNav { pos: number; total: number; prev: () => void; next: 
  * full-screen drawer that can be swiped away, with the buttons pinned below.
  */
 export function PermitPanel({
-  projectId, permit, rounds, items, shares, replies = [], historyOk, canEdit, docked, nav, onChanged, onClose, onEdit, onDelete, title, answerNow,
+  projectId, permit, rounds, items, shares, replies = [], historyOk, canEdit, docked, closing = false, nav, onChanged, onClose, onEdit, onDelete, title, answerNow,
 }: {
   projectId: string
   permit: PanelPermit
@@ -192,6 +192,8 @@ export function PermitPanel({
   historyOk: boolean
   canEdit: boolean
   docked: boolean
+  /** Docked and on its way out: plays the close before the page unmounts it. */
+  closing?: boolean
   nav?: PanelNav
   onChanged: () => void
   onClose: () => void
@@ -213,8 +215,8 @@ export function PermitPanel({
     <>
       {docked ? (
         <aside aria-label="Permit details"
-          className="sticky top-4 flex max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-2xl border border-line bg-panel">
-          {body}
+          className={cn('dock-panel sticky top-4 flex max-h-[calc(100dvh-7rem)] flex-col overflow-hidden rounded-2xl border border-line bg-panel', closing && 'dock-closing')}>
+          <div className="dock-inner flex min-h-0 flex-1 flex-col">{body}</div>
         </aside>
       ) : (
         <div className="overlay-drawer bg-black/20" data-overlay onClick={() => { if (!holdStill) onClose() }}>
