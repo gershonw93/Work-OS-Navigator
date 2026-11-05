@@ -45,8 +45,8 @@ ok(/<ContactPicker filterType="inspector" value=\{authority\}/.test(board)
 
 // "i should be able to select multiple and have an option to apply Issuing
 // authority to all the same or some yes and some not"
-ok(/const \[addTypes, setAddTypes\] = useState<string\[\]>\(\[\]\)/.test(board) && /aria-pressed=\{on\}/.test(board),
-  'Add a permit takes several types at once')
+ok(/const \[addTypes, setAddTypes\] = useState<string\[\]>\(\[\]\)/.test(board) && /<MultiSelect options=\{typeOptions\} value=\{addTypes\}/.test(board),
+  'Add a permit takes several types at once - a dropdown with checkboxes ("looks stupid - i want a normal dropdown with checkboxes")')
 ok(/\[\[true, 'Same for all'\], \[false, 'Different per type'\]\]/.test(board)
   && /const authorityOf = \(t: string\) => \(sameAuthority \? authority : authorityFor\[t\] \?\? authority\)\.trim\(\)/.test(board),
   '...with one issuing authority for all, or one per type')

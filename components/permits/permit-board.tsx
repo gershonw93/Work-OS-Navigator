@@ -1,5 +1,6 @@
 'use client'
 
+import { MultiSelect } from '@/components/ui/multi-select'
 import { ContactPicker } from '@/components/contact-picker'
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -10,7 +11,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { fetchProblem } from '@/lib/fetch-error'
 import { lotTag } from '@/lib/lot-details'
 import { cn } from '@/lib/utils'
-import { AlertCircle, Check, CheckCircle2, Layers, X, XCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle2, Layers, X, XCircle } from 'lucide-react'
 import {
   boardCells, boardColumns, boardCounts, bulkMisfit, bulkProblem, cellMatches, PERMIT_TYPES,
   type BoardCell, type BoardFilter, type BoardPermit, type BulkAction,
@@ -116,7 +117,6 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
   const [authorityFor, setAuthorityFor] = useState<Record<string, string>>({})
   // A permit that is not on the list: named here, then a chip like the rest.
   const [customTypes, setCustomTypes] = useState<string[]>([])
-  const [customName, setCustomName] = useState('')
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -145,18 +145,15 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
     const ready = a === 'add' ? adding.length > 0 : !!t
     setPicked(new Set(ready ? fitsFor(a, t, adding).map(r => r.id) : []))
   }
-  function addCustom() {
-    const name = customName.trim().replace(/\s+/g, ' ')
+  // A permit that is not on the list, named in the dropdown's search box.
+  function addCustom(raw: string) {
+    const name = raw.trim().replace(/\s+/g, ' ')
     if (!name) return
-    // Same name as one already offered, whatever the case: pick that one.
     const known = typeOptions.find(t => t.toLowerCase() === name.toLowerCase())
     const t = known ?? name
     if (!known) setCustomTypes(prev => [...prev, t])
-    setCustomName('')
     if (!addTypes.includes(t)) choose({ addTypes: [...addTypes, t] })
   }
-  const toggleAddType = (t: string) =>
-    choose({ addTypes: addTypes.includes(t) ? addTypes.filter(x => x !== t) : [...addTypes, t] })
   const authorityOf = (t: string) => (sameAuthority ? authority : authorityFor[t] ?? authority).trim()
 
   const togglePick = (id: string) => setPicked(prev => {
@@ -279,25 +276,9 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
 
               {action === 'add' ? (
                 <div className="space-y-1.5">
-                  <Label>Permit types <span className="text-danger">*</span> <span className="font-normal text-faint">- pick as many as you need</span></Label>
-                  <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto rounded-lg border border-line p-2">
-                    {typeOptions.map(t => {
-                      const on = addTypes.includes(t)
-                      return (
-                        <button key={t} type="button" onClick={() => toggleAddType(t)} aria-pressed={on}
-                          className={cn('inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm',
-                            on ? 'border-accent bg-accent-tint font-medium text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
-                          {on && <Check className="h-3.5 w-3.5" />}{t}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  <div className="flex gap-2">
-                    <Input value={customName} onChange={e => setCustomName(e.target.value)} maxLength={60}
-                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCustom() } }}
-                      placeholder="Not on the list? Name it, e.g. Tree Removal" />
-                    <Button type="button" variant="outline" className="shrink-0" onClick={addCustom}>Add</Button>
-                  </div>
+                  <Label>Permit types <span className="text-danger">*</span></Label>
+                  <MultiSelect options={typeOptions} value={addTypes} placeholder="Select permit types"
+                    onChange={next => choose({ addTypes: next })} onCreate={addCustom} createLabel="Add permit" />
                 </div>
               ) : (
               <div className="space-y-1.5">
