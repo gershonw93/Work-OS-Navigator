@@ -93,4 +93,11 @@ ok(/const quick = !full && !loading && !!suggested && to\.trim\(\)\.toLowerCase\
 ok(/replies: replyConfig\(\)\.enabled/.test(route) && /repliesHere \?/.test(panel),
   'the dialog says a reply lands on the permit only when replies are actually set up')
 
+ok(/const \[message, setMessage\] = useState\(note\)/.test(panel) && /message=\{message\}/.test(panel),
+  'the note typed on the permit ("see attached") is the email\'s message, and the quick send shows it')
+const page = code('app/(dashboard)/projects/[id]/permits/page.tsx')
+ok(/const \[applying, setApplying\] = useState\(true\)/.test(page) && /Who do you apply to\?/.test(page)
+  && /form\.append\('status', 'pending'\)/.test(page) && /setApplying\(false\)\s*\n\s*setShowForm\(true\)/.test(page),
+  'a new permit starts as one you apply for - the type and who you apply to, nothing else - and editing shows the full form')
+
 done()

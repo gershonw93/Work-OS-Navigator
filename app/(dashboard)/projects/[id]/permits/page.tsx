@@ -87,6 +87,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [analyzeError, setAnalyzeError] = useState('')
 
   const [submitError, setSubmitError] = useState('')
+  // A new permit is usually one you are about to APPLY for: two questions, the
+  // type and who issues it. Number, dates and the AI read are for one you
+  // already hold, behind "I already have it".
+  const [applying, setApplying] = useState(true)
   const [fetchError, setFetchError] = useState('')
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null)
 
@@ -179,7 +183,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     setPermitType(''); setPermitNumber(''); setDescription(''); setStatus('pending')
     setIssuedDate(''); setExpiryDate(''); setIssuingAuthority('')
     setInspectorName(''); setInspectorPhone(''); setNotes(''); setPermitFile(null)
-    setAnalyzeError(''); setEditingPermit(null)
+    setAnalyzeError(''); setEditingPermit(null); setApplying(true)
   }
 
   function openEdit(permit: Permit) {
@@ -196,6 +200,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     setNotes(permit.notes ?? '')
     setPermitFile(null)
     setAnalyzeError('')
+    setApplying(false)
     setShowForm(true)
   }
 
@@ -243,6 +248,25 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const lean = applying && !editingPermit
+    if (lean) {
+      if (!permitType) { setSubmitError('Pick the permit type.'); return }
+      if (!issuingAuthority.trim()) { setSubmitError('Who do you apply to? Name the township or department - Email it finds their address from it.'); return }
+      setSubmitError(''); setSubmitting(true)
+      const form = new FormData()
+      form.append('permit_type', permitType)
+      form.append('status', 'pending')
+      form.append('issuing_authority', issuingAuthority.trim())
+      const res = await fetch(`/api/projects/${params.id}/permits`, { method: 'POST', headers: { Authorization: `Bearer ${await getToken()}` }, body: form })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setSubmitError(json.error ?? `Save failed (${res.status})`)
+        setSubmitting(false)
+        return
+      }
+      resetForm(); setShowForm(false); setSubmitting(false); fetchPermits()
+      return
+    }
     // The SAME rule the route asks, asked at the field first - a server's answer
     // can only ever arrive as a message about a whole request that did not
     // happen. lib/permit-rules.ts is the one copy.
@@ -407,6 +431,35 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
             </div>
             <form onSubmit={handleSubmit}>
               <div className="px-4 sm:px-6 py-5 pb-6 space-y-4">
+                {!editingPermit && (
+                  <div className="grid grid-cols-2 gap-1 rounded-lg bg-surface p-1">
+                    {([[true, 'I need to apply'], [false, 'I already have it']] as const).map(([v, label]) => (
+                      <button key={label} type="button" onClick={() => { setApplying(v); setSubmitError('') }}
+                        className={cn('min-h-11 rounded-md px-3 text-sm font-medium', applying === v ? 'bg-panel text-ink shadow-sm' : 'text-muted-fg hover:text-ink')}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {applying && !editingPermit ? (<>
+                  <div className="space-y-1.5">
+                    <Label>Permit type <span className="text-danger">*</span></Label>
+                    <SearchableSelect value={permitType} onChange={e => setPermitType(e.target.value)}
+                      className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
+                      <option value="">-- Select permit type --</option>
+                      {PERMIT_TYPES.map(t => <option key={t}>{t}</option>)}
+                    </SearchableSelect>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Who do you apply to? <span className="text-danger">*</span></Label>
+                    <Input list="permit-authorities" placeholder="e.g. Toms River Township" value={issuingAuthority} onChange={e => setIssuingAuthority(e.target.value)} />
+                    <datalist id="permit-authorities">
+                      {Array.from(new Set(permits.map(p => (p.issuing_authority ?? '').trim()).filter(Boolean))).map(a => <option key={a} value={a} />)}
+                    </datalist>
+                    <p className="text-xs text-muted-fg">The township or department. Email it finds their address from this name.</p>
+                  </div>
+                  <p className="text-sm text-muted-fg">That is all for now. The permit number and dates come when it is approved - drop the approved permit in then and AI fills them.</p>
+                </>) : (<>
                 {/* Upload first so AI fills the rest */}
                 <div className="space-y-1.5">
                   <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-accent-fg" />Upload Permit (AI Auto-Fill)</Label>
@@ -504,13 +557,14 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <textarea rows={2} placeholder="Any additional notes..." value={notes} onChange={e => setNotes(e.target.value)}
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
+                </>)}
               </div>
               <div className="sticky bottom-0 bg-panel border-t border-line-soft px-4 sm:px-6 py-4 space-y-2">
                 {submitError && <p className="text-xs text-danger flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{submitError}</p>}
                 <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); resetForm() }}>Cancel</Button>
                 <Button type="submit" disabled={submitting || analyzing}>
-                  {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : editingPermit ? 'Save Changes' : 'Add Permit'}
+                  {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : editingPermit ? 'Save Changes' : applying ? 'Add it' : 'Add Permit'}
                 </Button>
                 </div>
               </div>

@@ -865,7 +865,8 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
   const [to, setTo] = useState('')
   const [copyMe, setCopyMe] = useState(true)
   const [cc, setCc] = useState('')
-  const [message, setMessage] = useState('')
+  // What was typed as the note on the permit is what the email says, unless changed.
+  const [message, setMessage] = useState(note)
   const [save, setSave] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
@@ -946,7 +947,7 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
             <QuickSend toName={authority || who} toEmail={suggested.email} source={suggested.source}
               mine={mine.email} copyMe={copyMe} setCopyMe={setCopyMe}
               offerSave={offerSave} save={save} setSave={setSave} authority={authority}
-              fixes={fixes} files={files} onMore={() => setFull(true)} />
+              fixes={fixes} files={files} message={message} onMore={() => setFull(true)} />
           ) : (<>
           <div className="space-y-1.5">
             <Label>To <span className="text-danger">*</span></Label>
@@ -1008,11 +1009,11 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
  * the files, and Send. Everything else (another address, a copy to somebody
  * else, a message) is behind one tap - the commonest send should be one.
  */
-function QuickSend({ toName, toEmail, source, mine, copyMe, setCopyMe, offerSave, save, setSave, authority, fixes, files, onMore }: {
+function QuickSend({ toName, toEmail, source, mine, copyMe, setCopyMe, offerSave, save, setSave, authority, fixes, files, message, onMore }: {
   toName: string; toEmail: string; source: string; mine: string | null
   copyMe: boolean; setCopyMe: (v: boolean) => void
   offerSave: boolean; save: boolean; setSave: (v: boolean) => void; authority: string
-  fixes: RoundFile[]; files: File[]; onMore: () => void
+  fixes: RoundFile[]; files: File[]; message: string; onMore: () => void
 }) {
   const fileCount = fixes.length + files.length
   return (
@@ -1033,11 +1034,17 @@ function QuickSend({ toName, toEmail, source, mine, copyMe, setCopyMe, offerSave
         <input type="checkbox" checked={copyMe} onChange={e => setCopyMe(e.target.checked)} className="h-4 w-4 shrink-0" disabled={!mine} />
         <span className="min-w-0">Send me a copy{mine ? <span className="text-muted-fg"> ({mine})</span> : <span className="text-muted-fg"> - there is no email on your profile</span>}</span>
       </label>
+      {message.trim() && (
+        <div>
+          <p className="text-xs text-muted-fg">Message</p>
+          <p className="whitespace-pre-wrap break-words text-sm text-ink">{message}</p>
+        </div>
+      )}
       <p className="text-sm text-ink-soft">
         {fileCount ? `${fileCount} file${fileCount === 1 ? '' : 's'} go with it` : 'No files attached - close this and use Attach what you sent first, or send it as a message only.'}
       </p>
       <button type="button" onClick={onMore} className="min-h-11 text-sm font-medium text-accent hover:underline">
-        Different address, another copy or a message
+        Change the address or message, or copy someone else
       </button>
     </div>
   )
