@@ -3,7 +3,7 @@
 // and "when i start typing issuing authority it should connect to my directory".
 
 import { applyHowOf, applyLabel, cleanApplyMethod, cleanApplyUrl, emailWarning } from '../permit-apply'
-import { ok, done, code } from './_helpers'
+import { ok, done, code, read } from './_helpers'
 
 ok(cleanApplyMethod('in_person') === 'in_person' && cleanApplyMethod('fax') === null && cleanApplyMethod(undefined) === null,
   'only the three ways are a setting - anything else is "not said"')
@@ -43,4 +43,15 @@ ok(/<ContactPicker filterType="inspector" value=\{authority\}/.test(board)
   && (page.match(/<ContactPicker filterType="inspector" value=\{issuingAuthority\}/g) ?? []).length === 2,
   'who issues it is picked from the Directory - in Update several houses and both Add Permit forms')
 
+// "i should be able to select multiple and have an option to apply Issuing
+// authority to all the same or some yes and some not"
+ok(/const \[addTypes, setAddTypes\] = useState<string\[\]>\(\[\]\)/.test(board) && /aria-pressed=\{on\}/.test(board),
+  'Add a permit takes several types at once')
+ok(/\[\[true, 'Same for all'\], \[false, 'Different per type'\]\]/.test(board)
+  && /const authorityOf = \(t: string\) => \(sameAuthority \? authority : authorityFor\[t\] \?\? authority\)\.trim\(\)/.test(board),
+  '...with one issuing authority for all, or one per type')
+ok(/for \(const t of addTypes\)/.test(board) && /action: 'add', permit_type: t, project_ids: ids, issuing_authority: authorityOf\(t\)/.test(board),
+  '...sent as the same one-type request per type, so every house goes through the single-permit write')
+ok(/One type that did not come back must not hide the others/.test(read('components/permits/permit-board.tsx')),
+  '...and one type failing still reports the rest')
 done()
