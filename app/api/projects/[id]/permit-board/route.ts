@@ -5,7 +5,8 @@ import { permitHistory } from '@/lib/permit-history'
 import { createPermit } from '@/lib/writes/permit'
 import { answerRound, submitRound } from '@/lib/writes/permit-round'
 import { openRound } from '@/lib/permit-rounds'
-import { bulkProblem, type BulkAction } from '@/lib/permit-board'
+import { bulkMisfit, bulkProblem, type BulkAction } from '@/lib/permit-board'
+import { permitStanding } from '@/lib/permit-rounds'
 
 export const runtime = 'nodejs'
 // Twenty houses, each a handful of round trips: inside the default, but a
@@ -143,6 +144,12 @@ export async function POST(request: Request, { params }: { params: { id: string 
     const permit = mine[0]
 
     if (action === 'submit') {
+      // The rule the dialog greys houses out by, asked here too: a permit
+      // already with the city, issued or closed is not marked sent again.
+      const h = await permitHistory(db, [permit.id])
+      if (!h.ok) { say(false, 'Could not read its history'); continue }
+      const why = bulkMisfit('submit', permitType, permitStanding(permit, h.rounds, h.items, new Date().toISOString().slice(0, 10)))
+      if (why) { say(false, why); continue }
       const r = await submitRound(db, {
         userId: gate.actor.userId, projectId, permitId: permit.id,
         fields: { submitted_on: body?.submitted_on ?? null, expected_by: body?.expected_by ?? null, note: body?.note ?? null },

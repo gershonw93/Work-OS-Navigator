@@ -10,7 +10,7 @@ import {
 } from '../permit-rounds'
 import { JOB_FILE_KINDS } from '../job-files'
 import { fitWithin } from '../shrink-image'
-import { boardCells, boardColumns, boardCounts, bulkProblem } from '../permit-board'
+import { boardCells, boardColumns, boardCounts, bulkMisfit, bulkProblem } from '../permit-board'
 import { ok, done, code, read, walk } from './_helpers'
 
 const TODAY = '2026-11-02'
@@ -300,5 +300,28 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
   ok(/\/api\/files\/jobs\?job=/.test(pageF) && /oneJob/.test(pageF) && /searchParams\.get\('job'\)/.test(api)
     && api.indexOf("searchParams.get('job')") > api.indexOf('RESTRICTED_ROLES.includes'),
     '...read through the same route as Files > Job Files, narrowed AFTER its fences - ?job= can only narrow')
+}
+{
+  // "how am i able to select any - some i never said i need it, some i closed already"
+  ok(bulkMisfit('answer', 'Building', { court: 'them' }) === null, 'an answer fits only a permit with the city')
+  ok(/mark it as sent first/.test(bulkMisfit('answer', 'Building', { court: 'none' }) ?? '')
+    && /issued or closed/.test(bulkMisfit('answer', 'Building', { court: 'done' }) ?? '')
+    && /No Building permit/.test(bulkMisfit('answer', 'Building', null) ?? ''),
+    '...and says why for one never sent, one closed, and a house with none')
+  ok(bulkMisfit('submit', 'Building', { court: 'none' }) === null && bulkMisfit('submit', 'Building', { court: 'us' }) === null
+    && !!bulkMisfit('submit', 'Building', { court: 'done' }) && !!bulkMisfit('submit', 'Building', { court: 'them' }),
+    'mark as sent fits a permit not yet sent or back with you - never one with the city or finished')
+  ok(bulkMisfit('add', 'Building', null) === null && !!bulkMisfit('add', 'Building', { court: 'none' }), 'add fits a house without one')
+  const board = code('components/permits/permit-board.tsx')
+  ok(/disabled=\{!!why && !picked\.has\(r\.id\)\}/.test(board) && /const fitsFor = \(a: BulkAction, t: string, adding: string\[\] = addTypes\) => rows\.filter\(r => !misfit\(/.test(board),
+    'the dialog greys out a house that does not fit, says why, and "select the ones that fit" asks the same rule')
+  ok(/role="alert" className="flex items-start gap-2 rounded-lg border border-danger\/30 bg-danger-tint px-3 py-2 text-sm/.test(board),
+    'a refusal is a visible box, not a 12px line - "record an answer didn\'t do anything"')
+  const route = code('app/api/projects/[id]/permit-board/route.ts')
+  ok(/const why = bulkMisfit\('submit', permitType, permitStanding\([^\n]*\n\s*if \(why\) \{ say\(false, why\); continue \}/.test(route),'the route refuses the same houses the dialog greys out')
+  ok(/function addCustom\(\)/.test(board) && /Not on the list\? Name it/.test(board), 'a custom permit can be named and added in bulk')
+  const pg = code('app/(dashboard)/projects/[id]/permits/page.tsx')
+  ok((pg.match(/placeholder="Name the permit, e\.g\. Tree Removal"/g) ?? []).length === 2 && /Other - name it/.test(pg),
+    '...and in Add Permit, both forms - "Other" asks for the name')
 }
 done()

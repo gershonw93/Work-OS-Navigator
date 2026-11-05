@@ -84,6 +84,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   // starts on a value can never fail constraint validation. A blank submit
   // filed a permit called "Building" that nobody had named.
   const [permitType, setPermitType] = useState('')
+  // "Other": the person names the permit, and that name IS the type - a
+  // custom permit is a column on the board like any other.
+  const [otherType, setOtherType] = useState(false)
+  const isListed = (t: string) => t !== 'Other' && PERMIT_TYPES.includes(t)
   const [permitNumber, setPermitNumber] = useState('')
   const [description, setDescription] = useState('')
   const [status, setStatus] = useState('pending')
@@ -191,7 +195,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   useEffect(() => { fetchPermits() }, [params.id])
 
   function resetForm() {
-    setPermitType(''); setPermitNumber(''); setDescription(''); setStatus('pending')
+    setPermitType(''); setOtherType(false); setPermitNumber(''); setDescription(''); setStatus('pending')
     setIssuedDate(''); setExpiryDate(''); setIssuingAuthority('')
     setInspectorName(''); setInspectorPhone(''); setNotes(''); setPermitFile(null)
     setAnalyzeError(''); setEditingPermit(null); setApplying(true)
@@ -200,6 +204,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   function openEdit(permit: Permit) {
     setEditingPermit(permit)
     setPermitType(permit.permit_type)
+    setOtherType(!isListed(permit.permit_type))
     setPermitNumber(permit.permit_number ?? '')
     setDescription(permit.description ?? '')
     setStatus(permit.status)
@@ -261,11 +266,11 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     e.preventDefault()
     const lean = applying && !editingPermit
     if (lean) {
-      if (!permitType) { setSubmitError('Pick the permit type.'); return }
+      if (!permitType.trim()) { setSubmitError(otherType ? 'Name the permit.' : 'Pick the permit type.'); return }
       if (!issuingAuthority.trim()) { setSubmitError('Who do you apply to? Name the township or department - Email it finds their address from it.'); return }
       setSubmitError(''); setSubmitting(true)
       const form = new FormData()
-      form.append('permit_type', permitType)
+      form.append('permit_type', permitType.trim())
       form.append('status', 'pending')
       form.append('issuing_authority', issuingAuthority.trim())
       const res = await fetch(`/api/projects/${params.id}/permits`, { method: 'POST', headers: { Authorization: `Bearer ${await getToken()}` }, body: form })
@@ -459,11 +464,18 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 {applying && !editingPermit ? (<>
                   <div className="space-y-1.5">
                     <Label>Permit type <span className="text-danger">*</span></Label>
-                    <SearchableSelect value={permitType} onChange={e => setPermitType(e.target.value)}
+                    <SearchableSelect value={otherType ? 'Other' : permitType} onChange={e => {
+                        const v = e.target.value
+                        if (v === 'Other') { setOtherType(true); if (isListed(permitType)) setPermitType('') }
+                        else { setOtherType(false); setPermitType(v) }
+                      }}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">-- Select permit type --</option>
-                      {PERMIT_TYPES.map(t => <option key={t}>{t}</option>)}
+                      {PERMIT_TYPES.map(t => <option key={t} value={t}>{t === 'Other' ? 'Other - name it' : t}</option>)}
                     </SearchableSelect>
+                    {otherType && (
+                      <Input value={permitType} onChange={e => setPermitType(e.target.value)} placeholder="Name the permit, e.g. Tree Removal" maxLength={60} />
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Who do you apply to? <span className="text-danger">*</span></Label>
@@ -509,11 +521,18 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Permit Type <span className="text-danger">*</span></Label>
-                    <SearchableSelect value={permitType} onChange={e => setPermitType(e.target.value)} required
+                    <SearchableSelect value={otherType ? 'Other' : permitType} onChange={e => {
+                        const v = e.target.value
+                        if (v === 'Other') { setOtherType(true); if (isListed(permitType)) setPermitType('') }
+                        else { setOtherType(false); setPermitType(v) }
+                      }}
                       className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
                       <option value="">-- Select permit type --</option>
-                      {PERMIT_TYPES.map(t => <option key={t}>{t}</option>)}
+                      {PERMIT_TYPES.map(t => <option key={t} value={t}>{t === 'Other' ? 'Other - name it' : t}</option>)}
                     </SearchableSelect>
+                    {otherType && (
+                      <Input value={permitType} onChange={e => setPermitType(e.target.value)} placeholder="Name the permit, e.g. Tree Removal" maxLength={60} />
+                    )}
                   </div>
                   <div className="space-y-1.5">
                     <Label>Permit Number</Label>

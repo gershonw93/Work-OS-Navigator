@@ -49,6 +49,28 @@ export function bulkProblem(input: {
   return null
 }
 
+/**
+ * Why a house cannot take this bulk action, or null when it can. The ONE
+ * answer for which houses are tickable, which are pre-selected, and what the
+ * route refuses - "how am i able to select any, some i never said i need it,
+ * some i closed already". Only a permit actually with the city can be
+ * answered; only one that is not with them or finished can be marked sent.
+ */
+export function bulkMisfit(action: BulkAction | string, type: string, standing: Pick<Standing, 'court'> | null | undefined): string | null {
+  if (action === 'add') return standing ? `Already has a ${type} permit` : null
+  if (!standing) return `No ${type} permit`
+  if (action === 'submit') {
+    if (standing.court === 'them') return 'Already with the city'
+    if (standing.court === 'done') return 'Already issued or closed'
+    return null
+  }
+  // answer
+  if (standing.court === 'them') return null
+  if (standing.court === 'done') return 'Already issued or closed'
+  if (standing.court === 'none') return 'Not sent yet - mark it as sent first'
+  return 'Not with the city - waiting on you'
+}
+
 export interface BoardPermit {
   id: string
   project_id: string
