@@ -10,7 +10,7 @@ import { SearchableSelect } from '@/components/ui/searchable-select'
 import { fetchProblem } from '@/lib/fetch-error'
 import { lotTag } from '@/lib/lot-details'
 import { cn } from '@/lib/utils'
-import { AlertCircle, CheckCircle2, Layers, X, XCircle } from 'lucide-react'
+import { AlertCircle, Check, CheckCircle2, Layers, X, XCircle } from 'lucide-react'
 import {
   boardCells, boardColumns, boardCounts, bulkProblem, cellMatches, PERMIT_TYPES,
   type BoardCell, type BoardFilter, type BoardPermit, type BulkAction,
@@ -109,6 +109,11 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
   const [outcomeOn, setOutcomeOn] = useState(todayIso())
   const [itemsText, setItemsText] = useState('')
   const [authority, setAuthority] = useState('')
+  // Adding: several types at once, each house getting every one it lacks.
+  // One issuing authority for them all, or one per type ("some yes, some not").
+  const [addTypes, setAddTypes] = useState<string[]>([])
+  const [sameAuthority, setSameAuthority] = useState(true)
+  const [authorityFor, setAuthorityFor] = useState<Record<string, string>>({})
   const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -121,33 +126,74 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
 
   // Which houses this action makes sense for, so "select those" picks the
   // right twenty instead of making somebody tick them one at a time.
-  const fitsFor = (a: BulkAction, t: string) => rows.filter(r => {
+  const fitsFor = (a: BulkAction, t: string, adding: string[] = addTypes) => rows.filter(r => {
+    if (a === 'add') return adding.some(x => !cells.get(r.id)?.get(x))
     const cell = t ? cells.get(r.id)?.get(t) : undefined
-    if (a === 'add') return !cell
     if (a === 'submit') return !!cell && cell.standing.court !== 'them' && cell.standing.court !== 'done'
     return !!cell && cell.standing.court === 'them'
   })
   const fitting = fitsFor(action, type)
 
-  function choose(next: { action?: BulkAction; type?: string }) {
-    const a = next.action ?? action, t = next.type ?? type
-    setAction(a); setType(t); setError('')
+  function choose(next: { action?: BulkAction; type?: string; addTypes?: string[] }) {
+    const a = next.action ?? action, t = next.type ?? type, adding = next.addTypes ?? addTypes
+    setAction(a); setType(t); setAddTypes(adding); setError('')
     // Re-pick on every change of what is being done: a selection made for
     // "log submission" is the wrong twenty for "record an answer".
-    setPicked(new Set(t ? fitsFor(a, t).map(r => r.id) : []))
+    const ready = a === 'add' ? adding.length > 0 : !!t
+    setPicked(new Set(ready ? fitsFor(a, t, adding).map(r => r.id) : []))
   }
+  const toggleAddType = (t: string) =>
+    choose({ addTypes: addTypes.includes(t) ? addTypes.filter(x => x !== t) : [...addTypes, t] })
+  const authorityOf = (t: string) => (sameAuthority ? authority : authorityFor[t] ?? authority).trim()
 
   const togglePick = (id: string) => setPicked(prev => {
     const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n
   })
 
+  // Several types: the same one-type request per type, so every house still
+  // goes through exactly the write a single permit does, and each answer names
+  // the type it was about.
+  async function runAdd() {
+    if (!addTypes.length) { setError('Pick at least one permit type.'); return }
+    if (!picked.size) { setError('Pick at least one house.'); return }
+    const missing = addTypes.find(t => !authorityOf(t))
+    if (missing) { setError(sameAuthority ? 'Add who is issuing them - every new permit needs something to tell it apart.' : `Add who issues the ${missing} permit.`); return }
+    setSaving(true); setError('')
+    const all: { name: string; ok: boolean; message: string }[] = []
+    try {
+      for (const t of addTypes) {
+        const ids = Array.from(picked).filter(id => !cells.get(id)?.get(t))
+        const skipped = Array.from(picked).filter(id => cells.get(id)?.get(t))
+        skipped.forEach(id => all.push({ name: `${rows.find(r => r.id === id)?.name ?? 'House'} - ${t}`, ok: false, message: `Already has a ${t} permit` }))
+        if (!ids.length) continue
+        try {
+          const res = await fetch(`/api/projects/${data.site.id}/permit-board`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${await token()}` },
+            body: JSON.stringify({ action: 'add', permit_type: t, project_ids: ids, issuing_authority: authorityOf(t) }),
+          })
+          const json = await res.json().catch(() => ({}))
+          if (!res.ok) { ids.forEach(id => all.push({ name: `${rows.find(r => r.id === id)?.name ?? 'House'} - ${t}`, ok: false, message: json.error ?? `Could not save (${res.status})` })); continue }
+          for (const r of json.results ?? []) all.push({ ...r, name: `${r.name} - ${t}` })
+        } catch (e) {
+          // One type that did not come back must not hide the others' answers.
+          ids.forEach(id => all.push({ name: `${rows.find(r => r.id === id)?.name ?? 'House'} - ${t}`, ok: false, message: fetchProblem(e, `adding ${t}`) }))
+        }
+      }
+      setResults(all)
+    } finally {
+      setSaving(false)
+      onDone()
+    }
+  }
+
   async function run() {
+    if (action === 'add') return runAdd()
     const items = itemsText.split('\n')
     const problem = bulkProblem({ action, permit_type: type, project_ids: Array.from(picked), outcome: action === 'answer' ? outcome : null, items })
     if (problem) { setError(problem); return }
     if (action === 'submit' && !submittedOn) { setError('Add the date it was submitted.'); return }
     if (action === 'answer' && !outcomeOn) { setError('Add the date they answered.'); return }
-    if (action === 'add' && !authority.trim()) { setError('Add who is issuing it - every new permit needs something to tell it apart.'); return }
     setSaving(true); setError('')
     try {
       const res = await fetch(`/api/projects/${data.site.id}/permit-board`, {
@@ -216,6 +262,23 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
                 </div>
               </div>
 
+              {action === 'add' ? (
+                <div className="space-y-1.5">
+                  <Label>Permit types <span className="text-danger">*</span> <span className="font-normal text-faint">- pick as many as you need</span></Label>
+                  <div className="flex max-h-44 flex-wrap gap-2 overflow-y-auto rounded-lg border border-line p-2">
+                    {typeOptions.map(t => {
+                      const on = addTypes.includes(t)
+                      return (
+                        <button key={t} type="button" onClick={() => toggleAddType(t)} aria-pressed={on}
+                          className={cn('inline-flex min-h-9 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm',
+                            on ? 'border-accent bg-accent-tint font-medium text-accent-fg' : 'border-line text-muted-fg hover:border-muted2')}>
+                          {on && <Check className="h-3.5 w-3.5" />}{t}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              ) : (
               <div className="space-y-1.5">
                 <Label>Permit type <span className="text-danger">*</span></Label>
                 <SearchableSelect value={type} onChange={e => choose({ type: e.target.value })}
@@ -224,6 +287,7 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
                   {typeOptions.map(t => <option key={t} value={t}>{t}</option>)}
                 </SearchableSelect>
               </div>
+              )}
 
               {action === 'submit' && (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -269,10 +333,32 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
               )}
 
               {action === 'add' && (
-                <div className="space-y-1.5">
+                <div className="space-y-2">
                   <Label>Issuing authority <span className="text-danger">*</span></Label>
+                  {addTypes.length > 1 && (
+                    <div className="grid grid-cols-2 gap-1 rounded-lg bg-surface p-1">
+                      {([[true, 'Same for all'], [false, 'Different per type']] as const).map(([v, l]) => (
+                        <button key={l} type="button" onClick={() => setSameAuthority(v)}
+                          className={cn('min-h-9 rounded-md px-2 text-sm', sameAuthority === v ? 'bg-panel font-medium text-ink shadow-sm' : 'text-muted-fg hover:text-ink')}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  )}
                   {/* From the Directory: the exact card name is what Email it looks the address up by. */}
-                  <ContactPicker filterType="inspector" value={authority} onChange={name => setAuthority(name)} placeholder="Search your Directory, e.g. Lakewood Township" />
+                  {sameAuthority || addTypes.length < 2 ? (
+                    <ContactPicker filterType="inspector" value={authority} onChange={name => setAuthority(name)} placeholder="Search your Directory, e.g. Lakewood Township" />
+                  ) : (
+                    <div className="space-y-2">
+                      {addTypes.map(t => (
+                        <div key={t} className="grid grid-cols-1 items-center gap-1 sm:grid-cols-[120px_minmax(0,1fr)] sm:gap-3">
+                          <span className="truncate text-sm font-medium text-ink-soft">{t}</span>
+                          <ContactPicker filterType="inspector" value={authorityFor[t] ?? authority}
+                            onChange={name => setAuthorityFor(prev => ({ ...prev, [t]: name }))} placeholder="Search your Directory" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
 
@@ -288,7 +374,7 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between gap-2">
                   <Label>Houses <span className="text-danger">*</span></Label>
-                  {type && (
+                  {(action === 'add' ? addTypes.length > 0 : !!type) && (
                     <div className="flex gap-3 text-xs">
                       <button type="button" className="text-accent-fg hover:underline" onClick={() => setPicked(new Set(fitting.map(r => r.id)))}>
                         Select the {fitting.length} that fit
@@ -297,8 +383,23 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
                     </div>
                   )}
                 </div>
-                {!type ? (
+                {!(action === 'add' ? addTypes.length > 0 : !!type) ? (
                   <p className="text-sm text-muted-fg">Pick the permit type first - the houses it fits are selected for you.</p>
+                ) : action === 'add' ? (
+                  <div className="max-h-64 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
+                    {rows.map(r => {
+                      const has = addTypes.filter(t => cells.get(r.id)?.get(t))
+                      return (
+                        <label key={r.id} className="flex min-h-11 cursor-pointer items-center gap-3 px-3 py-1.5">
+                          <input type="checkbox" checked={picked.has(r.id)} onChange={() => togglePick(r.id)} className="h-4 w-4 shrink-0" />
+                          <span className="min-w-0 flex-1 truncate text-sm text-ink">{r.name}{r.tag ? <span className="text-faint"> · {r.tag}</span> : null}</span>
+                          <span className="whitespace-nowrap text-xs text-faint">
+                            {has.length === 0 ? 'Has none' : has.length === addTypes.length ? 'Has them all' : `Has ${has.join(', ')}`}
+                          </span>
+                        </label>
+                      )
+                    })}
+                  </div>
                 ) : (
                   <div className="max-h-64 divide-y divide-line-soft overflow-y-auto rounded-lg border border-line">
                     {rows.map(r => {
@@ -322,7 +423,9 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
               <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={onClose}>Cancel</Button>
                 <Button type="button" onClick={run} disabled={saving}>
-                  {saving ? 'Working...' : `${label(action)}${picked.size ? ` for ${picked.size}` : ''}`}
+                  {saving ? 'Working...' : action === 'add' && addTypes.length > 1
+                    ? `Add ${addTypes.length} permits${picked.size ? ` to ${picked.size}` : ''}`
+                    : `${label(action)}${picked.size ? ` for ${picked.size}` : ''}`}
                 </Button>
               </div>
             </div>
