@@ -869,6 +869,10 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
   const [save, setSave] = useState(true)
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
+  // The address is known: the dialog is a confirmation, and the full form is
+  // one tap away. Typing a different address or asking for more opens it.
+  const [full, setFull] = useState(false)
+  const [repliesHere, setRepliesHere] = useState(false)
 
   useEffect(() => {
     let live = true
@@ -880,6 +884,7 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
         if (res.ok) {
           setSuggested(out.suggested ?? null)
           setMine(out.me ?? { email: null, name: null })
+          setRepliesHere(out.replies === true)
           if (out.suggested?.email) setTo(out.suggested.email)
         }
       } catch { /* the box starts empty; typing the address still works */ }
@@ -892,6 +897,7 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
   // Offer to save only what would be new: no Directory address yet, or a different one typed.
   const offerSave = !!authority && !!to.trim() && !(suggested?.source === 'directory' && suggested.email.toLowerCase() === to.trim().toLowerCase())
   const fileCount = fixes.length + files.length
+  const quick = !full && !loading && !!suggested && to.trim().toLowerCase() === suggested.email.toLowerCase()
 
   async function sendIt() {
     const problem = emailProblem({ to, cc: splitAddresses(cc) })
@@ -934,6 +940,14 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
           </button>
         </div>
         <div className="space-y-4 px-5 py-5">
+          {loading ? (
+            <p className="text-sm text-muted-fg">Looking up their address...</p>
+          ) : quick && suggested ? (
+            <QuickSend toName={authority || who} toEmail={suggested.email} source={suggested.source}
+              mine={mine.email} copyMe={copyMe} setCopyMe={setCopyMe}
+              offerSave={offerSave} save={save} setSave={setSave} authority={authority}
+              fixes={fixes} files={files} onMore={() => setFull(true)} />
+          ) : (<>
           <div className="space-y-1.5">
             <Label>To <span className="text-danger">*</span></Label>
             <Input type="email" value={to} onChange={e => setTo(e.target.value)} placeholder={loading ? 'Looking up their address...' : `${who === 'the reviewer' ? 'The township' : who}'s email`} />
@@ -972,8 +986,9 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
               <p className="text-xs text-muted-fg">Close this and use Attach what you sent first, or send it as a message only.</p>
             )}
           </div>
+          </>)}
           <p className="text-xs text-muted-fg">
-            They get a link to download the files and can send the approved permit or their comments back on it - it lands on this permit. A reply comes to you. Once it has gone, the permit reads With {who}.
+            They get a link to download the files and can send the approved permit or their comments back on it - it lands on this permit. {repliesHere ? 'Their reply lands on this permit too, and a copy comes to you.' : 'A reply comes to you.'} Once it has gone, the permit reads With {who}.
           </p>
         </div>
         <div className="space-y-2 border-t border-line-soft px-5 py-4">
@@ -984,6 +999,46 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Email it when the address is already known: who it goes to, the copy to me,
+ * the files, and Send. Everything else (another address, a copy to somebody
+ * else, a message) is behind one tap - the commonest send should be one.
+ */
+function QuickSend({ toName, toEmail, source, mine, copyMe, setCopyMe, offerSave, save, setSave, authority, fixes, files, onMore }: {
+  toName: string; toEmail: string; source: string; mine: string | null
+  copyMe: boolean; setCopyMe: (v: boolean) => void
+  offerSave: boolean; save: boolean; setSave: (v: boolean) => void; authority: string
+  fixes: RoundFile[]; files: File[]; onMore: () => void
+}) {
+  const fileCount = fixes.length + files.length
+  return (
+    <div className="space-y-3">
+      <div className="rounded-lg border border-line p-3">
+        <p className="text-xs text-muted-fg">To</p>
+        <p className="truncate font-medium text-ink">{toName}</p>
+        <p className="truncate text-sm text-ink-soft">{toEmail}</p>
+        <p className="mt-1 text-xs text-muted-fg">{source === 'directory' ? 'From your Directory.' : 'The address they were last emailed at.'}</p>
+      </div>
+      {offerSave && (
+        <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-ink-soft">
+          <input type="checkbox" checked={save} onChange={e => setSave(e.target.checked)} className="h-4 w-4 shrink-0" />
+          Save it as {authority}&apos;s address, for every permit from them
+        </label>
+      )}
+      <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-ink">
+        <input type="checkbox" checked={copyMe} onChange={e => setCopyMe(e.target.checked)} className="h-4 w-4 shrink-0" disabled={!mine} />
+        <span className="min-w-0">Send me a copy{mine ? <span className="text-muted-fg"> ({mine})</span> : <span className="text-muted-fg"> - there is no email on your profile</span>}</span>
+      </label>
+      <p className="text-sm text-ink-soft">
+        {fileCount ? `${fileCount} file${fileCount === 1 ? '' : 's'} go with it` : 'No files attached - close this and use Attach what you sent first, or send it as a message only.'}
+      </p>
+      <button type="button" onClick={onMore} className="min-h-11 text-sm font-medium text-accent hover:underline">
+        Different address, another copy or a message
+      </button>
     </div>
   )
 }
