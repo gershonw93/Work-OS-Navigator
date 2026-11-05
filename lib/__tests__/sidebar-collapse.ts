@@ -72,6 +72,29 @@ ok(sidebarCollapseScript.includes(SIDEBAR_COLLAPSED_KEY)
 ok(/try\{/.test(sidebarCollapseScript) && /catch/.test(sidebarCollapseScript),
   '...and cannot take the page down when localStorage throws')
 
+// ── and it has to PARSE ─────────────────────────────────────────────────────
+// THE BUG: every page shipped `==='1document.documentElement...` and threw
+// "Unexpected identifier 'sidebar'" on load. The source was right; the
+// production minifier folded the template literal and dropped `'){`. So the
+// script is run here for real, and the shape the minifier mangled is banned.
+let parsed = true
+try { new Function(sidebarCollapseScript) } catch { parsed = false }
+ok(parsed, 'THE BUG: the pre-paint script is valid JavaScript')
+function runWith(stored: string | null): boolean {
+  const classes = new Set<string>()
+  const fake = {
+    localStorage: { getItem: (k: string) => (k === SIDEBAR_COLLAPSED_KEY ? stored : null) },
+    document: { documentElement: { classList: { add: (c: string) => classes.add(c) } } },
+  }
+  new Function('localStorage', 'document', sidebarCollapseScript)(fake.localStorage, fake.document)
+  return classes.has(SIDEBAR_COLLAPSED_CLASS)
+}
+ok(parsed && runWith('1') && !runWith('0') && !runWith(null),
+  '...and collapses the rail for a stored "1" and for nothing else')
+const scriptSrc = /export const sidebarCollapseScript =([\s\S]*?);'\n/.exec(read('lib/sidebar-collapse.ts'))
+ok(!!scriptSrc && !/`/.test(scriptSrc[1]),
+  '...and is not a template literal, which the production minifier folded wrong')
+
 // The literal must exist in exactly one place. A key typed twice is a
 // preference that saves to one name and loads from another.
 const typedTwice = ['components/layout/sidebar.tsx', 'app/layout.tsx', 'app/(dashboard)/layout.tsx']

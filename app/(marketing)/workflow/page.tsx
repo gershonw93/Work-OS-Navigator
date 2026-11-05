@@ -367,11 +367,9 @@ const STEPS: Step[] = [
       { icon: CheckCircle2, title: 'A record, if it\'s ever needed', body: 'Every log, photo, approval, and payment stays attached to the job. A time-stamped record if a dispute ever lands.' },
     ],
     wide: true,
-    visual: (
-      <BrowserMock url="app.sytenav.com/dashboard">
-        <DashboardMock />
-      </BrowserMock>
-    ),
+    // DashboardMock draws its own browser frame (its URL bar follows the
+    // sidebar), so it is never wrapped in a second one.
+    visual: <DashboardMock />,
   },
 ]
 

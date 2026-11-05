@@ -1,36 +1,68 @@
 'use client'
 
-import { SUPPORT_EMAIL, supportMailto } from '@/lib/support-email'
+import { SUPPORT_EMAIL } from '@/lib/support-email'
+import { CONTACT_HONEYPOT, CONTACT_LIMITS, contactProblem } from '@/lib/contact-message'
+import { fetchProblem } from '@/lib/fetch-error'
+import { CheckCircle2 } from 'lucide-react'
 import { useState } from 'react'
 
-// A contact form that opens the visitor's email client with the message
-// pre-filled. It builds a mailto: link in JS on submit instead of using
-// action="mailto:" / method="post", which browsers flag as an insecure form
-// (disabling autofill and showing a "not secure" warning).
+// The contact form POSTS to /api/contact, which keeps the message and emails
+// it to the support inbox. It used to build a mailto: link instead, which does
+// nothing at all on a machine with no mail app - see lib/contact-message.ts.
 export function ContactForm() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [company, setCompany] = useState('')
   const [message, setMessage] = useState('')
+  const [website, setWebsite] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    const subject = `SyteNav enquiry from ${name || 'a contractor'}`
-    const lines = [`Name: ${name}`, `Email: ${email}`]
-    if (company) lines.push(`Company: ${company}`)
-    lines.push('', message)
-    const body = lines.join('\n')
-    window.location.href = supportMailto(subject, body)
+    if (sending) return
+    const problem = contactProblem({ name: name.trim(), email: email.trim(), company: company.trim(), message: message.trim() })
+    if (problem) { setError(problem); return }
+    setSending(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, company, message, [CONTACT_HONEYPOT]: website }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(json.error || `We could not send that just now - email us at ${SUPPORT_EMAIL} instead.`)
+      setSent(true)
+    } catch (err) {
+      setError(fetchProblem(err, 'sending your message'))
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (sent) {
+    return (
+      <div role="status" className="rounded-3xl border border-line bg-panel p-6 sm:p-8 space-y-3 self-start text-center">
+        <CheckCircle2 className="h-10 w-10 text-success mx-auto" aria-hidden />
+        <h2 className="font-display text-xl font-bold text-ink">Message sent</h2>
+        <p className="text-sm text-muted-fg">
+          Thanks, {name.trim().split(/\s+/)[0]}. It is in our inbox, and we will reply to {email.trim()}.
+        </p>
+      </div>
+    )
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-3xl border border-line bg-panel p-6 sm:p-8 space-y-5 self-start">
+    <form onSubmit={handleSubmit} noValidate className="rounded-3xl border border-line bg-panel p-6 sm:p-8 space-y-5 self-start">
       <div className="space-y-1.5">
         <label htmlFor="contact-name" className="text-sm font-medium text-ink-soft">Name</label>
         <input
           id="contact-name"
           name="name"
           required
+          maxLength={CONTACT_LIMITS.name}
           autoComplete="name"
           value={name}
           onChange={e => setName(e.target.value)}
@@ -44,6 +76,7 @@ export function ContactForm() {
           name="email"
           type="email"
           required
+          maxLength={CONTACT_LIMITS.email}
           autoComplete="email"
           value={email}
           onChange={e => setEmail(e.target.value)}
@@ -51,15 +84,21 @@ export function ContactForm() {
         />
       </div>
       <div className="space-y-1.5">
-        <label htmlFor="contact-company" className="text-sm font-medium text-ink-soft">Company</label>
+        <label htmlFor="contact-company" className="text-sm font-medium text-ink-soft">Company <span className="text-faint font-normal">(optional)</span></label>
         <input
           id="contact-company"
           name="company"
+          maxLength={CONTACT_LIMITS.company}
           autoComplete="organization"
           value={company}
           onChange={e => setCompany(e.target.value)}
           className="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink focus:border-accent focus:outline-none"
         />
+      </div>
+      {/* Nobody sees this; a bot filling every field does. */}
+      <div aria-hidden className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+        <label htmlFor="contact-website">Website</label>
+        <input id="contact-website" name={CONTACT_HONEYPOT} tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} />
       </div>
       <div className="space-y-1.5">
         <label htmlFor="contact-message" className="text-sm font-medium text-ink-soft">How can we help?</label>
@@ -68,15 +107,17 @@ export function ContactForm() {
           name="message"
           rows={5}
           required
+          maxLength={CONTACT_LIMITS.message}
           value={message}
           onChange={e => setMessage(e.target.value)}
           className="w-full rounded-lg border border-line bg-surface px-3.5 py-2.5 text-sm text-ink focus:border-accent focus:outline-none resize-none"
         />
       </div>
-      <button type="submit" className="w-full rounded-xl bg-accent text-accent-ink font-bold py-3.5 hover:bg-accent/90 transition-colors">
-        Send message
+      {error && <p role="alert" className="text-sm text-danger">{error}</p>}
+      <button type="submit" disabled={sending} className="w-full rounded-xl bg-accent text-accent-ink font-bold py-3.5 hover:bg-accent/90 transition-colors disabled:opacity-60">
+        {sending ? 'Sending...' : 'Send message'}
       </button>
-      <p className="text-xs text-faint text-center">Opens your email app. Prefer to write us directly? {SUPPORT_EMAIL}</p>
+      <p className="text-xs text-faint text-center">We reply by email. Prefer to write us directly? {SUPPORT_EMAIL}</p>
     </form>
   )
 }
