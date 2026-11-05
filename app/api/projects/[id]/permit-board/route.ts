@@ -69,13 +69,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
     console.error('[permit-board] permits read failed', error.message)
     return NextResponse.json({ error: 'Could not read the permits.' }, { status: 500 })
   }
-  const { rounds, items, shares, ok } = await permitHistory(db, (permits ?? []).map(p => p.id))
+  const { rounds, items, shares, replies, ok } = await permitHistory(db, (permits ?? []).map(p => p.id))
   return NextResponse.json({
     isSite: true,
     site: { id: dev.site.id, name: dev.site.name },
     houses: dev.houses,
     permits: permits ?? [],
-    rounds, items, shares, history: ok,
+    rounds, items, shares, replies, history: ok,
   })
 }
 

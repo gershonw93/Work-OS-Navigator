@@ -16,6 +16,7 @@ import {
 } from '@/lib/permit-board'
 import { todayIso, type PermitItem, type PermitRound, type PermitShare } from '@/lib/permit-rounds'
 import { PermitPanel, STANDING_CHIP } from './permit-panel'
+import type { PermitReply } from '@/lib/permit-reply'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Every house in a development against every permit type, and who has each
@@ -35,6 +36,7 @@ export interface BoardData {
   rounds: PermitRound[]
   items: PermitItem[]
   shares?: PermitShare[]
+  replies?: PermitReply[]
   history: boolean
 }
 
@@ -77,6 +79,7 @@ function PermitDrawer({ data, rowName, permitId, canEdit, onChanged, onClose }: 
       rounds={data.rounds.filter(r => r.permit_id === permit.id)}
       items={data.items.filter(i => i.permit_id === permit.id)}
       shares={(data.shares ?? []).filter(x => x.permit_id === permit.id)}
+      replies={(data.replies ?? []).filter(x => x.permit_id === permit.id)}
       historyOk={data.history} canEdit={canEdit} docked={false} onChanged={onChanged} onClose={onClose} />
   )
 }

@@ -18,6 +18,7 @@ import { allowedStatuses, permitStage, todayIso, type PermitItem, type PermitRou
 import { PermitPanel } from '@/components/permits/permit-panel'
 import { PermitList, type ListRow } from '@/components/permits/permit-list'
 import { useMinWidth } from '@/lib/use-min-width'
+import type { PermitReply } from '@/lib/permit-reply'
 import { shrinkImage } from '@/lib/shrink-image'
 import { PermitBoard, type BoardData } from '@/components/permits/permit-board'
 import { usePermissions } from '@/lib/use-permissions'
@@ -49,6 +50,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [rounds, setRounds] = useState<PermitRound[]>([])
   const [items, setItems] = useState<PermitItem[]>([])
   const [shares, setShares] = useState<PermitShare[]>([])
+  const [replies, setReplies] = useState<PermitReply[]>([])
   const [historyOk, setHistoryOk] = useState(true)
   // Set only when this job is a development.
   const [board, setBoard] = useState<BoardData | null>(null)
@@ -146,6 +148,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         setRounds(json.rounds ?? [])
         setItems(json.items ?? [])
         setShares(json.shares ?? [])
+        setReplies(json.replies ?? [])
         setHistoryOk(json.history !== false)
       } else setFetchError(json.error ?? `Error ${res.status}`)
       void fetchBoard(token)
@@ -577,7 +580,8 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         {openPermit && (
           <PermitPanel key={wide ? 'docked' : 'drawer'} projectId={params.id} permit={openPermit}
             rounds={roundsFor(openPermit.id)} items={itemsFor(openPermit.id)}
-            shares={shares.filter(x => x.permit_id === openPermit.id)} historyOk={historyOk} canEdit={canEdit}
+            shares={shares.filter(x => x.permit_id === openPermit.id)} replies={replies.filter(x => x.permit_id === openPermit.id)}
+            historyOk={historyOk} canEdit={canEdit}
             docked={wide} answerNow={answerNow} onChanged={fetchPermits} onClose={() => setOpenId(null)}
             nav={navOf(openPermit.id)}
             onEdit={() => openEdit(openPermit)}

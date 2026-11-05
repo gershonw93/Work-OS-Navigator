@@ -8,6 +8,7 @@ import { filesFrom, permitFilesUploader } from '@/lib/permit-upload'
 import { emailProblem, permitEmailCopy, splitAddresses, suggestAddress } from '@/lib/permit-email'
 import { copyList, sendEmail, tokenLinkEmail } from '@/lib/email'
 import { appOrigin } from '@/lib/app-url'
+import { replyAddress, replyConfig, tokenFromBytes, TOKEN_PATTERN } from '@/lib/permit-reply'
 
 export const runtime = 'nodejs'
 // Uploads, a share, a send and a write - room to finish rather than be cut off
@@ -30,6 +31,24 @@ async function me(db: any, userId: string) {
     company = c?.name ?? null
   }
   return { email: (data?.email as string | null) ?? null, name: (data?.full_name as string | null) ?? null, company }
+}
+
+/** This permit's reply address, minting its token the first time. Null when replies are not set up. */
+async function permitReplyTo(db: any, permitId: string): Promise<string | null> {
+  const cfg = replyConfig()
+  if (!cfg.enabled) return null
+  const read = async () => {
+    const { data } = await db.from('permits').select('reply_token').eq('id', permitId).maybeSingle()
+    return (data?.reply_token as string | null) ?? null
+  }
+  let token = await read()
+  if (!token || !TOKEN_PATTERN.test(token)) {
+    // Only where there is none yet - two presses at once must not leave a
+    // reply address in somebody's inbox that no longer finds its permit.
+    await db.from('permits').update({ reply_token: tokenFromBytes(randomBytes(24)) }).eq('id', permitId).is('reply_token', null)
+    token = await read()
+  }
+  return token && TOKEN_PATTERN.test(token) ? replyAddress(token, cfg.domain) : null
 }
 
 /** The address to start on: the Directory, else the last one this township was emailed at. */
@@ -87,6 +106,11 @@ export async function POST(request: Request, { params }: P) {
   if (problem) return NextResponse.json({ error: problem }, { status: 400 })
 
   const self = await me(db, gate.actor.userId)
+  // WHERE A REPLY GOES. With replies set up, to this permit's own address -
+  // the inbound route files it here and forwards a copy to the sender. Until
+  // then, straight to the sender, as before. The token is minted once, the
+  // first time the permit is emailed, and never changes after.
+  const replyTo = await permitReplyTo(db, params.permitId) ?? self.email
   const cc = copyList(to, [...(str('cc_me') === '1' && self.email ? [self.email] : []), ...extra])
   const origin = appOrigin(request.headers.get('origin'))
   const job = owned.project.address?.trim() || owned.project.name?.trim() || 'the job'
@@ -133,7 +157,7 @@ export async function POST(request: Request, { params }: P) {
         to, ...email, cc,
         // A reply is to the GC who sent it - the township's answer must not
         // land in SyteNav's support inbox.
-        replyTo: self.email,
+        replyTo,
         fromName: [self.name, self.company].filter(Boolean).length ? `${[self.name, self.company && `at ${self.company}`].filter(Boolean).join(' ')} via SyteNav` : null,
       })
       if (!sent.sent) {

@@ -71,7 +71,8 @@ ok(/beforeInsert: async/.test(route) && /const sent = await sendEmail\(/.test(ro
   'the email is sent INSIDE beforeInsert - after the checks and the upload, before anything is logged')
 ok(/if \(!sent\.sent\) \{[\s\S]{0,200}from\('file_shares'\)\.delete\(\)[\s\S]{0,400}return \{\s*ok: false/.test(route),
   'an email that did not go logs NOTHING and leaves no link behind')
-ok(/replyTo: self\.email/.test(route) && /cc_me/.test(route), 'the copy and the reply go to the person who pressed it')
+ok(/const replyTo = await permitReplyTo\(db, params\.permitId\) \?\? self\.email/.test(route) && /\breplyTo,/.test(route) && /cc_me/.test(route),
+  'a reply goes to the permit\'s own address once replies are set up, and to the person who pressed it until then; the copy goes to them either way')
 ok(/permit_id: params\.permitId/.test(route) && /allow_upload: true/.test(route),
   'the link is tied to this permit and lets them send the approved permit back onto it')
 ok(/status: 207/.test(route) && /do not email it again/.test(route),
