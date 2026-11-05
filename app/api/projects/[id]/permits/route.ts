@@ -29,8 +29,8 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // REPORTED (`history: false`) rather than handed back as empty lists - an
   // empty history reads as "No submission logged", which is a claim about the
   // permit, not about the read.
-  const { rounds, items, shares, ok } = await permitHistory(db, (permits ?? []).map(p => p.id))
-  return NextResponse.json({ permits: permits ?? [], rounds, items, shares, history: ok })
+  const { rounds, items, shares, replies, ok } = await permitHistory(db, (permits ?? []).map(p => p.id))
+  return NextResponse.json({ permits: permits ?? [], rounds, items, shares, replies, history: ok })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {

@@ -150,7 +150,7 @@ export async function submitRound(
 
 export async function answerRound(
   db: SupabaseClient,
-  { userId, projectId, permitId, roundId, fields, uploadFiles, via, shareUploadIds }: {
+  { userId, projectId, permitId, roundId, fields, uploadFiles, via, shareUploadIds, inboundId }: {
     userId: string; projectId: string; permitId: string; roundId: string
     fields: {
       outcome?: string | null; outcome_on?: string | null; note?: string | null
@@ -160,6 +160,8 @@ export async function answerRound(
     uploadFiles?: Upload; via?: string
     /** Files the reviewer sent back through a share link made from THIS permit. */
     shareUploadIds?: string[]
+    /** A reply emailed to THIS permit's address, whose attachments come back with the answer. */
+    inboundId?: string | null
   },
 ): Promise<WriteResult> {
   const found = await permitOnJob(db, projectId, permitId)
@@ -187,11 +189,25 @@ export async function answerRound(
     fromLinks = (ups ?? []).map((u: any) => ({ name: u.name, url: u.file_url, type: u.file_type ?? null, size: u.size_bytes ?? null }))
   }
 
-  let received_files: RoundFile[] = [...fromLinks]
+  // A reply emailed to this permit's own address - looked up through the
+  // PERMIT, never trusted from the body, the same as a link upload.
+  let fromReply: RoundFile[] = []
+  let replyRow: string | null = null
+  if (inboundId) {
+    const { data: reply, error: replyErr } = await db.from('permit_inbound_emails')
+      .select('id, attachments').eq('id', inboundId).eq('permit_id', permitId).maybeSingle()
+    if (replyErr) {
+      console.error('[permit-round] reply read failed', replyErr.message)
+      return { status: 500, body: { error: 'Could not read their emailed reply. Try again.' } }
+    }
+    if (reply) { replyRow = reply.id; fromReply = ((reply as any).attachments ?? []) as RoundFile[] }
+  }
+
+  let received_files: RoundFile[] = [...fromLinks, ...fromReply]
   if (uploadFiles) {
     const up = await uploadFiles()
     if ('error' in up) return { status: 500, body: { error: up.error } }
-    received_files = [...fromLinks, ...up.files]
+    received_files = [...fromLinks, ...fromReply, ...up.files]
   }
 
   const name = await actorName(db, userId, via)
@@ -210,6 +226,8 @@ export async function answerRound(
     return { status: 500, body: { error: friendlyDbError(error) } }
   }
   if (!saved) return { status: 409, body: { error: 'Somebody already recorded an answer to that submission.' } }
+  // Answered from this reply: it is not offered again.
+  if (replyRow) await db.from('permit_inbound_emails').update({ used_at: new Date().toISOString() }).eq('id', replyRow)
 
   if (outcome === 'corrections') {
     const rows = cleanItems(fields.items).map(l => ({

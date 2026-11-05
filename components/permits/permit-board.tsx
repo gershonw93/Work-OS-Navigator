@@ -16,6 +16,7 @@ import {
 } from '@/lib/permit-board'
 import { todayIso, type PermitItem, type PermitRound, type PermitShare } from '@/lib/permit-rounds'
 import { PermitPanel, STANDING_CHIP } from './permit-panel'
+import type { PermitReply } from '@/lib/permit-reply'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Every house in a development against every permit type, and who has each
@@ -35,6 +36,7 @@ export interface BoardData {
   rounds: PermitRound[]
   items: PermitItem[]
   shares?: PermitShare[]
+  replies?: PermitReply[]
   history: boolean
 }
 
@@ -53,15 +55,26 @@ async function token() {
   return session?.access_token ?? ''
 }
 
+// A status is a dot and a word, not a pill: a grid of pills is a wall of
+// boxes, and the colour only has to say one thing.
+const DOT: Record<string, string> = {
+  neutral: 'bg-muted2', info: 'bg-info', warn: 'bg-warn', danger: 'bg-danger', success: 'bg-success',
+}
+const WORD: Record<string, string> = {
+  neutral: 'text-muted-fg', info: 'text-ink', warn: 'text-warn', danger: 'text-danger', success: 'text-ink-soft',
+}
+
 function CellChip({ cell, onOpen, faded }: { cell: BoardCell | undefined; onOpen: () => void; faded: boolean }) {
-  if (!cell) return <span className="text-faint">-</span>
+  if (!cell) return <span className="text-xs text-faint">None</span>
+  const tone = cell.standing.chase ? 'warn' : cell.standing.tone
   return (
     <button type="button" onClick={onOpen}
       title={cell.standing.label + (cell.others ? ` (+${cell.others} more of this type)` : '')}
-      className={cn('min-h-9 whitespace-nowrap rounded-full border px-2.5 py-1 text-xs font-medium hover:brightness-95',
-        STANDING_CHIP[cell.standing.tone], faded && 'opacity-30')}>
+      className={cn('-mx-2 inline-flex min-h-9 items-center gap-2 whitespace-nowrap rounded-md px-2 text-sm hover:bg-surface',
+        WORD[tone], faded && 'opacity-30')}>
+      <span className={cn('h-2 w-2 shrink-0 rounded-full', DOT[tone])} aria-hidden="true" />
       {cell.standing.chase ? `Chase · ${cell.standing.short.replace('With city · ', '')}` : cell.standing.short}
-      {cell.others > 0 && ` +${cell.others}`}
+      {cell.others > 0 && <span className="text-faint">+{cell.others}</span>}
     </button>
   )
 }
@@ -77,6 +90,7 @@ function PermitDrawer({ data, rowName, permitId, canEdit, onChanged, onClose }: 
       rounds={data.rounds.filter(r => r.permit_id === permit.id)}
       items={data.items.filter(i => i.permit_id === permit.id)}
       shares={(data.shares ?? []).filter(x => x.permit_id === permit.id)}
+      replies={(data.replies ?? []).filter(x => x.permit_id === permit.id)}
       historyOk={data.history} canEdit={canEdit} docked={false} onChanged={onChanged} onClose={onClose} />
   )
 }
@@ -409,25 +423,34 @@ export function PermitBoard({ data, canEdit, onChanged }: { data: BoardData; can
               </div>
 
               {/* Desktop: the grid. */}
-              <div className="hidden lg:block overflow-x-auto rounded-lg border border-line bg-panel">
+              <div className="hidden lg:block overflow-x-auto rounded-2xl border border-line bg-panel">
                 <table className="min-w-full text-sm">
                   <thead>
-                    <tr className="border-b border-line bg-surface text-left text-xs text-muted-fg">
-                      <th className="sticky left-0 bg-surface px-3 py-2 font-medium">House</th>
-                      {columns.map(c => <th key={c} className="px-3 py-2 font-medium">{c}</th>)}
+                    <tr className="border-b border-line text-left">
+                      <th className="sticky left-0 w-[30%] bg-panel px-5 py-3 text-xs font-medium uppercase tracking-wide text-faint">House</th>
+                      {columns.map(c => {
+                        const have = rows.filter(r => cells.get(r.id)?.get(c)).length
+                        const done = rows.filter(r => cellMatches(cells.get(r.id)?.get(c), 'done')).length
+                        return (
+                          <th key={c} className="px-5 py-3 align-bottom font-normal">
+                            <span className="block text-xs font-medium uppercase tracking-wide text-faint">{c}</span>
+                            <span className="block text-xs text-muted-fg">{done} of {have} done</span>
+                          </th>
+                        )
+                      })}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-line-soft">
                     {shown.map(r => (
-                      <tr key={r.id}>
-                        <td className="sticky left-0 bg-panel px-3 py-2">
-                          <p className="font-medium text-ink">{r.name}</p>
-                          {r.tag && <p className="text-xs text-faint">{r.tag}</p>}
+                      <tr key={r.id} className="group">
+                        <td className="sticky left-0 bg-panel px-5 py-3 group-hover:bg-surface">
+                          <span className="font-medium text-ink">{r.name}</span>
+                          {r.tag && <span className="ml-2 text-xs text-faint">{r.tag}</span>}
                         </td>
                         {columns.map(c => {
                           const cell = cells.get(r.id)?.get(c)
                           return (
-                            <td key={c} className="px-3 py-2">
+                            <td key={c} className="px-5 py-3 group-hover:bg-surface">
                               <CellChip cell={cell} faded={filter !== 'all' && !cellMatches(cell, filter)}
                                 onOpen={() => cell && setOpen({ permitId: cell.permit.id, rowName: r.name })} />
                             </td>
@@ -436,7 +459,7 @@ export function PermitBoard({ data, canEdit, onChanged }: { data: BoardData; can
                       </tr>
                     ))}
                     {shown.length === 0 && (
-                      <tr><td colSpan={columns.length + 1} className="px-3 py-6 text-center text-muted-fg">Nothing here.</td></tr>
+                      <tr><td colSpan={columns.length + 1} className="px-5 py-6 text-center text-muted-fg">Nothing here.</td></tr>
                     )}
                   </tbody>
                 </table>

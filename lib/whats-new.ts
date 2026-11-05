@@ -78,6 +78,18 @@ const AUTHORED: Release[] = [
     ],
   },
   {
+    date: '2026-11-05',
+    title: 'The township\'s reply lands on the permit',
+    items: [
+      {
+        kind: 'new',
+        title: 'Replies file themselves, and AI suggests the answer',
+        text: 'Every permit you email now has its own reply address. When the township answers, their reply and its attachments appear under Replies on that permit, and a copy is still forwarded to you. AI reads it and suggests their answer - approved, corrections with the list of what they want, or rejected. Press Use this answer to record it (an approval opens the form with the permit number and dates filled in to check), or Answer myself. Nothing is recorded until you press it.',
+        help: 'permits',
+      },
+    ],
+  },
+  {
     date: '2026-11-03',
     title: 'Photos upload faster',
     items: [

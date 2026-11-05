@@ -18,6 +18,7 @@ import { allowedStatuses, permitStage, todayIso, type PermitItem, type PermitRou
 import { PermitPanel } from '@/components/permits/permit-panel'
 import { PermitList, type ListRow } from '@/components/permits/permit-list'
 import { useMinWidth } from '@/lib/use-min-width'
+import type { PermitReply } from '@/lib/permit-reply'
 import { shrinkImage } from '@/lib/shrink-image'
 import { PermitBoard, type BoardData } from '@/components/permits/permit-board'
 import { usePermissions } from '@/lib/use-permissions'
@@ -49,6 +50,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [rounds, setRounds] = useState<PermitRound[]>([])
   const [items, setItems] = useState<PermitItem[]>([])
   const [shares, setShares] = useState<PermitShare[]>([])
+  const [replies, setReplies] = useState<PermitReply[]>([])
   const [historyOk, setHistoryOk] = useState(true)
   // Set only when this job is a development.
   const [board, setBoard] = useState<BoardData | null>(null)
@@ -85,6 +87,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [analyzeError, setAnalyzeError] = useState('')
 
   const [submitError, setSubmitError] = useState('')
+  // A new permit is usually one you are about to APPLY for: two questions, the
+  // type and who issues it. Number, dates and the AI read are for one you
+  // already hold, behind "I already have it".
+  const [applying, setApplying] = useState(true)
   const [fetchError, setFetchError] = useState('')
   const [editingPermit, setEditingPermit] = useState<Permit | null>(null)
 
@@ -146,6 +152,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         setRounds(json.rounds ?? [])
         setItems(json.items ?? [])
         setShares(json.shares ?? [])
+        setReplies(json.replies ?? [])
         setHistoryOk(json.history !== false)
       } else setFetchError(json.error ?? `Error ${res.status}`)
       void fetchBoard(token)
@@ -176,7 +183,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     setPermitType(''); setPermitNumber(''); setDescription(''); setStatus('pending')
     setIssuedDate(''); setExpiryDate(''); setIssuingAuthority('')
     setInspectorName(''); setInspectorPhone(''); setNotes(''); setPermitFile(null)
-    setAnalyzeError(''); setEditingPermit(null)
+    setAnalyzeError(''); setEditingPermit(null); setApplying(true)
   }
 
   function openEdit(permit: Permit) {
@@ -193,6 +200,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     setNotes(permit.notes ?? '')
     setPermitFile(null)
     setAnalyzeError('')
+    setApplying(false)
     setShowForm(true)
   }
 
@@ -240,6 +248,25 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+    const lean = applying && !editingPermit
+    if (lean) {
+      if (!permitType) { setSubmitError('Pick the permit type.'); return }
+      if (!issuingAuthority.trim()) { setSubmitError('Who do you apply to? Name the township or department - Email it finds their address from it.'); return }
+      setSubmitError(''); setSubmitting(true)
+      const form = new FormData()
+      form.append('permit_type', permitType)
+      form.append('status', 'pending')
+      form.append('issuing_authority', issuingAuthority.trim())
+      const res = await fetch(`/api/projects/${params.id}/permits`, { method: 'POST', headers: { Authorization: `Bearer ${await getToken()}` }, body: form })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        setSubmitError(json.error ?? `Save failed (${res.status})`)
+        setSubmitting(false)
+        return
+      }
+      resetForm(); setShowForm(false); setSubmitting(false); fetchPermits()
+      return
+    }
     // The SAME rule the route asks, asked at the field first - a server's answer
     // can only ever arrive as a message about a whole request that did not
     // happen. lib/permit-rules.ts is the one copy.
@@ -399,11 +426,40 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-2xl overflow-y-auto">
             <div className="sticky top-0 bg-panel border-b border-line-soft px-4 sm:px-6 py-4 flex items-center justify-between">
-              <h2 className="font-semibold text-ink">{editingPermit ? 'Edit Permit' : 'Add Permit'}</h2>
+              <h2 className="font-semibold text-ink">{editingPermit ? 'Edit Permit' : board ? 'Add a permit for the whole development' : 'Add Permit'}</h2>
               <button onClick={() => { setShowForm(false); resetForm() }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="px-4 sm:px-6 py-5 pb-6 space-y-4">
+                {!editingPermit && (
+                  <div className="grid grid-cols-2 gap-1 rounded-lg bg-surface p-1">
+                    {([[true, 'I need to apply'], [false, 'I already have it']] as const).map(([v, label]) => (
+                      <button key={label} type="button" onClick={() => { setApplying(v); setSubmitError('') }}
+                        className={cn('min-h-11 rounded-md px-3 text-sm font-medium', applying === v ? 'bg-panel text-ink shadow-sm' : 'text-muted-fg hover:text-ink')}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                {applying && !editingPermit ? (<>
+                  <div className="space-y-1.5">
+                    <Label>Permit type <span className="text-danger">*</span></Label>
+                    <SearchableSelect value={permitType} onChange={e => setPermitType(e.target.value)}
+                      className="w-full rounded-md border border-muted2 px-3 py-2 text-sm bg-panel focus:border-accent focus:outline-none">
+                      <option value="">-- Select permit type --</option>
+                      {PERMIT_TYPES.map(t => <option key={t}>{t}</option>)}
+                    </SearchableSelect>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label>Who do you apply to? <span className="text-danger">*</span></Label>
+                    <Input list="permit-authorities" placeholder="e.g. Toms River Township" value={issuingAuthority} onChange={e => setIssuingAuthority(e.target.value)} />
+                    <datalist id="permit-authorities">
+                      {Array.from(new Set(permits.map(p => (p.issuing_authority ?? '').trim()).filter(Boolean))).map(a => <option key={a} value={a} />)}
+                    </datalist>
+                    <p className="text-xs text-muted-fg">The township or department. Email it finds their address from this name.</p>
+                  </div>
+                  <p className="text-sm text-muted-fg">That is all for now. The permit number and dates come when it is approved - drop the approved permit in then and AI fills them.</p>
+                </>) : (<>
                 {/* Upload first so AI fills the rest */}
                 <div className="space-y-1.5">
                   <Label><Sparkles className="inline h-3.5 w-3.5 mr-1 text-accent-fg" />Upload Permit (AI Auto-Fill)</Label>
@@ -501,13 +557,14 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <textarea rows={2} placeholder="Any additional notes..." value={notes} onChange={e => setNotes(e.target.value)}
                     className="w-full rounded-md border border-muted2 px-3 py-2 text-sm focus:border-accent focus:outline-none resize-none" />
                 </div>
+                </>)}
               </div>
               <div className="sticky bottom-0 bg-panel border-t border-line-soft px-4 sm:px-6 py-4 space-y-2">
                 {submitError && <p className="text-xs text-danger flex items-center gap-1"><AlertCircle className="h-3 w-3 shrink-0" />{submitError}</p>}
                 <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
                 <Button type="button" variant="secondary" onClick={() => { setShowForm(false); resetForm() }}>Cancel</Button>
                 <Button type="submit" disabled={submitting || analyzing}>
-                  {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : editingPermit ? 'Save Changes' : 'Add Permit'}
+                  {analyzing ? <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing...</> : submitting ? 'Saving...' : editingPermit ? 'Save Changes' : applying ? 'Add it' : 'Add Permit'}
                 </Button>
                 </div>
               </div>
@@ -538,7 +595,12 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
             </div>
           )}
           {board && <PermitBoard data={board} canEdit={canEdit} onChanged={fetchPermits} />}
-          {board && <h2 className="pt-2 text-lg font-semibold text-ink">The development&apos;s own permits</h2>}
+          {board && (
+            <div className="pt-2">
+              <h2 className="text-lg font-semibold text-ink">For the whole development</h2>
+              <p className="text-sm text-muted-fg">Permits that are not for one house - site work, the subdivision, roads and utilities. Add Permit at the top adds one here. For the houses, use Update several houses above.</p>
+            </div>
+          )}
 
           {fetchError && (
             <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
@@ -555,6 +617,11 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
           {loading ? (
             <div className="text-sm text-faint py-12 text-center">Loading...</div>
+          ) : permits.length === 0 && board ? (
+            <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-fg">None yet.</p>
+              {canEdit && <Button variant="outline" onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add one for the whole development</Button>}
+            </div>
           ) : permits.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
               <FileCheck className="h-8 w-8 text-faint mx-auto mb-3" />
@@ -577,7 +644,8 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         {openPermit && (
           <PermitPanel key={wide ? 'docked' : 'drawer'} projectId={params.id} permit={openPermit}
             rounds={roundsFor(openPermit.id)} items={itemsFor(openPermit.id)}
-            shares={shares.filter(x => x.permit_id === openPermit.id)} historyOk={historyOk} canEdit={canEdit}
+            shares={shares.filter(x => x.permit_id === openPermit.id)} replies={replies.filter(x => x.permit_id === openPermit.id)}
+            historyOk={historyOk} canEdit={canEdit}
             docked={wide} answerNow={answerNow} onChanged={fetchPermits} onClose={() => setOpenId(null)}
             nav={navOf(openPermit.id)}
             onEdit={() => openEdit(openPermit)}
