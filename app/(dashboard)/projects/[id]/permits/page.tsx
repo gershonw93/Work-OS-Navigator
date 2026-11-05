@@ -426,7 +426,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
           <div className="bg-panel rounded-xl shadow-xl w-full min-w-0 max-w-full sm:max-w-2xl overflow-y-auto">
             <div className="sticky top-0 bg-panel border-b border-line-soft px-4 sm:px-6 py-4 flex items-center justify-between">
-              <h2 className="font-semibold text-ink">{editingPermit ? 'Edit Permit' : 'Add Permit'}</h2>
+              <h2 className="font-semibold text-ink">{editingPermit ? 'Edit Permit' : board ? 'Add a permit for the whole development' : 'Add Permit'}</h2>
               <button onClick={() => { setShowForm(false); resetForm() }} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
             <form onSubmit={handleSubmit}>
@@ -595,7 +595,12 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
             </div>
           )}
           {board && <PermitBoard data={board} canEdit={canEdit} onChanged={fetchPermits} />}
-          {board && <h2 className="pt-2 text-lg font-semibold text-ink">The development&apos;s own permits</h2>}
+          {board && (
+            <div className="pt-2">
+              <h2 className="text-lg font-semibold text-ink">For the whole development</h2>
+              <p className="text-sm text-muted-fg">Permits that are not for one house - site work, the subdivision, roads and utilities. Add Permit at the top adds one here. For the houses, use Update several houses above.</p>
+            </div>
+          )}
 
           {fetchError && (
             <div className="rounded-lg bg-danger-tint border border-danger/30 px-4 py-3 text-sm text-danger flex items-center gap-2">
@@ -612,6 +617,11 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
           {loading ? (
             <div className="text-sm text-faint py-12 text-center">Loading...</div>
+          ) : permits.length === 0 && board ? (
+            <div className="flex flex-col gap-3 rounded-2xl border border-dashed border-line px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-fg">None yet.</p>
+              {canEdit && <Button variant="outline" onClick={() => setShowForm(true)}><Plus className="h-4 w-4" /> Add one for the whole development</Button>}
+            </div>
           ) : permits.length === 0 ? (
             <div className="rounded-xl border-2 border-dashed border-line py-16 text-center">
               <FileCheck className="h-8 w-8 text-faint mx-auto mb-3" />
