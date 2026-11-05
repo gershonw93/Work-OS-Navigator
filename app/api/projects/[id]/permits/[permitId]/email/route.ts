@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { applyHowOf, emailWarning, type ApplyHow } from '@/lib/permit-apply'
 import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
@@ -53,9 +54,9 @@ async function permitReplyTo(db: any, permitId: string): Promise<string | null> 
 
 /** The address to start on: the Directory, else the last one this township was emailed at. */
 async function suggestion(db: any, companyId: string | null, authority: string | null) {
-  if (!companyId || !authority?.trim()) return { suggested: null, contactId: null as string | null }
+  if (!companyId || !authority?.trim()) return { suggested: null, contactId: null as string | null, apply: null as ApplyHow | null }
   const [contacts, recent] = await Promise.all([
-    db.from('companies').select('id, name, type, contact_email').eq('added_by_company_id', companyId).limit(1000),
+    db.from('companies').select('id, name, type, contact_email, extra').eq('added_by_company_id', companyId).limit(1000),
     db.from('file_shares').select('recipient_email, created_at, permits!inner ( issuing_authority )')
       .eq('company_id', companyId).not('permit_id', 'is', null).order('created_at', { ascending: false }).limit(50),
   ])
@@ -67,7 +68,9 @@ async function suggestion(db: any, companyId: string | null, authority: string |
   // The Directory entry named for this township even when it has no address
   // yet, so saving fills that card in rather than making a second one.
   const named = list.filter((c: any) => (c.name ?? '').trim().toLowerCase().replace(/\s+/g, ' ') === authority.trim().toLowerCase().replace(/\s+/g, ' '))
-  return { suggested, contactId: named.length === 1 ? named[0].id as string : null }
+  // How they take applications, off the same one card - two cards with the
+  // township's name cannot be told apart, so neither speaks.
+  return { suggested, contactId: named.length === 1 ? named[0].id as string : null, apply: named.length === 1 ? applyHowOf(named[0].extra) : null }
 }
 
 // What the Email it dialog opens on: who it goes to, and who gets the copy.
@@ -81,7 +84,10 @@ export async function GET(request: Request, { params }: P) {
   const { data: permit } = await db.from('permits').select('issuing_authority').eq('id', params.permitId).eq('project_id', params.id).maybeSingle()
   if (!permit) return NextResponse.json({ error: 'That permit is not on this job.' }, { status: 404 })
   const [self, found] = await Promise.all([me(db, gate.actor.userId), suggestion(db, gate.actor.companyId, permit.issuing_authority)])
-  return NextResponse.json({ suggested: found.suggested, me: { email: self.email, name: self.name }, replies: replyConfig().enabled })
+  return NextResponse.json({
+    suggested: found.suggested, me: { email: self.email, name: self.name }, replies: replyConfig().enabled,
+    warning: emailWarning(found.apply, permit.issuing_authority ?? ''),
+  })
 }
 
 /**

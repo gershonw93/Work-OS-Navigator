@@ -1,5 +1,6 @@
 'use client'
 
+import { APPLY_METHODS, applyHowOf, applyLabel } from '@/lib/permit-apply'
 import { InspectionTypeChips } from '@/components/inspections/type-chips'
 import { typeOptions } from '@/lib/inspection-types'
 import { inspectorTypes } from '@/lib/inspection-contacts'
@@ -83,6 +84,8 @@ interface Extra {
   notes?: string
   website?: string
   inspection_types?: string[]
+  apply_method?: string | null
+  apply_url?: string | null
 }
 
 interface Company {
@@ -201,6 +204,9 @@ export default function DirectoryPage() {
   // before the company's own types arrive.
   const [formInspTypes, setFormInspTypes] = useState<string[]>([])
   const [editInspTypes, setEditInspTypes] = useState<string[]>([])
+  // How a township takes permit applications (lib/permit-apply.ts). '' = not said.
+  const [editApply, setEditApply] = useState<string>('')
+  const [editApplyUrl, setEditApplyUrl] = useState('')
   const [inspTypeChoices, setInspTypeChoices] = useState<string[]>(() => typeOptions())
 
   async function getToken() {
@@ -353,6 +359,8 @@ export default function DirectoryPage() {
     setEditTrade(company.trade ?? '')
     setEditType((company.type as ContactType) ?? 'other')
     setEditInspTypes(inspectorTypes(company))
+    const how = applyHowOf(company.extra)
+    setEditApply(how?.method ?? ''); setEditApplyUrl(how?.url ?? '')
   }
 
   async function saveEditCompany(e: React.FormEvent) {
@@ -365,7 +373,7 @@ export default function DirectoryPage() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade, type: editType,
-        ...(editType === 'inspector' ? { inspection_types: editInspTypes } : {}),
+        ...(editType === 'inspector' ? { inspection_types: editInspTypes, apply_method: editApply || null, apply_url: editApply === 'portal' ? editApplyUrl : null } : {}),
       }),
     })
     setEditSaving(false)
@@ -1057,11 +1065,17 @@ export default function DirectoryPage() {
                 )}
 
                 {/* Inspector extra fields */}
-                {type === 'inspector' && (extra.jurisdiction || extra.certification_number || !!extra.inspection_types?.length) && (
+                {type === 'inspector' && (extra.jurisdiction || extra.certification_number || !!extra.inspection_types?.length || !!applyHowOf(extra)) && (
                   <div className="space-y-0.5">
                     {!!extra.inspection_types?.length && (
                       <p className="text-xs text-muted-fg">
                         <span className="font-medium text-ink-soft">Does:</span> {extra.inspection_types.join(', ')}
+                      </p>
+                    )}
+                    {applyLabel(applyHowOf(extra)) && (
+                      <p className="text-xs text-muted-fg">
+                        <span className="font-medium text-ink-soft">Applications:</span> {applyLabel(applyHowOf(extra))}
+                        {applyHowOf(extra)?.url && <> - <a href={applyHowOf(extra)!.url!} target="_blank" rel="noreferrer" className="text-accent-fg hover:underline">their website</a></>}
                       </p>
                     )}
                     {extra.jurisdiction && (
@@ -1200,6 +1214,24 @@ export default function DirectoryPage() {
                   <div className="space-y-1.5">
                     <Label>Inspections they do <span className="text-faint font-normal">(optional)</span></Label>
                     <InspectionTypeChips options={inspTypeChoices} value={editInspTypes} onChange={setEditInspTypes} />
+                  </div>
+                )}
+                {editType === 'inspector' && (
+                  <div className="space-y-1.5">
+                    <Label>How do they take permit applications? <span className="text-faint font-normal">(optional)</span></Label>
+                    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      {([['', 'Not set'], ...APPLY_METHODS.map(m => [m.value, m.label])] as [string, string][]).map(([v, label]) => (
+                        <button key={v || 'none'} type="button" onClick={() => setEditApply(v)}
+                          className={cn('min-h-11 rounded-lg border px-2 text-sm', editApply === v ? 'border-accent bg-accent-tint font-medium text-accent-fg' : 'border-line text-muted-fg hover:bg-surface')}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    {editApply === 'portal' && (
+                      <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                        placeholder="Their permit website (optional), e.g. tomsrivertownship.com/permits" value={editApplyUrl} onChange={e => setEditApplyUrl(e.target.value)} />
+                    )}
+                    <p className="text-xs text-muted-fg">Email it on a permit warns you before emailing a township that takes applications in person or on its website.</p>
                   </div>
                 )}
               </div>

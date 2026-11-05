@@ -89,6 +89,12 @@ const AUTHORED: Release[] = [
       },
       {
         kind: 'new',
+        title: 'Say how each township takes applications',
+        text: 'Pick who issues a permit straight from your Directory. On a township\'s Directory card, set how they take permit applications - by email, in person or on their website - and Email it warns you before emailing one that does not take email.',
+        help: 'permits',
+      },
+      {
+        kind: 'new',
         title: 'Every job has a Files tab',
         text: 'Docs > Files on a job shows everything on it in one place, in folders - plans, site photos, permits (what went in, what came back and the fixes), quotes, submittals and bills. Each file stays where it was added; open it here or jump to it.',
       },
