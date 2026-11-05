@@ -87,5 +87,10 @@ ok(/const gate = await beforeInsert\(/.test(write) && /if \(!gate\.ok\) return g
 const panel = code('components/permits/permit-panel.tsx')
 ok(/onClick=\{openEmail\}/.test(panel) && /confirmLabel: 'Email it anyway'/.test(panel),
   'Email it asks about unticked items the same as I sent it does')
+ok(/const quick = !full && !loading && !!suggested && to\.trim\(\)\.toLowerCase\(\) === suggested\.email\.toLowerCase\(\)/.test(panel)
+  && /quick && suggested \? \(\s*<QuickSend/.test(panel) && /onMore=\{\(\) => setFull\(true\)\}/.test(panel),
+  'with the address already known, Email it is a confirmation - who, the copy to me, Send - and the full form is one tap away')
+ok(/replies: replyConfig\(\)\.enabled/.test(route) && /repliesHere \?/.test(panel),
+  'the dialog says a reply lands on the permit only when replies are actually set up')
 
 done()

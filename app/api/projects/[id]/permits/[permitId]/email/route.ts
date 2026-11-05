@@ -81,7 +81,7 @@ export async function GET(request: Request, { params }: P) {
   const { data: permit } = await db.from('permits').select('issuing_authority').eq('id', params.permitId).eq('project_id', params.id).maybeSingle()
   if (!permit) return NextResponse.json({ error: 'That permit is not on this job.' }, { status: 404 })
   const [self, found] = await Promise.all([me(db, gate.actor.userId), suggestion(db, gate.actor.companyId, permit.issuing_authority)])
-  return NextResponse.json({ suggested: found.suggested, me: { email: self.email, name: self.name } })
+  return NextResponse.json({ suggested: found.suggested, me: { email: self.email, name: self.name }, replies: replyConfig().enabled })
 }
 
 /**
