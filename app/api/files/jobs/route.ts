@@ -48,6 +48,11 @@ export async function GET(request: Request) {
     const mine = new Set(projectIds)
     projects = (projects ?? []).filter(p => mine.has(p.id))
   }
+  // One job's Files tab asks with `?job=`. It only NARROWS what the fences
+  // above already allow - a job that is not yours is simply not in the list.
+  // Not `?id=`: a param named like a path segment is dropped on Vercel.
+  const only = new URL(request.url).searchParams.get('job')
+  if (only) projects = (projects ?? []).filter(p => p.id === only)
   const ids = (projects ?? []).map(p => p.id)
   if (!ids.length) return NextResponse.json({ files: [], failed: [] })
   const jobName = new Map((projects ?? []).map(p => [p.id, p.name as string]))

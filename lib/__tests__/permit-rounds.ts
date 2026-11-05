@@ -291,4 +291,14 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
     && /'dock-panel /.test(pnl) && /closing && 'dock-closing'/.test(pnl) && /onClose=\{closePanel\}/.test(pg) && /window\.setTimeout\(/.test(pg),
     'the docked permit panel slides open and shut (its column grows, the text inside never re-wraps), and the close is a timer')
 }
+{
+  const tabs = code('components/layout/project-tabs.tsx')
+  const pageF = code('app/(dashboard)/projects/[id]/files/page.tsx')
+  const api = code('app/api/files/jobs/route.ts')
+  ok(/\{ label: 'Files', slug: 'files'/.test(tabs) && /'sharing', 'files'\]\)/.test(tabs),
+    'a job has a Files tab under Docs, on a development too')
+  ok(/\/api\/files\/jobs\?job=/.test(pageF) && /oneJob/.test(pageF) && /searchParams\.get\('job'\)/.test(api)
+    && api.indexOf("searchParams.get('job')") > api.indexOf('RESTRICTED_ROLES.includes'),
+    '...read through the same route as Files > Job Files, narrowed AFTER its fences - ?job= can only narrow')
+}
 done()

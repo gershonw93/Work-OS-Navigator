@@ -2309,6 +2309,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
         'Job Files gathers everything on your jobs - plans, site photos, permits, quotes, submittals, files sent with quote requests and sub bills - grouped by job. Filter by kind at the top. Permits holds each permit itself (its latest approved file), everything sent and sent back on each submission, the fixes attached to its punch list, and what came back through a link.',
         'Open a file directly, or use the arrow beside it to go to it on the job.',
       ] },
+      { type: 'text', text: 'INSIDE A JOB: DOCS > FILES. Every job has its own Files tab under Docs with the same files for that job only, in folders - Plans, Site photos, Permits, Quotes, Submittals, Bills. Nothing is copied: each file stays on the record it was added to, and the arrow beside it takes you there.' },
       { type: 'tip', text: 'Job Files only shows what your role can already open on the job. Somebody who cannot see Invoices does not see bills here either.' },
       { type: 'tip', text: 'Plans open on the job\'s Plans tab, where they can be viewed and marked up.' },
       { type: 'text', text: 'PHOTOS ARE MADE SMALLER BEFORE THEY UPLOAD. A phone photo is shrunk on your phone to 2000 pixels on its long side before it is sent, everywhere in the app, so it uploads quickly and still reads clearly. PDFs, spreadsheets and documents go up exactly as they are, and so do drawings: Plans, house model plans, plans sent with a quote request, submittal documents, the Files library and your company logo keep the original.' },
