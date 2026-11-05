@@ -34,6 +34,8 @@ export async function PATCH(request: Request, { params }: { params: { id: string
     // Files that came back through a link sent from this permit; the write
     // looks each one up through the share's permit.
     shareUploadIds: form.getAll('share_upload').filter((v): v is string => typeof v === 'string'),
+    // A reply emailed to this permit; the write looks it up through the permit.
+    inboundId: str('inbound'),
   })
   return NextResponse.json(result.body, { status: result.status })
 }

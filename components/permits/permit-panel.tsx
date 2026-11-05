@@ -23,6 +23,7 @@ import {
 } from '@/lib/permit-rounds'
 import type { PermitFacts } from '@/lib/permit-rules'
 import { emailProblem, splitAddresses, type Suggested } from '@/lib/permit-email'
+import { newPart, type PermitReply } from '@/lib/permit-reply'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // One permit, opened from the list: where it is on its four steps, the ONE
@@ -177,10 +178,12 @@ export interface PanelNav { pos: number; total: number; prev: () => void; next: 
  * full-screen drawer that can be swiped away, with the buttons pinned below.
  */
 export function PermitPanel({
-  projectId, permit, rounds, items, shares, historyOk, canEdit, docked, nav, onChanged, onClose, onEdit, onDelete, title, answerNow,
+  projectId, permit, rounds, items, shares, replies = [], historyOk, canEdit, docked, nav, onChanged, onClose, onEdit, onDelete, title, answerNow,
 }: {
   projectId: string
   permit: PanelPermit
+  /** What the township emailed back to this permit's own address. */
+  replies?: PermitReply[]
   /** Opened from a row's "Their answer": start on the answer choices. */
   answerNow?: boolean
   rounds: PermitRound[]
@@ -202,7 +205,7 @@ export function PermitPanel({
   const [blocked, setBlocked] = useState(false)
   const holdStill = sharing || blocked
   const body = (
-    <PanelBody projectId={projectId} permit={permit} rounds={rounds} items={items} shares={shares} historyOk={historyOk}
+    <PanelBody projectId={projectId} permit={permit} rounds={rounds} items={items} shares={shares} replies={replies} historyOk={historyOk}
       canEdit={canEdit} nav={nav} onChanged={onChanged} onClose={onClose} onEdit={onEdit} onDelete={onDelete}
       onShare={() => setSharing(true)} title={title} answerNow={answerNow} onBlockSwipe={setBlocked} />
   )
@@ -251,9 +254,9 @@ function ShareFor({ projectId, permit, rounds, items, shares, onClose, onShared 
 }
 
 function PanelBody({
-  projectId, permit, rounds: roundsIn, items, shares, historyOk, canEdit, nav, onChanged, onClose, onEdit, onDelete, onShare, title, answerNow, onBlockSwipe,
+  projectId, permit, rounds: roundsIn, items, shares, replies, historyOk, canEdit, nav, onChanged, onClose, onEdit, onDelete, onShare, title, answerNow, onBlockSwipe,
 }: {
-  projectId: string; permit: PanelPermit; rounds: PermitRound[]; items: PermitItem[]; shares: PermitShare[]
+  projectId: string; permit: PanelPermit; rounds: PermitRound[]; items: PermitItem[]; shares: PermitShare[]; replies: PermitReply[]
   historyOk: boolean; canEdit: boolean; nav?: PanelNav
   onChanged: () => void; onClose: () => void; onEdit?: () => void; onDelete?: () => void; onShare: () => void; title?: string
   answerNow?: boolean
@@ -292,6 +295,10 @@ function PanelBody({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [emailing, setEmailing] = useState(false)
+  // The emailed reply an answer is being recorded from - its attachments go
+  // with the answer, and it is not offered again afterwards.
+  const [fromReply, setFromReply] = useState<string | null>(null)
+  const latestReply = [...replies].reverse().find(r => !r.used_at) ?? null
   // A dialog over the drawer: the drawer must not swipe away under it.
   useEffect(() => { onBlockSwipe?.(emailing) }, [emailing, onBlockSwipe])
 
@@ -300,7 +307,7 @@ function PanelBody({
     setNote(''); setNewAsk(''); setSendFiles([]); setOtherDay(false); setSentOn(todayIso()); setExpectedBy('')
     setAnswering(!!answerNow); setApproving(false); setAnsweredOn(todayIso())
     setFNo(permit.permit_number ?? ''); setFIssued(permit.issued_date ?? ''); setFExp(permit.expiry_date ?? '')
-    setPermitFile(null); setReadNote(''); setError('')
+    setPermitFile(null); setReadNote(''); setError(''); setFromReply(null)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [permit.id, answerNow])
   useEffect(() => { setUseLinks(new Set(fromLinks.map(u => u.id))) }, [fromLinks])
@@ -403,12 +410,15 @@ function PanelBody({
   }
 
   // ── answer ──
-  async function answer(outcome: Outcome) {
+  async function answer(outcome: Outcome, extra: { items?: string[]; reply?: string | null } = {}) {
     if (!st.waiting) return
     const fd = new FormData()
     fd.append('outcome', outcome)
     fd.append('outcome_on', answeredOn)
     useLinks.forEach(id => fd.append('share_upload', id))
+    const replyId = extra.reply !== undefined ? extra.reply : fromReply
+    if (replyId) fd.append('inbound', replyId)
+    if (outcome === 'corrections') (extra.items ?? []).forEach(i => fd.append('items', i))
     if (outcome === 'approved') {
       fd.append('permit_number', fNo)
       fd.append('issued_date', fIssued)
@@ -416,7 +426,24 @@ function PanelBody({
       if (permitFile) fd.append('files', permitFile)
     }
     const ok = await form(outcome, `${base}/rounds/${st.waiting.id}`, 'PATCH', fd, 'recording the answer')
-    if (ok) { setAnswering(false); setApproving(false); setPermitFile(null); setReadNote('') }
+    if (ok) { setAnswering(false); setApproving(false); setPermitFile(null); setReadNote(''); setFromReply(null) }
+  }
+
+  // "Use this answer" off a reply AI has read. Corrections and rejections are
+  // recorded as read; an approval opens the issue form filled in, because a
+  // permit number and issue date are what a person signs off on.
+  function applyReply(r: PermitReply) {
+    const sg = r.suggestion
+    if (!sg || sg.outcome === 'none') return
+    if (sg.outcome === 'approved') {
+      setFromReply(r.id)
+      setAnswering(true); setApproving(true)
+      if (sg.permit_number) setFNo(sg.permit_number)
+      setFIssued(sg.issued_date ?? (fIssued || answeredOn))
+      if (sg.expiry_date) setFExp(sg.expiry_date)
+      return
+    }
+    void answer(sg.outcome, { items: sg.items, reply: r.id })
   }
 
   async function readWithAi(file: File) {
@@ -662,6 +689,12 @@ function PanelBody({
                   </>
                 )}
 
+                {st.stage === 'city' && !answering && latestReply && (
+                  <ReplyCard reply={latestReply} today={today} canEdit={canEdit} busy={!!busy}
+                    onUse={() => applyReply(latestReply)}
+                    onAnswerMyself={() => { setFromReply(latestReply.id); setAnswering(true) }} />
+                )}
+
                 {st.stage === 'city' && answering && canEdit && (
                   <div className="flex flex-col gap-3">
                     <div className="grid grid-cols-2 gap-2">
@@ -748,6 +781,8 @@ function PanelBody({
               </section>
 
               <History rounds={rounds} items={items} who={st.who} today={today} />
+
+              {replies.length > 0 && <Replies replies={replies} today={today} />}
 
               {shares.length > 0 && (
                 <section>
@@ -949,6 +984,96 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+const OUTCOME_READ: Record<string, string> = {
+  approved: 'Approved', corrections: 'Corrections needed', rejected: 'Rejected', none: 'Not an answer',
+}
+
+/**
+ * "The township replied" - on a permit that is with them. What AI read is a
+ * SUGGESTION: Use this answer records it (an approval opens the issue form
+ * filled in), Answer myself opens the choices with the reply's files attached.
+ */
+function ReplyCard({ reply, today, canEdit, busy, onUse, onAnswerMyself }: {
+  reply: PermitReply; today: string; canEdit: boolean; busy: boolean
+  onUse: () => void; onAnswerMyself: () => void
+}) {
+  const sg = reply.suggestion
+  const who = reply.from_name || reply.from_email || 'They'
+  const usable = reply.suggestion_status === 'ready' && sg && sg.outcome !== 'none'
+  return (
+    <div className="space-y-2 rounded-lg border border-line bg-panel p-3">
+      <p className="text-sm font-semibold text-ink">
+        <Mail className="mr-1.5 inline h-4 w-4 text-info" />{who} replied {dayLabel(reply.received_at.slice(0, 10), today)}
+      </p>
+      {reply.subject && <p className="truncate text-xs text-muted-fg">{reply.subject}</p>}
+      {reply.suggestion_status === 'pending' && <p className="text-sm text-muted-fg">Reading it...</p>}
+      {usable && sg && (
+        <div className="space-y-1 rounded-md bg-surface px-3 py-2">
+          <p className="text-sm text-ink"><span className="font-semibold">{OUTCOME_READ[sg.outcome]}</span>{sg.summary ? ` - ${sg.summary}` : ''}</p>
+          {sg.items.length > 0 && (
+            <ul className="list-disc pl-5 text-sm text-ink-soft">{sg.items.map(i => <li key={i} className="break-words">{i}</li>)}</ul>
+          )}
+          {sg.outcome === 'approved' && (sg.permit_number || sg.issued_date) && (
+            <p className="text-sm text-ink-soft">{[sg.permit_number && `#${sg.permit_number}`, sg.issued_date && `issued ${dayLabel(sg.issued_date, today)}`, sg.expiry_date && `expires ${dayLabel(sg.expiry_date, today)}`].filter(Boolean).join(', ')}</p>
+          )}
+          <p className="text-xs text-faint">Read by AI - check it before you use it.</p>
+        </div>
+      )}
+      {(reply.suggestion_status === 'none' || (reply.suggestion_status === 'ready' && sg?.outcome === 'none')) && (
+        <p className="text-sm text-muted-fg">{sg?.summary || 'It does not read as an answer yet.'}</p>
+      )}
+      {(reply.suggestion_status === 'failed' || reply.suggestion_status === 'skipped') && (
+        <p className="text-sm text-muted-fg">{reply.suggestion_status === 'skipped' ? 'Not read by AI - this month\'s AI scans are used up.' : 'AI could not read it.'} Open it below and record what they said.</p>
+      )}
+      {reply.attachments.length > 0 && (
+        <div className="flex flex-wrap gap-1.5">{reply.attachments.map(f => <FileChip key={f.url} f={f} />)}</div>
+      )}
+      {canEdit && (
+        <div className="row-even lg:flex lg:flex-wrap gap-2">
+          {usable && <Button className="min-h-11" onClick={onUse} disabled={busy}>{sg?.outcome === 'approved' ? 'Use this - check the details' : 'Use this answer'}</Button>}
+          <Button variant="outline" className="min-h-11" onClick={onAnswerMyself}>Answer myself</Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Every reply emailed to this permit's address, newest first. */
+function Replies({ replies, today }: { replies: PermitReply[]; today: string }) {
+  return (
+    <section>
+      <h3 className="mb-2.5 text-[13px] font-bold text-ink">Replies</h3>
+      <div className="divide-y divide-line-soft rounded-lg border border-line">
+        {[...replies].reverse().map(r => (
+          <div key={r.id} className="space-y-1 px-3 py-2.5">
+            <p className="text-sm text-ink">
+              <span className="font-medium">{r.from_name || r.from_email || 'Unknown sender'}</span>
+              <span className="text-muted-fg"> - {dayLabel(r.received_at.slice(0, 10), today)}{r.used_at ? ', used as their answer' : ''}</span>
+            </p>
+            {r.subject && <p className="truncate text-xs text-muted-fg">{r.subject}</p>}
+            <ReplyText text={newPart(r.text_body) || r.text_body || ''} />
+            {r.attachments.length > 0 && <div className="flex flex-wrap gap-1.5">{r.attachments.map(f => <FileChip key={f.url} f={f} />)}</div>}
+            {r.forwarded_to && <p className="text-xs text-faint">A copy went to {r.forwarded_to}.</p>}
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+/** Plain text only - HTML from outside the company is never rendered. Folds past five lines. */
+function ReplyText({ text }: { text: string }) {
+  const [all, setAll] = useState(false)
+  if (!text.trim()) return <p className="text-sm italic text-faint">No text in the email.</p>
+  const long = text.length > 320 || text.split('\n').length > 5
+  return (
+    <div>
+      <p className={cn('whitespace-pre-line break-words text-sm text-ink-soft', long && !all && 'line-clamp-5')}>{text}</p>
+      {long && <button type="button" onClick={() => setAll(v => !v)} className="min-h-9 text-sm font-medium text-accent-fg hover:underline">{all ? 'Show less' : 'Show all'}</button>}
     </div>
   )
 }

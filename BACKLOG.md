@@ -506,11 +506,10 @@ What a cron would need, if we decide the wait is worse than the silence:
 - **Email/SMS for inspection notifications** (currently in-app bell only).
 - **Inspections on the per-project Schedule tab** (currently on Master Calendar).
 - **Permits - what the first cut left out** (permit rounds shipped Nov 2026):
-  - **Forward the township's email into the permit.** A per-permit (or
-    per-development) inbound address, so a reply lands in that permit's
-    history with its attachments and the corrections list is read out of it.
-    This is what actually replaces the 250-email thread rather than
-    organising around it. Needs inbound email, which SyteNav does not have.
+  - **An email the township sends that is NOT a reply to Email it.** Replies
+    to a permit's own address land on it (see Recently shipped); a fresh email
+    to the GC's inbox still has to be recorded by hand. Forwarding it to the
+    permit address would work today but nothing tells anyone that.
   - **Claude cannot log a round yet.** `update_permit` still sets fields and
     status (and is refused a status the history contradicts); a
     `log_permit_submission` / `record_permit_answer` pair belongs in
@@ -719,6 +718,7 @@ and why:
 - **Sub "Edit project" on an awarded job.** The My Jobs job header has an edit pencil that PATCHes the GC's project; on the vendor role it is refused. It belongs on a sub's OWN jobs only.
 
 ## ✅ Recently shipped (for reference)
+- **The township's reply lands on the permit** (Nov 2026). Each emailed permit gets its own reply address (`permit-<token>@reply.sytenav.com`, SendGrid Inbound Parse -> `/api/inbound/email`); the reply and its attachments are stored on the permit, forwarded to the sender, and AI suggests the answer for a person to press Use this answer. Setup: `docs/inbound-email.md`.
 
 - Email a permit to the township (#677): Email it beside I sent it - the attached files go as a Sharing link tied to the permit (uploads back land on it), the sender is copied (`OutgoingEmail.cc`, `copyList`) and is the reply-to, and the round is logged only once the email has gone (`submitRound`'s `beforeInsert`; a failed send deletes the link and logs nothing). Address from the Directory (exact name, one match) or the last one that township was emailed at; Save it creates or fills the Directory entry. Not: filing through a township's online portal, or reading their replies from an inbox (inbound email, still below).
 - Permits keep their back and forth (#668, files and sharing #669): each permit has rounds (a submission and the answer to it - approved, corrections, rejected - with files both ways) and items (what the reviewer asked for, ticked off). Who has it now is derived, never stored: with the reviewer since a date (Chase past the promised date or 21 days), with us N items to fix, ready to resubmit, approved. Once rounds exist they decide pending/approved/rejected, refused at the PATCH too. A development's Permits tab has a board (houses x permit types) with bulk add / log submission / record corrections across houses. Migration 157. Then: a punch-list item holds the file that fixes it and the resubmission carries them; Approved reads the permit with AI and the latest approved file becomes `permits.file_url`; Share from the permit through the Sharing link (`file_shares.permit_id`, client one tap), with link uploads shown on the permit and usable in the answer; Files > Permits reads it all off the permit. Migration 158. Then the redesign (#670): the list grouped Your move / With the city / Issued off one `permitStage`, rows with the next step, a 4-step bar and one button; the permit opens in a side panel (full screen on a phone, buttons pinned) on one next-step card; corrections can be recorded before their list; Renew for an expired permit; Close out (status `closed`, migration 159).

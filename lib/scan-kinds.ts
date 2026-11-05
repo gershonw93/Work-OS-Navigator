@@ -18,6 +18,8 @@ export const SCAN_KINDS = [
   'submittal',
   'material',
   'lot-list',
+  // A township's emailed reply, read into a suggested answer on the permit.
+  'permit-reply',
 ] as const
 
 export type ScanKind = (typeof SCAN_KINDS)[number]
