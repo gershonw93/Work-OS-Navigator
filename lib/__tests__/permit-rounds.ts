@@ -324,4 +324,8 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
   ok((pg.match(/placeholder="Name the permit, e\.g\. Tree Removal"/g) ?? []).length === 2 && /Other - name it/.test(pg),
     '...and in Add Permit, both forms - "Other" asks for the name')
 }
+// "add asks makes sense to mark as sent?" - the label was jargon. Corrections
+// recorded with no list read as what they are: it needs changes.
+ok(!/'Add asks'/.test(code('lib/permit-rounds.ts')) && /: st\.rejected \? 'Rejected' : 'Needs changes'/.test(code('lib/permit-rounds.ts')),
+  'corrections with no list yet read "Needs changes", not "Add asks"')
 done()
