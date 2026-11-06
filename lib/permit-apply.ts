@@ -59,7 +59,8 @@ export function applyLabel(how: ApplyHow | null): string | null {
 export function emailWarning(how: ApplyHow | null, name: string): string | null {
   if (!how || how.method === 'email') return null
   const who = name.trim() || 'This township'
+  // Short and blunt - the long, polite version was read past.
   return how.method === 'in_person'
-    ? `${who} takes permit applications in person, according to your Directory. Email it only if they have told you email is fine.`
-    : `${who} takes permit applications on their website, according to your Directory. Email it only if they have told you email is fine.`
+    ? `${who} does NOT accept applications by email - only in person.`
+    : `${who} does NOT accept applications by email - only on their website.`
 }
