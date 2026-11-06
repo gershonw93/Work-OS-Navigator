@@ -369,7 +369,7 @@ export function permitStanding(
     : st.stage === 'closed' ? 'Closed'
     : st.openAsks ? `${st.openAsks} to fix`
     : st.asks.length ? 'Resubmit'
-    : st.rejected ? 'Rejected' : 'Add asks'
+    : st.rejected ? 'Rejected' : 'Needs changes'
   const tone: StandingTone = st.stage === 'draft' ? 'neutral'
     : st.stage === 'city' ? (st.chase ? 'warn' : 'info')
     : st.stage === 'renew' || (st.rejected && !st.asks.length) ? 'danger'
