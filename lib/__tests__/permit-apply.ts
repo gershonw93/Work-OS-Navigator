@@ -54,4 +54,12 @@ ok(/for \(const t of addTypes\)/.test(board) && /action: 'add', permit_type: t, 
   '...sent as the same one-type request per type, so every house goes through the single-permit write')
 ok(/One type that did not come back must not hide the others/.test(read('components/permits/permit-board.tsx')),
   '...and one type failing still reports the rest')
+// "i cant change the type" - Could not save changes. Every line above read and
+// wrote companies.extra, and the column had never been created: the edit
+// failed, the create silently dropped the fields, and Email it's lookup
+// errored. A type that describes no table is checked by nothing - so this
+// asserts the column exists in the migrations, not just in the code.
+ok(/ALTER TABLE public\.companies ADD COLUMN IF NOT EXISTS extra jsonb/.test(read('supabase/migrations/163_companies_extra.sql'))
+  && /ALTER TABLE public\.companies ADD COLUMN IF NOT EXISTS extra jsonb/.test(read('supabase/migrations/_combined_008-163.sql')),
+  'companies.extra exists - in its migration and in the combined file')
 done()
