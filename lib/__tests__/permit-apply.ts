@@ -14,9 +14,11 @@ ok(applyHowOf({ apply_method: 'portal', apply_url: 'x.gov' })?.url === 'https://
 ok(applyHowOf(null) === null && applyHowOf({}) === null, 'a card nobody has set says nothing')
 ok(applyLabel({ method: 'in_person', url: null }) === 'In person', 'the card prints the way in words')
 
-ok(/in person/.test(emailWarning({ method: 'in_person', url: null }, 'Toms River Township') ?? '')
-  && /website/.test(emailWarning({ method: 'portal', url: null }, 'Lakewood') ?? ''),
-  'in person or website: Email it warns, naming the township')
+ok(emailWarning({ method: 'in_person', url: null }, 'Toms River Township') === 'Toms River Township does NOT accept applications by email - only in person.'
+  && /does NOT accept .* only on their website/.test(emailWarning({ method: 'portal', url: null }, 'Lakewood') ?? ''),
+  'in person or website: Email it warns, short and blunt, naming the township ("stronger and shorter")')
+ok(/border-danger\/40 bg-danger-tint px-3 py-2\.5 text-sm font-semibold text-danger/.test(code('components/permits/permit-panel.tsx')),
+  '...in red, not amber')
 ok(emailWarning({ method: 'email', url: null }, 'X') === null && emailWarning(null, 'X') === null,
   'by email, or not set: no warning - an unset card warns nobody')
 

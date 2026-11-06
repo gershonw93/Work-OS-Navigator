@@ -958,8 +958,8 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
         </div>
         <div className="space-y-4 px-5 py-5">
           {warning && (
-            <p className="flex items-start gap-2 rounded-lg border border-warn/40 bg-warn-tint px-3 py-2.5 text-sm text-ink">
-              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />{warning}
+            <p role="alert" className="flex items-start gap-2 rounded-lg border border-danger/40 bg-danger-tint px-3 py-2.5 text-sm font-semibold text-danger">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />{warning}
             </p>
           )}
           {loading ? (
@@ -1064,7 +1064,8 @@ function QuickSend({ toName, toEmail, source, mine, copyMe, setCopyMe, offerSave
       <p className="text-sm text-ink-soft">
         {fileCount ? `${fileCount} file${fileCount === 1 ? '' : 's'} go with it` : 'No files attached - close this and use Attach what you sent first, or send it as a message only.'}
       </p>
-      <button type="button" onClick={onMore} className="min-h-11 text-sm font-medium text-accent hover:underline">
+      {/* Quiet on purpose: lime text on white was hard to read, and this is the side door, not the action. */}
+      <button type="button" onClick={onMore} className="min-h-11 text-sm text-muted-fg underline underline-offset-2 hover:text-ink">
         Change the address or message, or copy someone else
       </button>
     </div>
