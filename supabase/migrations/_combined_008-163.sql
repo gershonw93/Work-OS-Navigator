@@ -4969,3 +4969,6 @@ CREATE INDEX IF NOT EXISTS contact_messages_visitor_idx ON contact_messages (vis
 CREATE INDEX IF NOT EXISTS contact_messages_created_idx ON contact_messages (created_at DESC);
 
 ALTER TABLE contact_messages ENABLE ROW LEVEL SECURITY;
+
+-- 163_companies_extra.sql
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS extra jsonb;

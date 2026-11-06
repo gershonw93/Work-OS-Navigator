@@ -1,0 +1,12 @@
+-- 163: companies.extra - the column the Directory has been writing to all along.
+--
+-- An inspector / authority card keeps its extra facts in `extra` (jsonb):
+-- jurisdiction, cert number, specialty, website, the inspections they do, and
+-- how they take permit applications (lib/permit-apply.ts). The code has read
+-- and written it since the Directory grew those fields - and the column was
+-- never created. Supabase answered the create with an error the route caught
+-- and retried WITHOUT the fields (so they vanished silently), and answered
+-- every edit of an inspector card with "Could not save changes" - reported
+-- the first time somebody set how a township takes applications. The Email it
+-- lookup selects it too, so the township's address could not be found.
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS extra jsonb;
