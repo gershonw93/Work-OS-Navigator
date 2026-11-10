@@ -1,0 +1,16 @@
+[
+  {"id": "01-intro", "text": "This is SyteNav: one place to run your construction jobs, from the first quote to the final invoice."},
+  {"id": "02-dashboard", "text": "The dashboard shows every active job, what's due today, and what needs your attention."},
+  {"id": "03-project", "text": "Open a project, like Maple Street Residences. Everything for this job lives under one header."},
+  {"id": "04-tabs", "text": "The menu is grouped the way a job runs: Field, Buyout, Finance, and Docs."},
+  {"id": "05-schedule", "text": "The schedule lays out each trade on a timeline, linked to the trade it waits on."},
+  {"id": "06-cascade", "text": "Move one date, and SyteNav shows who else shifts before anything is saved, or anyone is told."},
+  {"id": "07-daily-logs", "text": "Daily logs capture weather, crew, and photos from the site, so the record writes itself."},
+  {"id": "08-inspections", "text": "Inspections count down to the visit, and warn the field crew two business days ahead."},
+  {"id": "09-budget", "text": "The budget compares what you estimated with what you've committed and spent, line by line."},
+  {"id": "10-bills", "text": "Bills from subs arrive waiting for approval. Nothing is paid, or pushed anywhere, until a person says yes."},
+  {"id": "11-client-billing", "text": "On the other side, Billing the client tracks what you've invoiced and what's been paid."},
+  {"id": "12-change-orders", "text": "Change orders keep scope changes and their cost in writing, before the work is done."},
+  {"id": "13-portal", "text": "Share a private portal link, so your client sees progress and invoices without another phone call."},
+  {"id": "14-outro", "text": "SyteNav. Less chasing, fewer leaks, and every job in one place."}
+]

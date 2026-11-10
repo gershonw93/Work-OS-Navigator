@@ -435,7 +435,7 @@ console.log('\nschedule-cascade')
 // ── the review screen is a real overlay ──────────────────────────────────────
 {
   const review = code('components/schedule/cascade-review.tsx')
-  ok(/className="overlay"/.test(review), 'the review screen uses .overlay, not a hand-rolled fixed inset-0')
+  ok(/className="overlay[\s"]/.test(review), 'the review screen uses .overlay, not a hand-rolled fixed inset-0')
   ok(/data-overlay/.test(review), '...and carries data-overlay, so the page behind it freezes')
   ok(!/max-h-\[90vh\]/.test(review), '...and does not re-add a vh cap, which knows nothing about the notch')
   ok(/row-even/.test(review), 'its controls reach both edges on a phone')
