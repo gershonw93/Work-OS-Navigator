@@ -1,0 +1,5 @@
+# Models, venv and every rendered artifact are rebuilt by run.sh.
+.cache/
+out/
+local-db/supabase/.temp/
+local-db/supabase/.branches/
