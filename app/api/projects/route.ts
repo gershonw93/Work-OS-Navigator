@@ -196,6 +196,7 @@ export async function POST(request: Request) {
   // it always was: nothing under lib/writes reaches QuickBooks.
   const result = await createProject(admin, {
     companyId: profile.company_id,
+    userId: user.id,
     body,
     afterCustomerCreated: id => pushCustomer(admin, id),
   })

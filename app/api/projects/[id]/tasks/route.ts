@@ -23,7 +23,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
   const { data: profile } = await db.from('profiles').select('role, full_name').eq('id', user.id).single()
 
   const [{ data: members }, { data: subcontracts }] = await Promise.all([
-    db.from('project_team_members').select('id, name, role').eq('project_id', params.id).order('name'),
+    db.from('project_team_members').select('id, name, role, profile_id').eq('project_id', params.id).order('name'),
     db.from('subcontracts').select('id, scope, trade, companies(id, name)').eq('project_id', params.id).order('created_at'),
   ])
 
@@ -100,9 +100,15 @@ export async function GET(request: Request, { params }: { params: { id: string }
     assignees: assigneesByTask[t.id] ?? [],
   }))
 
+  // WHICH CREW ROW IS THE PERSON ASKING, so the picker can offer "Me". Only
+  // by the profile link: a name is not a key, and the "Me" button links an
+  // email-only row the first time it is pressed (lib/crew-self.ts).
+  const meMemberId = (members ?? []).find((m: any) => m.profile_id === user.id)?.id ?? null
+
   return NextResponse.json({
     tasks: tasksWithAssignees,
-    members: members ?? [],
+    members: (members ?? []).map(({ profile_id: _p, ...m }: any) => m),
+    meMemberId,
     subcontracts: subcontracts ?? [],
   })
 }

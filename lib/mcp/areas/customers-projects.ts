@@ -228,6 +228,7 @@ export const CUSTOMERS_PROJECTS_WRITE: WriteToolDef[] = [
 
       const result = await createProject(db, {
         companyId: actor.companyId!,
+        userId: actor.userId,
         body: {
           name: str(args.name), address: str(args.address), client, type,
           start_date: args.start_date, end_date: args.end_date ?? null, customer_id: customerId,

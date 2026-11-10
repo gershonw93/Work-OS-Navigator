@@ -13,12 +13,13 @@ import { canvasScale } from '@/lib/canvas-limits'
 import { parsePageInput, stepPage } from '@/lib/plan-page'
 import {
   ArrowLeft, MapPin, Plus, Minus, X, Loader2, ChevronLeft, ChevronRight, Trash2, ExternalLink,
-  Maximize2, Minimize2, List,
+  Download, Maximize2, Minimize2, List,
 } from 'lucide-react'
 import { parseDate, formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { usePermissions } from '@/lib/use-permissions'
+import { useNativePlatform } from '@/lib/use-native'
 
 interface Plan { id: string; name: string; plan_type: string; file_url: string }
 interface Pin {
@@ -158,6 +159,26 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
   // `plan.file_url` still backs the "Open the file" link, which should keep
   // going to the original.
   const fileSrc = `/api/projects/${params.id}/plans/${params.planId}/file`
+  // The original, saved rather than opened - named after the plan, not after
+  // the stored object (lib/plan-download.ts).
+  const downloadSrc = `${fileSrc}?download=1`
+  const { isNative } = useNativePlatform()
+
+  // In the iOS app a link to an attachment goes nowhere: the web view has no
+  // downloads folder to put it in. The system browser does (Share -> Save to
+  // Files), but it does not carry our cookie, so it is handed the signed link
+  // rather than this route.
+  async function downloadInApp() {
+    try {
+      const res = await fetch(`${downloadSrc}&link=1`)
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json?.url) throw new Error(json?.error || 'The file could not be prepared.')
+      const { Browser } = await import('@capacitor/browser')
+      await Browser.open({ url: json.url })
+    } catch (e: any) {
+      notify(e?.message || 'The file could not be downloaded.')
+    }
+  }
 
   // Render PDF page to canvas (pdfjs). Images render as a plain <img>.
   useEffect(() => {
@@ -318,6 +339,13 @@ export default function PlanViewerPage({ params }: { params: { id: string; planI
           <span className="w-12 shrink-0 text-center text-xs text-muted-fg">{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom(z => Math.min(4, Math.round((z + 0.25) * 100) / 100))} className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface"><Plus className="h-4 w-4" /></button>
           <a href={plan.file_url} target="_blank" rel="noreferrer" className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface" title="Open the file"><ExternalLink className="h-4 w-4" /></a>
+          {isNative ? (
+            <button type="button" onClick={downloadInApp} aria-label="Download the file" title="Download the file"
+              className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface"><Download className="h-4 w-4" /></button>
+          ) : (
+            <a href={downloadSrc} download aria-label="Download the file" title="Download the file"
+              className="rounded-lg border border-line p-2 text-muted-fg hover:bg-surface"><Download className="h-4 w-4" /></a>
+          )}
           <button onClick={() => setShowList(true)} className="relative rounded-lg border border-line p-2 text-muted-fg hover:bg-surface" title="All pins">
             <List className="h-4 w-4" />
             {pins.length > 0 && <span className="absolute -top-1.5 -right-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 text-[10px] font-bold text-accent-ink">{pins.length}</span>}
