@@ -1225,6 +1225,15 @@ which lays real markup out in headless Chromium.
   tooltip is the exception: `InfoHint` measures, floats as a fixed portal
   (`lib/hint-position.ts`, pure and tested) and CLOSES on scroll. Never hide one
   with `visibility` - hidden is not gone: it still has a width.
+- **A PANEL THAT DOES NOT COVER THE PAGE IS NOT AN OVERLAY, AND SAYS SO.**
+  The development board's permit drawer dimmed and blocked the whole page, so
+  every click on the board closed it instead - reported as "when the side
+  window is open i cant click anywhere on the site". On a wide screen it is
+  `.side-panel` (globals.css): the container passes clicks through, only the
+  panel takes them, no `data-overlay`, Escape and X close it. That is safe
+  ONLY because it is pinned to the visible viewport; a panel placed from a
+  measured rectangle is still an overlay. On a phone it stays `.overlay-drawer`.
+  Pinned in `permit-reminders.ts`.
 - **A MENU THAT COVERS THE PAGE IS AN OVERLAY, WHATEVER IT IS CALLED.**
   Reported against the marketing nav: "when the menu is open, I can still
   scroll on mobile". It is not a dialog, so it used neither `.overlay` nor

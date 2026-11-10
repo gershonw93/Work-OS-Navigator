@@ -1,5 +1,6 @@
 'use client'
 
+import { useMinWidth } from '@/lib/use-min-width'
 import type { AuthorityHow } from '@/lib/permit-apply'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { ContactPicker } from '@/components/contact-picker'
@@ -85,8 +86,8 @@ function CellChip({ cell, onOpen, faded }: { cell: BoardCell | undefined; onOpen
 }
 
 /** The panel a cell opens: the same one the Permits list opens, as a drawer. */
-function PermitDrawer({ data, rowName, permitId, canEdit, onChanged, onClose }: {
-  data: BoardData; rowName: string; permitId: string; canEdit: boolean; onChanged: () => void; onClose: () => void
+function PermitDrawer({ data, rowName, permitId, canEdit, modal, onChanged, onClose }: {
+  data: BoardData; rowName: string; permitId: string; canEdit: boolean; modal: boolean; onChanged: () => void; onClose: () => void
 }) {
   const permit = data.permits.find(p => p.id === permitId)
   if (!permit) return null
@@ -97,7 +98,7 @@ function PermitDrawer({ data, rowName, permitId, canEdit, onChanged, onClose }: 
       shares={(data.shares ?? []).filter(x => x.permit_id === permit.id)}
       replies={(data.replies ?? []).filter(x => x.permit_id === permit.id)}
       applyHow={data.authorities?.[(permit.issuing_authority ?? '').trim()] ?? null}
-      historyOk={data.history} canEdit={canEdit} docked={false} onChanged={onChanged} onClose={onClose} />
+      historyOk={data.history} canEdit={canEdit} docked={false} modal={modal} onChanged={onChanged} onClose={onClose} />
   )
 }
 
@@ -453,6 +454,9 @@ export function PermitBoard({ data, canEdit, onChanged }: { data: BoardData; can
   const [open, setOpen] = useState<{ permitId: string; rowName: string } | null>(null)
   const [bulk, setBulk] = useState(false)
   const today = todayIso()
+  // On a wide screen the drawer leaves the board usable: tapping another house
+  // swaps the panel instead of the click being eaten by a backdrop.
+  const wide = useMinWidth(1024)
 
   const cells = useMemo(() => boardCells(data.permits, data.rounds, data.items, today), [data, today])
   const columns = useMemo(() => boardColumns(data.permits), [data.permits])
@@ -587,7 +591,7 @@ export function PermitBoard({ data, canEdit, onChanged }: { data: BoardData; can
       )}
 
       {open && (
-        <PermitDrawer data={data} rowName={open.rowName} permitId={open.permitId} canEdit={canEdit}
+        <PermitDrawer data={data} rowName={open.rowName} permitId={open.permitId} canEdit={canEdit} modal={!wide}
           onChanged={onChanged} onClose={() => setOpen(null)} />
       )}
       {bulk && (
