@@ -78,7 +78,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'It suggests who to apply to, from the job\'s address',
-        text: 'On a township\'s Directory card, pick the towns and counties it covers from a map search and the permit types it issues. Add a permit and the township is filled in from the job\'s address - the township it is really in, not just the mailing town - and picking one that does not issue that permit, or does not cover the job, warns you and names the right one.',
+        text: 'On a township\'s Directory card, pick the towns and counties it covers from a map search - each pick lists the towns around it, so neighbours are a tap away - and the permit types it issues. Add a permit and the township is filled in from the job\'s address - the township it is really in, not just the mailing town - and picking one that does not issue that permit, or does not cover the job, warns you and names the right one.',
         help: 'permits',
       },
       {
