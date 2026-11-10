@@ -3,11 +3,13 @@ import { NextResponse } from 'next/server'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { createPermit } from '@/lib/writes/permit'
 import { permitHistory } from '@/lib/permit-history'
+import { authoritiesFor } from '@/lib/permit-authorities'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
+
 
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   // GATED. This answered anybody with a login and an id - a worker or an
@@ -29,8 +31,11 @@ export async function GET(request: Request, { params }: { params: { id: string }
   // REPORTED (`history: false`) rather than handed back as empty lists - an
   // empty history reads as "No submission logged", which is a claim about the
   // permit, not about the read.
-  const { rounds, items, shares, replies, ok } = await permitHistory(db, (permits ?? []).map(p => p.id))
-  return NextResponse.json({ permits: permits ?? [], rounds, items, shares, replies, history: ok })
+  const [{ rounds, items, shares, replies, ok }, authorities] = await Promise.all([
+    permitHistory(db, (permits ?? []).map(p => p.id)),
+    authoritiesFor(db, gate.actor.companyId, (permits ?? []).map(p => p.issuing_authority)),
+  ])
+  return NextResponse.json({ permits: permits ?? [], rounds, items, shares, replies, history: ok, authorities })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {

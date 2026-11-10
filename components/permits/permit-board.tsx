@@ -1,5 +1,6 @@
 'use client'
 
+import type { AuthorityHow } from '@/lib/permit-apply'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { ContactPicker } from '@/components/contact-picker'
 import { useMemo, useState } from 'react'
@@ -39,6 +40,8 @@ export interface BoardData {
   items: PermitItem[]
   shares?: PermitShare[]
   replies?: PermitReply[]
+  /** How each township takes applications, by the name on the permit. */
+  authorities?: Record<string, AuthorityHow>
   history: boolean
 }
 
@@ -93,6 +96,7 @@ function PermitDrawer({ data, rowName, permitId, canEdit, onChanged, onClose }: 
       items={data.items.filter(i => i.permit_id === permit.id)}
       shares={(data.shares ?? []).filter(x => x.permit_id === permit.id)}
       replies={(data.replies ?? []).filter(x => x.permit_id === permit.id)}
+      applyHow={data.authorities?.[(permit.issuing_authority ?? '').trim()] ?? null}
       historyOk={data.history} canEdit={canEdit} docked={false} onChanged={onChanged} onClose={onClose} />
   )
 }

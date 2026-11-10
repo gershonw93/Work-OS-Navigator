@@ -24,6 +24,7 @@ import {
 import type { PermitFacts } from '@/lib/permit-rules'
 import { emailProblem, splitAddresses, type Suggested } from '@/lib/permit-email'
 import { newPart, type PermitReply } from '@/lib/permit-reply'
+import { applyCardLine, type AuthorityHow } from '@/lib/permit-apply'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // One permit, opened from the list: where it is on its four steps, the ONE
@@ -178,12 +179,14 @@ export interface PanelNav { pos: number; total: number; prev: () => void; next: 
  * full-screen drawer that can be swiped away, with the buttons pinned below.
  */
 export function PermitPanel({
-  projectId, permit, rounds, items, shares, replies = [], historyOk, canEdit, docked, closing = false, nav, onChanged, onClose, onEdit, onDelete, title, answerNow,
+  projectId, permit, rounds, items, shares, replies = [], applyHow = null, historyOk, canEdit, docked, closing = false, nav, onChanged, onClose, onEdit, onDelete, title, answerNow,
 }: {
   projectId: string
   permit: PanelPermit
   /** What the township emailed back to this permit's own address. */
   replies?: PermitReply[]
+  /** How the issuing township takes applications, from its Directory card. */
+  applyHow?: AuthorityHow | null
   /** Opened from a row's "Their answer": start on the answer choices. */
   answerNow?: boolean
   rounds: PermitRound[]
@@ -207,7 +210,7 @@ export function PermitPanel({
   const [blocked, setBlocked] = useState(false)
   const holdStill = sharing || blocked
   const body = (
-    <PanelBody projectId={projectId} permit={permit} rounds={rounds} items={items} shares={shares} replies={replies} historyOk={historyOk}
+    <PanelBody projectId={projectId} permit={permit} rounds={rounds} items={items} shares={shares} replies={replies} applyHow={applyHow} historyOk={historyOk}
       canEdit={canEdit} nav={nav} onChanged={onChanged} onClose={onClose} onEdit={onEdit} onDelete={onDelete}
       onShare={() => setSharing(true)} title={title} answerNow={answerNow} onBlockSwipe={setBlocked} />
   )
@@ -256,9 +259,10 @@ function ShareFor({ projectId, permit, rounds, items, shares, onClose, onShared 
 }
 
 function PanelBody({
-  projectId, permit, rounds: roundsIn, items, shares, replies, historyOk, canEdit, nav, onChanged, onClose, onEdit, onDelete, onShare, title, answerNow, onBlockSwipe,
+  projectId, permit, rounds: roundsIn, items, shares, replies, applyHow, historyOk, canEdit, nav, onChanged, onClose, onEdit, onDelete, onShare, title, answerNow, onBlockSwipe,
 }: {
   projectId: string; permit: PanelPermit; rounds: PermitRound[]; items: PermitItem[]; shares: PermitShare[]; replies: PermitReply[]
+  applyHow: AuthorityHow | null
   historyOk: boolean; canEdit: boolean; nav?: PanelNav
   onChanged: () => void; onClose: () => void; onEdit?: () => void; onDelete?: () => void; onShare: () => void; title?: string
   answerNow?: boolean
@@ -608,6 +612,21 @@ function PanelBody({
                   <h3 className="text-[17px] font-bold leading-snug text-ink">{st.head}</h3>
                   <p className="mt-0.5 text-sm text-ink-soft">{st.sub}</p>
                 </div>
+
+                {/* How THIS township takes applications, from its Directory card -
+                    said before anybody opens Email it, not only inside it. */}
+                {sendStage && applyHow && (
+                  <div className={cn('flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm',
+                    applyHow.method === 'email' ? 'border border-line bg-panel text-ink-soft' : 'border border-danger/40 bg-danger-tint font-semibold text-danger')}>
+                    {applyHow.method === 'email' ? <Mail className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />}
+                    <span className="min-w-0">
+                      {applyCardLine(applyHow, permit.issuing_authority ?? '')}
+                      {applyHow.method === 'portal' && applyHow.url && (
+                        <> <a href={applyHow.url} target="_blank" rel="noreferrer" className="underline underline-offset-2">Open their website</a></>
+                      )}
+                    </span>
+                  </div>
+                )}
 
                 {/* What they asked for exists only once they have answered -
                     before that there is nothing to list, and an empty "They

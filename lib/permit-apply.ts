@@ -13,6 +13,8 @@
 // Pure: read by the Directory, the edit route and the Email it route.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { inspectorContactId } from './inspector-link'
+
 export type ApplyMethod = 'email' | 'in_person' | 'portal'
 
 export const APPLY_METHODS: { value: ApplyMethod; label: string }[] = [
@@ -63,4 +65,39 @@ export function emailWarning(how: ApplyHow | null, name: string): string | null 
   return how.method === 'in_person'
     ? `${who} does NOT accept applications by email - only in person.`
     : `${who} does NOT accept applications by email - only on their website.`
+}
+
+/** How a township takes applications, plus where to go when it is in person. */
+export interface AuthorityHow extends ApplyHow { address: string | null }
+
+/**
+ * Each issuing authority's Directory setting, by the name on the permit.
+ *
+ * The name must BE one Directory card - exact, case and spacing aside, and
+ * never two cards with that name (`inspectorContactId`, the same matcher the
+ * Email it lookup uses). A setting borrowed from the wrong township is worse
+ * than no setting. Names with no card, or a card that says nothing, are left
+ * out of the map.
+ */
+export function applyHowByAuthority(
+  names: (string | null | undefined)[],
+  contacts: { id: string; name: string; type?: string | null; address?: string | null; extra?: unknown }[],
+): Record<string, AuthorityHow> {
+  const out: Record<string, AuthorityHow> = {}
+  for (const name of Array.from(new Set(names.map(n => (n ?? '').trim()).filter(Boolean)))) {
+    const id = inspectorContactId(name, contacts as any)
+    const card = id ? contacts.find(c => c.id === id) : null
+    const how = card ? applyHowOf(card.extra) : null
+    if (card && how) out[name] = { ...how, address: card.address?.trim() || null }
+  }
+  return out
+}
+
+/** The line the Apply card prints for a township's setting, or null. */
+export function applyCardLine(how: AuthorityHow | null | undefined, name: string): string | null {
+  if (!how) return null
+  const who = name.trim() || 'They'
+  if (how.method === 'in_person') return `${who} takes applications in person${how.address ? ` at ${how.address}` : ''} - not by email.`
+  if (how.method === 'portal') return `${who} takes applications on their website - not by email.`
+  return `${who} takes applications by email - Email it sends it from here.`
 }

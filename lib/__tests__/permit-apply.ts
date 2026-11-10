@@ -3,7 +3,7 @@
 // and "when i start typing issuing authority it should connect to my directory".
 
 import { applyHowOf, applyLabel, cleanApplyMethod, cleanApplyUrl, emailWarning } from '../permit-apply'
-import { ok, done, code, read } from './_helpers'
+import { ok, done, code, read, combinedName } from './_helpers'
 
 ok(cleanApplyMethod('in_person') === 'in_person' && cleanApplyMethod('fax') === null && cleanApplyMethod(undefined) === null,
   'only the three ways are a setting - anything else is "not said"')
@@ -62,6 +62,6 @@ ok(/One type that did not come back must not hide the others/.test(read('compone
 // errored. A type that describes no table is checked by nothing - so this
 // asserts the column exists in the migrations, not just in the code.
 ok(/ALTER TABLE public\.companies ADD COLUMN IF NOT EXISTS extra jsonb/.test(read('supabase/migrations/163_companies_extra.sql'))
-  && /ALTER TABLE public\.companies ADD COLUMN IF NOT EXISTS extra jsonb/.test(read('supabase/migrations/_combined_008-163.sql')),
+  && /ALTER TABLE public\.companies ADD COLUMN IF NOT EXISTS extra jsonb/.test(read(`supabase/migrations/${combinedName()}`)),
   'companies.extra exists - in its migration and in the combined file')
 done()
