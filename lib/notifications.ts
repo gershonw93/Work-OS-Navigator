@@ -452,6 +452,32 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     audience: 'team', defaultAudience: ['compliance', 'edit'],
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
+  // ── Permits ─────────────────────────────────────────────────────────────
+  // "Chase" and "expires soon" were on the screen only, so they reached
+  // whoever happened to open the Permits tab. Rules in lib/permit-reminders.ts,
+  // sent by app/api/cron/permit-reminders; the reply one by the inbound email
+  // route. Audience: whoever can EDIT permits - the people who can act.
+  {
+    key: 'permit_chase', label: 'Permit to chase', group: 'Compliance',
+    description: 'A permit has been with the township past the date they promised, or three weeks with no answer. One morning message listing them.',
+    audience: 'team', defaultAudience: ['permits', 'edit'],
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
+    key: 'permit_expiring', label: 'Permit expiring', group: 'Compliance',
+    description: 'An issued permit is within 30 days of its expiry date.',
+    audience: 'team', defaultAudience: ['permits', 'edit'],
+    defaults: { inApp: true, email: true }, push: true, status: 'live',
+  },
+  {
+    key: 'permit_reply', label: 'Township replied to a permit', group: 'Compliance',
+    description: 'A township replies to a permit you emailed. The reply is saved on the permit with a suggested answer for you to confirm.',
+    audience: 'team', defaultAudience: ['permits', 'edit'],
+    alsoTold: 'whoever emailed the permit',
+    // Email OFF by default: whoever emailed the permit already gets the reply
+    // itself, forwarded. The bell is the part that was missing.
+    defaults: { inApp: true, email: false }, push: true, status: 'live',
+  },
   {
     key: 'inspection_to_schedule', label: 'Inspection to book', group: 'Compliance',
     description: 'An inspection is ready to be scheduled.',

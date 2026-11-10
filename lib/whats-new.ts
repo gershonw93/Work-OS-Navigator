@@ -66,6 +66,24 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-10',
+    title: 'Permits that need you, without opening the tab',
+    items: [
+      {
+        kind: 'new',
+        title: 'A morning message for permits to chase, and a warning before one expires',
+        text: 'Every morning SyteNav lists the permits to follow up on - with the township past the date they promised, or three weeks with no answer - in one message, and warns you 30 days before an issued permit expires. When a township replies to a permit you emailed, the bell tells you and says what AI read it as. Each has its own switches in Settings > Notifications, including who gets told.',
+        help: 'permits',
+      },
+      {
+        kind: 'improved',
+        title: 'The Apply card says how the township takes applications',
+        text: 'Set it once on the township\'s Directory card - in person, on their website or by email - and every permit from them says so on its Apply card, with the address or the link.',
+        help: 'permits',
+      },
+    ],
+  },
+  {
     date: '2026-11-04',
     title: 'Email a permit to the township',
     items: [

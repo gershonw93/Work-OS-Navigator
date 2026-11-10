@@ -5,6 +5,8 @@ import { keyMatches, messageIdFrom, newPart, parseFrom, replyConfig, replyPrompt
 import { guardScan, scanDenied } from '@/lib/scan-guard'
 import { sendEmail } from '@/lib/email'
 import { appOrigin } from '@/lib/app-url'
+import { audienceFor } from '@/lib/notification-audience'
+import { notify } from '@/lib/notify'
 import type { RoundFile } from '@/lib/permit-rounds'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -109,6 +111,7 @@ export async function POST(request: Request) {
   }
   const permitUrl = `${appOrigin()}/projects/${permit.project_id}/permits`
   const label = `${permit.permit_type} permit${permit.permit_number ? ` #${permit.permit_number}` : ''}`
+  let forwarded = false
   if (sender?.email) {
     const body = [
       `${from.name || from.email || 'The township'} replied about the ${label} at ${project.address || project.name || 'the job'}. It is saved on the permit:`,
@@ -126,6 +129,7 @@ export async function POST(request: Request) {
       replyTo: from.email,
       fromName: `${from.name || from.email || 'Township'} via SyteNav`,
     })
+    forwarded = sent.sent
     if (sent.sent) await db.from('permit_inbound_emails').update({ forwarded_to: sender.email, forwarded_at: new Date().toISOString() }).eq('id', row.id)
     else console.error('[inbound-email] forward failed', sent.reason, (sent as any).detail ?? '')
   }
@@ -133,6 +137,7 @@ export async function POST(request: Request) {
   // 3. READ IT into a suggested answer - metered like every other AI read,
   // against the company of the person who sent the email. Out of scans is
   // `skipped`, never a refusal of the reply itself.
+  let suggested: ReturnType<typeof suggestionFrom> | null = null
   try {
     const scan = await guardScan(db, senderId ? { userId: senderId, companyId: project.gc_company_id } : null, 'permit-reply', permit.project_id)
     if (scanDenied(scan)) {
@@ -152,12 +157,37 @@ export async function POST(request: Request) {
       const out = message.content[0]?.type === 'text' ? message.content[0].text : ''
       const parsed = JSON.parse(out.replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim())
       const suggestion = suggestionFrom(parsed)
+      suggested = suggestion
       await scan.succeeded()
       await db.from('permit_inbound_emails').update({ suggestion, suggestion_status: suggestion.outcome === 'none' ? 'none' : 'ready' }).eq('id', row.id)
     }
   } catch (e) {
     console.error('[inbound-email] read failed', e)
     await db.from('permit_inbound_emails').update({ suggestion_status: 'failed' }).eq('id', row.id)
+  }
+
+  // 4. RING THE BELL - last, so it can say what AI read. The person who
+  // emailed the permit plus whoever the company routes permit replies to.
+  // `inAppOnly` when the reply was forwarded to them: that copy IS their
+  // email, and a second letter about the same reply is the duplicate.
+  try {
+    const team = await audienceFor({ db, companyId: project.gc_company_id, type: 'permit_reply' })
+    const read = suggested && suggested.outcome !== 'none'
+      ? ` AI read it as ${suggested.outcome === 'approved' ? 'approved' : suggested.outcome === 'rejected' ? 'rejected' : `corrections needed${suggested.items.length ? ` (${suggested.items.length} item${suggested.items.length === 1 ? '' : 's'})` : ''}`} - check it and press Use this answer.`
+      : ' Open it on the permit and record their answer.'
+    const note = {
+      type: 'permit_reply' as const,
+      title: `${from.name || permit.issuing_authority || from.email || 'The township'} replied`,
+      message: `About the ${label} at ${project.name || project.address || 'the job'}.${read}`,
+      link: `/projects/${permit.project_id}/permits`,
+    }
+    // The sender: the bell only, when the forward already reached them.
+    if (senderId) await notify({ db, userIds: [senderId], ...note, inAppOnly: forwarded })
+    // Everybody else the company routes it to, by their own preferences.
+    const others = team.filter(id => id !== senderId)
+    if (others.length) await notify({ db, userIds: others, ...note })
+  } catch (e) {
+    console.error('[inbound-email] notify failed', e)
   }
 
   return NextResponse.json({ stored: row.id }, { status: 200 })

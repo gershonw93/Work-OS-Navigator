@@ -178,6 +178,24 @@ export function demoNotification(type: string, today: string): DemoNotification 
         message: `${SUB}'s general liability certificate expires ${inDays(21)}. They are on two of your active jobs.`,
         link: '/compliance',
       }
+    case 'permit_chase':
+      return {
+        title: '2 permits to chase',
+        message: `Building at ${PROJECT} - 23 days with Toms River Township; Electrical at Lot 7 - past the ${inDays(-2)} they promised. Time to follow up.`,
+        link: '/projects',
+      }
+    case 'permit_expiring':
+      return {
+        title: 'Permit expiring',
+        message: `Building permit #BP-2026-04417 at ${PROJECT} expires ${inDays(24)} - in 24 days. Start the renewal with Toms River Township before it lapses.`,
+        link: '/projects',
+      }
+    case 'permit_reply':
+      return {
+        title: 'Toms River Township replied',
+        message: `About the Building permit at ${PROJECT}, ${inDays(0)}. AI read it as corrections needed (3 items) - check and press Use this answer.`,
+        link: '/projects',
+      }
     case 'inspection_to_schedule':
       return {
         title: 'An inspection needs booking',

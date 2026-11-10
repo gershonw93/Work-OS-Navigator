@@ -9,6 +9,10 @@
       "schedule": "30 11 * * *"
     },
     {
+      "path": "/api/cron/permit-reminders",
+      "schedule": "35 11 * * *"
+    },
+    {
       "path": "/api/cron/trial-reminders",
       "schedule": "45 11 * * *"
     },

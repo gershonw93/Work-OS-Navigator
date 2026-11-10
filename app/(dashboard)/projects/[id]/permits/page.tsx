@@ -1,5 +1,6 @@
 'use client'
 
+import type { AuthorityHow } from '@/lib/permit-apply'
 import { useEffect, useRef, useState } from 'react'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
@@ -51,6 +52,8 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [items, setItems] = useState<PermitItem[]>([])
   const [shares, setShares] = useState<PermitShare[]>([])
   const [replies, setReplies] = useState<PermitReply[]>([])
+  // How each township takes applications, off its Directory card.
+  const [authorities, setAuthorities] = useState<Record<string, AuthorityHow>>({})
   const [historyOk, setHistoryOk] = useState(true)
   // Set only when this job is a development.
   const [board, setBoard] = useState<BoardData | null>(null)
@@ -168,6 +171,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         setItems(json.items ?? [])
         setShares(json.shares ?? [])
         setReplies(json.replies ?? [])
+        setAuthorities(json.authorities ?? {})
         setHistoryOk(json.history !== false)
       } else setFetchError(json.error ?? `Error ${res.status}`)
       void fetchBoard(token)
@@ -676,6 +680,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
           <PermitPanel key={wide ? 'docked' : 'drawer'} projectId={params.id} permit={openPermit}
             rounds={roundsFor(openPermit.id)} items={itemsFor(openPermit.id)}
             shares={shares.filter(x => x.permit_id === openPermit.id)} replies={replies.filter(x => x.permit_id === openPermit.id)}
+            applyHow={authorities[(openPermit.issuing_authority ?? '').trim()] ?? null}
             historyOk={historyOk} canEdit={canEdit}
             docked={wide} closing={closingPanel} answerNow={answerNow} onChanged={fetchPermits} onClose={closePanel}
             nav={navOf(openPermit.id)}
