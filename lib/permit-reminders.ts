@@ -12,17 +12,27 @@
 // the row - so the morning message and the list can never disagree about
 // which permits are overdue.
 //
-// ONCE EACH, AND IT RE-ARMS ON ITS OWN. A chase goes once per SUBMISSION
-// (permit_rounds.chase_reminded_at); a resubmission is a new round and can be
-// chased again. An expiry warning goes once per EXPIRY DATE
-// (permits.expiry_reminder_for); renewing moves the date, which re-arms it.
+// IT KEEPS ASKING UNTIL SOMEBODY ACTS - "if i dont follow up with an expiring
+// permit, will it keep reminding?" The first version said once and fell
+// silent. A chase now repeats every CHASE_REPEAT_DAYS while the submission is
+// still unanswered (permit_rounds.chase_reminded_at is the LAST reminder). An
+// expiring permit is warned at each step in EXPIRY_STEPS - 30 days, 7 days,
+// and once it has expired - each step once (permits.expiry_reminder_stage, for
+// permits.expiry_reminder_for). Recording the answer, renewing (the expiry
+// date moves) or closing the permit out is what stops it.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { daysBetween, permitStage, type PermitFactsForStage, type PermitItem, type PermitRound } from './permit-rounds'
 import { dayWords } from './dates'
 
-/** An issued permit is warned about this many days before it expires. */
-export const EXPIRY_WARN_DAYS = 30
+/** The steps an expiring permit is warned at: days before expiry, then -1 = expired. */
+export const EXPIRY_STEPS = [30, 7, -1] as const
+/** The earliest a warning goes - the first step. */
+export const EXPIRY_WARN_DAYS = EXPIRY_STEPS[0]
+/** An expired permit is reminded only this soon after the date - not one that lapsed last year. */
+export const EXPIRED_GRACE_DAYS = 7
+/** An unanswered submission is chased again this often. */
+export const CHASE_REPEAT_DAYS = 7
 
 export interface ReminderPermit extends PermitFactsForStage {
   id: string
@@ -30,12 +40,13 @@ export interface ReminderPermit extends PermitFactsForStage {
   permit_type: string
   permit_number?: string | null
   expiry_reminder_for?: string | null
+  expiry_reminder_stage?: number | null
 }
 
 /**
  * The open round to chase today, or null. Null when the permit is not with the
- * township, is not overdue by the screen's own rule, or this round has
- * already been chased.
+ * township, is not overdue by the screen's own rule, or this round was chased
+ * less than CHASE_REPEAT_DAYS ago - it is asked again weekly, never daily.
  */
 export function roundToChase(
   permit: ReminderPermit,
@@ -46,26 +57,45 @@ export function roundToChase(
   const st = permitStage(permit, rounds, items, today)
   if (!st.chase || !st.waiting) return null
   const round = rounds.find(r => r.id === st.waiting!.id)
-  return round && !round.chase_reminded_at ? round : null
+  if (!round) return null
+  const last = round.chase_reminded_at ? String(round.chase_reminded_at).slice(0, 10) : null
+  return !last || daysBetween(last, today) >= CHASE_REPEAT_DAYS ? round : null
+}
+
+/** The cutoff the claim compares against: a reminder before this day is due again. */
+export function chaseCutoff(today: string): string {
+  const t = Date.parse(`${today}T00:00:00Z`) - (CHASE_REPEAT_DAYS - 1) * 86_400_000
+  return new Date(t).toISOString().slice(0, 10) + 'T00:00:00Z'
+}
+
+/** The step an expiry `days` away falls in, or null outside every step. */
+export function expiryStep(days: number): number | null {
+  if (days < 0) return days >= -EXPIRED_GRACE_DAYS ? -1 : null
+  for (const step of [...EXPIRY_STEPS].filter(x => x >= 0).sort((x, y) => x - y)) if (days <= step) return step
+  return null
 }
 
 /**
- * Days until expiry when an ISSUED permit is inside the warning window and has
- * not been warned about for this expiry date yet; otherwise null. A closed
- * permit, one already past its date (the panel says Renew), and one with no
- * expiry say nothing.
+ * The expiry warning due today, or null. Due when the permit is issued (or
+ * has just lapsed - the panel says Renew), sits inside a step, and that step
+ * has not been sent for THIS expiry date. A step already passed is not sent
+ * late: a permit first seen 5 days out gets the 7-day warning, not the 30.
  */
-export function expiryWarningDays(
+export function expiryDue(
   permit: ReminderPermit,
   rounds: PermitRound[],
   items: PermitItem[],
   today: string,
-): number | null {
+): { step: number; days: number } | null {
   if (!permit.expiry_date) return null
-  if (permit.expiry_reminder_for && permit.expiry_reminder_for === permit.expiry_date) return null
-  if (permitStage(permit, rounds, items, today).stage !== 'issued') return null
+  const stage = permitStage(permit, rounds, items, today).stage
+  if (stage !== 'issued' && stage !== 'renew') return null
   const days = daysBetween(today, permit.expiry_date)
-  return days >= 0 && days <= EXPIRY_WARN_DAYS ? days : null
+  const step = expiryStep(days)
+  if (step === null) return null
+  const sentForThisDate = permit.expiry_reminder_for === permit.expiry_date && permit.expiry_reminder_stage != null
+  if (sentForThisDate && permit.expiry_reminder_stage! <= step) return null
+  return { step, days }
 }
 
 export interface ChaseLine { permitType: string; job: string; authority: string | null; days: number }
@@ -87,10 +117,17 @@ export function chaseMessage(lines: ChaseLine[]): { title: string; message: stri
 /** "Building permit #BP-1 at 3 Test Lane expires Fri Dec 4 - in 24 days." */
 export function expiryMessage(p: { permitType: string; permitNumber?: string | null; job: string; expiry: string; days: number; authority?: string | null }): { title: string; message: string } {
   const when = dayWords(p.expiry, { weekday: true }) ?? p.expiry
-  const left = p.days === 0 ? 'today' : `in ${p.days} day${p.days === 1 ? '' : 's'}`
+  const name = `${p.permitType} permit${p.permitNumber ? ` #${p.permitNumber}` : ''} at ${p.job}`
   const who = p.authority?.trim() ? ` with ${p.authority.trim()}` : ''
+  if (p.days < 0) {
+    return {
+      title: 'Permit expired',
+      message: `${name} expired on ${when}. Renew it${who} - work under an expired permit can be stopped.`,
+    }
+  }
+  const left = p.days === 0 ? 'today' : `in ${p.days} day${p.days === 1 ? '' : 's'}`
   return {
     title: 'Permit expiring',
-    message: `${p.permitType} permit${p.permitNumber ? ` #${p.permitNumber}` : ''} at ${p.job} expires ${when} - ${left}. Start the renewal${who} before it lapses.`,
+    message: `${name} expires ${when} - ${left}. Start the renewal${who} before it lapses.`,
   }
 }
