@@ -68,7 +68,7 @@ export function AdoptDialog({
   const chosen = offer.targets.find(t => t.id === targetId) ?? null
 
   return (
-    <div className="overlay" data-overlay role="dialog" aria-modal="true" aria-label="Replace a placeholder with the awarded line">
+    <div className="overlay items-center justify-center bg-black/50" data-overlay role="dialog" aria-modal="true" aria-label="Replace a placeholder with the awarded line">
       <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-line bg-panel">
         <div className="border-b border-line px-5 py-4">
           <h2 className="text-base font-semibold text-ink">

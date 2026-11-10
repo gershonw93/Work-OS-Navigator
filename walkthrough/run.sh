@@ -60,14 +60,19 @@ cd "$REPO"
 
 # ── 3. App (production build: dev-server compiles would show in the video) ──
 step "app"
-if ! curl -s -o /dev/null http://localhost:3000/login; then
+# Rebuild whenever the app's code changed since the last build, and replace
+# whatever holds port 3000 - a stale server serves chunks the new build lacks.
+STAMP="$(cd "$REPO" && { git rev-parse HEAD; git diff HEAD -- app components lib middleware.ts next.config.mjs; } | sha1sum | cut -c1-16)"
+if [ "$(cat "$HERE/.cache/build-stamp" 2>/dev/null)" != "$STAMP" ] || ! curl -s -o /dev/null http://localhost:3000/login; then
   (set -a; . "$HERE/.env.walkthrough"; set +a; npx next build >/tmp/walkthrough-build.log 2>&1)
+  fuser -k 3000/tcp >/dev/null 2>&1 || true; sleep 1
   (set -a; . "$HERE/.env.walkthrough"; set +a; nohup npx next start -p 3000 >/tmp/walkthrough-next.log 2>&1 &)
   until curl -s -o /dev/null http://localhost:3000/login; do sleep 1; done
+  echo "$STAMP" > "$HERE/.cache/build-stamp"
 fi
 
 # ── 4. Voice, then check it ─────────────────────────────────────────────────
-step "narration (Kokoro, af_heart)"
+step "narration (Kokoro, am_liam)"
 "$VENV/bin/python" "$HERE/scripts/tts.py"
 step "transcription check (Whisper small.en)"
 "$VENV/bin/python" "$HERE/scripts/verify.py" || {

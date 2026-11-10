@@ -445,6 +445,13 @@
       max(1rem, env(safe-area-inset-left));
   }
 
+  /* A fixed layer keeps its MARGIN. Rendered inside a `space-y-*` stack (the
+     schedule's cascade review is), it picked up that stack's margin-top and
+     started 24px down the screen, leaving a bright strip above the backdrop.
+     `space-y-*` is `> :not([hidden]) ~ :not([hidden])`, specificity (0,3,0),
+     so a plain `margin: 0` here would lose - hence !important. */
+  .overlay, .overlay-full, .overlay-sheet, .overlay-drawer { margin: 0 !important; }
+
   /* The panel. `min-width: 0` because a flex item defaults to min-width:auto
      and will refuse to shrink below its content - the same rule that let one
      long unbroken note stretch a card off the screen. */

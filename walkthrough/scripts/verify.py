@@ -43,7 +43,12 @@ def main():
     for line in lines:
         segs, _ = model.transcribe(pcm16k(ROOT / 'out' / 'audio' / f"{line['id']}.wav"), beam_size=5, language='en')
         heard = ' '.join(s.text.strip() for s in segs)
-        ratio = difflib.SequenceMatcher(None, words(line['text']), words(heard)).ratio()
+        want, got = words(line['text']), words(heard)
+        ratio = difflib.SequenceMatcher(None, want, got).ratio()
+        # "count down" and "countdown" are the same sound; Whisper's spacing of
+        # a compound is not a misreading, so an exact match without spaces passes.
+        if ''.join(want) == ''.join(got):
+            ratio = 1.0
         ok = ratio >= THRESHOLD
         flagged += not ok
         report.append({'id': line['id'], 'ok': ok, 'score': round(ratio, 3), 'text': line['text'], 'heard': heard})

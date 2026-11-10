@@ -31,7 +31,7 @@ new step.
 | Stage | File | What it does |
 | --- | --- | --- |
 | Data | `local-db/` | Docker Supabase on 127.0.0.1. Migrations, then `drift.sql` + `policies.sql` (columns and RLS policies production has that the migration history never created - read from production's catalog, no rows), the repo's own demo seed (`lib/seed-demo.ts`, refuses a non-local URL), then `demo-extras.sql` (schedule links, an upcoming inspection) |
-| Voice | `scripts/tts.py` | Kokoro-82M ONNX, voice `af_heart`, one WAV per line |
+| Voice | `scripts/tts.py` | Kokoro-82M ONNX, voice `am_liam`, one WAV per line |
 | Check | `scripts/verify.py` | faster-whisper `small.en` transcribes each WAV; a line under 90% word match fails the run and prints both versions |
 | Record | `scripts/record.cjs` | Playwright Chromium at 1920x1080, CDP screencast frames (JPEG q90), injected cursor + highlight box, waits each line's audio length, writes `out/timeline.json` |
 | Assemble | `scripts/assemble.py` | Frames to 30 fps, each WAV delayed to its step's start, two-pass `loudnorm` to -16 LUFS, captions burned + sidecar, contact sheet |

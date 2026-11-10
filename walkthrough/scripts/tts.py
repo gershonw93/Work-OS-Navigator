@@ -14,7 +14,7 @@ from kokoro_onnx import Kokoro
 ROOT = Path(__file__).resolve().parents[1]
 MODELS = ROOT / '.cache' / 'models'
 OUT = ROOT / 'out' / 'audio'
-VOICE, SPEED, LANG = 'af_heart', 1.0, 'en-us'
+VOICE, SPEED, LANG = 'am_liam', 1.0, 'en-us'
 
 
 def spoken(line):
