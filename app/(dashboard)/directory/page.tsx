@@ -1,5 +1,9 @@
 'use client'
 
+import { AreaPicker } from '@/components/ui/area-picker'
+import { MultiSelect } from '@/components/ui/multi-select'
+import { coverageOf, type Area } from '@/lib/permit-jurisdiction'
+import { PERMIT_TYPES } from '@/lib/permit-board'
 import { APPLY_METHODS, applyHowOf, applyLabel } from '@/lib/permit-apply'
 import { InspectionTypeChips } from '@/components/inspections/type-chips'
 import { typeOptions } from '@/lib/inspection-types'
@@ -207,6 +211,9 @@ export default function DirectoryPage() {
   // How a township takes permit applications (lib/permit-apply.ts). '' = not said.
   const [editApply, setEditApply] = useState<string>('')
   const [editApplyUrl, setEditApplyUrl] = useState('')
+  // Where it is the authority, and what it issues (lib/permit-jurisdiction.ts).
+  const [editCovers, setEditCovers] = useState<Area[]>([])
+  const [editIssues, setEditIssues] = useState<string[]>([])
   const [inspTypeChoices, setInspTypeChoices] = useState<string[]>(() => typeOptions())
 
   async function getToken() {
@@ -361,6 +368,8 @@ export default function DirectoryPage() {
     setEditInspTypes(inspectorTypes(company))
     const how = applyHowOf(company.extra)
     setEditApply(how?.method ?? ''); setEditApplyUrl(how?.url ?? '')
+    const cov = coverageOf(company.extra)
+    setEditCovers(cov.covers); setEditIssues(cov.issues)
   }
 
   async function saveEditCompany(e: React.FormEvent) {
@@ -373,7 +382,7 @@ export default function DirectoryPage() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade, type: editType,
-        ...(editType === 'inspector' ? { inspection_types: editInspTypes, apply_method: editApply || null, apply_url: editApply === 'portal' ? editApplyUrl : null } : {}),
+        ...(editType === 'inspector' ? { inspection_types: editInspTypes, apply_method: editApply || null, apply_url: editApply === 'portal' ? editApplyUrl : null, covers: editCovers, issues: editIssues } : {}),
       }),
     })
     setEditSaving(false)
@@ -1219,6 +1228,21 @@ export default function DirectoryPage() {
                 </div>
                 {editType === 'inspector' && (
                   <div className="space-y-1.5">
+                    <Label>Towns it covers <span className="text-faint font-normal">(optional)</span></Label>
+                    <AreaPicker value={editCovers} onChange={setEditCovers} />
+                    <p className="text-xs text-muted-fg">A new permit on a job in one of these is suggested this township.</p>
+                  </div>
+                )}
+                {editType === 'inspector' && (
+                  <div className="space-y-1.5">
+                    <Label>Permits it issues <span className="text-faint font-normal">(optional)</span></Label>
+                    <MultiSelect options={Array.from(new Set([...PERMIT_TYPES.filter(t => t !== 'Other'), ...editIssues]))} value={editIssues}
+                      onChange={setEditIssues} onCreate={t => setEditIssues(prev => [...prev, t])} createLabel="Add permit type" placeholder="Pick the permits they issue" />
+                    <p className="text-xs text-muted-fg">Picking this township for any other permit type shows a warning.</p>
+                  </div>
+                )}
+                {editType === 'inspector' && (
+                  <div className="space-y-1.5">
                     <Label>Inspections they do <span className="text-faint font-normal">(optional)</span></Label>
                     <InspectionTypeChips options={inspTypeChoices} value={editInspTypes} onChange={setEditInspTypes} />
                   </div>
@@ -1399,6 +1423,20 @@ export default function DirectoryPage() {
                                   <> - <a href={applyHowOf(profileData.company.extra)!.url!} target="_blank" rel="noreferrer" className="text-accent-fg hover:underline">their website</a></>
                                 )}
                               </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3 px-4 py-3">
+                            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
+                            <div className="min-w-0 text-sm">
+                              <p className="text-xs text-faint">Towns it covers</p>
+                              <p className="text-ink-soft">{coverageOf(profileData.company.extra).covers.map(a => `${a.name}${a.kind === 'county' && !/county/i.test(a.name) ? ' County' : ''}${a.state ? `, ${a.state}` : ''}`).join('; ') || 'Not set'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3 px-4 py-3">
+                            <Globe className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
+                            <div className="min-w-0 text-sm">
+                              <p className="text-xs text-faint">Permits it issues</p>
+                              <p className="text-ink-soft">{coverageOf(profileData.company.extra).issues.join(', ') || 'Not set'}</p>
                             </div>
                           </div>
                           <div className="flex items-start gap-3 px-4 py-3">

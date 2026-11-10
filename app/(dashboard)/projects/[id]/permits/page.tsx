@@ -1,5 +1,6 @@
 'use client'
 
+import { authorityWarning, type AuthorityCard, type AuthoritySuggestion, type JobAreas } from '@/lib/permit-jurisdiction'
 import type { AuthorityHow } from '@/lib/permit-apply'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -160,6 +161,32 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   }
 
   const notSite = useRef(false)
+  // Who this job applies to, from its address and the Directory's township
+  // cards (lib/permit-jurisdiction.ts). A suggestion fills only an empty box,
+  // or replaces the one IT put there when the permit type changes.
+  const [jur, setJur] = useState<{ areas: JobAreas | null; cards: AuthorityCard[]; suggestions: Record<string, AuthoritySuggestion | null> } | null>(null)
+  const lastSuggested = useRef<string | null>(null)
+  useEffect(() => {
+    const type = permitType.trim()
+    if (!showForm || editingPermit || !type) return
+    let live = true
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/projects/${params.id}/permit-authority?types=${encodeURIComponent(type)}`, { headers: { Authorization: `Bearer ${await getToken()}` } })
+        const j = await res.json().catch(() => null)
+        if (!live || !res.ok || !j) return
+        setJur(j)
+        const sug = j.suggestions?.[type] as AuthoritySuggestion | null | undefined
+        setIssuingAuthority(cur => {
+          if (sug && (!cur.trim() || cur === lastSuggested.current)) { lastSuggested.current = sug.name; return sug.name }
+          return cur
+        })
+      } catch { /* a suggestion that did not come is no suggestion */ }
+    })()
+    return () => { live = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showForm, editingPermit, permitType, params.id])
+
   // A notification links to ONE permit (`?permit=`): open it once the list
   // has it - and again when the bell is clicked while already on this page.
   const searchParams = useSearchParams()
@@ -218,7 +245,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     setPermitType(''); setOtherType(false); setPermitNumber(''); setDescription(''); setStatus('pending')
     setIssuedDate(''); setExpiryDate(''); setIssuingAuthority('')
     setInspectorName(''); setInspectorPhone(''); setNotes(''); setPermitFile(null)
-    setAnalyzeError(''); setEditingPermit(null); setApplying(true)
+    setAnalyzeError(''); setEditingPermit(null); setApplying(true); lastSuggested.current = null
   }
 
   function openEdit(permit: Permit) {
@@ -413,6 +440,15 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     iss: order.filter(r => r.st.group === 'iss').length,
   }
   const openPermit = openId ? permits.find(p => p.id === openId) ?? null : null
+  // Under "who issues it": why it was suggested, or a warning about the pick.
+  const suggestedNow = jur?.suggestions?.[permitType.trim()] ?? null
+  const authorityWarn = jur && !editingPermit ? authorityWarning(permitType, issuingAuthority, jur.areas, jur.cards) : null
+  const authorityHint = authorityWarn
+    ? <p className="flex items-start gap-1.5 text-xs font-medium text-danger"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{authorityWarn}</p>
+    : suggestedNow && !editingPermit && issuingAuthority.trim() === suggestedNow.name
+      ? <p className="text-xs text-success">Suggested from the job&apos;s address - {suggestedNow.reason}</p>
+      : null
+
   function openOne(id: string, answer = false) {
     // A row pressed while the panel is sliding shut keeps it open on that row.
     if (closeTimer.current) { window.clearTimeout(closeTimer.current); closeTimer.current = null }
@@ -500,6 +536,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <div className="space-y-1.5">
                     <Label>Who do you apply to? <span className="text-danger">*</span></Label>
                     <ContactPicker filterType="inspector" value={issuingAuthority} onChange={name => setIssuingAuthority(name)} placeholder="Search your Directory, e.g. Toms River Township" />
+                    {authorityHint}
                     <p className="text-xs text-muted-fg">The township or department, from your Directory - Email it uses their address and how they take applications. Not there yet? Add them from this box.</p>
                   </div>
                   <p className="text-sm text-muted-fg">That is all for now. The permit number and dates come when it is approved - drop the approved permit in then and AI fills them.</p>
@@ -586,6 +623,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                 <div className="space-y-1.5">
                   <Label><Building className="inline h-3.5 w-3.5 mr-1 text-faint" />Issuing Authority</Label>
                   <ContactPicker filterType="inspector" value={issuingAuthority} onChange={name => setIssuingAuthority(name)} placeholder="Search your Directory, e.g. Toms River Township" />
+                    {authorityHint}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
