@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { ensureOnCrew } from '@/lib/crew-self'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { projectSlotProblem } from '@/lib/billing-read'
 import { geocodeAddress } from '@/lib/geocode'
@@ -82,5 +83,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
     console.error('[development/new] insert failed', error?.message)
     return NextResponse.json({ error: 'Could not create the job. Try again.' }, { status: 500 })
   }
+  // The person who opened it is on its crew (lib/crew-self.ts). Best-effort.
+  const crew = await ensureOnCrew(db, project.id, gate.actor.userId)
+  if (crew.error) console.error('[development/new] creator not added to the crew:', crew.error)
   return NextResponse.json({ project, located: !!coords })
 }

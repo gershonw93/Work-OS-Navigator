@@ -19,6 +19,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { useNotice } from '@/components/ui/notice'
 import { cn } from '@/lib/utils'
 import { fetchProblem } from '@/lib/fetch-error'
+import { punchLines, MAX_PUNCH_LINES } from '@/lib/punch-lines'
 
 import { formatDate } from '@/lib/dates'
 import { dueLabel } from '@/lib/task-due'
@@ -602,6 +603,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const [tasks, setTasks]     = useState<Task[]>([])
   const [members, setMembers] = useState<Member[]>([])
   const [subs, setSubs]       = useState<Sub[]>([])
+  /** The signed-in person's own crew row on this job, when there is one - "Me" in the picker. */
+  const [meMemberId, setMeMemberId] = useState<string | null>(null)
+  const [addingMe, setAddingMe] = useState(false)
   const [loading, setLoading] = useState(true)
 
   // view / filter
@@ -672,6 +676,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       setTasks(data.tasks)
       setMembers(data.members)
       setSubs(data.subcontracts)
+      setMeMemberId(data.meMemberId ?? null)
     }
     setLoading(false)
   }
@@ -744,6 +749,43 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setAddStatus(null)
   }
 
+  /**
+   * Put yourself on the task. Whoever opened a job was never on its crew, so
+   * the picker offered everybody but you; the first press puts you on this
+   * job's crew (or finds the row your email is already on) and every press
+   * after that is just a pick.
+   */
+  async function assignMe() {
+    if (meMemberId) {
+      const m = members.find(x => x.id === meMemberId)
+      if (m) setPicked(prev => normalizeAssignees([...prev, { member_id: m.id, name: m.name }]))
+      return
+    }
+    setAddingMe(true)
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/team/me`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      const j = await res.json().catch(() => ({}))
+      if (!res.ok || !j.member) {
+        setSaveError(res.status === 403
+          ? 'Only somebody who can edit this job\'s team can put you on its crew - ask your admin to add you under Subs & Team.'
+          : (j.error ?? 'Could not put you on this job\'s crew.'))
+        return
+      }
+      const m = j.member as Member
+      setMembers(prev => prev.some(x => x.id === m.id) ? prev : [...prev, m].sort((a, b) => a.name.localeCompare(b.name)))
+      setMeMemberId(m.id)
+      setPicked(prev => normalizeAssignees([...prev, { member_id: m.id, name: m.name }]))
+    } catch (e) {
+      setSaveError(fetchProblem(e, 'adding you to the crew'))
+    } finally {
+      setAddingMe(false)
+    }
+  }
+
   function openAddForm(defaultStatus?: string) {
     resetForm()
     // resetForm() has just cleared this, so set it after, not before.
@@ -791,8 +833,19 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     // A DISABLED BUTTON EXPLAINS NOTHING. It used to be disabled while the
     // title was empty, so pressing it did literally nothing and the form never
     // said which field it was waiting on. Let it fire and answer.
-    if (!title.trim()) {
-      setSaveError('Give the task a name - it is the line everybody reads on the board.')
+    // SEVERAL PUNCH ITEMS AT ONCE: a new punch item takes a box where every
+    // line is its own item (lib/punch-lines.ts). Everything else on the form -
+    // who, when, priority - applies to each of them.
+    const bulk = !editTask && isPunch
+    const lines = bulk ? punchLines(title) : [title.trim()].filter(Boolean)
+    if (!lines.length) {
+      setSaveError(bulk
+        ? 'Type at least one punch item - one per line.'
+        : 'Give the task a name - it is the line everybody reads on the board.')
+      return
+    }
+    if (lines.length > MAX_PUNCH_LINES) {
+      setSaveError(`That is ${lines.length} lines - add up to ${MAX_PUNCH_LINES} at a time.`)
       return
     }
     setSaving(true)
@@ -815,8 +868,49 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         image_url = null // image was removed
       }
 
+      if (bulk && lines.length > 1) {
+        // One request per item, IN ORDER, and every answer collected: a loop
+        // that throws on the third line abandons the rest in silence. What
+        // did not land stays in the box so it can be sent again.
+        const failed: string[] = []
+        let firstError = ''
+        for (const line of lines) {
+          try {
+            const res = await fetch(`/api/projects/${params.id}/tasks`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+              body: JSON.stringify({
+                title: line, description, due_date: dueDate || null, priority,
+                kind: 'punch', assignees, image_url: null, follow_up_date: followUpDate || null,
+                ...(addStatus ? { status: addStatus } : {}),
+              }),
+            })
+            if (!res.ok) {
+              failed.push(line)
+              const j = await res.json().catch(() => ({}))
+              firstError ||= j.error || `Save failed (${res.status})`
+              console.error('[tasks] punch item not added:', line, res.status, j.error)
+            }
+          } catch (err) {
+            failed.push(line)
+            firstError ||= fetchProblem(err, 'adding that punch item')
+            console.error('[tasks] punch item not added:', line, err)
+          }
+        }
+        load()
+        if (failed.length) {
+          setTitle(failed.join('\n'))
+          setSaveError(failed.length === lines.length
+            ? `None of the ${lines.length} items were added: ${firstError}`
+            : `${lines.length - failed.length} of ${lines.length} added. The ${failed.length} still in the box were not: ${firstError}`)
+          return
+        }
+        setShowAdd(false); resetForm()
+        return
+      }
+
       const body = JSON.stringify({
-        title, description, due_date: dueDate || null, priority,
+        title: lines[0], description, due_date: dueDate || null, priority,
         kind: isPunch ? 'punch' : 'task',
         assignees,
         image_url, follow_up_date: followUpDate || null,
@@ -1337,8 +1431,15 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   // ── form modal ─────────────────────────────────────────────────────────────
 
-  const formTitle = editTask ? 'Edit Task' : 'New Task'
-  const submitLabel = saving ? (editTask ? 'Saving…' : 'Creating…') : (editTask ? 'Save Changes' : 'Create Task')
+  // A new punch item is a box of them, one per line.
+  const bulkPunch = !editTask && isPunch
+  const punchLineCount = bulkPunch ? punchLines(title).length : 0
+  const formTitle = editTask ? 'Edit Task' : bulkPunch ? 'Add punch list items' : 'New Task'
+  const submitLabel = saving
+    ? (editTask ? 'Saving…' : 'Adding…')
+    : editTask ? 'Save Changes'
+    : bulkPunch ? (punchLineCount > 1 ? `Add ${punchLineCount} items` : 'Add item')
+    : 'Create Task'
 
   // ── render ─────────────────────────────────────────────────────────────────
 
@@ -1368,10 +1469,21 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             </div>
             <form onSubmit={submitTask}>
               <div className="px-4 sm:px-6 py-5 space-y-4">
-                <div className="space-y-1.5">
-                  <Label htmlFor="title">Task <span className="text-danger">*</span></Label>
-                  <Input id="title" placeholder="e.g. Inspect concrete pour on level 2" value={title} onChange={e => setTitle(e.target.value)} required autoFocus={autoFocusOnDesktop()} />
-                </div>
+                {bulkPunch ? (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="title">Punch list items <span className="text-danger">*</span></Label>
+                    <textarea id="title" rows={7} value={title} onChange={e => setTitle(e.target.value)}
+                      placeholder={'Touch up paint in the hallway\nReplace cracked outlet cover - kitchen\nCaulk around the master tub'}
+                      autoFocus={autoFocusOnDesktop()}
+                      className="w-full rounded-md border border-muted2 px-3 py-2 text-sm text-ink placeholder:text-faint focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent" />
+                    <p className="text-xs text-faint">One item per line - each line becomes its own punch item.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="title">Task <span className="text-danger">*</span></Label>
+                    <Input id="title" placeholder="e.g. Inspect concrete pour on level 2" value={title} onChange={e => setTitle(e.target.value)} required autoFocus={autoFocusOnDesktop()} />
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   <Label htmlFor="desc">Details <span className="text-faint font-normal">(optional)</span></Label>
                   <textarea id="desc" rows={2} placeholder="Additional context…" value={description} onChange={e => setDescription(e.target.value)}
@@ -1390,9 +1502,19 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
                 <label className="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-line px-3 py-2 text-sm text-ink">
-                  <input type="checkbox" className="h-4 w-4 accent-[#C9F24A]" checked={isPunch} onChange={e => setIsPunch(e.target.checked)} />
-                  Punch item
-                  <span className="text-xs text-muted-fg">- shows under Punch list</span>
+                  <input type="checkbox" className="h-4 w-4 accent-[#C9F24A]" checked={isPunch}
+                    onChange={e => {
+                      const on = e.target.checked
+                      setIsPunch(on)
+                      if (on && !editTask) { setTaskImage(null); setTaskImagePreview(null) }
+                      // Back to one task: the box's lines become one line
+                      // rather than vanishing.
+                      if (!on && !editTask) setTitle(t => punchLines(t).join('; '))
+                    }} />
+                  {editTask ? 'Punch item' : isPunch ? 'Punch list' : 'Punch item'}
+                  <span className="text-xs text-muted-fg">
+                    {editTask ? '- shows under Punch list' : isPunch ? '- add several, one per line' : '- tick to add punch list items'}
+                  </span>
                 </label>
                 <div className="space-y-2">
                   <Label>Assign To <span className="text-faint font-normal">(optional - you can pick more than one)</span></Label>
@@ -1436,6 +1558,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                         assigneeType === 'sub' ? 'border-accent bg-accent-tint text-accent-fg' : 'border-line text-muted-fg hover:bg-surface')}>
                       <Building2 className="h-3.5 w-3.5" /> Subcontractor
                     </button>
+                    {!(meMemberId && picked.some(a => a.member_id === meMemberId)) && (
+                      <button type="button" onClick={assignMe} disabled={addingMe}
+                        className="ml-auto flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-lg text-sm font-medium border border-line text-muted-fg hover:bg-surface">
+                        {addingMe ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Me
+                      </button>
+                    )}
                   </div>
 
                   {/* THE PICKER ADDS, it does not replace - and it goes back
@@ -1445,7 +1573,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                       not offer to add what it is already showing you. */}
                   {assigneeType === 'member' && (
                     members.length === 0
-                      ? <p className="text-xs text-faint">No crew members on this project yet. Add them in the Team tab.</p>
+                      ? <p className="text-xs text-faint">No crew members on this project yet. Press Me to take it yourself, or add people in the Team tab.</p>
                       : <Select
                           value=""
                           onChange={e => {
@@ -1490,7 +1618,9 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   <p className="text-xs text-faint">Set a date to revisit this task - leave blank for none.</p>
                 </div>
 
-                {/* Image attachment */}
+                {/* Image attachment - one photo belongs to one item, so not
+                    while adding a box of punch items. */}
+                {!bulkPunch && (
                 <div className="space-y-1.5">
                   <Label>Photo <span className="text-faint font-normal">(optional)</span></Label>
                   {taskImagePreview ? (
@@ -1513,6 +1643,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                     </label>
                   )}
                 </div>
+                )}
               </div>
               <div className="px-4 sm:px-6 py-4 border-t border-line-soft space-y-2">
                 {saveError && <p className="text-sm text-danger">{saveError}</p>}

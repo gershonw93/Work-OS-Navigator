@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createClient as cookieClient } from '@/lib/supabase/server'
 import { actorForUser } from '@/lib/server-permissions'
 import { actorJobGate } from '@/lib/job-access'
+import { planDownloadName, attachmentHeader } from '@/lib/plan-download'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The bytes of one plan, from OUR origin.
@@ -33,8 +34,15 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
+// `?download=1` asks for the same bytes as an ATTACHMENT, named after the plan,
+// so the browser saves the original instead of handing it to whatever app the
+// device opens PDFs with. `?download=1&link=1` answers with that signed URL as
+// JSON instead of a redirect: the iOS app opens it in the system browser,
+// which does not carry our cookie, so it cannot follow this route itself.
+// (Not `?id=` - a query param named like a path segment never arrives on
+// Vercel under an `[id]` folder.)
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: { id: string; planId: string } },
 ) {
   // Cookies, not a Bearer token: this is loaded by `<img src>` and by pdf.js,
@@ -63,11 +71,32 @@ export async function GET(
 
   if (!plan) return new NextResponse('Not found', { status: 404 })
 
+  const query = new URL(request.url).searchParams
+  const download = query.get('download') === '1'
+  const asLink = download && query.get('link') === '1'
+  const filename = planDownloadName(plan.name, plan.storage_path ?? plan.file_url)
+
   // Ours: sign it now, and let the client fetch it straight from storage so a
-  // 40MB drawing never travels through a serverless function.
+  // 40MB drawing never travels through a serverless function. Storage sets
+  // the attachment header itself when the signature carries `download`.
   if (plan.storage_path) {
-    const { data } = await db.storage.from('plans').createSignedUrl(plan.storage_path, 60 * 10)
-    if (data?.signedUrl) return NextResponse.redirect(data.signedUrl)
+    const { data } = await db.storage.from('plans').createSignedUrl(
+      plan.storage_path, 60 * 10, download ? { download: filename } : undefined,
+    )
+    if (data?.signedUrl) {
+      return asLink
+        ? NextResponse.json({ url: data.signedUrl, filename })
+        : NextResponse.redirect(data.signedUrl)
+    }
+  }
+
+  // Somebody else's file, asked for as a link: there is no signature of ours
+  // to hand out, so hand back where it lives. The system browser can reach it
+  // without our cookie, which this route cannot offer.
+  if (asLink) {
+    return plan.file_url
+      ? NextResponse.json({ url: plan.file_url, filename })
+      : NextResponse.json({ error: 'This plan has no file on it.' }, { status: 404 })
   }
 
   // Somebody else's: fetch it here and hand it back from our own origin, which
@@ -88,6 +117,7 @@ export async function GET(
   return new NextResponse(upstream.body, {
     headers: {
       'Content-Type': upstream.headers.get('content-type') ?? 'application/octet-stream',
+      ...(download ? { 'Content-Disposition': attachmentHeader(filename) } : {}),
       // Private: it is signed-in content, and one person's browser caching it
       // is fine while a shared cache holding it is not.
       'Cache-Control': 'private, max-age=300',

@@ -6,6 +6,7 @@ import { customerForNewProject } from '@/lib/project-customer'
 import { housesToFollow } from '@/lib/development-customer'
 import { acknowledgedAll, activationRefusal, isProjectStatus } from '@/lib/activation'
 import { COUNTED_PROJECT_STATUSES } from '@/lib/plan-limits'
+import { ensureOnCrew } from '@/lib/crew-self'
 import type { WriteResult } from './result'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -33,8 +34,10 @@ import type { WriteResult } from './result'
 
 export async function createProject(
   db: SupabaseClient,
-  { companyId, body, afterCustomerCreated }: {
+  { companyId, userId, body, afterCustomerCreated }: {
     companyId: string
+    /** Who is opening it - they go on the job's crew (lib/crew-self.ts). */
+    userId?: string
     body: any
     /** Run once a typed client has become a NEW customer card. The app route syncs it to QuickBooks here. */
     afterCustomerCreated?: (customerId: string) => Promise<unknown>
@@ -106,6 +109,13 @@ export async function createProject(
 
   if (insertError) {
     return { status: 500, body: { error: insertError.message } }
+  }
+
+  // The person who opened the job is on its crew, so they can give themselves
+  // a task. Best-effort: the job exists either way.
+  if (userId && project?.id) {
+    const crew = await ensureOnCrew(admin, project.id, userId)
+    if (crew.error) console.error('[createProject] creator not added to the crew:', crew.error)
   }
 
   return { status: 200, body: { project } }
