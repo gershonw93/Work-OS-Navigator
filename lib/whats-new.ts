@@ -76,6 +76,12 @@ const AUTHORED: Release[] = [
         help: 'permits',
       },
       {
+        kind: 'new',
+        title: 'It suggests who to apply to, from the job\'s address',
+        text: 'On a township\'s Directory card, pick the towns and counties it covers from a map search and the permit types it issues. Add a permit and the township is filled in from the job\'s address - the township it is really in, not just the mailing town - and picking one that does not issue that permit, or does not cover the job, warns you and names the right one.',
+        help: 'permits',
+      },
+      {
         kind: 'improved',
         title: 'The Apply card says how the township takes applications',
         text: 'Set it once on the township\'s Directory card - in person, on their website or by email - and every permit from them says so on its Apply card, with the address or the link.',
