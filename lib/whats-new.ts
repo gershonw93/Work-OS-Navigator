@@ -66,6 +66,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-10',
+    title: 'Permits that need you, without opening the tab',
+    items: [
+      {
+        kind: 'new',
+        title: 'A morning message for permits to chase, and a warning before one expires',
+        text: 'Every morning SyteNav lists the permits to follow up on - with the township past the date they promised, or three weeks with no answer - in one message, repeated weekly until their answer is recorded. An issued permit is warned about 30 days out, again at 7 days, and once more when it lapses. When a township replies to a permit you emailed, the bell tells you and says what AI read it as. Each has its own switches in Settings > Notifications, including who gets told.',
+        help: 'permits',
+      },
+      {
+        kind: 'new',
+        title: 'It suggests who to apply to, from the job\'s address',
+        text: 'On a township\'s Directory card, pick the towns and counties it covers from a map search and the permit types it issues. Add a permit and the township is filled in from the job\'s address - the township it is really in, not just the mailing town - and picking one that does not issue that permit, or does not cover the job, warns you and names the right one.',
+        help: 'permits',
+      },
+      {
+        kind: 'improved',
+        title: 'The Apply card says how the township takes applications',
+        text: 'Set it once on the township\'s Directory card - in person, on their website or by email - and every permit from them says so on its Apply card, with the address or the link.',
+        help: 'permits',
+      },
+    ],
+  },
+  {
     date: '2026-11-04',
     title: 'Email a permit to the township',
     items: [

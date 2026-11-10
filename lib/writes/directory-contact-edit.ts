@@ -1,3 +1,4 @@
+import { cleanAreas, cleanIssues } from '@/lib/permit-jurisdiction'
 import { cleanApplyMethod, cleanApplyUrl } from '@/lib/permit-apply'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cleanTypeList } from '@/lib/inspection-types'
@@ -72,6 +73,10 @@ export async function updateDirectoryContact(
     extraPatch.apply_method = method
     extraPatch.apply_url = method === 'portal' ? cleanApplyUrl(body.apply_url) : null
   }
+  // Where it is the authority and what it issues (lib/permit-jurisdiction.ts),
+  // cleaned here - a hand-made body cannot store a malformed area.
+  if (body.covers !== undefined) extraPatch.covers = cleanAreas(body.covers)
+  if (body.issues !== undefined) extraPatch.issues = cleanIssues(body.issues)
   if (Object.keys(extraPatch).length) {
     const { data: cur } = await db.from('companies').select('extra').eq('id', params.companyId).maybeSingle()
     updates.extra = { ...(((cur as any)?.extra as Record<string, unknown>) ?? {}), ...extraPatch }

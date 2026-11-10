@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { permitHistory } from '@/lib/permit-history'
+import { authoritiesFor } from '@/lib/permit-authorities'
 import { createPermit } from '@/lib/writes/permit'
 import { answerRound, submitRound } from '@/lib/writes/permit-round'
 import { openRound } from '@/lib/permit-rounds'
@@ -54,6 +55,7 @@ async function development(db: any, actor: any, id: string) {
   return { site: owned.project, houses: sorted as any[] }
 }
 
+
 export async function GET(request: Request, { params }: { params: { id: string } }) {
   const db = admin()
   const gate = await requirePermission(db, request, 'permits', 'view')
@@ -70,8 +72,12 @@ export async function GET(request: Request, { params }: { params: { id: string }
     console.error('[permit-board] permits read failed', error.message)
     return NextResponse.json({ error: 'Could not read the permits.' }, { status: 500 })
   }
-  const { rounds, items, shares, replies, ok } = await permitHistory(db, (permits ?? []).map(p => p.id))
+  const [{ rounds, items, shares, replies, ok }, authorities] = await Promise.all([
+    permitHistory(db, (permits ?? []).map(p => p.id)),
+    authoritiesFor(db, gate.actor.companyId, (permits ?? []).map(p => p.issuing_authority)),
+  ])
   return NextResponse.json({
+    authorities,
     isSite: true,
     site: { id: dev.site.id, name: dev.site.name },
     houses: dev.houses,

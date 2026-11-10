@@ -76,10 +76,12 @@ export function NotificationBell() {
     setNotifications(prev => prev.map(n => ({ ...n, read: true })))
   }, [getToken])
 
-  const handleItemClick = useCallback(async (n: Notification) => {
-    if (!n.read) await markOneRead(n.id)
+  // Go FIRST. Marking it read is a round trip, and awaiting it before moving
+  // made every click on a notification feel like it did nothing.
+  const handleItemClick = useCallback((n: Notification) => {
     setOpen(false)
     if (n.link) router.push(n.link)
+    if (!n.read) void markOneRead(n.id)
   }, [markOneRead, router])
 
   useEffect(() => {

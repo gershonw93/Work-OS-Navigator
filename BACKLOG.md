@@ -514,9 +514,6 @@ What a cron would need, if we decide the wait is worse than the silence:
     status (and is refused a status the history contradicts); a
     `log_permit_submission` / `record_permit_answer` pair belongs in
     `lib/mcp/areas/permits-inspections.ts` over `lib/writes/permit-round.ts`.
-  - **No reminder for a permit to chase.** "Chase" is on the screen only; a
-    morning notification for permits past their promised answer would be a new
-    catalog type, audience `permits: edit`.
   - **A due date on your move.** The design sorted Your move by a due date
     ("Due Nov 4") the township gives for corrections; there is no column for
     it, so the list sorts by how long it has been back with us instead. A
@@ -718,6 +715,8 @@ and why:
 - **Sub "Edit project" on an awarded job.** The My Jobs job header has an edit pencil that PATCHes the GC's project; on the vendor role it is refused. It belongs on a sub's OWN jobs only.
 
 ## ✅ Recently shipped (for reference)
+- **Who to apply to, from the job's address** (Nov 2026): a township's Directory card has Towns it covers (map search, `/api/geo/areas`) and Permits it issues; Add Permit and Update several houses suggest the authority from the job's township/county (`lib/job-areas.ts`, administrative_area_level_3 before the postal town) and warn about a pick that does not issue the type or cover the job (`lib/permit-jurisdiction.ts`). Suggests only into an empty box; two equal answers suggest nothing.
+- **Permit reminders** (Nov 2026): a morning `permit_chase` message per company (the screen's own Chase rule, repeated weekly while unanswered - `permit_rounds.chase_reminded_at`), `permit_expiring` at 30 days, 7 days and once expired (each step once per expiry date - `permits.expiry_reminder_for` / `expiry_reminder_stage`, migration 165; re-arms on renewal), and `permit_reply` in the bell when a township replies. All three are catalog types (Settings > Notifications, Who gets told). Cron `/api/cron/permit-reminders`, migration 164. The Apply card says how the township takes applications, from its Directory card (`applyHowByAuthority`).
 - **The township's reply lands on the permit** (Nov 2026). Each emailed permit gets its own reply address (`permit-<token>@reply.sytenav.com`, SendGrid Inbound Parse -> `/api/inbound/email`); the reply and its attachments are stored on the permit, forwarded to the sender, and AI suggests the answer for a person to press Use this answer. Setup: `docs/inbound-email.md`.
 
 - Email a permit to the township (#677): Email it beside I sent it - the attached files go as a Sharing link tied to the permit (uploads back land on it), the sender is copied (`OutgoingEmail.cc`, `copyList`) and is the reply-to, and the round is logged only once the email has gone (`submitRound`'s `beforeInsert`; a failed send deletes the link and logs nothing). Address from the Directory (exact name, one match) or the last one that township was emailed at; Save it creates or fills the Directory entry. Not: filing through a township's online portal, or reading their replies from an inbox (inbound email, still below).

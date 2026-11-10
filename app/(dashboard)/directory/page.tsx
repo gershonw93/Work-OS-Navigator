@@ -1,5 +1,9 @@
 'use client'
 
+import { AreaPicker } from '@/components/ui/area-picker'
+import { MultiSelect } from '@/components/ui/multi-select'
+import { coverageOf, type Area } from '@/lib/permit-jurisdiction'
+import { PERMIT_TYPES } from '@/lib/permit-board'
 import { APPLY_METHODS, applyHowOf, applyLabel } from '@/lib/permit-apply'
 import { InspectionTypeChips } from '@/components/inspections/type-chips'
 import { typeOptions } from '@/lib/inspection-types'
@@ -207,6 +211,9 @@ export default function DirectoryPage() {
   // How a township takes permit applications (lib/permit-apply.ts). '' = not said.
   const [editApply, setEditApply] = useState<string>('')
   const [editApplyUrl, setEditApplyUrl] = useState('')
+  // Where it is the authority, and what it issues (lib/permit-jurisdiction.ts).
+  const [editCovers, setEditCovers] = useState<Area[]>([])
+  const [editIssues, setEditIssues] = useState<string[]>([])
   const [inspTypeChoices, setInspTypeChoices] = useState<string[]>(() => typeOptions())
 
   async function getToken() {
@@ -361,6 +368,8 @@ export default function DirectoryPage() {
     setEditInspTypes(inspectorTypes(company))
     const how = applyHowOf(company.extra)
     setEditApply(how?.method ?? ''); setEditApplyUrl(how?.url ?? '')
+    const cov = coverageOf(company.extra)
+    setEditCovers(cov.covers); setEditIssues(cov.issues)
   }
 
   async function saveEditCompany(e: React.FormEvent) {
@@ -373,7 +382,7 @@ export default function DirectoryPage() {
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({
         name: editName, contact_email: editEmail, phone: editPhone, address: editAddress, trade: editTrade, type: editType,
-        ...(editType === 'inspector' ? { inspection_types: editInspTypes, apply_method: editApply || null, apply_url: editApply === 'portal' ? editApplyUrl : null } : {}),
+        ...(editType === 'inspector' ? { inspection_types: editInspTypes, apply_method: editApply || null, apply_url: editApply === 'portal' ? editApplyUrl : null, covers: editCovers, issues: editIssues } : {}),
       }),
     })
     setEditSaving(false)
@@ -1155,13 +1164,16 @@ export default function DirectoryPage() {
       {editingCompany && (
         <div className="overlay z-[60] items-center justify-center bg-black/40 backdrop-blur-sm" data-overlay>
           <div className="absolute inset-0" onClick={() => setEditingCompany(null)} />
-          <div className="relative w-full max-w-md bg-panel rounded-2xl shadow-2xl overflow-hidden">
-            <div className="px-6 py-5 border-b border-line-soft flex items-center justify-between">
-              <h2 className="text-lg font-bold text-ink">Edit {editingCompany.name}</h2>
+          {/* A column with a scrolling middle: the form grew (inspection types,
+              how they take applications) past the screen, and the Save button
+              went with it - "i cant scroll to save". */}
+          <div className="relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl bg-panel shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between border-b border-line-soft px-6 py-5">
+              <h2 className="min-w-0 truncate text-lg font-bold text-ink">Edit {editingCompany.name}</h2>
               <button onClick={() => setEditingCompany(null)} className="text-faint hover:text-muted-fg"><X className="h-5 w-5" /></button>
             </div>
-            <form onSubmit={saveEditCompany}>
-              <div className="px-6 py-5 space-y-4">
+            <form onSubmit={saveEditCompany} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5">
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-fg">Name</label>
                   <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editName} onChange={e => setEditName(e.target.value)} required />
@@ -1190,6 +1202,9 @@ export default function DirectoryPage() {
                   </Select>
                 </div>
 
+                {/* A township or an inspector has no trade - "why is there trade
+                    there if its an inspector". */}
+                {editType !== 'inspector' && (
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-fg">Trade</label>
                   {/* A PICKER HERE TOO, AND THIS IS THE DOOR THE TYPOS CAME
@@ -1206,10 +1221,26 @@ export default function DirectoryPage() {
                     {tradeChoices(editTrade).map(t => <option key={t} value={t}>{t}</option>)}
                   </Select>
                 </div>
+                )}
                 <div className="space-y-1.5">
                   <label className="text-xs font-medium text-muted-fg">Address</label>
                   <input className="w-full rounded-lg border border-muted2 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent" value={editAddress} onChange={e => setEditAddress(e.target.value)} />
                 </div>
+                {editType === 'inspector' && (
+                  <div className="space-y-1.5">
+                    <Label>Towns it covers <span className="text-faint font-normal">(optional)</span></Label>
+                    <AreaPicker value={editCovers} onChange={setEditCovers} />
+                    <p className="text-xs text-muted-fg">A new permit on a job in one of these is suggested this township.</p>
+                  </div>
+                )}
+                {editType === 'inspector' && (
+                  <div className="space-y-1.5">
+                    <Label>Permits it issues <span className="text-faint font-normal">(optional)</span></Label>
+                    <MultiSelect options={Array.from(new Set([...PERMIT_TYPES.filter(t => t !== 'Other'), ...editIssues]))} value={editIssues}
+                      onChange={setEditIssues} onCreate={t => setEditIssues(prev => [...prev, t])} createLabel="Add permit type" placeholder="Pick the permits they issue" />
+                    <p className="text-xs text-muted-fg">Picking this township for any other permit type shows a warning.</p>
+                  </div>
+                )}
                 {editType === 'inspector' && (
                   <div className="space-y-1.5">
                     <Label>Inspections they do <span className="text-faint font-normal">(optional)</span></Label>
@@ -1235,7 +1266,7 @@ export default function DirectoryPage() {
                   </div>
                 )}
               </div>
-              <div className="px-6 py-4 border-t border-line-soft flex justify-end gap-2">
+              <div className="flex shrink-0 justify-end gap-2 border-t border-line-soft px-6 py-4">
                 <button type="button" onClick={() => setEditingCompany(null)} className="rounded-lg border border-line px-4 py-2 text-sm font-medium text-muted-fg hover:bg-surface">Cancel</button>
                 <button type="submit" disabled={editSaving} className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-accent-ink hover:bg-accent disabled:opacity-50">{editSaving ? 'Saving…' : 'Save Changes'}</button>
               </div>
@@ -1322,6 +1353,9 @@ export default function DirectoryPage() {
                 scrollbar is hidden, so a faded right edge is the only thing
                 that says there is more. Same rule as the Tasks filter row and
                 the Settings tab strip; this one was missed. */}
+            {/* A township or inspector has no contracts, payments or sub
+                paperwork - four tabs of zeroes read as a broken card. */}
+            {profileData?.company?.type !== 'inspector' && (
             <div className="flex border-b border-line-soft shrink-0 px-5 lg:px-8 overflow-x-auto scrollbar-hide scroll-fade">
               {[
                 { key: 'overview', label: 'Overview' },
@@ -1336,6 +1370,7 @@ export default function DirectoryPage() {
                 </button>
               ))}
             </div>
+            )}
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto px-8 py-6 space-y-4">
@@ -1350,16 +1385,16 @@ export default function DirectoryPage() {
                     <div className="space-y-4">
                       <div className="rounded-xl border border-line divide-y divide-line-soft">
                         {profileData.company?.contact_email && (
-                          <div className="flex items-center gap-3 px-4 py-3">
+                          <a href={`mailto:${profileData.company.contact_email}`} className="flex min-h-11 items-center gap-3 px-4 py-3 hover:bg-surface">
                             <Mail className="h-4 w-4 text-faint shrink-0" />
-                            <span className="text-sm text-ink-soft select-all">{profileData.company.contact_email}</span>
-                          </div>
+                            <span className="min-w-0 truncate text-sm text-ink-soft">{profileData.company.contact_email}</span>
+                          </a>
                         )}
                         {profileData.company?.phone && (
-                          <div className="flex items-center gap-3 px-4 py-3">
+                          <a href={`tel:${profileData.company.phone}`} className="flex min-h-11 items-center gap-3 px-4 py-3 hover:bg-surface">
                             <Phone className="h-4 w-4 text-faint shrink-0" />
                             <span className="text-sm text-ink-soft">{profileData.company.phone}</span>
-                          </div>
+                          </a>
                         )}
                         {profileData.company?.address && (
                           <div className="flex items-center gap-3 px-4 py-3">
@@ -1374,6 +1409,46 @@ export default function DirectoryPage() {
                           </div>
                         )}
                       </div>
+                      {/* A township's card says what a permit needs from it: how it
+                          takes applications and which inspections it does. */}
+                      {profileData.company?.type === 'inspector' && (
+                        <div className="rounded-xl border border-line divide-y divide-line-soft">
+                          <div className="flex items-start gap-3 px-4 py-3">
+                            <Send className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
+                            <div className="min-w-0 text-sm">
+                              <p className="text-xs text-faint">Permit applications</p>
+                              <p className="text-ink-soft">
+                                {applyLabel(applyHowOf(profileData.company.extra)) ?? 'Not set - press Edit to say how they take them'}
+                                {applyHowOf(profileData.company.extra)?.url && (
+                                  <> - <a href={applyHowOf(profileData.company.extra)!.url!} target="_blank" rel="noreferrer" className="text-accent-fg hover:underline">their website</a></>
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3 px-4 py-3">
+                            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
+                            <div className="min-w-0 text-sm">
+                              <p className="text-xs text-faint">Towns it covers</p>
+                              <p className="text-ink-soft">{coverageOf(profileData.company.extra).covers.map(a => `${a.name}${a.kind === 'county' && !/county/i.test(a.name) ? ' County' : ''}${a.state ? `, ${a.state}` : ''}`).join('; ') || 'Not set'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3 px-4 py-3">
+                            <Globe className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
+                            <div className="min-w-0 text-sm">
+                              <p className="text-xs text-faint">Permits it issues</p>
+                              <p className="text-ink-soft">{coverageOf(profileData.company.extra).issues.join(', ') || 'Not set'}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-start gap-3 px-4 py-3">
+                            <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-faint" />
+                            <div className="min-w-0 text-sm">
+                              <p className="text-xs text-faint">Inspections they do</p>
+                              <p className="text-ink-soft">{inspectorTypes(profileData.company).join(', ') || 'Not set'}</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {profileData.company?.type !== 'inspector' && (<>
                       {/* Quick stats. Phone: one card. Desktop (lg+): three tiles. */}
                       <StatStrip className="lg:hidden" items={[
                         { label: 'Projects', value: profileData.subcontracts?.length ?? 0 },
@@ -1401,6 +1476,7 @@ export default function DirectoryPage() {
                           <p className="text-xs text-faint mt-0.5">Invoices</p>
                         </div>
                       </div>
+                      </>)}
                     </div>
                   )}
 

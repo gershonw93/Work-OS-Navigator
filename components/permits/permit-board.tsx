@@ -1,8 +1,11 @@
 'use client'
 
+import { authorityWarning, type AuthorityCard, type AuthoritySuggestion, type JobAreas } from '@/lib/permit-jurisdiction'
+import { useMinWidth } from '@/lib/use-min-width'
+import type { AuthorityHow } from '@/lib/permit-apply'
 import { MultiSelect } from '@/components/ui/multi-select'
 import { ContactPicker } from '@/components/contact-picker'
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -39,6 +42,8 @@ export interface BoardData {
   items: PermitItem[]
   shares?: PermitShare[]
   replies?: PermitReply[]
+  /** How each township takes applications, by the name on the permit. */
+  authorities?: Record<string, AuthorityHow>
   history: boolean
 }
 
@@ -82,8 +87,8 @@ function CellChip({ cell, onOpen, faded }: { cell: BoardCell | undefined; onOpen
 }
 
 /** The panel a cell opens: the same one the Permits list opens, as a drawer. */
-function PermitDrawer({ data, rowName, permitId, canEdit, onChanged, onClose }: {
-  data: BoardData; rowName: string; permitId: string; canEdit: boolean; onChanged: () => void; onClose: () => void
+function PermitDrawer({ data, rowName, permitId, canEdit, modal, onChanged, onClose }: {
+  data: BoardData; rowName: string; permitId: string; canEdit: boolean; modal: boolean; onChanged: () => void; onClose: () => void
 }) {
   const permit = data.permits.find(p => p.id === permitId)
   if (!permit) return null
@@ -93,7 +98,8 @@ function PermitDrawer({ data, rowName, permitId, canEdit, onChanged, onClose }: 
       items={data.items.filter(i => i.permit_id === permit.id)}
       shares={(data.shares ?? []).filter(x => x.permit_id === permit.id)}
       replies={(data.replies ?? []).filter(x => x.permit_id === permit.id)}
-      historyOk={data.history} canEdit={canEdit} docked={false} onChanged={onChanged} onClose={onClose} />
+      applyHow={data.authorities?.[(permit.issuing_authority ?? '').trim()] ?? null}
+      historyOk={data.history} canEdit={canEdit} docked={false} modal={modal} onChanged={onChanged} onClose={onClose} />
   )
 }
 
@@ -155,6 +161,43 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
     if (!addTypes.includes(t)) choose({ addTypes: [...addTypes, t] })
   }
   const authorityOf = (t: string) => (sameAuthority ? authority : authorityFor[t] ?? authority).trim()
+
+  // Who the development applies to for each type picked, from its address and
+  // the Directory's township cards. Fills only boxes that are empty (or that a
+  // suggestion filled); when the types point at different townships it
+  // switches to Different per type and fills each.
+  const [jur, setJur] = useState<{ areas: JobAreas | null; cards: AuthorityCard[]; suggestions: Record<string, AuthoritySuggestion | null> } | null>(null)
+  const suggestedFill = useRef<{ all: string | null; per: Record<string, string> }>({ all: null, per: {} })
+  useEffect(() => {
+    if (action !== 'add' || !addTypes.length) return
+    let live = true
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/projects/${data.site.id}/permit-authority?types=${encodeURIComponent(addTypes.join(','))}`, { headers: { Authorization: `Bearer ${await token()}` } })
+        const j = await res.json().catch(() => null)
+        if (!live || !res.ok || !j) return
+        setJur(j)
+        const names = addTypes.map(t => (j.suggestions?.[t] as AuthoritySuggestion | null)?.name ?? null)
+        const distinct = Array.from(new Set(names.filter(Boolean))) as string[]
+        if (distinct.length === 1 && names.every(Boolean)) {
+          setAuthority(cur => (!cur.trim() || cur === suggestedFill.current.all) ? (suggestedFill.current.all = distinct[0]) : cur)
+        } else if (distinct.length > 1) {
+          setSameAuthority(false)
+          setAuthorityFor(prev => {
+            const next = { ...prev }
+            addTypes.forEach((t, i) => {
+              const n = names[i]
+              if (n && (!next[t]?.trim() || next[t] === suggestedFill.current.per[t])) { next[t] = n; suggestedFill.current.per[t] = n }
+            })
+            return next
+          })
+        }
+      } catch { /* no suggestion */ }
+    })()
+    return () => { live = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [action, addTypes.join('|'), data.site.id])
+  const warnFor = (t: string) => jur ? authorityWarning(t, authorityOf(t), jur.areas, jur.cards) : null
 
   const togglePick = (id: string) => setPicked(prev => {
     const r = rows.find(x => x.id === id)
@@ -349,7 +392,15 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
                   )}
                   {/* From the Directory: the exact card name is what Email it looks the address up by. */}
                   {sameAuthority || addTypes.length < 2 ? (
-                    <ContactPicker filterType="inspector" value={authority} onChange={name => setAuthority(name)} placeholder="Search your Directory, e.g. Lakewood Township" />
+                    <>
+                      <ContactPicker filterType="inspector" value={authority} onChange={name => setAuthority(name)} placeholder="Search your Directory, e.g. Lakewood Township" />
+                      {addTypes.map(t => warnFor(t)).filter(Boolean).map((w, i) => (
+                        <p key={i} className="flex items-start gap-1.5 text-xs font-medium text-danger"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{w}</p>
+                      ))}
+                      {authority.trim() && authority === suggestedFill.current.all && !addTypes.some(t => warnFor(t)) && (
+                        <p className="text-xs text-success">Suggested from the development&apos;s address and your Directory.</p>
+                      )}
+                    </>
                   ) : (
                     <div className="space-y-2">
                       {addTypes.map(t => (
@@ -357,6 +408,7 @@ function BulkDialog({ data, rows, cells, onClose, onDone }: {
                           <span className="truncate text-sm font-medium text-ink-soft">{t}</span>
                           <ContactPicker filterType="inspector" value={authorityFor[t] ?? authority}
                             onChange={name => setAuthorityFor(prev => ({ ...prev, [t]: name }))} placeholder="Search your Directory" />
+                          {warnFor(t) && <p className="flex items-start gap-1.5 text-xs font-medium text-danger sm:col-start-2"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{warnFor(t)}</p>}
                         </div>
                       ))}
                     </div>
@@ -449,6 +501,9 @@ export function PermitBoard({ data, canEdit, onChanged }: { data: BoardData; can
   const [open, setOpen] = useState<{ permitId: string; rowName: string } | null>(null)
   const [bulk, setBulk] = useState(false)
   const today = todayIso()
+  // On a wide screen the drawer leaves the board usable: tapping another house
+  // swaps the panel instead of the click being eaten by a backdrop.
+  const wide = useMinWidth(1024)
 
   const cells = useMemo(() => boardCells(data.permits, data.rounds, data.items, today), [data, today])
   const columns = useMemo(() => boardColumns(data.permits), [data.permits])
@@ -583,7 +638,7 @@ export function PermitBoard({ data, canEdit, onChanged }: { data: BoardData; can
       )}
 
       {open && (
-        <PermitDrawer data={data} rowName={open.rowName} permitId={open.permitId} canEdit={canEdit}
+        <PermitDrawer data={data} rowName={open.rowName} permitId={open.permitId} canEdit={canEdit} modal={!wide}
           onChanged={onChanged} onClose={() => setOpen(null)} />
       )}
       {bulk && (

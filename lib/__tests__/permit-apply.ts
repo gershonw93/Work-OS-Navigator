@@ -3,7 +3,7 @@
 // and "when i start typing issuing authority it should connect to my directory".
 
 import { applyHowOf, applyLabel, cleanApplyMethod, cleanApplyUrl, emailWarning } from '../permit-apply'
-import { ok, done, code, read } from './_helpers'
+import { ok, done, code, read, combinedName } from './_helpers'
 
 ok(cleanApplyMethod('in_person') === 'in_person' && cleanApplyMethod('fax') === null && cleanApplyMethod(undefined) === null,
   'only the three ways are a setting - anything else is "not said"')
@@ -62,6 +62,23 @@ ok(/One type that did not come back must not hide the others/.test(read('compone
 // errored. A type that describes no table is checked by nothing - so this
 // asserts the column exists in the migrations, not just in the code.
 ok(/ALTER TABLE public\.companies ADD COLUMN IF NOT EXISTS extra jsonb/.test(read('supabase/migrations/163_companies_extra.sql'))
-  && /ALTER TABLE public\.companies ADD COLUMN IF NOT EXISTS extra jsonb/.test(read('supabase/migrations/_combined_008-163.sql')),
+  && /ALTER TABLE public\.companies ADD COLUMN IF NOT EXISTS extra jsonb/.test(read(`supabase/migrations/${combinedName()}`)),
   'companies.extra exists - in its migration and in the combined file')
+// "inspector card is UGLY and weird / the edit opens this HUGE list / i cant
+// scroll to save / why is there trade there if its an inspector"
+{
+  const dir2 = code('app/(dashboard)/directory/page.tsx')
+  ok(/relative flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl/.test(dir2)
+    && /<form onSubmit=\{saveEditCompany\} className="flex min-h-0 flex-1 flex-col">/.test(dir2)
+    && /min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-5/.test(dir2),
+    'the edit form scrolls in the middle and keeps Save on screen')
+  ok(/\{editType !== 'inspector' && \(\s*<div className="space-y-1\.5">\s*<label className="text-xs font-medium text-muted-fg">Trade<\/label>/.test(dir2),
+    'a township or inspector is not asked for a trade')
+  ok(/\{profileData\?\.company\?\.type !== 'inspector' && \(\s*<div className="flex border-b border-line-soft shrink-0/.test(dir2)
+    && /Permit applications<\/p>/.test(dir2) && /Inspections they do<\/p>/.test(dir2),
+    'a township\'s card shows how it takes applications and what it inspects - not contract, payment and invoice tabs of zeroes')
+  const chips = code('components/inspections/type-chips.tsx')
+  ok(/<MultiSelect options=\{all\} value=\{picked\}/.test(chips) && !/rounded-full border px-3/.test(chips),
+    'inspection types are a dropdown with checkboxes, not a wall of pills')
+}
 done()
