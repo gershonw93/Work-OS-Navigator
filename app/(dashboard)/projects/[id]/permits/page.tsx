@@ -2,6 +2,7 @@
 
 import type { AuthorityHow } from '@/lib/permit-apply'
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -158,10 +159,24 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     return session?.access_token ?? ''
   }
 
+  const notSite = useRef(false)
+  // A notification links to ONE permit (`?permit=`): open it once the list
+  // has it - and again when the bell is clicked while already on this page.
+  const searchParams = useSearchParams()
+  const linkedPermit = searchParams?.get('permit') ?? null
+  useEffect(() => {
+    if (linkedPermit && permits.some(p => p.id === linkedPermit)) openOne(linkedPermit)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linkedPermit, permits.length])
+
   async function fetchPermits() {
     // A loading state must have a way to end: finally, not a last statement.
     try {
       const token = await getToken()
+      // The board loads BESIDE the list, not after it - every save waited for
+      // the two one after the other. And a job that is not a development is
+      // only asked once.
+      const board = notSite.current ? null : fetchBoard(token)
       const res = await fetch(`/api/projects/${params.id}/permits`, { headers: { Authorization: `Bearer ${token}` } })
       const json = await res.json().catch(() => ({}))
       if (res.ok) {
@@ -174,7 +189,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
         setAuthorities(json.authorities ?? {})
         setHistoryOk(json.history !== false)
       } else setFetchError(json.error ?? `Error ${res.status}`)
-      void fetchBoard(token)
+      await board
     } catch (e) {
       setFetchError(fetchProblem(e, 'loading the permits'))
     } finally {
@@ -188,6 +203,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
       const json = await res.json().catch(() => ({}))
       if (!res.ok) { setBoardError(json.error ?? `Error ${res.status}`); return }
       setBoardError('')
+      if (!json.isSite) notSite.current = true
       setBoard(json.isSite ? json as BoardData : null)
     } catch (e) {
       console.error('[permits] board read failed', e)

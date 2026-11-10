@@ -179,7 +179,8 @@ export async function POST(request: Request) {
       type: 'permit_reply' as const,
       title: `${from.name || permit.issuing_authority || from.email || 'The township'} replied`,
       message: `About the ${label} at ${project.name || project.address || 'the job'}.${read}`,
-      link: `/projects/${permit.project_id}/permits`,
+      // To the permit itself, not the list it is somewhere in.
+      link: `/projects/${permit.project_id}/permits?permit=${permit.id}`,
     }
     // The sender: the bell only, when the forward already reached them.
     if (senderId) await notify({ db, userIds: [senderId], ...note, inAppOnly: forwarded })

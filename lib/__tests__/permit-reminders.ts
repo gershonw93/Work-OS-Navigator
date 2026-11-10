@@ -122,4 +122,28 @@ for (const r of ['app/api/projects/[id]/permits/route.ts', 'app/api/projects/[id
   ok(/authoritiesFor\(db, gate\.actor\.companyId, /.test(code(r)), `${r} reads the settings from the caller's own Directory, through the one helper`)
 }
 
+// "clicking on a notification doesnt take me anywhere / when the side window
+// is open i cant click anywhere on the site / clicks are slowing down"
+{
+  const bell = code('components/layout/notification-bell.tsx')
+  ok(/setOpen\(false\)\s*if \(n\.link\) router\.push\(n\.link\)\s*if \(!n\.read\) void markOneRead\(n\.id\)/.test(bell)
+    && !/await markOneRead/.test(bell),
+    'a notification goes FIRST and marks itself read in the background - it used to wait on the round trip')
+  ok(/link: `\/projects\/\$\{permit\.project_id\}\/permits\?permit=\$\{permit\.id\}`/.test(inbound)
+    && /\/permits\?permit=\$\{p\.id\}`/.test(cron) && /lines\.length === 1 \? `\/projects\/\$\{projectIds\[0\]\}\/permits\?permit=\$\{permitIds\[0\]\}`/.test(cron),
+    '...and links to the PERMIT, not the list it is somewhere in (a link to the page you are on goes nowhere)')
+  const pg = code('app/(dashboard)/projects/[id]/permits/page.tsx')
+  ok(/const linkedPermit = searchParams\?\.get\('permit'\) \?\? null/.test(pg) && /if \(linkedPermit && permits\.some\(p => p\.id === linkedPermit\)\) openOne\(linkedPermit\)/.test(pg),
+    'the Permits page opens ?permit=, also when the bell is clicked while already on it')
+  ok(/const board = notSite\.current \? null : fetchBoard\(token\)/.test(pg) && pg.indexOf('fetchBoard(token)') < pg.indexOf("fetch(`/api/projects/${params.id}/permits`"),
+    'the board loads beside the list, not after it, and is not asked again on a job that is not a development')
+  const pnl = code('components/permits/permit-panel.tsx')
+  const brd = code('components/permits/permit-board.tsx')
+  const css = read('app/globals.css')
+  ok(/\) : !modal \? \(\s*<div className="side-panel">/.test(pnl)
+    && /\.side-panel \{[^}]*pointer-events: none;/.test(css) && /\.side-panel > \* \{[^}]*pointer-events: auto;/.test(css)
+    && /modal=\{!wide\}/.test(brd),
+    'on a wide screen the board\'s drawer leaves the page usable - no backdrop eating every click')
+  ok(/if \(e\.key === 'Escape' && !holdStill\) onClose\(\)/.test(pnl), '...and Escape closes it')
+}
 done()

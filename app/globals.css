@@ -591,6 +591,38 @@
     to   { transform: none; }
   }
 
+  /* A SIDE PANEL IS A DRAWER THAT DOES NOT TAKE THE PAGE. Same edge, size,
+     insets and slide as `.overlay-drawer`, but the container lets every
+     click through and only the panel catches them - "when the side window
+     is open i cant click anywhere on the site". Used on a WIDE screen only
+     (the development board's permit panel), where the page beside it is the
+     thing you are working from: tap another house and the panel follows.
+     It carries NO data-overlay on purpose - the page must keep scrolling -
+     which is safe here because it is pinned to the visible viewport, not
+     positioned from a measured rectangle that the page could slide out from
+     under. On a phone the same panel IS the screen and stays an
+     `.overlay-drawer`. Escape and its own X close it. */
+  .side-panel {
+    position: fixed;
+    top: var(--vv-t, 0px);
+    height: var(--vv-h, 100%);
+    right: 0;
+    z-index: 45;
+    display: flex;
+    pointer-events: none;
+  }
+  .side-panel > * {
+    pointer-events: auto;
+    width: min(28rem, 100vw);
+    height: 100%;
+    min-height: 0;
+    padding-top: max(0.5rem, env(safe-area-inset-top));
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .side-panel > * { animation: overlay-drawer-in 200ms ease-out; }
+  }
+
   /* The permit panel docked beside the list (desktop) OPENS rather than
      appearing: its column grows from nothing while the panel fades in, so the
      list gives way instead of being shoved. The inner wrapper keeps the

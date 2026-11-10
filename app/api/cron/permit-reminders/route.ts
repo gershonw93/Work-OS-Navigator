@@ -77,7 +77,7 @@ export async function GET(request: Request) {
   const lastChased = new Map((open.data ?? []).map(r => [r.id as string, (r.chase_reminded_at as string | null) ?? null]))
 
   // ── Chase: claim each round, then one message per company ──────────────────
-  const chaseByCompany = new Map<string, { lines: ChaseLine[]; projectIds: string[] }>()
+  const chaseByCompany = new Map<string, { lines: ChaseLine[]; projectIds: string[]; permitIds: string[] }>()
   for (const p of chasePermits.data ?? []) {
     const rounds = history.rounds.filter(r => r.permit_id === p.id)
       .map(r => ({ ...r, chase_reminded_at: lastChased.has(r.id) ? lastChased.get(r.id)! : `${today}T00:00:00Z` }))
@@ -88,16 +88,19 @@ export async function GET(request: Request) {
     const { data: claimed } = await db.from('permit_rounds').update({ chase_reminded_at: now })
       .eq('id', round.id).or(`chase_reminded_at.is.null,chase_reminded_at.lt.${cutoff}`).select('id')
     if (!claimed?.length) continue // another run has it
-    const entry = chaseByCompany.get(company) ?? { lines: [], projectIds: [] }
+    const entry = chaseByCompany.get(company) ?? { lines: [], projectIds: [], permitIds: [] }
     entry.lines.push({ permitType: p.permit_type, job: p.projects?.name ?? 'the job', authority: p.issuing_authority, days: daysBetween(round.submitted_on, today) })
     entry.projectIds.push(p.project_id)
+    entry.permitIds.push(p.id)
     chaseByCompany.set(company, entry)
   }
   let chased = 0
-  for (const [companyId, { lines, projectIds }] of Array.from(chaseByCompany)) {
+  for (const [companyId, { lines, projectIds, permitIds }] of Array.from(chaseByCompany)) {
     const people = await audienceFor({ db, companyId, type: 'permit_chase' })
     const { title, message } = chaseMessage(lines)
-    await notify({ db, userIds: people, type: 'permit_chase', title, message, link: `/projects/${projectIds[0]}/permits` })
+    // One permit: open it. Several: the first one's list, which leads with the overdue.
+    const link = lines.length === 1 ? `/projects/${projectIds[0]}/permits?permit=${permitIds[0]}` : `/projects/${projectIds[0]}/permits`
+    await notify({ db, userIds: people, type: 'permit_chase', title, message, link })
     chased += lines.length
   }
 
@@ -120,7 +123,7 @@ export async function GET(request: Request) {
       permitType: p.permit_type, permitNumber: p.permit_number, job: p.projects?.name ?? 'the job',
       expiry: p.expiry_date, days: due.days, authority: p.issuing_authority,
     })
-    await notify({ db, userIds: people, type: 'permit_expiring', title, message, link: `/projects/${p.project_id}/permits` })
+    await notify({ db, userIds: people, type: 'permit_expiring', title, message, link: `/projects/${p.project_id}/permits?permit=${p.id}` })
     expiries++
   }
 
