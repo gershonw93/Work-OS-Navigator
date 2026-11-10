@@ -6,6 +6,7 @@ import { DeleteGuardProvider } from '@/components/ui/delete-guard'
 import { ShrinkUploads } from '@/components/ui/shrink-uploads'
 import { sidebarCollapseScript } from '@/lib/sidebar-collapse'
 import { Analytics } from '@/components/analytics/analytics'
+import { StagingBadge } from '@/components/layout/staging-badge'
 import './globals.css'
 
 const archivo = Archivo({
@@ -153,6 +154,8 @@ export default function RootLayout({
         <NoticeProvider><DeleteGuardProvider>{children}</DeleteGuardProvider></NoticeProvider>
         {/* Google Analytics via GTM. Who is and is not measured: lib/analytics.ts. */}
         <Analytics />
+        {/* Preview builds only - staging shares the live database. */}
+        <StagingBadge />
       </body>
     </html>
   )

@@ -7,11 +7,18 @@
 // so the code can ship before the DNS record exists without a window where
 // links point at a host that doesn't resolve yet.
 
+import { isPreviewBuild } from './deploy-env'
+
 export const APP_URL = (process.env.NEXT_PUBLIC_APP_URL ?? '').replace(/\/$/, '')
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL ?? '').replace(/\/$/, '')
 
-/** True once the app has its own hostname. */
-export const splitHosts = APP_URL.length > 0
+/**
+ * True once the app has its own hostname - and NEVER on a preview build.
+ * Staging (staging.sytenav.com) serves the app and the marketing pages from
+ * its one host; with the split on, every app link would leave it for
+ * app.sytenav.com, which is the live site. See lib/deploy-env.ts.
+ */
+export const splitHosts = APP_URL.length > 0 && !isPreviewBuild
 
 /** Link to something in the product - absolute once the split is on. */
 export function appHref(path: string): string {
