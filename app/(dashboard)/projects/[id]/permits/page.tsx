@@ -1,6 +1,6 @@
 'use client'
 
-import { authorityWarning, type AuthorityCard, type AuthoritySuggestion, type JobAreas } from '@/lib/permit-jurisdiction'
+import { authorityWarning, noSuggestionReason, type AuthorityCard, type AuthoritySuggestion, type JobAreas } from '@/lib/permit-jurisdiction'
 import type { AuthorityHow } from '@/lib/permit-apply'
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
@@ -166,6 +166,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   // or replaces the one IT put there when the permit type changes.
   const [jur, setJur] = useState<{ areas: JobAreas | null; cards: AuthorityCard[]; suggestions: Record<string, AuthoritySuggestion | null> } | null>(null)
   const lastSuggested = useRef<string | null>(null)
+  const [jurFailed, setJurFailed] = useState(false)
   useEffect(() => {
     const type = permitType.trim()
     if (!showForm || editingPermit || !type) return
@@ -174,14 +175,15 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
       try {
         const res = await fetch(`/api/projects/${params.id}/permit-authority?types=${encodeURIComponent(type)}`, { headers: { Authorization: `Bearer ${await getToken()}` } })
         const j = await res.json().catch(() => null)
-        if (!live || !res.ok || !j) return
-        setJur(j)
+        if (!live) return
+        if (!res.ok || !j) { setJur(null); setJurFailed(true); return }
+        setJur(j); setJurFailed(false)
         const sug = j.suggestions?.[type] as AuthoritySuggestion | null | undefined
         setIssuingAuthority(cur => {
           if (sug && (!cur.trim() || cur === lastSuggested.current)) { lastSuggested.current = sug.name; return sug.name }
           return cur
         })
-      } catch { /* a suggestion that did not come is no suggestion */ }
+      } catch { if (live) { setJur(null); setJurFailed(true) } }
     })()
     return () => { live = false }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -447,7 +449,12 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     ? <p className="flex items-start gap-1.5 text-xs font-medium text-danger"><AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />{authorityWarn}</p>
     : suggestedNow && !editingPermit && issuingAuthority.trim() === suggestedNow.name
       ? <p className="text-xs text-success">Suggested from the job&apos;s address - {suggestedNow.reason}</p>
-      : null
+      : !editingPermit && !issuingAuthority.trim() && permitType.trim()
+        // Nothing suggested: say why, or the empty box reads as a broken feature.
+        ? (jurFailed
+          ? <p className="text-xs text-muted-fg">Could not check who covers this job right now. Pick who you apply to.</p>
+          : jur && !suggestedNow ? <p className="text-xs text-muted-fg">{noSuggestionReason(permitType, jur.areas, jur.cards)}</p> : null)
+        : null
 
   function openOne(id: string, answer = false) {
     // A row pressed while the panel is sliding shut keeps it open on that row.

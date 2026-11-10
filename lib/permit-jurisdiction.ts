@@ -193,3 +193,66 @@ export function authorityWarning(
   }
   return null
 }
+
+// ── Nearby ──────────────────────────────────────────────────────────────────
+// "maybe when u select one it should suggest surrounding ones". A township's
+// building department usually covers its neighbours too (or a county does), so
+// after a pick the map is asked what lies around it: a ring of points a few
+// miles out, each reverse-geocoded to the township (or county) it falls in.
+
+/** How far out to look: a township's neighbours sit a few miles off, a county's tens. */
+export const NEARBY_KM: Record<AreaKind, number> = { municipality: 7, county: 45 }
+export const NEARBY_POINTS = 8
+
+/** `n` points evenly round a circle of `km` about a centre. */
+export function ringPoints(lat: number, lng: number, km: number, n = NEARBY_POINTS): { lat: number; lng: number }[] {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || !(km > 0) || n < 1) return []
+  const dLat = km / 111.32
+  const dLng = km / (111.32 * Math.max(0.01, Math.cos(lat * Math.PI / 180)))
+  return Array.from({ length: n }, (_, i) => {
+    const a = (2 * Math.PI * i) / n
+    return { lat: lat + dLat * Math.cos(a), lng: lng + dLng * Math.sin(a) }
+  })
+}
+
+const areaKey = (a: Area) => `${a.kind}|${foldArea(a.name)}|${a.state ?? ''}`
+
+/**
+ * What the ring found, as suggestions: same-kind places that are not the one
+ * picked, in the order first seen, no repeats - plus the containing county
+ * when a township was picked (it often runs the septic and health permits).
+ */
+export function nearbyAreas(picked: Area, found: (Area | null | undefined)[], county?: Area | null): Area[] {
+  const self = areaKey(picked)
+  const out: Area[] = []
+  const seen = new Set<string>([self])
+  const push = (a: Area | null | undefined) => {
+    if (!a || !foldArea(a.name)) return
+    if (!sameState(a.state, picked.state)) return
+    const k = areaKey(a)
+    if (seen.has(k)) return
+    seen.add(k)
+    out.push(a)
+  }
+  if (picked.kind === 'municipality' && county?.kind === 'county') push(county)
+  for (const a of found) if (a?.kind === picked.kind) push(a)
+  return out.slice(0, 12)
+}
+
+/**
+ * Why nothing was suggested, in a sentence - or null when something was (or
+ * nothing was asked). "should here suggest? cuz its not": an empty box with
+ * no word under it looks exactly like a feature that never shipped. Each
+ * answer names the one thing to fix.
+ */
+export function noSuggestionReason(type: string, job: JobAreas | null, cards: AuthorityCard[]): string | null {
+  const t = type.trim()
+  if (!t) return null
+  const place = jobPlace(job)
+  if (!job || !place) return 'Could not place this job\'s address on the map, so nobody is suggested. Check the address on the job.'
+  const covering = cards.filter(c => c.covers.some(a => areaCoversJob(a, job)))
+  if (!covering.length) return `No township in your Directory covers ${place} yet. Add ${place} to one under "Towns it covers" and it is suggested here.`
+  const issuing = covering.filter(c => !c.issues.length || issuesType(c, t))
+  if (!issuing.length) return `Nobody in your Directory covering ${place} is marked as issuing ${t} permits.`
+  return `More than one Directory card covers ${place} for ${t} permits - pick the one you apply to.`
+}

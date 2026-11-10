@@ -186,7 +186,7 @@ function RoleBadge({ role, label }: { role: string; label?: string }) {
 
 const COMPANY_TYPE_LABEL: Record<string, string> = {
   gc: 'General Contractor', subcontractor: 'Subcontractor', supplier: 'Supplier',
-  inspector: 'Inspector', worker: 'Worker', other: 'Other',
+  inspector: 'Permit office / Inspector', worker: 'Worker', other: 'Other',
 }
 
 export default function SettingsPage() {

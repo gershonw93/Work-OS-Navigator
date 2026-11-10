@@ -32,7 +32,7 @@ import { cn } from '@/lib/utils'
 
 const TYPE_LABEL: Record<string, string> = {
   subcontractor: 'Sub', supplier: 'Supplier', delivery: 'Delivery',
-  inspector: 'Inspector', other: 'Other',
+  inspector: 'Permit office', other: 'Other',
 }
 
 interface Staged {
