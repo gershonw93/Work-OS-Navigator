@@ -19,13 +19,17 @@
 import { CANONICAL_ORIGIN } from '@/lib/canonical'
 
 /** The internal route tree. Never shown on the help host itself. */
+import { isPreviewBuild } from './deploy-env'
+
 export const HELP_PREFIX = '/help-center'
 
 /** e.g. https://help.sytenav.com - empty until the subdomain exists. */
 export const HELP_URL = (process.env.NEXT_PUBLIC_HELP_URL ?? '').replace(/\/+$/, '')
 
 /** True once the Help Center has its own hostname. */
-export const helpHostLive = HELP_URL.length > 0
+// Never on a preview: staging serves /help-center itself rather than sending
+// the reader to help.sytenav.com (lib/deploy-env.ts).
+export const helpHostLive = HELP_URL.length > 0 && !isPreviewBuild
 
 export const HELP_HOST = helpHostLive ? new URL(HELP_URL).host.toLowerCase() : ''
 

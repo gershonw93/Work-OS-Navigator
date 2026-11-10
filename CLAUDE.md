@@ -22,13 +22,35 @@ New rule? The imperative goes here, the story goes there, and they link to each
 other. See `docs/postmortems/README.md`.
 
 ## Ship workflow (IMPORTANT)
-When work is done: **build → commit → push → merge to `main` → fast-forward the
-production branch.** Do NOT ask the user to merge or deploy.
-- Work on a `claude/*` branch, then open/merge a PR into `main` via the GitHub MCP tools.
-- **Vercel's production branch is `claude/admiring-bohr-DyFVR`, NOT `main`.** Builds
-  off `main` are previews only. After merging, fast-forward it or nothing ships:
+**STAGING FIRST. Merging to `main` IS shipping to staging; production waits for
+the owner.** Asked for "now that we have users": a change used to go straight
+from a merge to every customer's screen.
+- When work is done: **build → commit → push → merge to `main` via the GitHub
+  MCP tools.** That deploys `staging.sytenav.com` (the Vercel preview of `main`,
+  a domain bound to that branch). Say it is on staging and stop there. Do NOT
+  ask the user to merge.
+- **Production is a separate step, and only when the owner says so** ("ship to
+  production", "ship it", "send it live"). Vercel's production branch is
+  `claude/admiring-bohr-DyFVR`, NOT `main`; fast-forward it:
   `git push origin origin/main:refs/heads/claude/admiring-bohr-DyFVR`
-  (Changing this is one setting: Vercel → project → Git → Production Branch.)
+  (Changing which branch is production is one setting: Vercel → project → Git
+  → Production Branch.)
+- **STAGING SHARES THE LIVE DATABASE** (the owner's decision over a separate
+  test database). A job made there is a job customers can see and an email
+  sent there is real; QuickBooks pushes are real. So: test with your own
+  company's records, and every page of a preview build carries a red
+  "STAGING - live data" tag (`components/layout/staging-badge.tsx`). Crons do
+  NOT run on previews, so nothing scheduled fires twice.
+- **A PREVIEW NEVER HANDS YOU TO THE LIVE SITE.** The app/www split and the
+  help subdomain both REDIRECT, and are switched on by env vars a preview may
+  carry - so staging.sytenav.com/dashboard bounced to app.sytenav.com would be
+  "testing" in production with nothing on the screen to say so.
+  `lib/deploy-env.ts` (`isPreviewBuild`) turns both off on a preview. Pinned in
+  `staging.ts`. Anything new that redirects by host asks it too.
+- **A MIGRATION IS NOT STAGED.** There is one database, so `apply_migration`
+  changes production the moment it runs, whatever branch the code is on. Write
+  migrations so the CURRENT production code still works after them (add, never
+  rename or drop in the same change), apply, then ship the code that uses them.
 - Migrations are applied directly via the Supabase MCP (`apply_migration`) as
   part of shipping - the user does NOT paste SQL by hand. Verify the schema
   landed, then say what ran. Don't nag about deploy.
