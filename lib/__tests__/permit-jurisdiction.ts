@@ -5,7 +5,7 @@
 // counties and auto populate".
 
 import {
-  areaCoversJob, authorityWarning, cleanAreas, cleanIssues, coverageOf, foldArea, suggestAuthority,
+  areaCoversJob, authorityWarning, cleanAreas, cleanIssues, coverageOf, foldArea, nearbyAreas, noSuggestionReason, ringPoints, suggestAuthority,
   type AuthorityCard, type JobAreas,
 } from '../permit-jurisdiction'
 import { ok, done, code, read } from './_helpers'
@@ -82,5 +82,46 @@ const dir = code('app/(dashboard)/directory/page.tsx')
 ok(/<AreaPicker value=\{editCovers\} onChange=\{setEditCovers\} \/>/.test(dir) && /covers: editCovers, issues: editIssues/.test(dir)
   && /Towns it covers<\/p>/.test(dir) && /Permits it issues<\/p>/.test(dir),
   'a township card edits and shows Towns it covers and Permits it issues')
+
+// ── picking several, and what is around a pick ─────────────────────────────
+// "i cant select one and select the next - it closes the dropdown - maybe when
+// u select one it should suggest surrounding ones"
+const ring = ringPoints(39.95, -74.2, 7)
+ok(ring.length === 8 && ring.every(p => Math.abs(Math.hypot((p.lat - 39.95) * 111.32, (p.lng + 74.2) * 111.32 * Math.cos(39.95 * Math.PI / 180)) - 7) < 0.05),
+  'the ring is 8 points, each 7 km from the centre')
+ok(ringPoints(NaN, 0, 7).length === 0, 'no centre, no ring')
+const lakewood = { name: 'Lakewood Township', kind: 'municipality' as const, state: 'NJ' }
+const near = nearbyAreas(TR, [lakewood, { ...lakewood }, { ...TR, name: 'Toms River Twp' }, null, { name: 'Brick', kind: 'municipality', state: 'NJ' },
+  { name: 'Ocean', kind: 'county', state: 'NJ' }, { name: 'Somewhere', kind: 'municipality', state: 'PA' }], OCEAN)
+ok(near.map(a => a.name).join() === 'Ocean,Lakewood Township,Brick',
+  'nearby: the county first, then each neighbour once - never the pick itself, another state, or a county from the ring')
+ok(nearbyAreas(OCEAN, [OCEAN, { name: 'Monmouth', kind: 'county', state: 'NJ' }, lakewood]).map(a => a.name).join() === 'Monmouth',
+  'a county\'s neighbours are counties')
+const picker = code('components/ui/area-picker.tsx')
+ok(!/setQ\(''\)/.test(picker) && !/setResults\(\[\]\); ?(?:setState|\})/.test(picker.slice(picker.indexOf('const pick'))),
+  'a pick does not empty the search - the next one is one tap away')
+ok(/void loadNearby\(a\)/.test(picker) && /near=\$\{encodeURIComponent\(JSON\.stringify\(a\)\)\}/.test(picker) && /Near \{label\(near\.of\)\}/.test(picker),
+  'a pick asks what is around it and shows it under "Near ..."')
+ok(/a\.kind === near\.of\.kind/.test(picker), '"Add all" never sweeps a whole county onto a township card')
+ok(/^function AreaRow/m.test(picker), 'the row is hoisted, not declared inside the picker')
+const geo = read('app/api/geo/areas/route.ts')
+ok(geo.indexOf("params.get('near')") > geo.indexOf('requirePermission') && /cleanAreas\(\[JSON\.parse\(near\)\]\)/.test(geo),
+  'the nearby lookup sits behind the same gate, and takes only a cleaned place')
+ok(/export async function searchNearby/.test(jobs) && /latlng=/.test(jobs) && /photon\.komoot\.io\/reverse/.test(jobs),
+  'nearby: reverse lookups round the pick, Google then Photon')
+const { stateIn } = require('../job-areas')
+ok(stateIn('Ocean County, NJ, USA') === 'NJ' && stateIn('NJ, USA') === 'NJ' && stateIn('USA') === null && stateIn('New Jersey, USA') === 'NJ' && stateIn('Somewhere, US') === null
+  && /const state = stateIn\(p\.structured_formatting/.test(jobs),
+  'the state is read from whichever part names one - Toms River was saved twice, once with no state')
+
+// ── saying why nothing was suggested ────────────────────────────────────────
+// "should here suggest? cuz its not"
+const lakewoodJob: JobAreas = { municipality: 'Lakewood Township', locality: 'Lakewood', county: 'Monmouth', state: 'NJ' }
+ok(/Could not place this job's address/.test(noSuggestionReason('Building', null, cards) ?? ''), 'no map answer: says so')
+ok(/No township in your Directory covers Lakewood Township yet/.test(noSuggestionReason('Building', lakewoodJob, cards) ?? ''), 'nobody covers it: names the place to add')
+ok(/marked as issuing Sign permits/.test(noSuggestionReason('Sign', tomsRiver, cards) ?? ''), 'covered, but not for this type: says so')
+ok(/More than one/.test(noSuggestionReason('Building', tomsRiver, twins) ?? ''), 'a tie: says pick one')
+ok(/noSuggestionReason\(permitType, jur\.areas, jur\.cards\)/.test(page) && /setJurFailed\(true\)/.test(page),
+  'Add Permit says why under an empty box, and a failed check is not silence either')
 
 done()

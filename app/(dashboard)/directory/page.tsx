@@ -55,7 +55,7 @@ type ContactType = 'gc' | 'subcontractor' | 'inspector' | 'supplier' | 'worker' 
 const TYPE_LABELS: Record<ContactType, string> = {
   gc: 'GC',
   subcontractor: 'Sub',
-  inspector: 'Inspector',
+  inspector: 'Permit office',
   supplier: 'Supplier',
   worker: 'Worker',
   other: 'Other',
@@ -74,7 +74,7 @@ const TABS: { key: 'all' | ContactType; label: string }[] = [
   { key: 'all', label: 'All' },
   { key: 'gc', label: 'GCs' },
   { key: 'subcontractor', label: 'Subs' },
-  { key: 'inspector', label: 'Inspectors' },
+  { key: 'inspector', label: 'Permit offices' },
   { key: 'supplier', label: 'Suppliers' },
   { key: 'worker', label: 'Workers' },
 ]
@@ -564,7 +564,7 @@ export default function DirectoryPage() {
                   >
                     <option value="gc">General Contractor (GC)</option>
                     <option value="subcontractor">Subcontractor</option>
-                    <option value="inspector">Inspector</option>
+                    <option value="inspector">Permit office / Inspector</option>
                     <option value="supplier">Supplier</option>
                     <option value="worker">Worker</option>
                     <option value="other">Other</option>
@@ -1195,7 +1195,7 @@ export default function DirectoryPage() {
                   <Select id="edit-type" value={editType} onChange={e => setEditType(e.target.value as ContactType)}>
                     <option value="gc">General Contractor (GC)</option>
                     <option value="subcontractor">Subcontractor</option>
-                    <option value="inspector">Inspector</option>
+                    <option value="inspector">Permit office / Inspector</option>
                     <option value="supplier">Supplier</option>
                     <option value="worker">Worker</option>
                     <option value="other">Other</option>
