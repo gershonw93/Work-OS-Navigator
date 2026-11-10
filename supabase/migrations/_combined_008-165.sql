@@ -4976,3 +4976,7 @@ ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS extra jsonb;
 -- 164_permit_reminders.sql
 ALTER TABLE public.permit_rounds ADD COLUMN IF NOT EXISTS chase_reminded_at timestamptz;
 ALTER TABLE public.permits ADD COLUMN IF NOT EXISTS expiry_reminder_for date;
+
+-- 165_permit_reminder_stages.sql
+ALTER TABLE public.permits ADD COLUMN IF NOT EXISTS expiry_reminder_stage integer;
+UPDATE public.permits SET expiry_reminder_stage = 30 WHERE expiry_reminder_for IS NOT NULL AND expiry_reminder_stage IS NULL;

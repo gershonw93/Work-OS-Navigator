@@ -72,7 +72,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'A morning message for permits to chase, and a warning before one expires',
-        text: 'Every morning SyteNav lists the permits to follow up on - with the township past the date they promised, or three weeks with no answer - in one message, and warns you 30 days before an issued permit expires. When a township replies to a permit you emailed, the bell tells you and says what AI read it as. Each has its own switches in Settings > Notifications, including who gets told.',
+        text: 'Every morning SyteNav lists the permits to follow up on - with the township past the date they promised, or three weeks with no answer - in one message, repeated weekly until their answer is recorded. An issued permit is warned about 30 days out, again at 7 days, and once more when it lapses. When a township replies to a permit you emailed, the bell tells you and says what AI read it as. Each has its own switches in Settings > Notifications, including who gets told.',
         help: 'permits',
       },
       {

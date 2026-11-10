@@ -459,13 +459,13 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
   // route. Audience: whoever can EDIT permits - the people who can act.
   {
     key: 'permit_chase', label: 'Permit to chase', group: 'Compliance',
-    description: 'A permit has been with the township past the date they promised, or three weeks with no answer. One morning message listing them.',
+    description: 'A permit has been with the township past the date they promised, or three weeks with no answer. One morning message listing them, again each week until their answer is recorded.',
     audience: 'team', defaultAudience: ['permits', 'edit'],
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
   {
     key: 'permit_expiring', label: 'Permit expiring', group: 'Compliance',
-    description: 'An issued permit is within 30 days of its expiry date.',
+    description: 'An issued permit expires in 30 days, then 7 days, and once more the day after it lapses. Renewing or closing it out stops the warnings.',
     audience: 'team', defaultAudience: ['permits', 'edit'],
     defaults: { inApp: true, email: true }, push: true, status: 'live',
   },
