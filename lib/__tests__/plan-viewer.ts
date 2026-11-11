@@ -82,7 +82,7 @@ ok(/href=\{plan\.file_url\}/.test(page), '...while "Open the file" still goes to
 const route = code('app/api/projects/[id]/plans/[planId]/file/route.ts')
 ok(/cookieClient\(\)\.auth\.getUser\(\)/.test(route),
   'the file route authenticates by cookie - an <img> cannot send a bearer token')
-ok(/createSignedUrl\(plan\.storage_path/.test(route),
+ok(/createSignedUrl\(\s*plan\.storage_path/.test(route),
   'ours is signed FRESH each request, so a rotated key cannot orphan a library')
 ok(/\.eq\('id', params\.planId\)[\s\S]{0,80}\.eq\('project_id', params\.id\)/.test(route),
   '...and the row must belong to the project in the path')
