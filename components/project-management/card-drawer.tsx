@@ -276,24 +276,31 @@ export function CardDrawer({ projectId, columns, card, startColumnId, linkTypes,
                   const isOpen = openItem === item.id
                   return (
                     <div key={item.id} className={cn(isOpen && 'bg-surface')}>
-                      <div className="flex items-center gap-1 pl-3 pr-1">
+                      {/* The date is ON the row, where a subitem's date is looked
+                          for - beside the name from lg up, under it on a phone. */}
+                      <div className="flex flex-wrap items-center gap-x-1 pl-3 pr-1">
                         <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 py-1.5 text-sm">
                           <input type="checkbox" checked={item.done} className="h-5 w-5 shrink-0 accent-[rgb(var(--accent-fg))]"
                             onChange={() => patchItem(item.id, { done: !item.done })} />
                           <span className="min-w-0 flex-1">
                             <span className={cn('block break-words', item.done ? 'text-muted-fg line-through' : 'text-ink')}>{item.text}</span>
-                            {(says || item.note) && !isOpen && (
+                            {((says && says.tone !== 'plain' && says.tone !== 'done') || (item.note && !isOpen)) && (
                               <span className="block truncate text-xs text-muted-fg">
-                                {says && (
-                                  <span className={cn(says.tone === 'overdue' && 'font-semibold text-danger', says.tone === 'today' && 'font-semibold text-ink')}>{says.text}</span>
-                                )}
-                                {says && item.note ? ' - ' : ''}{item.note}
+                                {says?.tone === 'overdue' && <span className="font-semibold text-danger">{says.text}</span>}
+                                {says?.tone === 'today' && <span className="font-semibold text-ink">Due today</span>}
+                                {(says?.tone === 'overdue' || says?.tone === 'today') && item.note && !isOpen ? ' - ' : ''}
+                                {!isOpen && item.note}
                               </span>
                             )}
                           </span>
                         </label>
+                        <div className="order-last w-full pb-2.5 pl-8 pr-2 lg:order-none lg:w-40 lg:shrink-0 lg:p-0">
+                          <Label htmlFor={`pm-sub-due-${item.id}`} className="sr-only">Due date for {item.text} (optional)</Label>
+                          <Input id={`pm-sub-due-${item.id}`} type="date" value={item.due ?? ''} title="Due date (optional)"
+                            onChange={e => patchItem(item.id, { due: e.target.value || null })} />
+                        </div>
                         <button type="button" aria-expanded={isOpen}
-                          aria-label={`Date and note for "${item.text}"`} title="Date and note"
+                          aria-label={`Note for "${item.text}"`} title="Note"
                           onClick={() => setOpenItem(isOpen ? '' : item.id)}
                           className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink">
                           <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
@@ -305,17 +312,10 @@ export function CardDrawer({ projectId, columns, card, startColumnId, linkTypes,
                         </button>
                       </div>
                       {isOpen && (
-                        <div className="grid grid-cols-1 gap-3 px-3 pb-3 sm:grid-cols-2">
-                          <div className="space-y-1">
-                            <Label htmlFor={`pm-sub-due-${item.id}`} className="lg:text-xs">Due (optional)</Label>
-                            <Input id={`pm-sub-due-${item.id}`} type="date" value={item.due ?? ''}
-                              onChange={e => patchItem(item.id, { due: e.target.value || null })} />
-                          </div>
-                          <div className="space-y-1">
-                            <Label htmlFor={`pm-sub-note-${item.id}`} className="lg:text-xs">Note (optional)</Label>
-                            <Input id={`pm-sub-note-${item.id}`} value={item.note ?? ''} maxLength={500}
-                              onChange={e => patchItem(item.id, { note: e.target.value })} />
-                          </div>
+                        <div className="space-y-1 px-3 pb-3">
+                          <Label htmlFor={`pm-sub-note-${item.id}`} className="lg:text-xs">Note (optional)</Label>
+                          <Input id={`pm-sub-note-${item.id}`} value={item.note ?? ''} maxLength={500}
+                            onChange={e => patchItem(item.id, { note: e.target.value })} />
                         </div>
                       )}
                     </div>
@@ -332,7 +332,7 @@ export function CardDrawer({ projectId, columns, card, startColumnId, linkTypes,
               </div>
               <Button type="button" variant="outline" onClick={addItem}><Plus className="mr-1 h-4 w-4" />Add</Button>
             </div>
-            <p className="text-xs text-muted-fg">Open a subtask to give it its own due date and a note. The card shows whichever date comes first.</p>
+            <p className="text-xs text-muted-fg">Each subtask can have its own due date, and a note behind the arrow. The card shows whichever date comes first.</p>
           </div>
 
           {(linkTypes.length > 0 || keptLink) && (
