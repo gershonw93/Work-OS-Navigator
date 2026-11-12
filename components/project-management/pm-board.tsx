@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { ChevronLeft, ChevronRight, Link2, ListChecks, Lock, Plus, Search } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Link2, ListChecks, Lock, Plus, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,9 +17,9 @@ import { fetchProblem } from '@/lib/fetch-error'
 import { todayDateInput, dayWords } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import {
-  attentionDate, boardLabels, calendarEntries, cardDue, cardsIn, checklistProgress, columnProblem, filterCards, monthGrid, placeAt, pmAllowedRole,
+  attentionDate, boardLabels, calendarEntries, cardDue, subtaskDue, cardsIn, checklistProgress, columnProblem, filterCards, monthGrid, placeAt, pmAllowedRole,
   PM_LABEL, PM_MONTHS, PM_PRIORITY_LABEL, PM_TONE_CLASS,
-  type PmCalendarEntry, type PmCard, type PmColumn,
+  type PmCalendarEntry, type PmCard, type PmChecklistItem, type PmColumn,
 } from '@/lib/project-management'
 import { getImpersonation } from '@/components/layout/impersonate-switcher'
 import { CardDrawer, type PmApi } from './card-drawer'
@@ -108,6 +108,31 @@ function CardTitle({ card }: { card: PmCard }) {
   )
 }
 
+/** One subtask, tickable where it is listed. Shared by the table and the phone list. */
+function SubtaskTick({ item, onToggle }: { item: PmChecklistItem; onToggle: () => void }) {
+  return (
+    <label className="flex min-h-11 min-w-0 cursor-pointer items-center gap-3 text-sm lg:min-h-0">
+      <input type="checkbox" checked={item.done} onChange={onToggle} onClick={e => e.stopPropagation()}
+        className="h-5 w-5 shrink-0 accent-[rgb(var(--accent-fg))] lg:h-4 lg:w-4" />
+      <span className="min-w-0">
+        <span className={cn('block break-words', item.done ? 'text-muted-fg line-through' : 'text-ink')}>{item.text}</span>
+        {item.note && <span className="block break-words text-xs text-muted-fg">{item.note}</span>}
+      </span>
+    </label>
+  )
+}
+
+function SubtaskDate({ item, today }: { item: PmChecklistItem; today: string }) {
+  const says = subtaskDue(item, today)
+  if (!says) return <span className="text-muted-fg">-</span>
+  return (
+    <span className={cn('whitespace-nowrap',
+      says.tone === 'overdue' && 'font-semibold text-danger',
+      says.tone === 'today' && 'font-semibold text-ink',
+      says.tone === 'done' && 'text-muted-fg line-through')}>{says.text}</span>
+  )
+}
+
 interface ColumnDialogState { mode: 'add' | 'rename'; column?: PmColumn }
 
 function ColumnDialog({ state, columns, onClose, onSubmit }: {
@@ -191,6 +216,13 @@ export function PmBoard({ projectId }: { projectId: string }) {
   const [phoneColumn, setPhoneColumn] = useState('')
   const [drawer, setDrawer] = useState<{ card: PmCard | null; columnId: string | null } | null>(null)
   const [columnDialog, setColumnDialog] = useState<ColumnDialogState | null>(null)
+  // Cards whose subtasks are listed under them in the Table view.
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const toggleExpanded = (id: string) => setExpanded(prev => {
+    const next = new Set(prev)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    return next
+  })
   const [dragId, setDragId] = useState('')
   const [over, setOver] = useState<{ columnId: string; beforeId: string | null } | null>(null)
 
@@ -273,6 +305,19 @@ export function PmBoard({ projectId }: { projectId: string }) {
       await api(`/cards/${card.id}`, { method: 'PATCH', body: { column_id: columnId, position: order.indexOf(card.id) } })
     } catch (e) {
       notice(fetchProblem(e, 'moving the card'))
+      load()
+    }
+  }
+
+  // Ticking a subtask where it is listed. The whole list is sent - the route
+  // cleans and stores it - and a refusal puts the board back as the server has it.
+  async function toggleSubtask(card: PmCard, itemId: string) {
+    const checklist = card.checklist.map(i => i.id === itemId ? { ...i, done: !i.done } : i)
+    setCards(prev => prev.map(c => c.id === card.id ? { ...c, checklist } : c))
+    try {
+      await api(`/cards/${card.id}`, { method: 'PATCH', body: { checklist } })
+    } catch (e) {
+      notice(fetchProblem(e, 'ticking the subtask'))
       load()
     }
   }
@@ -588,10 +633,11 @@ export function PmBoard({ projectId }: { projectId: string }) {
                           {c.name} <span className="font-medium text-muted-fg">{list.length}</span>
                         </th>
                       </tr>,
-                      ...list.map(card => {
+                      ...list.flatMap(card => {
                         const due = cardDue(card, today)
                         const progress = checklistProgress(card.checklist)
-                        return (
+                        const isOpen = expanded.has(card.id)
+                        return [
                           <tr key={card.id} onClick={() => open(card)} className="cursor-pointer border-b border-line-soft hover:bg-surface">
                             <td className="px-4 py-3">
                               <button type="button" className="text-left" onClick={e => { e.stopPropagation(); open(card) }}><CardTitle card={card} /></button>
@@ -609,10 +655,28 @@ export function PmBoard({ projectId }: { projectId: string }) {
                               due?.tone === 'overdue' && 'font-semibold text-danger',
                               due?.tone === 'today' && 'font-semibold',
                               due?.tone === 'done' && 'font-semibold text-success')}>{due?.text ?? '-'}</td>
-                            <td className="whitespace-nowrap px-4 py-3">{progress ? `${progress.done} of ${progress.total}` : '-'}</td>
+                            <td className="whitespace-nowrap px-4 py-3">
+                              {progress ? (
+                                <button type="button" aria-expanded={isOpen}
+                                  onClick={e => { e.stopPropagation(); toggleExpanded(card.id) }}
+                                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-medium text-ink-soft hover:bg-muted">
+                                  {progress.done} of {progress.total}
+                                  <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-180')} />
+                                </button>
+                              ) : '-'}
+                            </td>
                             <td className="px-4 py-3 text-info">{card.link_label ?? <span className="text-ink">-</span>}</td>
-                          </tr>
-                        )
+                          </tr>,
+                          // SUBTASKS AS ROWS UNDER THEIR CARD, indented, each with
+                          // its own date in the Due column and a box to tick.
+                          ...(isOpen ? card.checklist.map(item => (
+                            <tr key={`${card.id}:${item.id}`} className="border-b border-line-soft bg-surface">
+                              <td colSpan={3} className="py-2 pl-10 pr-4"><SubtaskTick item={item} onToggle={() => toggleSubtask(card, item.id)} /></td>
+                              <td className="px-4 py-2"><SubtaskDate item={item} today={today} /></td>
+                              <td colSpan={2} className="px-4 py-2 text-xs text-muted-fg">Subtask</td>
+                            </tr>
+                          )) : []),
+                        ]
                       }),
                     ]
                   })}
@@ -631,13 +695,37 @@ export function PmBoard({ projectId }: { projectId: string }) {
                     <h2 className="text-xs font-bold uppercase tracking-wider text-ink">{c.name} <span className="font-medium text-muted-fg">{list.length}</span></h2>
                     {list.length > 0 && (
                       <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel">
-                        {list.map(card => (
-                          <button key={card.id} type="button" onClick={() => open(card)} className="flex w-full flex-col gap-1.5 px-4 py-3.5 text-left">
-                            <CardTitle card={card} />
-                            <LabelChips card={card} />
-                            <CardMeta card={card} today={today} />
-                          </button>
-                        ))}
+                        {list.map(card => {
+                          const isOpen = expanded.has(card.id)
+                          return (
+                            <div key={card.id}>
+                              <button type="button" onClick={() => open(card)} className="flex w-full flex-col gap-1.5 px-4 py-3.5 text-left">
+                                <CardTitle card={card} />
+                                <LabelChips card={card} />
+                                <CardMeta card={card} today={today} />
+                              </button>
+                              {card.checklist.length > 0 && (
+                                <div className="px-4 pb-3">
+                                  <button type="button" aria-expanded={isOpen} onClick={() => toggleExpanded(card.id)}
+                                    className="inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink-soft">
+                                    {isOpen ? 'Hide subtasks' : 'Show subtasks'}
+                                    <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
+                                  </button>
+                                  {isOpen && (
+                                    <div className="divide-y divide-line-soft rounded-xl border border-line">
+                                      {card.checklist.map(item => (
+                                        <div key={item.id} className="flex items-center gap-3 px-3 py-1">
+                                          <div className="min-w-0 flex-1"><SubtaskTick item={item} onToggle={() => toggleSubtask(card, item.id)} /></div>
+                                          <span className="shrink-0 text-xs"><SubtaskDate item={item} today={today} /></span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </section>
