@@ -17,9 +17,9 @@ import { fetchProblem } from '@/lib/fetch-error'
 import { todayDateInput, dayWords } from '@/lib/dates'
 import { cn } from '@/lib/utils'
 import {
-  boardLabels, cardDue, cardsIn, checklistProgress, columnProblem, filterCards, monthGrid, placeAt, pmAllowedRole,
+  attentionDate, boardLabels, calendarEntries, cardDue, cardsIn, checklistProgress, columnProblem, filterCards, monthGrid, placeAt, pmAllowedRole,
   PM_LABEL, PM_MONTHS, PM_PRIORITY_LABEL, PM_TONE_CLASS,
-  type PmCard, type PmColumn,
+  type PmCalendarEntry, type PmCard, type PmColumn,
 } from '@/lib/project-management'
 import { getImpersonation } from '@/components/layout/impersonate-switcher'
 import { CardDrawer, type PmApi } from './card-drawer'
@@ -52,7 +52,7 @@ function sorted(cards: PmCard[], sort: Sort): PmCard[] {
   const copy = [...cards]
   if (sort === 'priority') return copy.sort((a, b) => (PRIORITY_RANK[a.priority] ?? 1) - (PRIORITY_RANK[b.priority] ?? 1))
   // Undated cards go LAST: an empty string sorts before every real date.
-  return copy.sort((a, b) => (a.due_date ?? '9999').localeCompare(b.due_date ?? '9999'))
+  return copy.sort((a, b) => (attentionDate(a) || '9999').localeCompare(attentionDate(b) || '9999'))
 }
 
 // ── Pieces, hoisted: a component declared inside a component is a new type on
@@ -80,7 +80,7 @@ function CardMeta({ card, today }: { card: PmCard; today: string }) {
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-fg">
       {due && (
         <span className={cn(
-          'whitespace-nowrap',
+          due.subtask ? 'min-w-0 break-words' : 'whitespace-nowrap',
           due.tone === 'overdue' && 'font-semibold text-danger',
           due.tone === 'today' && 'font-semibold text-ink',
           due.tone === 'done' && 'font-semibold text-success',
@@ -574,7 +574,7 @@ export function PmBoard({ projectId }: { projectId: string }) {
               <table className="w-full min-w-[860px] border-collapse text-sm">
                 <thead>
                   <tr className="text-left text-xs text-muted-fg">
-                    {['Card', 'Labels', 'Priority', 'Due', 'Checklist', 'Linked to'].map(h => (
+                    {['Card', 'Labels', 'Priority', 'Due', 'Subtasks', 'Linked to'].map(h => (
                       <th key={h} scope="col" className="border-b border-line px-4 py-3 font-semibold">{h}</th>
                     ))}
                   </tr>
@@ -605,7 +605,7 @@ export function PmBoard({ projectId }: { projectId: string }) {
                               </div>
                             </td>
                             <td className={cn('whitespace-nowrap px-4 py-3', card.priority === 'high' && 'font-semibold text-danger')}>{PM_PRIORITY_LABEL[card.priority] ?? '-'}</td>
-                            <td className={cn('whitespace-nowrap px-4 py-3',
+                            <td className={cn('px-4 py-3', !due?.subtask && 'whitespace-nowrap',
                               due?.tone === 'overdue' && 'font-semibold text-danger',
                               due?.tone === 'today' && 'font-semibold',
                               due?.tone === 'done' && 'font-semibold text-success')}>{due?.text ?? '-'}</td>
@@ -648,13 +648,11 @@ export function PmBoard({ projectId }: { projectId: string }) {
 
           {/* ── CALENDAR: cards by due date ──────────────────────────────── */}
           {view === 'calendar' && (() => {
-            const dated = shown.filter(c => c.due_date)
-            const byDay = new Map<string, PmCard[]>()
-            for (const c of dated) {
-              const k = String(c.due_date).slice(0, 10)
-              byDay.set(k, [...(byDay.get(k) ?? []), c])
-            }
-            const undated = shown.length - dated.length
+            const entries = calendarEntries(shown)
+            const byDay = new Map<string, PmCalendarEntry[]>()
+            for (const e of entries) byDay.set(e.date, [...(byDay.get(e.date) ?? []), e])
+            const onCalendar = new Set(entries.map(e => e.card.id))
+            const undated = shown.filter(c => !onCalendar.has(c.id)).length
             const picked = byDay.get(day) ?? []
             const step = (by: number) => {
               const d = new Date(Date.UTC(month.y, month.m + by, 1))
@@ -680,10 +678,10 @@ export function PmBoard({ projectId }: { projectId: string }) {
                       {week.map((iso, di) => {
                         if (!iso) return <div key={di} className="min-h-[3.25rem] border-r border-line-soft last:border-r-0 lg:min-h-[6.5rem]" />
                         const list = byDay.get(iso) ?? []
-                        const late = iso < today && list.some(c => !c.completed_at)
+                        const late = iso < today && list.some(e => !e.done)
                         return (
                           <button key={di} type="button" onClick={() => setDay(iso)} aria-pressed={day === iso}
-                            aria-label={`${dayWords(iso, { weekday: true })}, ${list.length} ${list.length === 1 ? 'card' : 'cards'}`}
+                            aria-label={`${dayWords(iso, { weekday: true })}, ${list.length} due`}
                             className={cn('flex min-h-[3.25rem] min-w-0 flex-col items-stretch gap-1 border-r border-line-soft p-1.5 text-left last:border-r-0 lg:min-h-[6.5rem]',
                               day === iso ? 'bg-surface' : 'hover:bg-surface')}>
                             <span className={cn('flex h-6 w-6 items-center justify-center self-start whitespace-nowrap rounded-full text-xs',
@@ -696,9 +694,9 @@ export function PmBoard({ projectId }: { projectId: string }) {
                               </span>
                             )}
                             <span className="hidden min-w-0 flex-col gap-1 lg:flex">
-                              {list.slice(0, 3).map(c => (
-                                <span key={c.id} className={cn('truncate rounded px-1.5 py-0.5 text-[11px] font-medium',
-                                  c.completed_at ? 'bg-muted text-muted-fg line-through' : iso < today ? 'bg-danger-tint text-danger' : 'bg-info-tint text-info')}>{c.title}</span>
+                              {list.slice(0, 3).map(e => (
+                                <span key={e.card.id + (e.subtask?.id ?? '')} className={cn('truncate rounded px-1.5 py-0.5 text-[11px] font-medium',
+                                  e.done ? 'bg-muted text-muted-fg line-through' : iso < today ? 'bg-danger-tint text-danger' : 'bg-info-tint text-info')}>{e.subtask?.text ?? e.card.title}</span>
                               ))}
                               {list.length > 3 && <span className="text-[11px] text-muted-fg">+{list.length - 3} more</span>}
                             </span>
@@ -715,17 +713,21 @@ export function PmBoard({ projectId }: { projectId: string }) {
                     <p className="text-sm text-muted-fg">Nothing due that day.</p>
                   ) : (
                     <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel">
-                      {picked.map(card => (
-                        <button key={card.id} type="button" onClick={() => open(card)} className="flex w-full flex-col gap-1.5 px-4 py-3.5 text-left">
-                          <CardTitle card={card} />
-                          <span className="text-xs text-muted-fg">{columns.find(c => c.id === card.column_id)?.name}</span>
+                      {picked.map(e => (
+                        <button key={e.card.id + (e.subtask?.id ?? '')} type="button" onClick={() => open(e.card)} className="flex w-full flex-col gap-1.5 px-4 py-3.5 text-left">
+                          {e.subtask
+                            ? <span className="block break-words text-sm font-semibold leading-snug text-ink">{e.subtask.text}</span>
+                            : <CardTitle card={e.card} />}
+                          <span className="text-xs text-muted-fg">
+                            {e.subtask ? `Subtask of ${e.card.title}` : columns.find(c => c.id === e.card.column_id)?.name}
+                          </span>
                         </button>
                       ))}
                     </div>
                   )}
                   {undated > 0 && (
                     <p className="text-xs text-muted-fg">
-                      {undated} {undated === 1 ? 'card has' : 'cards have'} no due date, so {undated === 1 ? 'it is' : 'they are'} not on the calendar.
+                      {undated} {undated === 1 ? 'card has' : 'cards have'} no due date and no dated subtask, so {undated === 1 ? 'it is' : 'they are'} not on the calendar.
                     </p>
                   )}
                 </section>

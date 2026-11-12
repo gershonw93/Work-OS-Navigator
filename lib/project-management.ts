@@ -48,7 +48,13 @@ export const PM_TONE_CLASS: Record<PmTone, string> = {
 }
 
 export interface PmLabel { name: string; tone: PmTone }
-export interface PmChecklistItem { id: string; text: string; done: boolean }
+/**
+ * A SUBTASK: one line under a card. `due` and `note` are optional - a line
+ * with neither is the plain tick-box it always was. Stored in the card's
+ * `checklist` jsonb, so a subtask is never a row of its own and cannot outlive
+ * or leave its card.
+ */
+export interface PmChecklistItem { id: string; text: string; done: boolean; due?: string | null; note?: string | null }
 
 export interface PmColumn {
   id: string
@@ -123,7 +129,9 @@ export function cleanChecklist(input: unknown): PmChecklistItem[] {
     const text = String((raw as any)?.text ?? '').trim().slice(0, 200)
     if (!text) continue
     const id = String((raw as any)?.id ?? '').slice(0, 40) || `i${out.length}-${text.length}`
-    out.push({ id, text, done: (raw as any)?.done === true })
+    const due = DATE_ONLY.test(String((raw as any)?.due ?? '')) ? String((raw as any).due) : null
+    const note = String((raw as any)?.note ?? '').trim().slice(0, 500) || null
+    out.push({ id, text, done: (raw as any)?.done === true, due, note })
     if (out.length >= MAX_CHECKLIST) break
   }
   return out
@@ -173,19 +181,69 @@ export type PmDueTone = 'overdue' | 'today' | 'done' | 'plain'
  * late - and a card with no date says nothing rather than "No date" in red.
  */
 export function cardDue(
-  card: Pick<PmCard, 'due_date' | 'completed_at'>,
+  card: Pick<PmCard, 'due_date' | 'completed_at'> & { checklist?: PmChecklistItem[] | null },
   today: string,
-): { text: string; tone: PmDueTone } | null {
+): { text: string; tone: PmDueTone; subtask?: string } | null {
   if (card.completed_at) {
     const when = dayWords(card.completed_at, { weekday: true })
     return { text: when ? `Done ${when}` : 'Done', tone: 'done' }
   }
-  const due = card.due_date ? String(card.due_date).slice(0, 10) : ''
+  // THE DATE A CARD ANSWERS FOR IS THE FIRST ONE THAT NEEDS SOMEBODY: its own
+  // due date or its soonest open subtask, whichever comes first. A card due in
+  // a fortnight with a subtask due yesterday is late, and says which subtask.
+  const own = card.due_date ? String(card.due_date).slice(0, 10) : ''
+  const next = openSubtasks(card)[0]
+  const sub = next && (!own || String(next.due) < own) ? next : null
+  const due = sub ? String(sub.due) : own
   const words = dayWords(due, { weekday: true })
   if (!words) return null
-  if (due < today) return { text: `Overdue - ${words}`, tone: 'overdue' }
-  if (due === today) return { text: 'Today', tone: 'today' }
+  const tail = sub ? `: ${sub.text}` : ''
+  const extra = sub ? { subtask: sub.text } : {}
+  if (due < today) return { text: `Overdue - ${words}${tail}`, tone: 'overdue', ...extra }
+  if (due === today) return { text: `Today${tail}`, tone: 'today', ...extra }
+  return { text: `${words}${tail}`, tone: 'plain', ...extra }
+}
+
+/** A card's subtasks that are not done and carry a date, soonest first. */
+export function openSubtasks(card: { checklist?: PmChecklistItem[] | null }): PmChecklistItem[] {
+  return (card.checklist ?? [])
+    .filter(i => !i.done && !!i.due && DATE_ONLY.test(String(i.due)))
+    .sort((a, b) => String(a.due).localeCompare(String(b.due)))
+}
+
+/** The day a card next needs somebody, as YYYY-MM-DD: '' when finished or undated. */
+export function attentionDate(card: Pick<PmCard, 'due_date' | 'completed_at' | 'checklist'>): string {
+  if (card.completed_at) return ''
+  const own = card.due_date ? String(card.due_date).slice(0, 10) : ''
+  const sub = openSubtasks(card)[0]?.due ?? ''
+  if (own && sub) return own < sub ? own : String(sub)
+  return own || String(sub)
+}
+
+/** What one subtask says about its own date. A ticked one is never late. */
+export function subtaskDue(item: PmChecklistItem, today: string): { text: string; tone: PmDueTone } | null {
+  const words = dayWords(item.due ?? '', { weekday: true })
+  if (!words) return null
+  if (item.done) return { text: words, tone: 'done' }
+  if (String(item.due) < today) return { text: `Overdue - ${words}`, tone: 'overdue' }
+  if (String(item.due) === today) return { text: 'Today', tone: 'today' }
   return { text: words, tone: 'plain' }
+}
+
+// ── What goes on the calendar ────────────────────────────────────────────────
+// A card on its own due date, AND each of its open dated subtasks on theirs -
+// a calendar that showed only the card would leave the day a subtask is due
+// looking free. `done` is the card's, or the subtask's own.
+export interface PmCalendarEntry { date: string; card: PmCard; subtask: PmChecklistItem | null; done: boolean }
+
+export function calendarEntries(cards: PmCard[]): PmCalendarEntry[] {
+  const out: PmCalendarEntry[] = []
+  for (const card of cards) {
+    if (card.due_date) out.push({ date: String(card.due_date).slice(0, 10), card, subtask: null, done: !!card.completed_at })
+    if (card.completed_at) continue
+    for (const sub of openSubtasks(card)) out.push({ date: String(sub.due), card, subtask: sub, done: false })
+  }
+  return out
 }
 
 export function checklistProgress(list: PmChecklistItem[] | null | undefined): { done: number; total: number } | null {

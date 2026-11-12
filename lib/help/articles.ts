@@ -1919,7 +1919,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
     slug: 'project-management',
     title: 'Project Management: your own private board on every job',
     category: 'field',
-    keywords: ['project management', 'board', 'kanban', 'cards', 'columns', 'to do list', 'todo', 'my to-do', 'personal', 'private', 'only me', 'my work', 'my board', 'trello', 'monday', 'checklist', 'labels', 'drag', 'move card', 'due date', 'calendar view', 'table view', 'reminder to self', 'notes to self', 'who can see', 'can my admin see'],
+    keywords: ['project management', 'board', 'kanban', 'cards', 'columns', 'to do list', 'todo', 'my to-do', 'personal', 'private', 'only me', 'my work', 'my board', 'trello', 'monday', 'checklist', 'subtask', 'subtasks', 'sub task', 'main task', 'steps', 'break down a task', 'labels', 'drag', 'move card', 'due date', 'calendar view', 'table view', 'reminder to self', 'notes to self', 'who can see', 'can my admin see'],
     summary: 'A private board for your own to-dos on a job. Nobody else can see it, your admin included.',
     blocks: [
       { type: 'text', text: 'Every job has a Project Management tab, at the right-hand end of the job\'s sections with a small lock beside it. It is YOUR board for that job: the calls to make, the things to check before you promise a date, what you are waiting on. It is separate from Tasks, which is the team\'s shared list of who is doing what.' },
@@ -1927,10 +1927,11 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'steps', items: [
         'Open a job and choose Project Management.',
         'Your board starts with four columns: To do, This week, Waiting on someone and Done.',
-        'Press Add card, give it a title and pick its column. A due date, priority, labels, notes and a checklist are all optional.',
+        'Press Add card, give it a title and pick its column. A due date, priority, labels, notes and subtasks are all optional.',
         'On a computer, drag a card to another column or to a different place in its own. On a phone, tap the menu on a card and choose Move to.',
         'Open a card to change anything on it. Nothing is saved until you press Save, so Cancel always leaves it as it was.',
       ] },
+      { type: 'text', text: 'A MAIN TASK WITH SUBTASKS UNDER IT. Open a card and add its steps under Subtasks - one line each, ticked off as you go, with the count on the card ("2 of 5"). Tap the arrow on a subtask to give it its own due date and a note. The card then answers for whichever date comes first: a card due in two weeks with a subtask due yesterday shows Overdue in red and names that subtask. Tick it and the card moves on to the next one. Dated subtasks appear on the Calendar on their own days and count in My Work. Subtasks stay inside their card - they do not move between columns on their own.' },
       { type: 'text', text: 'COLUMNS ARE YOURS TO CHANGE. The menu on a column renames it, moves it left or right, or deletes it. A column with cards in it cannot be deleted - move or delete the cards first, so nothing disappears by accident. Add column makes a new one.' },
       { type: 'text', text: 'WHAT DONE MEANS. A card is done when it is in a column marked as done, which the Done column is from the start. Moving a card there stamps the day it was finished and strikes its title through; moving it back out clears that. Any column can be made the done one from its menu ("Cards here are done"). A finished card never shows as overdue.' },
       { type: 'text', text: 'THREE VIEWS. Board is the columns. Table lists the same cards grouped by column, and can be sorted by due date or priority. Calendar puts each card on its due date - tap a day to see what is due - and tells you how many cards have no date and so are not on it. Search and the label filter work in all three.' },
