@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
   Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound,
   CalendarDays, DollarSign, Wrench, HelpCircle, ShoppingCart, Sparkles,
-  ChevronsLeft, HardHat, BarChart2,
+  ChevronsLeft, HardHat, BarChart2, ListTodo,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -24,6 +24,9 @@ import { useEffect, useState } from 'react'
 const GC_NAV_ITEMS = [
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
   { label: 'Projects', href: '/projects', icon: FolderKanban, resource: 'projects' },
+  // The person's own Project Management cards from every job - personal, so
+  // it asks no permission. Field Mode roles do not have it (filtered below).
+  { label: 'My Work', href: '/my-work', icon: ListTodo, resource: null as string | null },
   { label: 'Customers', href: '/customers', icon: UsersRound, resource: 'customers' },
   { label: 'Directory', href: '/directory', icon: Building2, resource: 'directory' },
   { label: 'Files', href: '/files', icon: FolderOpen, resource: 'files' },
@@ -49,6 +52,7 @@ const SUB_NAV: { label: string; href: string; icon: typeof LayoutDashboard; reso
   { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard, resource: 'dashboard' },
   { label: 'My Jobs', href: '/my-jobs', icon: Briefcase, resource: null },
   { label: 'My Bids', href: '/my-bids', icon: ClipboardList, resource: null },
+  { label: 'My Work', href: '/my-work', icon: ListTodo, resource: null },
   // Every role: the route scopes every row to the person (lib/calendar-items.ts).
   { label: 'Calendar', href: '/calendar', icon: CalendarDays, resource: null },
   { label: 'Customers', href: '/customers', icon: UsersRound, resource: 'customers' },
@@ -157,7 +161,7 @@ export function Sidebar() {
     ? SUB_NAV.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
     : isFieldRole(role)
       ? [{ label: FIELD_HOME.label, href: FIELD_HOME.href, icon: HardHat, resource: null as string | null },
-         ...gcNav.filter(i => i.href !== '/dashboard')]
+         ...gcNav.filter(i => i.href !== '/dashboard' && i.href !== '/my-work')]
       : gcNav
 
   async function handleLogout() {

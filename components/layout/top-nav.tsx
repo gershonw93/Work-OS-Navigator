@@ -23,6 +23,7 @@ const sectionLabels: Record<string, string> = {
   '/approvals': 'Approvals',
   '/settings': 'Settings',
   '/my-jobs': 'My Jobs',
+  '/my-work': 'My Work',
   '/my-bids': 'My Bids',
 }
 

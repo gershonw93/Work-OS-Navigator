@@ -38,7 +38,7 @@ export function siteHref(path: string): string {
 export const APP_PATH_PREFIXES = [
   '/dashboard', '/projects', '/directory', '/approvals', '/settings',
   '/customers', '/files', '/help', '/whats-new', '/equipment', '/materials',
-  '/budget-templates', '/calendar', '/master-calendar', '/master-money', '/my-bids', '/my-jobs', '/reports',
+  '/budget-templates', '/calendar', '/master-calendar', '/master-money', '/my-bids', '/my-jobs', '/my-work', '/reports',
   '/admin', '/field', '/auth', '/login', '/signup', '/forgot-password', '/reset-password',
   // The Allow page Claude sends people to - it needs the app's session.
   '/oauth',

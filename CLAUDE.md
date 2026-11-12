@@ -60,7 +60,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-165.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-166.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -1210,6 +1210,37 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
 - **A FAILED READ IS AN ERROR RESULT, NEVER `[]`.** A model repeats "there are
   none" to a person as fact. Same for a half-read: assignees that could not be
   read are null, not "nobody". Pinned, and mutation-checked, in `mcp-server.ts`.
+
+## Project Management, the private board (IMPORTANT)
+- **IT BELONGS TO THE PERSON, NOT THE COMPANY, AND NO ADMIN CAN SEE IT.** The
+  owner's ask: "a new personal project manager individually for the user no
+  admin can see it". Every job has a Project Management tab (`pm_columns`,
+  `pm_cards`, migration 166) and every row carries `owner_id`.
+- **EVERY QUERY FILTERS ON THE CALLER'S OWN ID.** The routes are service-role,
+  so the route is the only thing between two people's boards. `pmGate`
+  (`lib/project-management-server.ts`) resolves `owner` from the token - never
+  the body, the URL or an `as_user` - and an id from a request names a row to
+  look for among the caller's own. `project-management.ts` counts the queries
+  in every route and demands the owner on each.
+- **IT IS NOT A PERMISSION RESOURCE, ON PURPOSE.** A permission is something an
+  admin can grant themselves. It is offered by ROLE: everyone except the Field
+  Mode roles (`pmAllowedRole`).
+- **NOTHING ELSE READS THE TABLES** - not search, reports, the activity feed,
+  notifications, the client portal, the admin console or the Claude tools. The
+  pin walks app/, lib/ and components/ for the table names. A new feature that
+  wants a person's cards is a decision for the owner, not a join.
+- **VIEW AS SHOWS YOUR OWN BOARD** (it previews permissions, the token is still
+  yours) and the screen says so. Platform-console impersonation mints a real
+  session, so the SCREEN declines to load a board while impersonating - the
+  server cannot tell that session from the person's own. The copy says "only
+  you can see this", never "encrypted": the database is still ours.
+- **A LINK TO A RECORD IS ONE-WAY AND CHECKED ON THE SERVER.** Offered only on
+  the caller's own company's job, to a role that can view that kind of record,
+  and not to assigned-only roles (`mayLink`); the label is read off the record.
+- **DONE IS WHERE THE CARD IS.** `completed_at` is written by the route when a
+  card enters a column marked `is_done` and cleared when it leaves, never taken
+  from a body. A column holding cards cannot be deleted (they CASCADE) - refused
+  on the control and by the route.
 
 ## Server-side data fetching (IMPORTANT)
 - Layouts nest: `(dashboard)/layout.tsx` wraps `projects/[id]/layout.tsx` wraps

@@ -66,6 +66,19 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-12',
+    title: 'Project Management: a private board of your own on every job',
+    items: [
+      {
+        kind: 'new',
+        title: 'Your own board, and nobody else can see it',
+        text: 'Every job has a new Project Management tab: a board for your own to-dos on that job, with columns you name and cards you move between them. A card can carry a due date, a priority, labels, notes and a checklist, and can point at a task, inspection, permit, RFI or bill on the job. Look at it as a board, a table or a calendar. It is yours alone - no admin or manager can open another person\'s board. My Work in the main menu lists your open cards from every job. Every role has it except Worker.',
+        help: 'project-management',
+        href: '/my-work',
+      },
+    ],
+  },
+  {
     date: '2026-11-10',
     title: 'Permits that need you, without opening the tab',
     items: [
