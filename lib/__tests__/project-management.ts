@@ -14,7 +14,7 @@ import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import {
   cardProblem, columnProblem, cardDue, placeAt, cleanLabels, cleanChecklist, checklistProgress,
-  filterCards, monthGrid, pmAllowedRole, pmLinkHref, PM_DEFAULT_COLUMNS, PM_LINK_TYPES, type PmCard,
+  filterCards, monthGrid, pmAllowedRole, attentionDate, calendarEntries, openSubtasks, subtaskDue, pmLinkHref, PM_DEFAULT_COLUMNS, PM_LINK_TYPES, type PmCard,
 } from '../project-management'
 import { RESOURCES, ROLE_DEFAULTS } from '../permissions'
 import { ok, done, code, read, root, walk } from './_helpers'
@@ -84,6 +84,33 @@ const some = [card({ id: '1', title: 'Call the framer', labels: [{ name: 'Framin
 ok(filterCards(some, 'SHOWROOM', '').map(c => c.id).join() === '2', 'search reads the notes, any case')
 ok(filterCards(some, '', 'framing').map(c => c.id).join() === '1', 'the label filter is exact, any case')
 ok(filterCards(some, '', '').length === 2, 'no filter shows everything')
+
+// ── Subtasks: a line under a card, with its own date and note ────────────────
+const subs = cleanChecklist([
+  { id: 'a', text: 'Pressure test', done: true, due: '2026-11-01', note: ' held overnight ' },
+  { id: 'b', text: 'Test tee', done: false, due: '2026-11-10' },
+  { id: 'c', text: 'Nail plates', done: false, due: 'friday' },
+  { id: 'd', text: 'Vent stack', done: false, due: '2026-11-20' },
+])
+ok(subs[0].note === 'held overnight' && subs[2].due === null && subs[3].due === '2026-11-20', 'a subtask keeps a real date and a trimmed note, and a date that is not one is dropped')
+const parent = card({ due_date: '2026-11-25', checklist: subs })
+ok(openSubtasks(parent).map(i => i.id).join() === 'b,d', 'open subtasks are the unticked, dated ones, soonest first')
+ok(cardDue(parent, TODAY)?.tone === 'overdue' && cardDue(parent, TODAY)?.text === 'Overdue - Tue Nov 10: Test tee',
+  'a card due in a fortnight with a subtask due two days ago is overdue, and names the subtask')
+ok(attentionDate(parent) === '2026-11-10', '...and that is the date it sorts and groups by')
+const ticked = card({ due_date: '2026-11-25', checklist: subs.map(i => i.id === 'b' ? { ...i, done: true } : i) })
+ok(cardDue(ticked, TODAY)?.text === 'Fri Nov 20: Vent stack' && cardDue(ticked, TODAY)?.tone === 'plain', 'ticking the late one moves the card on to the next')
+ok(cardDue(card({ due_date: '2026-11-13', checklist: subs.filter(i => i.id === 'd') }), TODAY)?.text === 'Fri Nov 13',
+  'the card\'s own date wins when it comes first, with no subtask named')
+ok(cardDue(card({ checklist: subs, completed_at: '2026-11-11T10:00:00Z' }), TODAY)?.tone === 'done'
+  && attentionDate(card({ checklist: subs, completed_at: '2026-11-11T10:00:00Z' })) === '',
+  'a finished card is never late because of a subtask left unticked')
+ok(subtaskDue(subs[0], TODAY)?.tone === 'done' && subtaskDue(subs[1], TODAY)?.text === 'Overdue - Tue Nov 10' && subtaskDue(subs[2], TODAY) === null,
+  'a ticked subtask is never late, an open one past its date is, and an undated one says nothing')
+const entries = calendarEntries([parent, card({ id: 'x', title: 'No dates' })])
+ok(entries.map(e => `${e.date}:${e.subtask?.id ?? 'card'}`).join() === '2026-11-25:card,2026-11-10:b,2026-11-20:d',
+  'the calendar carries the card on its date and each open dated subtask on its own - never a ticked one, never an undated card')
+ok(calendarEntries([card({ due_date: '2026-11-25', checklist: subs, completed_at: '2026-11-11T10:00:00Z' })]).length === 1, '...and a finished card brings no subtasks with it')
 
 const nov = monthGrid(2026, 10)
 ok(nov[0][0] === '2026-11-01' && nov.flat().filter(Boolean).length === 30 && nov.every(w => w.length === 7),

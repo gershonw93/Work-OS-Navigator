@@ -72,7 +72,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Your own board, and nobody else can see it',
-        text: 'Every job has a new Project Management tab: a board for your own to-dos on that job, with columns you name and cards you move between them. A card can carry a due date, a priority, labels, notes and a checklist, and can point at a task, inspection, permit, RFI or bill on the job. Look at it as a board, a table or a calendar. It is yours alone - no admin or manager can open another person\'s board. My Work in the main menu lists your open cards from every job. Every role has it except Worker.',
+        text: 'Every job has a new Project Management tab: a board for your own to-dos on that job, with columns you name and cards you move between them. A card can carry a due date, a priority, labels, notes and subtasks - each subtask with its own due date and note, and the card flags whichever comes due first - and can point at a task, inspection, permit, RFI or bill on the job. Look at it as a board, a table or a calendar. It is yours alone - no admin or manager can open another person\'s board. My Work in the main menu lists your open cards from every job. Every role has it except Worker.',
         help: 'project-management',
         href: '/my-work',
       },

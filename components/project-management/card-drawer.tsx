@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Check, Lock, Plus, Trash2, X } from 'lucide-react'
+import { Check, ChevronDown, Lock, Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,7 +14,7 @@ import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { fetchProblem } from '@/lib/fetch-error'
 import { cn } from '@/lib/utils'
 import {
-  cardProblem, cardDue, checklistProgress, pmLinkHref,
+  cardProblem, cardDue, checklistProgress, pmLinkHref, subtaskDue,
   PM_LINK_TYPES, PM_PRIORITIES, PM_PRIORITY_LABEL, PM_TONES, PM_TONE_CLASS, PM_TONE_LABEL,
   type PmCard, type PmChecklistItem, type PmColumn, type PmLabel, type PmPriority, type PmTone,
 } from '@/lib/project-management'
@@ -63,6 +63,10 @@ export function CardDrawer({ projectId, columns, card, startColumnId, linkTypes,
   const [labelName, setLabelName] = useState('')
   const [labelTone, setLabelTone] = useState<PmTone>('info')
   const [itemText, setItemText] = useState('')
+  // Which subtask has its date and note open. One at a time.
+  const [openItem, setOpenItem] = useState('')
+  const patchItem = (id: string, patch: Partial<PmChecklistItem>) =>
+    setChecklist(list => list.map(x => x.id === id ? { ...x, ...patch } : x))
   const [saving, setSaving] = useState(false)
   const [problem, setProblem] = useState('')
 
@@ -107,7 +111,7 @@ export function CardDrawer({ projectId, columns, card, startColumnId, linkTypes,
 
   function addItem() {
     const text = itemText.trim()
-    if (!text) { setProblem('Type the checklist item first.'); return }
+    if (!text) { setProblem('Type the subtask first.'); return }
     setChecklist([...checklist, { id: `i${Date.now().toString(36)}${checklist.length}`, text: text.slice(0, 200), done: false }])
     setItemText(''); setProblem('')
   }
@@ -142,7 +146,7 @@ export function CardDrawer({ projectId, columns, card, startColumnId, linkTypes,
       }
     }, {
       title: 'Delete this card?',
-      body: 'Its notes and checklist go with it, and it cannot be undone.',
+      body: 'Its notes and subtasks go with it, and it cannot be undone.',
       confirmLabel: 'Delete card',
     })
   }
@@ -262,36 +266,73 @@ export function CardDrawer({ projectId, columns, card, startColumnId, linkTypes,
 
           <div className="space-y-2">
             <div className="flex items-baseline gap-2">
-              <span className="text-sm font-medium text-ink-soft">Checklist (optional)</span>
+              <span className="text-sm font-medium text-ink-soft">Subtasks (optional)</span>
               {progress && <span className="text-xs text-muted-fg">{progress.done} of {progress.total} done</span>}
             </div>
             {checklist.length > 0 && (
               <div className="divide-y divide-line-soft rounded-xl border border-line">
-                {checklist.map(item => (
-                  <div key={item.id} className="flex items-center gap-1 pl-3 pr-1">
-                    <label className={cn('flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 py-1.5 text-sm', item.done ? 'text-muted-fg line-through' : 'text-ink')}>
-                      <input type="checkbox" checked={item.done} className="h-5 w-5 shrink-0 accent-[rgb(var(--accent-fg))]"
-                        onChange={() => setChecklist(checklist.map(x => x.id === item.id ? { ...x, done: !x.done } : x))} />
-                      <span className="min-w-0 break-words">{item.text}</span>
-                    </label>
-                    <button type="button" aria-label={`Remove "${item.text}"`} title="Remove"
-                      onClick={() => setChecklist(checklist.filter(x => x.id !== item.id))}
-                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-danger">
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                ))}
+                {checklist.map(item => {
+                  const says = subtaskDue(item, today)
+                  const isOpen = openItem === item.id
+                  return (
+                    <div key={item.id} className={cn(isOpen && 'bg-surface')}>
+                      <div className="flex items-center gap-1 pl-3 pr-1">
+                        <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 py-1.5 text-sm">
+                          <input type="checkbox" checked={item.done} className="h-5 w-5 shrink-0 accent-[rgb(var(--accent-fg))]"
+                            onChange={() => patchItem(item.id, { done: !item.done })} />
+                          <span className="min-w-0 flex-1">
+                            <span className={cn('block break-words', item.done ? 'text-muted-fg line-through' : 'text-ink')}>{item.text}</span>
+                            {(says || item.note) && !isOpen && (
+                              <span className="block truncate text-xs text-muted-fg">
+                                {says && (
+                                  <span className={cn(says.tone === 'overdue' && 'font-semibold text-danger', says.tone === 'today' && 'font-semibold text-ink')}>{says.text}</span>
+                                )}
+                                {says && item.note ? ' - ' : ''}{item.note}
+                              </span>
+                            )}
+                          </span>
+                        </label>
+                        <button type="button" aria-expanded={isOpen}
+                          aria-label={`Date and note for "${item.text}"`} title="Date and note"
+                          onClick={() => setOpenItem(isOpen ? '' : item.id)}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink">
+                          <ChevronDown className={cn('h-4 w-4 transition-transform', isOpen && 'rotate-180')} />
+                        </button>
+                        <button type="button" aria-label={`Remove "${item.text}"`} title="Remove"
+                          onClick={() => setChecklist(checklist.filter(x => x.id !== item.id))}
+                          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-danger">
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                      {isOpen && (
+                        <div className="grid grid-cols-1 gap-3 px-3 pb-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label htmlFor={`pm-sub-due-${item.id}`} className="lg:text-xs">Due (optional)</Label>
+                            <Input id={`pm-sub-due-${item.id}`} type="date" value={item.due ?? ''}
+                              onChange={e => patchItem(item.id, { due: e.target.value || null })} />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor={`pm-sub-note-${item.id}`} className="lg:text-xs">Note (optional)</Label>
+                            <Input id={`pm-sub-note-${item.id}`} value={item.note ?? ''} maxLength={500}
+                              onChange={e => patchItem(item.id, { note: e.target.value })} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
             )}
             <div className="flex items-end gap-2">
               <div className="min-w-0 flex-1 space-y-1">
-                <Label htmlFor="pm-item" className="lg:text-xs">New item</Label>
-                <Input id="pm-item" value={itemText} maxLength={200} placeholder="One thing to tick off"
+                <Label htmlFor="pm-item" className="lg:text-xs">New subtask</Label>
+                <Input id="pm-item" value={itemText} maxLength={200} placeholder="One step of this card"
                   onChange={e => setItemText(e.target.value)}
                   onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addItem() } }} />
               </div>
               <Button type="button" variant="outline" onClick={addItem}><Plus className="mr-1 h-4 w-4" />Add</Button>
             </div>
+            <p className="text-xs text-muted-fg">Open a subtask to give it its own due date and a note. The card shows whichever date comes first.</p>
           </div>
 
           {(linkTypes.length > 0 || keptLink) && (

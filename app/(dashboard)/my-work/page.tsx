@@ -9,7 +9,7 @@ import { usePermissions } from '@/lib/use-permissions'
 import { fetchProblem } from '@/lib/fetch-error'
 import { todayDateInput } from '@/lib/dates'
 import { cn } from '@/lib/utils'
-import { cardDue, pmAllowedRole, PM_SLUG, type PmCard } from '@/lib/project-management'
+import { attentionDate, cardDue, pmAllowedRole, PM_SLUG, type PmCard } from '@/lib/project-management'
 import { getImpersonation } from '@/components/layout/impersonate-switcher'
 
 /**
@@ -25,7 +25,8 @@ interface Group { key: string; title: string; cards: PmCard[] }
 
 function groups(cards: PmCard[], today: string): Group[] {
   const open = cards.filter(c => !c.completed_at)
-  const dated = (c: PmCard) => (c.due_date ? String(c.due_date).slice(0, 10) : '')
+  // The card's own due date or its soonest open subtask, whichever is first.
+  const dated = (c: PmCard) => attentionDate(c)
   const byDue = (a: PmCard, b: PmCard) => dated(a).localeCompare(dated(b))
   return [
     { key: 'overdue', title: 'Overdue', cards: open.filter(c => dated(c) && dated(c) < today).sort(byDue) },
@@ -121,7 +122,7 @@ export default function MyWorkPage() {
                   className="flex flex-col gap-1 px-4 py-3.5 hover:bg-surface lg:flex-row lg:items-center lg:gap-4">
                   <span className="min-w-0 flex-1 break-words text-sm font-semibold text-ink">{card.title}</span>
                   <span className="min-w-0 truncate text-xs text-muted-fg lg:w-56">{projects[card.project_id] ?? 'A job'}</span>
-                  <span className={cn('whitespace-nowrap text-xs lg:w-40 lg:text-right',
+                  <span className={cn('text-xs lg:w-56 lg:text-right', !due?.subtask && 'whitespace-nowrap',
                     due?.tone === 'overdue' ? 'font-semibold text-danger' : due?.tone === 'today' ? 'font-semibold text-ink' : 'text-muted-fg')}>
                     {due?.text ?? 'No date'}
                   </span>
