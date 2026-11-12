@@ -12,8 +12,9 @@ import {
   MessageSquare, Receipt, DollarSign, GitPullRequest, Shield,
   ClipboardCheck, FileCheck, BarChart2, X, LayoutGrid, FolderOpen,
   Wrench, Wallet, Clock, Send, ShoppingCart, FileSpreadsheet, Building2, Palette,
-  LayoutDashboard, ChevronDown, Check,
+  LayoutDashboard, ChevronDown, Check, Lock,
 } from 'lucide-react'
+import { PM_SLUG, PM_LABEL, pmAllowedRole } from '@/lib/project-management'
 
 /**
  * The project tabs, grouped by WHAT YOU ARE DOING rather than by where the
@@ -113,6 +114,7 @@ const allTabs = groups.flatMap(g => g.tabs)
 const TAB_ALIASES: Record<string, string> = { bids: 'request-quotes', quotes: 'request-quotes' }
 export function projectTabLabel(slug: string): string | null {
   if (slug === 'overview') return 'Overview'
+  if (slug === PM_SLUG) return PM_LABEL
   return allTabs.find(t => t.slug === (TAB_ALIASES[slug] ?? slug))?.label ?? null
 }
 
@@ -187,7 +189,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   // rather than leaving a trail of panels behind.
   const [menu, setMenu] = useState<string | null>(null)
   const navRef = useRef<HTMLElement>(null)
-  const { can, loading } = usePermissions()
+  const { can, loading, role } = usePermissions()
   const [ctx, setCtx] = useState<{ companyType: string; owns: boolean; billingMode?: string; status?: string; isSite?: boolean } | null>(null)
 
   useEffect(() => {
@@ -319,6 +321,14 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
   const homeSlug = isSite ? 'units' : 'overview'
   const homeLabel = isSite ? 'All jobs' : 'Overview'
   const onHome = pathname.endsWith(`/${homeSlug}`)
+  // PROJECT MANAGEMENT IS NOT IN THE GROUPS, AND NOT A PERMISSION. It is the
+  // signed-in person's own private board for this job, so it is offered by
+  // ROLE (everyone but the Field Mode roles - `pmAllowedRole`) on every kind
+  // and stage of job, and it sits apart from the shared sections because it is
+  // not one of them. A permission would be something an admin could grant
+  // themselves; the screen promises they cannot see it.
+  const showPm = ready && pmAllowedRole(role)
+  const onPm = pathname.endsWith(`/${PM_SLUG}`)
   const activeTab = visibleTabs.find(t => pathname.includes(`/${t.slug}`))
   const activeGroup = filteredGroups.find(g => g.tabs.some(t => t.slug === activeTab?.slug))
 
@@ -340,6 +350,11 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
               <>
                 <LayoutDashboard className="h-4 w-4 shrink-0 text-muted-fg" />
                 <span className="flex-1 min-w-0 text-sm font-semibold text-ink-soft truncate">{homeLabel}</span>
+              </>
+            ) : onPm ? (
+              <>
+                <Lock className="h-4 w-4 shrink-0 text-muted-fg" />
+                <span className="flex-1 min-w-0 text-sm font-semibold text-ink-soft truncate">{PM_LABEL}</span>
               </>
             ) : activeTab ? (
               <>
@@ -453,10 +468,23 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
               </div>
             )
           })}
+          {showPm && (
+            <Link
+              href={`/projects/${projectId}/${PM_SLUG}`}
+              title="Your own private board for this job"
+              className={cn(
+                'ml-auto flex shrink-0 items-center gap-1.5 rounded-t-lg px-3.5 py-2.5 text-sm font-semibold transition-colors whitespace-nowrap',
+                onPm ? 'bg-surface text-ink' : 'text-muted-fg hover:text-ink-soft',
+              )}
+            >
+              <Lock className="h-3.5 w-3.5" />
+              {PM_LABEL}
+            </Link>
+          )}
           {isSite && (
             <span
               title="This is a development: the street, the lots or the building. Budgets, schedules and crews live on the jobs inside it."
-              className="ml-auto self-center shrink-0 rounded-full bg-info-tint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-info"
+              className={cn(!showPm && 'ml-auto', 'self-center shrink-0 rounded-full bg-info-tint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-info')}
             >
               Development
             </span>
@@ -464,7 +492,7 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
           {isPlanning && !isSite && (
             <span
               title="Field and billing tabs unlock when this job is set to Active."
-              className="ml-auto self-center shrink-0 rounded-full bg-info-tint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-info"
+              className={cn(!showPm && 'ml-auto', 'self-center shrink-0 rounded-full bg-info-tint px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-info')}
             >
               Preconstruction
             </span>
@@ -525,6 +553,21 @@ export function ProjectTabs({ projectId }: ProjectTabsProps) {
                 <span className="text-sm">{homeLabel}</span>
                 <span className="ml-auto text-xs text-faint">{isSite ? 'Every job in this group' : 'Where the job stands'}</span>
               </button>
+              {showPm && (
+                <button
+                  onClick={() => navigate(PM_SLUG)}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-xl px-3.5 py-3 text-left transition-colors',
+                    onPm
+                      ? 'border-2 border-current bg-accent-tint font-semibold text-accent-fg'
+                      : 'border border-line bg-panel text-ink-soft hover:bg-surface',
+                  )}
+                >
+                  <Lock className={cn('h-4 w-4 shrink-0', onPm ? 'text-accent-fg' : 'text-faint')} />
+                  <span className="text-sm">{PM_LABEL}</span>
+                  <span className="ml-auto text-xs text-faint">Only you see it</span>
+                </button>
+              )}
               {filteredGroups.map(group => (
                 <div key={group.label}>
                   <p className={cn('text-xs font-bold uppercase tracking-widest mb-2 px-1', group.color)}>

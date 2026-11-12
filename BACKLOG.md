@@ -364,6 +364,23 @@ the biggest build yet while the books are half-wired ends with both half-done.
 - **Bank-facing budget & sellout** *(tester request)*. Abe: "when you create a bank budget and bank sellout they might be presented in a different way." The working budget and the version a lender wants are formatted differently. Needs a lender report format - probably an extension of the proposal PDF rather than a new thing.
 - **Full development pro-forma** *(tester request - partially addressed)*. A tester who develops (not just builds) wanted the spreadsheet they use as step one: land purchase, design, approvals, soft costs, then a return projection. We shipped the piece every GC needs - hard/soft cost split on the budget + a planning-stage menu (see Recently shipped). **Not built, deliberately:** land acquisition as its own record, debt/equity stack and draw schedule, carrying-cost-over-time modeling, and ROI / profit-on-cost / IRR outputs. That is a developer pro-forma tool, a different product from a GC's job budget - revisit only if more than one customer asks.
 
+## 🗂️ Project Management (the private board) - what is left
+
+Shipped to staging 12 Nov 2026: a private board per person per job (board,
+table and calendar views, card drawer, labels, checklists, one-way links to a
+record) and My Work across jobs. Every role except Worker. Not built:
+
+- **A morning reminder for your own due cards.** Needs a catalog type in
+  `lib/notifications.ts` and a cron; left out so the first version sends
+  nothing to anybody.
+- **"Add to my board" from a task, inspection or bill row**, and your own due
+  cards in the Today strip. The link exists from the card's side only.
+- **Attachments, recurring cards, board templates.**
+- **Claude (the MCP server) cannot read or add cards.** Deliberate for now: a
+  connection that can read a private board is a second door to it.
+- **Export before an account is deleted.** Boards CASCADE from the profile.
+- **Dragging on a phone.** A phone moves a card from its menu.
+
 ## 🤖 Claude (the SyteNav MCP server) - what is left
 
 Shipped: reading (phase 1), "Sign in with SyteNav" by URL (phase 2), and
