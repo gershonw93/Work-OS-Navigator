@@ -26,7 +26,7 @@ export async function PATCH(
   // Everything after the gate is `updatePermit` - the whitelist and
   // `permitProblem(after)` against the row as it will be - which Claude's MCP
   // server calls too.
-  const result = await updatePermit(db, { userId: gate.actor.userId, projectId: params.id, permitId: params.permitId, body })
+  const result = await updatePermit(db, { userId: gate.actor.userId, projectId: params.id, permitId: params.permitId, body, myCompanyId: gate.actor.companyId })
   return NextResponse.json(result.body, { status: result.status })
 }
 

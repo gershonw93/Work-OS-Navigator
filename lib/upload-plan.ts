@@ -65,7 +65,9 @@ export function guessPlanType(fileName: string): string {
   if (/\b(a-?\d|arch|floor|elev|plan set)/.test(n)) return 'architectural'
   if (/\b(s-?\d|struct|framing|found)/.test(n)) return 'structural'
   if (/\b(m-?\d|e-?\d|p-?\d|mep|mech|elec|plumb|hvac)/.test(n)) return 'mep'
-  if (/\b(c-?\d|civil|grading|site|survey|util)/.test(n)) return 'civil'
+  // A file called "survey" is the land survey of the lot - its own type now, asked before civil.
+  if (/survey/.test(n)) return 'survey'
+  if (/\b(c-?\d|civil|grading|site|util)/.test(n)) return 'civil'
   if (/\b(l-?\d|landscap|planting|irrig)/.test(n)) return 'landscape'
   return 'architectural'
 }

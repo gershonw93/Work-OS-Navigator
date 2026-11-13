@@ -52,6 +52,25 @@ async function permitReplyTo(db: any, permitId: string): Promise<string | null> 
   return token && TOKEN_PATTERN.test(token) ? replyAddress(token, cfg.domain) : null
 }
 
+/**
+ * THROUGH AN EXPEDITER, IT GOES TO THEM. They file it with the DOB and relay
+ * what comes back, so the address to start on is theirs, off their own
+ * Directory card - and how the DOB takes applications is not this sender's
+ * question, so no warning about it. Null when the permit has no expediter.
+ */
+async function expediterSuggestion(db: any, companyId: string | null, expediterId: string | null | undefined) {
+  if (!companyId || !expediterId) return null
+  const { data, error } = await db.from('companies').select('id, name, contact_email')
+    .eq('id', expediterId).eq('added_by_company_id', companyId).maybeSingle()
+  if (error) console.error('[permit-email] expediter read failed', error.message)
+  if (!data) return null
+  const email = String(data.contact_email ?? '').trim()
+  return {
+    name: (data.name as string | null) ?? null,
+    found: { suggested: email ? { email, source: 'directory' as const, contactId: data.id as string } : null, contactId: data.id as string, apply: null as ApplyHow | null },
+  }
+}
+
 /** The address to start on: the Directory, else the last one this township was emailed at. */
 async function suggestion(db: any, companyId: string | null, authority: string | null) {
   if (!companyId || !authority?.trim()) return { suggested: null, contactId: null as string | null, apply: null as ApplyHow | null }
@@ -81,12 +100,15 @@ export async function GET(request: Request, { params }: P) {
   const owned = await ownedProject(db, gate.actor, params.id, 'id')
   if ('denied' in owned) return owned.denied
 
-  const { data: permit } = await db.from('permits').select('issuing_authority').eq('id', params.permitId).eq('project_id', params.id).maybeSingle()
+  const { data: permit } = await db.from('permits').select('issuing_authority, expediter_company_id').eq('id', params.permitId).eq('project_id', params.id).maybeSingle()
   if (!permit) return NextResponse.json({ error: 'That permit is not on this job.' }, { status: 404 })
-  const [self, found] = await Promise.all([me(db, gate.actor.userId), suggestion(db, gate.actor.companyId, permit.issuing_authority)])
+  const [self, viaExpediter] = await Promise.all([me(db, gate.actor.userId), expediterSuggestion(db, gate.actor.companyId, permit.expediter_company_id)])
+  const found = viaExpediter?.found ?? await suggestion(db, gate.actor.companyId, permit.issuing_authority)
   return NextResponse.json({
     suggested: found.suggested, me: { email: self.email, name: self.name }, replies: replyConfig().enabled,
     warning: emailWarning(found.apply, permit.issuing_authority ?? ''),
+    // Who it is addressed to, for the dialog's sentence: the expediter, or null for the authority.
+    expediter: viaExpediter?.name ?? null,
   })
 }
 
@@ -112,6 +134,8 @@ export async function POST(request: Request, { params }: P) {
   if (problem) return NextResponse.json({ error: problem }, { status: 400 })
 
   const self = await me(db, gate.actor.userId)
+  const { data: viaRow } = await db.from('permits').select('expediter_company_id').eq('id', params.permitId).eq('project_id', params.id).maybeSingle()
+  const viaExpediter = await expediterSuggestion(db, gate.actor.companyId, viaRow?.expediter_company_id)
   // WHERE A REPLY GOES. With replies set up, to this permit's own address -
   // the inbound route files it here and forwards a copy to the sender. Until
   // then, straight to the sender, as before. The token is minted once, the
@@ -130,6 +154,7 @@ export async function POST(request: Request, { params }: P) {
     beforeInsert: async ({ permit, files, round }) => {
       const copy = permitEmailCopy({
         permitType: permit.permit_type, job, senderName: self.name, companyName: self.company, round, message: str('message'),
+        fileWith: viaExpediter ? (permit.issuing_authority || null) : undefined,
       })
       // The same token link as the Sharing tab, born tied to this permit, so
       // what the township uploads back lands in the permit's history.
@@ -141,7 +166,7 @@ export async function POST(request: Request, { params }: P) {
         name: copy.heading,
         message: str('message') || null,
         files,
-        recipient_name: permit.issuing_authority || null,
+        recipient_name: viaExpediter?.name || permit.issuing_authority || null,
         recipient_email: to,
         allow_upload: true,
         upload_prompt: 'Send comments, a corrections list or the approved permit back here.',
@@ -155,7 +180,7 @@ export async function POST(request: Request, { params }: P) {
       shareId = share.id
 
       const email = tokenLinkEmail({
-        recipientName: permit.issuing_authority, eyebrow: 'Permit application', heading: copy.heading,
+        recipientName: viaExpediter?.name || permit.issuing_authority, eyebrow: viaExpediter ? 'To file' : 'Permit application', heading: copy.heading,
         lines: copy.lines, ctaLabel: files.length === 1 ? 'Open the document' : 'Open the documents',
         url: `${origin}/share/${share.token}`, fromName: self.name, companyName: self.company,
       })
@@ -199,8 +224,12 @@ export async function POST(request: Request, { params }: P) {
     return NextResponse.json(result.body, { status: result.status })
   }
 
-  // Save the township's address so every permit with this authority starts on it.
-  if (str('save_address') === '1') {
+  // Save the address onto the card it came from: the expediter's own, or the township's.
+  if (str('save_address') === '1' && viaExpediter) {
+    const { error: saveErr } = await db.from('companies').update({ contact_email: to })
+      .eq('id', viaExpediter.found.contactId).eq('added_by_company_id', gate.actor.companyId)
+    if (saveErr) console.error('[permit-email] expediter address save failed', saveErr.message)
+  } else if (str('save_address') === '1') {
     try {
       const { data: permit } = await db.from('permits').select('issuing_authority').eq('id', params.permitId).maybeSingle()
       const authority = permit?.issuing_authority?.trim()
