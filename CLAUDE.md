@@ -1271,6 +1271,11 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   task is never late whatever is left unticked. A ticked subtask is logged to
   Job History but is NOT a `task_updated` notification - five ticks would be
   five emails.
+- **A SUBTASK'S ASSIGNEE IS TOLD, ONCE, WHEN IT BECOMES THEIRS.**
+  `newlyAssigned` compares against what the task held, so a tick, a date edit
+  or re-saving the form tells nobody again; `notifySubtaskAssignees` sends one
+  `task_assigned` per person per save, never to the actor, and on create never
+  to somebody just told about the whole task (ONE EVENT, ONE EMAIL).
 
 ## Server-side data fetching (IMPORTANT)
 - Layouts nest: `(dashboard)/layout.tsx` wraps `projects/[id]/layout.tsx` wraps

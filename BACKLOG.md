@@ -369,10 +369,8 @@ the biggest build yet while the books are half-wired ends with both half-done.
 Shipped to staging 13 Nov 2026: the Project Management look on the Tasks tab,
 drag between stages on a desktop, Table and Calendar views, search, labels
 from one preset list with suggestions, and subtasks (own date, note, one
-assignee, who ticked it). Not built:
+assignee who is told, who ticked it). Not built:
 
-- **A subtask's assignee is not notified.** `task_assigned` still goes to the
-  task's assignees only. Needs deciding whether it is the same catalog type.
 - **Field Mode and My Jobs do not show subtasks or labels.** They keep their
   own screens; a worker ticks a subtask from the Tasks tab, not from Field Mode.
 - **Claude cannot set labels or subtasks.** `update_task` passes an allow-list

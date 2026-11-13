@@ -193,6 +193,19 @@ export function newlyDone(before: unknown, after: TaskSubtask[]): string[] {
   return after.filter(s => s.done && !was.get(s.id)).map(s => s.text)
 }
 
+const whoKey = (s: Partial<TaskSubtask> | undefined): string =>
+  s?.assignee_member_id ? `m:${s.assignee_member_id}` : s?.assignee_company_id ? `c:${s.assignee_company_id}` : ''
+
+/**
+ * The subtasks that were just GIVEN to somebody: a new one with a person on
+ * it, or one whose person changed. Not one that kept its person (a tick or a
+ * date edit is not a new assignment), and not one that is already done.
+ */
+export function newlyAssigned(before: unknown, after: TaskSubtask[]): TaskSubtask[] {
+  const was = new Map<string, string>((Array.isArray(before) ? before : []).map((h: any) => [String(h?.id ?? ''), whoKey(h)]))
+  return after.filter(s => !s.done && whoKey(s) && whoKey(s) !== (was.get(s.id) ?? ''))
+}
+
 // ── Reading them ─────────────────────────────────────────────────────────────
 interface HasSubtasks { status: string; due_date: string | null; subtasks?: TaskSubtask[] | null }
 
