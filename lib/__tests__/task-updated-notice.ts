@@ -51,7 +51,7 @@ ok(gate > 0 && send > gate,
 // decides who gets told.
 ok(/updates\.description !== undefined && updates\.description !== \(prev as any\)\?\.description/.test(route),
   'THE FIREHOSE THAT WOULD HAVE BEEN: description is compared, not merely present')
-ok(/'title, status, priority, due_date, assigned_to_name, description'/.test(route),
+ok(/'title, status, priority, due_date, assigned_to_name, description(?:, subtasks)?'/.test(route),
   '...which needs description on the previous-state read, or the comparison is against undefined')
 
 // ── it never takes the save down with it ────────────────────────────────────

@@ -6,7 +6,7 @@ import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import {
   Plus, X, CheckSquare, Circle, Clock, AlertCircle, Trash2,
   Building2, UserCircle2, Receipt, LayoutGrid, List, Users, Pencil,
-  MessageSquare, Loader2, ImagePlus, CalendarClock, FileText, Check,
+  MessageSquare, Loader2, ImagePlus, CalendarClock, FileText, Check, ChevronDown, ListChecks, Search,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
@@ -21,7 +21,13 @@ import { cn } from '@/lib/utils'
 import { fetchProblem } from '@/lib/fetch-error'
 import { punchLines, MAX_PUNCH_LINES } from '@/lib/punch-lines'
 
-import { formatDate } from '@/lib/dates'
+import { formatDate, todayDateInput } from '@/lib/dates'
+import { LabelChips, LabelPicker, SubtaskEditor, SubtaskList, MonthCalendar, type SubtaskPerson } from '@/components/tasks/task-extras-ui'
+import {
+  openTaskSubtasks, subtaskCount, taskCalendarEntries, taskIsOverdue, taskMatches,
+  type TaskLabel, type TaskSubtask,
+} from '@/lib/task-extras'
+import { subtaskDue } from '@/lib/project-management'
 import { dueLabel } from '@/lib/task-due'
 import { timeAgo, absoluteTime } from '@/lib/time-ago'
 import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
@@ -50,7 +56,8 @@ const STATUSES = [
 // phone gets none of it (see the board below); the desktop was not asked to
 // change, so under `lg:` it does not.
 
-type ViewMode = 'board' | 'list' | 'assignee'
+// `list` is the Table view - the key is kept so a saved link still lands on it.
+type ViewMode = 'board' | 'list' | 'assignee' | 'calendar'
 type FilterMode = 'all' | 'open' | 'in_progress' | 'completed' | 'overdue' | 'punch'
 
 // ─── interfaces ──────────────────────────────────────────────────────────────
@@ -70,6 +77,9 @@ interface Task {
   created_by: string; completed_at: string | null; created_at: string
   image_url: string | null; follow_up_date: string | null; follow_up_note: string | null
   budget_line_item_id: string | null
+  /** Migration 167. Shapes and rules: lib/task-extras.ts. */
+  labels?: TaskLabel[] | null
+  subtasks?: TaskSubtask[] | null
   signoff_requested_at?: string | null; signoff_requested_by?: string | null
   signoff_signed_at?: string | null; signoff_signed_by?: string | null; signoff_signature_url?: string | null
 }
@@ -87,7 +97,8 @@ interface TaskNote {
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
 function isOverdue(task: Task) {
-  return task.status !== 'completed' && task.due_date && new Date(task.due_date + 'T00:00:00') < new Date()
+  // Late on its own date OR on a subtask's - one answer, lib/task-extras.ts.
+  return taskIsOverdue(task, todayDateInput())
 }
 
 function dueSoon(task: Task) {
@@ -230,6 +241,24 @@ function DueChip({ task }: { task: Task }) {
   )
 }
 
+/** "2 of 5", and the next subtask that needs somebody - on a card and in a row. */
+function SubtaskLine({ task }: { task: Task }) {
+  const count = subtaskCount(task)
+  if (!count) return null
+  const next = openTaskSubtasks(task)[0]
+  const says = next ? subtaskDue(next, todayDateInput()) : null
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-fg">
+      <span className="inline-flex items-center gap-1 whitespace-nowrap"><ListChecks className="h-3.5 w-3.5" />{count.done} of {count.total}</span>
+      {next && says && (
+        <span className={cn('min-w-0 break-words', says.tone === 'overdue' && 'font-semibold text-danger', says.tone === 'today' && 'font-semibold text-ink')}>
+          {says.text}: {next.text}
+        </span>
+      )}
+    </div>
+  )
+}
+
 function GroupProgressBar({ tasks }: { tasks: Task[] }) {
   const done = tasks.filter(t => t.status === 'completed').length
   const pct = tasks.length ? Math.round((done / tasks.length) * 100) : 0
@@ -262,6 +291,29 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
   const [signSaving, setSignSaving] = useState(false)
   const [requesting, setRequesting] = useState(false)
   const [planPin, setPlanPin] = useState<{ id: string; plan_id: string; page: number } | null>(null)
+  const panelNotice = useNotice()
+
+  // Ticking a subtask here saves straight away - it is a report of work done,
+  // like moving the stage. The route stamps who and when.
+  async function toggleSubtask(id: string) {
+    const subtasks = (task.subtasks ?? []).map(s => s.id === id ? { ...s, done: !s.done } : s)
+    try {
+      const { data: { session } } = await createClient().auth.getSession()
+      const res = await fetch(`/api/projects/${projectId}/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token}` },
+        body: JSON.stringify({ subtasks }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j.error || `That did not save (${res.status}).`)
+      }
+    } catch (e) {
+      panelNotice(fetchProblem(e, 'ticking the subtask'))
+    } finally {
+      onChanged()
+    }
+  }
 
   // If this task came from a plan pin, offer a link back to the exact spot.
   useEffect(() => {
@@ -329,6 +381,17 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
             </span>
             <PriorityBadge priority={task.priority} />
           </div>
+
+          <LabelChips labels={task.labels} />
+
+          {(task.subtasks?.length ?? 0) > 0 && (
+            <div className="space-y-1.5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-faint">
+                Subtasks <span className="font-medium normal-case tracking-normal text-muted-fg">{subtaskCount(task)?.done} of {subtaskCount(task)?.total} done</span>
+              </p>
+              <SubtaskList items={task.subtasks ?? []} today={todayDateInput()} onToggle={toggleSubtask} />
+            </div>
+          )}
 
           {(task.assignees?.length ?? 0) > 0 && (
             <div className="flex items-center gap-1.5 text-sm text-muted-fg">
@@ -611,6 +674,18 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   // view / filter
   const [viewMode, setViewMode]     = useState<ViewMode>('board')
   const [filterMode, setFilterMode] = useState<FilterMode>('all')
+  const [query, setQuery] = useState('')
+  const [labelFilter, setLabelFilter] = useState('')
+  /** Which stage a phone is looking at - the board is one column at a time there. */
+  const [phoneStage, setPhoneStage] = useState('open')
+  /** Tasks whose subtasks are listed under them in the Table view. */
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  // A REF, NOT STATE. BoardCard is declared inside this component, so a
+  // setState on drag start would remount the card being dragged and the
+  // browser would lose it - which is why drag was taken out of this board
+  // twice. Nothing re-renders until the drop.
+  const dragTask = useRef<string | null>(null)
+  const today = todayDateInput()
 
   // The open task. It used to be `expandedTaskId` and it opened INLINE - a
   // panel docked under the whole board on a desktop, and under the tapped card
@@ -647,6 +722,8 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   /** Everyone picked for the task being added or edited. */
   const [picked, setPicked] = useState<TaskAssignee[]>([])
   const [followUpDate, setFollowUpDate] = useState('')
+  const [formLabels, setFormLabels] = useState<TaskLabel[]>([])
+  const [formSubtasks, setFormSubtasks] = useState<TaskSubtask[]>([])
   const [taskImage, setTaskImage] = useState<File | null>(null)
   const [taskImagePreview, setTaskImagePreview] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
@@ -744,6 +821,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setTitle(''); setDescription(''); setDueDate(''); setPriority('medium'); setIsPunch(false)
     setAssigneeType('member'); setAssignedMemberId(''); setAssignedSubId('')
     setFollowUpDate(''); setTaskImage(null); setTaskImagePreview(null)
+    setFormLabels([]); setFormSubtasks([])
     setSaveError(null)
     setEditTask(null)
     setAddStatus(null)
@@ -803,6 +881,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setPriority(task.priority)
     setIsPunch(task.kind === 'punch')
     setFollowUpDate(task.follow_up_date ?? '')
+    setFormLabels(task.labels ?? []); setFormSubtasks(task.subtasks ?? [])
     setTaskImage(null)
     setTaskImagePreview(task.image_url ?? null)
     setPicked(task.assignees ?? [])
@@ -882,6 +961,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               body: JSON.stringify({
                 title: line, description, due_date: dueDate || null, priority,
                 kind: 'punch', assignees, image_url: null, follow_up_date: followUpDate || null,
+                labels: formLabels,
                 ...(addStatus ? { status: addStatus } : {}),
               }),
             })
@@ -914,6 +994,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         kind: isPunch ? 'punch' : 'task',
         assignees,
         image_url, follow_up_date: followUpDate || null,
+        labels: formLabels, subtasks: formSubtasks,
         // Create only. On PATCH this stays out of the body on purpose: saving
         // an edit must not move the task to whichever column was last used.
         ...(editTask ? {} : addStatus ? { status: addStatus } : {}),
@@ -1020,6 +1101,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const punchCount = visibleTasks.filter(t => t.kind === 'punch').length
 
   const filteredTasks = visibleTasks.filter(t => {
+    if (!taskMatches(t, query, labelFilter)) return false
     if (filterMode === 'all') return true
     if (filterMode === 'overdue') return isOverdue(t)
     if (filterMode === 'punch') return t.kind === 'punch'
@@ -1051,6 +1133,37 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     { key: 'overdue',     label: 'Overdue',     short: 'Overdue',  count: overdueCount, danger: true },
     { key: 'punch',       label: 'Punch list',  short: 'Punch',    count: punchCount, note: `${visibleTasks.filter(t => t.kind === 'punch' && t.status !== 'completed').length} still open` },
   ]
+
+  // Every label in use on this job, for the filter.
+  const labelsInUse = Array.from(new Set(visibleTasks.flatMap(t => (t.labels ?? []).map(l => l.name)))).sort()
+  // Who a subtask can be given to: the crew and the subs already on this job.
+  const subtaskPeople: SubtaskPerson[] = [
+    ...members.map(m => ({ key: `m:${m.id}`, name: m.name, member_id: m.id })),
+    ...subs.filter(sc => sc.companies?.id).map(sc => ({ key: `c:${sc.companies!.id}`, name: sc.companies!.name, company_id: sc.companies!.id })),
+  ].filter((p, i, all) => all.findIndex(x => x.key === p.key) === i)
+
+  // Ticking a subtask from the table. The whole list goes; the route cleans it
+  // and stamps who ticked it. A refusal puts the screen back as the server has it.
+  async function toggleSubtask(task: Task, subtaskId: string) {
+    const subtasks = (task.subtasks ?? []).map(x => x.id === subtaskId ? { ...x, done: !x.done } : x)
+    setTasks(prev => prev.map(t => t.id === task.id ? { ...t, subtasks } : t))
+    try {
+      const token = await getToken()
+      const res = await fetch(`/api/projects/${params.id}/tasks/${task.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ subtasks }),
+      })
+      if (!res.ok) {
+        const j = await res.json().catch(() => ({}))
+        throw new Error(j.error || `That did not save (${res.status}).`)
+      }
+    } catch (e) {
+      notice(fetchProblem(e, 'ticking the subtask'))
+    } finally {
+      load()
+    }
+  }
 
   const openTask_ = openTaskId ? tasks.find(t => t.id === openTaskId) ?? null : null
 
@@ -1115,14 +1228,18 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       <div
         className={cn(
           // Phone: a row. Desktop (lg+): the bordered card it always was.
-          'group cursor-pointer px-4 py-3 transition-colors hover:bg-surface lg:relative lg:flex lg:flex-col lg:rounded-lg lg:border lg:border-line lg:bg-panel lg:p-3 lg:transition-all lg:hover:border-muted2 lg:hover:shadow-sm',
+          'group cursor-pointer px-4 py-3 transition-colors hover:bg-surface lg:relative lg:flex lg:flex-col lg:rounded-xl lg:border lg:border-line lg:bg-panel lg:p-3 lg:transition-all lg:hover:border-muted2 lg:hover:shadow-sm',
           selected && 'bg-surface lg:border-accent',
         )}
         onClick={() => openTask(task.id)}
+        draggable
+        onDragStart={e => { dragTask.current = task.id; e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', task.id) }}
+        onDragEnd={() => { dragTask.current = null }}
       >
         <div className="flex items-start gap-2">
           <PriorityDot priority={task.priority} />
           <div className="min-w-0 flex-1 space-y-1.5">
+            <LabelChips labels={task.labels} />
             <p className={cn('text-sm font-medium leading-snug text-ink', task.status === 'completed' && 'text-faint line-through')}>
               {task.kind === 'punch' && <PunchTag />}{task.title}
             </p>
@@ -1138,6 +1255,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
               )}
               <TaskTag task={task} />
             </div>
+            <SubtaskLine task={task} />
           </div>
           {/* Move it. The status icon IS the control - see StatusPicker. */}
           <StatusPicker status={task.status} onPick={next => updateStatus(task.id, next)} />
@@ -1229,6 +1347,8 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             <DueChip task={task} />
             <TaskTag task={task} />
           </div>
+          <LabelChips labels={task.labels} className="mt-1.5" />
+          <div className="mt-1.5 empty:hidden"><SubtaskLine task={task} /></div>
         </div>
 
         <div className="flex shrink-0 items-center gap-1 opacity-100 transition-opacity lg:opacity-0 lg:group-hover:opacity-100">
@@ -1260,118 +1380,188 @@ export default function TasksPage({ params }: { params: { id: string } }) {
 
   // ── board view ─────────────────────────────────────────────────────────────
 
+  // ── THE BOARD ─────────────────────────────────────────────────────────────
+  // The look is Project Management's: quiet columns, a card per task. The
+  // STAGES are fixed at three - notifications, sign-off, Field Mode and the
+  // reports all read them, so nobody renames "Completed" here.
+  //
+  // From lg up the three sit side by side and a card is DRAGGED between them.
+  // Below lg it is one stage at a time, chosen from the pills, and a card
+  // moves from its status icon - there is no drag on a touch screen.
   function BoardView() {
     return (
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="space-y-4">
+        <div role="tablist" aria-label="Stages" className="scroll-fade flex gap-2 overflow-x-auto scrollbar-hide lg:hidden">
+          {STATUSES.map(col => {
+            const on = col.value === phoneStage
+            return (
+              <button key={col.value} type="button" role="tab" aria-selected={on} onClick={() => setPhoneStage(col.value)}
+                className={cn('min-h-11 shrink-0 whitespace-nowrap rounded-full border px-4 text-sm',
+                  on ? 'border-ink bg-ink font-semibold text-panel' : 'border-line bg-panel font-medium text-ink')}>
+                {col.label} {filteredTasks.filter(t => t.status === col.value).length}
+              </button>
+            )
+          })}
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
           {STATUSES.map(col => {
             const colTasks = filteredTasks.filter(t => t.status === col.value)
             return (
-              // Keyed on the status. Without it React reuses column DOM across
-              // renders by position, so a card dragged between columns can land
-              // in the wrong one - caught the first time rules-of-hooks lint ran.
-              // NO TINT. Each column was a coloured box - tinted header, tinted
-              // background, tinted count pill, tinted border - holding cards
-              // that were boxes of their own. Three columns, three colours, a
-              // box in a box. The status icon is the one thing in colour; the
-              // rest is ink on panel, and the tasks are rows in a list.
-              // NO `overflow-hidden` HERE, AND THAT IS THE FIX.
-              //
-              // It was on this div to keep the tinted header and body inside
-              // the rounded corners, and it CLIPPED THE STATUS MENU: the
-              // picker on the last card opens downward past the bottom of the
-              // column, so "Completed" was painted outside the box and simply
-              // not there. Reported as "the dropdown here gets cut off so i
-              // cant complete a task" - the one thing the board exists to do.
-              //
-              // `overflow-hidden` establishes a clipping box on BOTH axes, and
-              // clipping is a PAINT operation: the menu still reported its
-              // full rectangle, so nothing in the DOM looked wrong. Same trap
-              // as a RowMenu inside an `overflow-x-auto`, which this file's
-              // working agreement already names - round the CHILDREN that
-              // touch an edge instead, which is what the two below now do.
-              <div key={col.value} className={cn('flex flex-col rounded-2xl border border-line bg-panel lg:rounded-xl', col.lg.border)}>
-                <div className={cn('flex items-center justify-between rounded-t-2xl border-b border-line-soft px-4 py-3 lg:rounded-t-xl lg:border-b-0 lg:px-3 lg:py-2.5', col.lg.headerBg)}>
-                  <div className="flex min-w-0 items-center gap-2">
-                    <col.icon className={cn('h-4 w-4 shrink-0', col.color)} />
-                    <span className={cn('truncate text-sm font-semibold text-ink', col.lg.headerText)}>{col.label}</span>
-                    <span className={cn('whitespace-nowrap text-sm tabular-nums text-faint lg:min-w-[1.25rem] lg:rounded-full lg:border lg:px-1.5 lg:py-0.5 lg:text-center lg:text-xs lg:font-bold', col.lg.headerBg, col.lg.headerText, col.lg.border)}>{colTasks.length}</span>
-                  </div>
-                  <button
-                    onClick={() => openAddForm(col.value)}
-                    title={`Add ${col.label} task`}
-                    className={cn('-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink lg:mr-0 lg:h-auto lg:w-auto lg:rounded lg:p-1 lg:hover:bg-black/5', col.lg.headerText)}
-                  >
-                    <Plus className="h-4 w-4 lg:h-3.5 lg:w-3.5" />
-                  </button>
-                </div>
-
-                {/* Rounded at the bottom for the same reason, and the LAST
-                    CHILD is rounded too: rounding a box does not clip what is
-                    painted inside it, so a selected last row would otherwise
-                    square the corner off again. At `lg` the cards sit inside
-                    `lg:p-2` and touch no edge, so it is turned back off. */}
-                <div className={cn('flex-1 divide-y divide-line-soft min-h-[120px] rounded-b-2xl [&>*:last-child]:rounded-b-2xl lg:divide-y-0 lg:space-y-2 lg:rounded-b-xl lg:p-2 lg:[&>*:last-child]:rounded-b-none', col.lg.col)}>
-                  {colTasks.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 gap-1">
-                      <p className="text-xs text-faint">No tasks</p>
-                      <button
-                        onClick={() => openAddForm(col.value)}
-                        className="text-xs text-faint hover:text-accent-fg transition-colors flex items-center gap-0.5"
-                      >
-                        <Plus className="h-3 w-3" /> Add one
-                      </button>
-                    </div>
-                  ) : (
-                    colTasks.map(task => <BoardCard key={task.id} task={task} />)
+              <section key={col.value} aria-label={col.label}
+                className={cn('flex-col gap-2.5 rounded-xl lg:flex lg:p-1', col.value === phoneStage ? 'flex' : 'hidden')}
+                onDragOver={e => { if (dragTask.current) e.preventDefault() }}
+                onDrop={e => {
+                  e.preventDefault()
+                  const id = dragTask.current
+                  dragTask.current = null
+                  const moved = tasks.find(t => t.id === id)
+                  if (moved && moved.status !== col.value) updateStatus(moved.id, col.value)
+                }}>
+                <div className="flex items-center gap-2 px-1">
+                  <col.icon className={cn('h-4 w-4 shrink-0', col.color)} />
+                  <h2 className="min-w-0 truncate text-xs font-bold uppercase tracking-wider text-ink">{col.label}</h2>
+                  <span className="text-xs tabular-nums text-muted-fg">{colTasks.length}</span>
+                  <span className="flex-1" />
+                  {canCreateTask && (
+                    <button
+                      onClick={() => openAddForm(col.value)}
+                      aria-label={`Add a task to ${col.label}`} title={`Add ${col.label} task`}
+                      className="-mr-2 flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink lg:mr-0 lg:h-8 lg:w-8"
+                    >
+                      <Plus className="h-4 w-4" />
+                    </button>
                   )}
                 </div>
-              </div>
+
+                {colTasks.length === 0 ? (
+                  <div className="rounded-2xl border border-dashed border-muted2 px-3 py-8 text-center lg:rounded-xl">
+                    <p className="text-xs text-muted-fg">No tasks</p>
+                  </div>
+                ) : (
+                  /* One divided card on a phone; separate cards from lg up.
+                     No `overflow-hidden`: the status menu on the last row
+                     opens below it, so the ROWS that touch an edge are rounded
+                     instead of the box clipping them. */
+                  <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel [&>*:first-child]:rounded-t-2xl [&>*:last-child]:rounded-b-2xl lg:space-y-2.5 lg:divide-y-0 lg:rounded-none lg:border-0 lg:bg-transparent lg:[&>*:first-child]:rounded-t-xl lg:[&>*:last-child]:rounded-b-xl">
+                    {colTasks.map(task => <BoardCard key={task.id} task={task} />)}
+                  </div>
+                )}
+
+                {canCreateTask && (
+                  <button type="button" onClick={() => openAddForm(col.value)}
+                    className="rounded-xl border border-dashed border-muted2 px-3 py-2.5 text-left text-sm font-medium text-ink-soft hover:bg-panel">
+                    + Add task
+                  </button>
+                )}
+              </section>
             )
           })}
+        </div>
       </div>
     )
   }
 
-  // ── list view ──────────────────────────────────────────────────────────────
-
+  // ── THE TABLE ─────────────────────────────────────────────────────────────
+  // Grouped by stage. From lg up it is a real table, and a task's subtask
+  // count opens its subtasks under it, each tickable. A phone gets the same
+  // groups as lists of rows - a six-column table is not a phone layout.
   function ListView() {
+    if (filteredTasks.length === 0) return <EmptyState />
+    const groups = STATUSES.map(col => ({ col, list: filteredTasks.filter(t => t.status === col.value) })).filter(g => g.list.length)
     return (
-      <div className="space-y-6">
-        {generalTasks.length > 0 && (
-          <div className="space-y-3 lg:space-y-2">
-            <div className="flex items-center gap-3 px-1">
-              <p className="text-xs font-semibold text-faint uppercase tracking-wide">General Tasks</p>
-              <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{generalTasks.length}</span>
-              <GroupProgressBar tasks={generalTasks} />
+      <>
+        <div className="hidden lg:block overflow-x-auto rounded-2xl border border-line bg-panel">
+          <table className="w-full min-w-[920px] border-collapse text-sm">
+            <thead>
+              <tr className="text-left text-xs text-muted-fg">
+                {['Task', 'Assigned to', 'Labels', 'Priority', 'Due', 'Subtasks'].map(h => (
+                  <th key={h} scope="col" className="border-b border-line px-4 py-3 font-semibold">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {groups.map(({ col, list }) => [
+                <tr key={col.value}>
+                  <th scope="colgroup" colSpan={6} className="border-b border-line bg-surface px-4 pb-2 pt-3.5 text-left text-xs font-bold uppercase tracking-wider text-ink">
+                    {col.label} <span className="font-medium text-muted-fg">{list.length}</span>
+                  </th>
+                </tr>,
+                ...list.flatMap(task => {
+                  const count = subtaskCount(task)
+                  const isOpen = expanded.has(task.id)
+                  return [
+                    <tr key={task.id} onClick={() => openTask(task.id)} className="cursor-pointer border-b border-line-soft hover:bg-surface">
+                      <td className="px-4 py-3">
+                        <button type="button" className="text-left" onClick={e => { e.stopPropagation(); openTask(task.id) }}>
+                          <span className={cn('block break-words font-semibold', task.status === 'completed' ? 'text-muted-fg line-through' : 'text-ink')}>
+                            {task.kind === 'punch' && <PunchTag />}{task.title}
+                          </span>
+                        </button>
+                      </td>
+                      <td className="px-4 py-3 text-ink-soft">{(task.assignees?.length ?? 0) > 0 ? assigneeLabel(task.assignees, 2) : '-'}</td>
+                      <td className="px-4 py-3">{task.labels?.length ? <LabelChips labels={task.labels} /> : '-'}</td>
+                      <td className={cn('whitespace-nowrap px-4 py-3', task.priority === 'high' && 'font-semibold text-danger')}>
+                        {PRIORITIES.find(x => x.value === task.priority)?.label ?? '-'}
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3">{dueLabel(task) ? <DueChip task={task} /> : '-'}</td>
+                      <td className="whitespace-nowrap px-4 py-3">
+                        {count ? (
+                          <button type="button" aria-expanded={isOpen}
+                            onClick={e => {
+                              e.stopPropagation()
+                              setExpanded(prev => { const next = new Set(prev); if (next.has(task.id)) next.delete(task.id); else next.add(task.id); return next })
+                            }}
+                            className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 font-medium text-ink-soft hover:bg-muted">
+                            {count.done} of {count.total}
+                            <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-180')} />
+                          </button>
+                        ) : '-'}
+                      </td>
+                    </tr>,
+                    ...(isOpen ? [
+                      <tr key={`${task.id}:subtasks`} className="border-b border-line-soft bg-surface">
+                        <td colSpan={6} className="py-3 pl-10 pr-4">
+                          <SubtaskList items={task.subtasks ?? []} today={today} onToggle={id => toggleSubtask(task, id)} className="bg-panel" />
+                        </td>
+                      </tr>,
+                    ] : []),
+                  ]
+                }),
+              ])}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="space-y-6 lg:hidden">
+          {groups.map(({ col, list }) => (
+            <div key={col.value} className="space-y-3">
+              <div className="flex items-center gap-2 px-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-ink">{col.label}</p>
+                <span className="text-xs text-muted-fg">{list.length}</span>
+              </div>
+              <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel [&>*:first-child]:rounded-t-2xl [&>*:last-child]:rounded-b-2xl">
+                {list.map(task => <ListCard key={task.id} task={task} />)}
+              </div>
             </div>
-            {/* No `overflow-hidden`: the same status menu lives in these rows
-                and the last row's opens below them. See the board column. */}
-            <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel [&>*:first-child]:rounded-t-2xl [&>*:last-child]:rounded-b-2xl lg:rounded-xl lg:[&>*:first-child]:rounded-t-xl lg:[&>*:last-child]:rounded-b-xl">
-              {generalTasks.map(task => <ListCard key={task.id} task={task} />)}
-            </div>
-          </div>
-        )}
-        {Object.entries(subGroups).map(([companyId, group]) => (
-          <div key={companyId} className="space-y-3 lg:space-y-2">
-            <div className="flex items-center gap-2 px-1 flex-wrap">
-              <Building2 className="h-3.5 w-3.5 text-faint" />
-              <p className="text-xs font-semibold text-faint uppercase tracking-wide">{group.name}</p>
-              <span className="whitespace-nowrap text-xs bg-muted text-muted-fg rounded-full px-2 py-0.5">{group.tasks.length}</span>
-              <GroupProgressBar tasks={group.tasks} />
-            </div>
-            {/* No `overflow-hidden`: the same status menu lives in these rows
-                and the last row's opens below them. See the board column. */}
-            <div className="divide-y divide-line-soft rounded-2xl border border-line bg-panel [&>*:first-child]:rounded-t-2xl [&>*:last-child]:rounded-b-2xl lg:rounded-xl lg:[&>*:first-child]:rounded-t-xl lg:[&>*:last-child]:rounded-b-xl">
-              {group.tasks.map(task => <ListCard key={task.id} task={task} />)}
-            </div>
-          </div>
-        ))}
-        {filteredTasks.length === 0 && <EmptyState />}
-      </div>
+          ))}
+        </div>
+      </>
     )
   }
 
-  // ── assignee view ──────────────────────────────────────────────────────────
+  // ── THE CALENDAR ──────────────────────────────────────────────────────────
+  // A task on its due date and each open dated subtask on its own. Plain
+  // values, not a component: one more component declared in here is one more
+  // that remounts on every render.
+  const calendarEntries = taskCalendarEntries(filteredTasks).map(e => ({
+    key: e.task.id + (e.subtask?.id ?? ''),
+    date: e.date,
+    label: e.subtask?.text ?? e.task.title,
+    sub: e.subtask ? `Subtask of ${e.task.title}` : assigneeLabel(e.task.assignees, 2),
+    done: e.done,
+    onOpen: () => openTask(e.task.id),
+  }))
+  const offCalendar = filteredTasks.filter(t => !t.due_date && openTaskSubtasks(t).length === 0).length
 
   function AssigneeView() {
     // Group ALL filtered tasks by assignee name (or "Unassigned")
@@ -1449,7 +1639,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       {/* ── New / Edit Task modal ──────────────────────────────────────────── */}
       {showAdd && (
         <div className="overlay items-center justify-center bg-black/50" data-overlay>
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg">
+          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-2xl">
             <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-semibold text-ink">{formTitle}</h2>
@@ -1612,6 +1802,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                 </div>
 
                 {/* Follow-up (optional scheduled reminder) */}
+                <LabelPicker value={formLabels} onChange={setFormLabels} />
+
+                {/* One task, its steps under it. Not offered while pasting a
+                    punch list - each line there becomes its own task. */}
+                {!bulkPunch && (
+                  <SubtaskEditor value={formSubtasks} onChange={setFormSubtasks} people={subtaskPeople} today={today} />
+                )}
+
                 <div className="space-y-1.5">
                   <Label htmlFor="followup">Follow-up date <span className="text-faint font-normal">(optional)</span></Label>
                   <Input id="followup" type="date" value={followUpDate} onChange={e => setFollowUpDate(e.target.value)} />
@@ -1696,35 +1894,20 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       )}
 
       {/* ── Page header ───────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+      <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-ink">Tasks</h1>
           <p className="text-sm text-muted-fg mt-0.5">Assign and track work across your crew and subcontractors.</p>
         </div>
-        <div className="flex items-center gap-2">
-          {/* view toggle */}
-          <div className="flex items-center gap-0.5 p-1 bg-muted rounded-lg">
-            <button
-              title="Board view"
-              onClick={() => setViewMode('board')}
-              className={cn('p-1.5 rounded-md transition-colors', viewMode === 'board' ? 'bg-panel shadow-sm text-ink-soft' : 'text-faint hover:text-muted-fg')}
-            >
-              <LayoutGrid className="h-4 w-4" />
-            </button>
-            <button
-              title="List view"
-              onClick={() => setViewMode('list')}
-              className={cn('p-1.5 rounded-md transition-colors', viewMode === 'list' ? 'bg-panel shadow-sm text-ink-soft' : 'text-faint hover:text-muted-fg')}
-            >
-              <List className="h-4 w-4" />
-            </button>
-            <button
-              title="By Assignee view"
-              onClick={() => setViewMode('assignee')}
-              className={cn('p-1.5 rounded-md transition-colors', viewMode === 'assignee' ? 'bg-panel shadow-sm text-ink-soft' : 'text-faint hover:text-muted-fg')}
-            >
-              <Users className="h-4 w-4" />
-            </button>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* The same segmented switch Project Management has. */}
+          <div role="group" aria-label="View" className="inline-flex rounded-xl bg-muted p-1">
+            {([['board', 'Board'], ['list', 'Table'], ['assignee', 'By assignee'], ['calendar', 'Calendar']] as [ViewMode, string][]).map(([key, label]) => (
+              <button key={key} type="button" aria-pressed={viewMode === key} onClick={() => setViewMode(key)}
+                className={cn('min-h-9 whitespace-nowrap rounded-lg px-3 text-sm', viewMode === key ? 'bg-panel font-semibold text-ink' : 'font-medium text-ink-soft')}>
+                {label}
+              </button>
+            ))}
           </div>
           {canCreateTask && <Button onClick={() => openAddForm()}><Plus className="h-4 w-4" />New Task</Button>}
         </div>
@@ -1781,6 +1964,32 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           }))}
       />
 
+      {/* ── Search and the label filter ──────────────────────────────────── */}
+      {totalCount > 0 && (
+        <div className="flex flex-col gap-2 lg:flex-row lg:items-end">
+          <div className="relative min-w-0 flex-1 lg:max-w-xs">
+            <Label htmlFor="task-search" className="sr-only">Search tasks</Label>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+            <Input id="task-search" value={query} onChange={e => setQuery(e.target.value)} placeholder="Search tasks, subtasks and people" className="pl-9" />
+          </div>
+          {labelsInUse.length > 0 && (
+            <div className="lg:w-48">
+              <Label htmlFor="task-label-filter" className="sr-only">Label</Label>
+              <Select id="task-label-filter" value={labelFilter} onChange={e => setLabelFilter(e.target.value)}>
+                <option value="">Every label</option>
+                {labelsInUse.map(name => <option key={name} value={name}>{name}</option>)}
+              </Select>
+            </div>
+          )}
+          {(query || labelFilter) && (
+            <p className="text-xs text-muted-fg lg:pb-2">
+              Showing {filteredTasks.length} of {totalCount}.{' '}
+              <button type="button" className="font-medium text-accent-fg hover:underline" onClick={() => { setQuery(''); setLabelFilter('') }}>Show all</button>
+            </p>
+          )}
+        </div>
+      )}
+
       {/* ── Main content ─────────────────────────────────────────────────── */}
       {loading ? (
         <div className="text-sm text-faint py-12 text-center">Loading…</div>
@@ -1791,6 +2000,10 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           {viewMode === 'board'    && <BoardView />}
           {viewMode === 'list'     && <ListView />}
           {viewMode === 'assignee' && <AssigneeView />}
+          {viewMode === 'calendar' && (
+            <MonthCalendar entries={calendarEntries} today={today}
+              footnote={offCalendar ? `${offCalendar} ${offCalendar === 1 ? 'task has' : 'tasks have'} no due date and no dated subtask, so ${offCalendar === 1 ? 'it is' : 'they are'} not on the calendar.` : undefined} />
+          )}
           {/* ONE drawer for all three views, mounted outside them: a task
               opened from the list and a task opened from the board are the
               same panel, so they cannot drift. */}

@@ -66,6 +66,30 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-13',
+    title: 'Tasks: a new board, subtasks and labels',
+    items: [
+      {
+        kind: 'improved',
+        title: 'A cleaner board you can drag, plus Table and Calendar views',
+        text: 'The Tasks tab has a new look: quiet columns and a card per task, and on a computer you drag a card from one stage to the next. Table lists every task by stage with who has it, its labels and its due date; Calendar shows what is due each day; By assignee is still there. A search box looks through task names, subtasks and people. The three stages, assigning, the punch list, sign-off, notes and photos all work as before.',
+        help: 'tasks-assign',
+      },
+      {
+        kind: 'new',
+        title: 'Subtasks, with their own date and person',
+        text: 'Break a task into steps. Each subtask can have its own due date, a note, and one person or sub it is given to. The card shows how many are done and which is due next, a late subtask makes the task show as Overdue, and ticking one records who did it and when. Anyone who can update the task can tick them, including a sub on the job.',
+        help: 'tasks-assign',
+      },
+      {
+        kind: 'new',
+        title: 'Labels from one shared list',
+        text: 'Tag tasks by trade or topic - Framing, Permit, Client, Delivery and dozens more - and filter the screen by one. Type a word that is not on the list and the closest labels are suggested first, so the whole team ends up using the same ones.',
+        help: 'tasks-assign',
+      },
+    ],
+  },
+  {
     date: '2026-11-12',
     title: 'Project Management: a private board of your own on every job',
     items: [

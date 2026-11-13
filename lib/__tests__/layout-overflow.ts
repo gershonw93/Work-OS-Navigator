@@ -477,13 +477,19 @@ const boardCard = slice('function BoardCard(', 'function ListCard(')
 const listCard = slice('function ListCard(', 'function BoardView(')
 const boardView = slice('function BoardView(', 'function ListView(')
 ok(!/col\.(?:colBg|headerBg|headerText|colBorder)\b/.test(boardView), 'tasks board columns have no tinted ground on a phone')
-ok(/col\.lg\.(?:col|headerBg)/.test(tasksPage.slice(tasksPage.indexOf('function BoardView('))),
-  '...and the desktop keeps its tinted columns under lg:')
+// THE DESKTOP LOST ITS TINTS TOO, and that was asked for: "the regular tasks
+// is ugly compared to this new beautiful task manager" - the owner wanted the
+// Project Management look on the shared board at every width. So no column
+// reads a tint from STATUSES at all, and from lg up a task is its own card.
+ok(!/col\.lg\./.test(tasksPage.slice(tasksPage.indexOf('function BoardView('))),
+  '...and the desktop has none either - the board is the Project Management look at every width')
+ok(/lg:divide-y-0 lg:rounded-none lg:border-0 lg:bg-transparent/.test(tasksPage),
+  '...where a column is one divided card on a phone and separate cards from lg up')
 ok(boardCard.length > 0 && listCard.length > 0, 'BoardCard and ListCard are declared in that order')
 ok(!/ring-2/.test(boardCard) && !/ring-2/.test(listCard), 'an expanded task is a quiet bg-surface row, not a ringed card')
 ok(!/bg-danger-tint/.test(listCard), 'an overdue row is not tinted - the red "Overdue" label already says it')
 ok(!/rounded-xl border/.test(listCard), 'a list row is a row, not its own bordered card')
-ok((tasksPage.match(/divide-y divide-line-soft/g) ?? []).length >= 4,
+ok((tasksPage.match(/divide-y divide-line-soft/g) ?? []).length >= 3,
   'board columns and every list group put their rows in one divided card')
 ok(!/p-3 flex flex-col gap-2/.test(boardCard), 'a board row is padded once, not twice')
 // THE DETAIL DOES NOT OPEN INLINE AT ALL ANY MORE, and that supersedes rather
