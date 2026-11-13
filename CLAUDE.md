@@ -60,7 +60,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-166.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-167.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -1241,6 +1241,36 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   card enters a column marked `is_done` and cleared when it leaves, never taken
   from a body. A column holding cards cannot be deleted (they CASCADE) - refused
   on the control and by the route.
+
+## Tasks: the shared board, its labels and subtasks (IMPORTANT)
+- **THE LOOK IS PROJECT MANAGEMENT'S, AT EVERY WIDTH - AND THAT WAS ASKED FOR.**
+  "The regular tasks is ugly compared to this new beautiful task manager". So
+  the desktop lost its tinted columns too; the old pin that kept them is
+  reversed in `layout-overflow.ts`. The phone board is one stage at a time.
+- **THE STAGES STAY THREE AND FIXED.** Custom columns are the one thing not
+  copied: notifications, sign-off, Field Mode, the reports and Claude all read
+  Open / In Progress / Completed. Pinned in `task-extras.ts`.
+- **THE DRAG IS A REF.** `BoardCard` is declared inside the page, so a setState
+  on drag start remounts the card being dragged and the browser loses it -
+  which took drag off this board twice. `dragTask` is a `useRef` and nothing
+  re-renders until the drop. A phone moves a card from its status icon.
+- **LABELS COME FROM ONE LIST, AND A NEW WORD IS ANSWERED WITH THE NEAREST ONE
+  FIRST.** The owner's rule: "make a large options list and when someone tries
+  to make his own recommend one similar". `TASK_LABEL_PRESETS` and
+  `suggestLabels` (`lib/task-extras.ts`); `also` is how "sheetrock" finds
+  Drywall. A custom label is allowed and stored grey; a name that IS a preset
+  is stored under the list's spelling and colour (`cleanTaskLabels`).
+- **A SUBTASK IS A LINE ON THE TASK, NOT A ROW.** `project_tasks.subtasks`
+  jsonb (migration 167): text, done, optional due date, note and ONE assignee.
+  It has no stage and cannot leave its task. **WHO TICKED IT AND WHEN IS
+  DERIVED** by `stampSubtasks` from the move against what the task holds - a
+  request cannot write `done_by_name` or `done_at`, and one already done keeps
+  its stamp. Anyone who can update the task can tick one (the PATCH gate is
+  `jobGate`, so a sub with an account on the job can).
+- **A LATE SUBTASK MAKES THE TASK OVERDUE** (`taskIsOverdue`), and a completed
+  task is never late whatever is left unticked. A ticked subtask is logged to
+  Job History but is NOT a `task_updated` notification - five ticks would be
+  five emails.
 
 ## Server-side data fetching (IMPORTANT)
 - Layouts nest: `(dashboard)/layout.tsx` wraps `projects/[id]/layout.tsx` wraps

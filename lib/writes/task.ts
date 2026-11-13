@@ -4,6 +4,7 @@ import { notify } from '@/lib/notify'
 import { audienceFor } from '@/lib/notification-audience'
 import { normalizeAssignees, assigneeLabel } from '@/lib/task-assignees'
 import { withVia, type WriteResult } from './result'
+import { cleanTaskLabels, stampSubtasks, newlyDone } from '@/lib/task-extras'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Creating a task - the ONE home for it.
@@ -63,6 +64,10 @@ export async function createTask(
       source_daily_log_id: source_daily_log_id || null,
       // Whitelisted: the column has a check constraint (migration 133).
       ...(body?.kind === 'punch' ? { kind: 'punch' } : {}),
+      // Cleaned here, never stored as sent. A subtask born ticked is stamped
+      // with whoever is creating the task.
+      labels: cleanTaskLabels(body?.labels),
+      subtasks: stampSubtasks(body?.subtasks, [], withVia((profile as any)?.full_name ?? (profile as any)?.email ?? 'Someone', via), new Date().toISOString()),
       created_by: withVia((profile as any)?.full_name ?? 'Unknown', via),
     })
     .select()
@@ -212,9 +217,20 @@ export async function updateTask(
   // Capture the previous state so we can describe the change in history
   const { data: prev } = await db
     .from('project_tasks')
-    .select('title, status, priority, due_date, assigned_to_name, description')
+    .select('title, status, priority, due_date, assigned_to_name, description, subtasks')
     .eq('id', taskId)
     .single()
+
+  // LABELS AND SUBTASKS. Both are cleaned on the way in, and a subtask's
+  // "who ticked it, when" is derived from the move against what the task holds
+  // now - never read from the request.
+  if (body.labels !== undefined) updates.labels = cleanTaskLabels(body.labels)
+  let ticked: string[] = []
+  if (body.subtasks !== undefined) {
+    const next = stampSubtasks(body.subtasks, (prev as any)?.subtasks, actorName, new Date().toISOString())
+    ticked = newlyDone((prev as any)?.subtasks, next)
+    updates.subtasks = next
+  }
 
   const { data, error } = await db
     .from('project_tasks')
@@ -287,6 +303,16 @@ export async function updateTask(
   }
   if (updates.assigned_to_name !== undefined && updates.assigned_to_name !== (prev as any)?.assigned_to_name) {
     changes.push(updates.assigned_to_name ? `assigned to ${updates.assigned_to_name}` : 'unassigned')
+  }
+
+  // A ticked subtask is progress worth a line in Job History, but not a
+  // "task updated" notification each time - five ticks would be five emails.
+  if (ticked.length) {
+    await logActivity(
+      db, projectId, actorName, 'task_updated',
+      `${actorName} finished ${ticked.length === 1 ? `"${ticked[0]}"` : `${ticked.length} subtasks`} on "${taskTitle}"`,
+      { task_id: taskId }, user.id,
+    )
   }
 
   if (changes.length > 0) {
