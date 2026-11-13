@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { ChevronDown, Plus, Check, Search, UserPlus } from 'lucide-react'
 import { quickAddProblem, alreadyListed } from '@/lib/contact-quick-add'
+import { EXPEDITER_TRADE, isExpediterTrade } from '@/lib/permit-expediter'
 
 interface Contact {
   id: string
@@ -28,6 +29,13 @@ interface ContactPickerProps {
   label?: string
   /** If provided, phone field will be auto-filled when a contact is picked */
   onPhoneChange?: (phone: string) => void
+  /**
+   * Permit expediters only: Directory companies whose trade says so
+   * (`isExpediterTrade`), whatever their type - and one added from here is
+   * born a subcontractor with that trade, because hiring one makes it a
+   * subcontract on the job.
+   */
+  expediters?: boolean
 }
 
 export function ContactPicker({
@@ -36,6 +44,7 @@ export function ContactPicker({
   onChange,
   placeholder = 'Search or type a name…',
   onPhoneChange,
+  expediters = false,
 }: ContactPickerProps) {
   const supabase = createClient()
   const [contacts, setContacts] = useState<Contact[]>([])
@@ -62,11 +71,12 @@ export function ContactPicker({
       if (!res.ok) return
       const json = await res.json()
       let all: Contact[] = json.companies ?? []
-      if (filterType) all = all.filter(c => c.type === filterType)
+      if (expediters) all = all.filter(c => isExpediterTrade(c.trade))
+      else if (filterType) all = all.filter(c => c.type === filterType)
       setContacts(all)
     }
     load()
-  }, [filterType])
+  }, [filterType, expediters])
 
   // Close on outside click
   useEffect(() => {
@@ -112,7 +122,8 @@ export function ContactPicker({
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session?.access_token ?? ''}` },
       body: JSON.stringify({
         name: quickName.trim(),
-        type: filterType ?? 'other',
+        type: expediters ? 'subcontractor' : filterType ?? 'other',
+        ...(expediters ? { trade: EXPEDITER_TRADE } : {}),
         /* no address on file. NOT `noemail+<ts>@placeholder.com`: an invented address passes every is-this-an-address check, so the review screens listed the sub as emailable and a send would have recorded them TOLD. The column is NOT NULL, and '' is what 22 rows already use for absent. */ contact_email: quickEmail.trim() || '',
         phone: quickPhone.trim() || null,
       }),

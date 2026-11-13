@@ -28,6 +28,22 @@ export interface PermitFields {
   inspector_name?: string | null
   inspector_phone?: string | null
   notes?: string | null
+  /** Through an expediter: a company in the caller's own Directory. */
+  expediter_company_id?: string | null
+}
+
+/**
+ * An expediter on a permit must be a company in the CALLER'S Directory. The id
+ * arrives from a request body, and a permit pointing at somebody else's
+ * contact would hand their name and address to this job's Email it. Without a
+ * company to check against (an MCP caller) it is refused rather than trusted.
+ */
+async function expediterProblem(db: SupabaseClient, id: unknown, myCompanyId: string | null | undefined): Promise<string | null> {
+  if (id == null || id === '') return null
+  if (typeof id !== 'string' || !myCompanyId) return 'That expediter is not in your Directory.'
+  const { data, error } = await db.from('companies').select('id').eq('id', id).eq('added_by_company_id', myCompanyId).maybeSingle()
+  if (error) { console.error('[permit] expediter read failed', error.message); return 'Could not check that expediter. Try again.' }
+  return data ? null : 'That expediter is not in your Directory.'
 }
 
 /** The columns an edit may set. A whitelist with a field missing fails like a rejection, so every form field is here. */
@@ -42,12 +58,13 @@ export const PERMIT_EDIT_FIELDS = [
   'inspector_name',
   'inspector_phone',
   'notes',
+  'expediter_company_id',
 ] as const
 
 export async function createPermit(
   db: SupabaseClient,
-  { userId, projectId, fields, uploadFile, via }: {
-    userId: string; projectId: string; fields: PermitFields
+  { userId, projectId, fields, uploadFile, via, myCompanyId }: {
+    userId: string; projectId: string; fields: PermitFields; myCompanyId?: string | null
     uploadFile?: () => Promise<{ url: string | null } | { error: string }>; via?: string
   },
 ): Promise<WriteResult> {
@@ -71,6 +88,8 @@ export async function createPermit(
     status, issued_date, expiry_date,
   })
   if (problem) return { status: 400, body: { error: problem } }
+  const expediterBad = await expediterProblem(db, fields.expediter_company_id, myCompanyId)
+  if (expediterBad) return { status: 400, body: { error: expediterBad } }
 
   let file_url: string | null = null
   if (uploadFile) {
@@ -93,6 +112,7 @@ export async function createPermit(
       inspector_name: inspector_name || null,
       inspector_phone: inspector_phone || null,
       notes: notes || null,
+      expediter_company_id: fields.expediter_company_id || null,
       file_url,
     })
     .select()
@@ -118,7 +138,7 @@ export async function updatePermit(
   db: SupabaseClient,
   // `userId` and `via` are taken for the same shape as every other write here;
   // a permit edit records no name today, so neither is read yet.
-  { projectId, permitId, body }: { userId: string; projectId: string; permitId: string; body: any; via?: string },
+  { projectId, permitId, body, myCompanyId }: { userId: string; projectId: string; permitId: string; body: any; via?: string; myCompanyId?: string | null },
 ): Promise<WriteResult> {
   const updates: Record<string, unknown> = {}
   for (const key of PERMIT_EDIT_FIELDS) {
@@ -127,6 +147,11 @@ export async function updatePermit(
 
   if (Object.keys(updates).length === 0) {
     return { status: 400, body: { error: 'No valid fields to update' } }
+  }
+  if ('expediter_company_id' in updates) {
+    if (updates.expediter_company_id === '') updates.expediter_company_id = null
+    const bad = await expediterProblem(db, updates.expediter_company_id, myCompanyId)
+    if (bad) return { status: 400, body: { error: bad } }
   }
 
   // THE SAME RULE ON THE SAME RECORD. Creating a blank permit was refused and

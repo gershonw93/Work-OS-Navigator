@@ -39,6 +39,8 @@ const PLAN_TYPES = [
   { value: 'mep', label: 'MEP' },
   { value: 'civil', label: 'Civil' },
   { value: 'landscape', label: 'Landscape' },
+  // The land survey of the lot: the expediter, the architect and the DOB all ask for it with the plans.
+  { value: 'survey', label: 'Survey' },
   { value: 'other', label: 'Other' },
 ]
 
@@ -48,6 +50,7 @@ const PLAN_TYPE_TINT: Record<string, string> = {
   mep: 'bg-warn-tint text-warn',
   civil: 'bg-success-tint text-success',
   landscape: 'bg-success-tint text-success',
+  survey: 'bg-info-tint text-info',
   other: 'bg-surface text-muted-fg',
 }
 

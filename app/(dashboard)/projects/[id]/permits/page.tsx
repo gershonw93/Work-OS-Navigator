@@ -17,6 +17,7 @@ import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { useNotice } from '@/components/ui/notice'
 import { permitProblem } from '@/lib/permit-rules'
 import { PERMIT_TYPES } from '@/lib/permit-board'
+import type { ExpediterFacts } from '@/lib/permit-expediter'
 import { allowedStatuses, permitStage, todayIso, type PermitItem, type PermitRound, type PermitShare } from '@/lib/permit-rounds'
 import { PermitPanel } from '@/components/permits/permit-panel'
 import { PermitList, type ListRow } from '@/components/permits/permit-list'
@@ -35,11 +36,27 @@ const STATUS_COLORS: Record<string, string> = {
   rejected: 'bg-danger-tint border-danger/30 text-danger',
 }
 
-interface Permit {
+type Permit = {
   id: string; permit_type: string; permit_number: string | null; description: string | null
   status: string; issued_date: string | null; expiry_date: string | null
   issuing_authority: string | null; inspector_name: string | null; inspector_phone: string | null
   notes: string | null; file_url: string | null; created_at: string
+} & ExpediterFacts
+
+/**
+ * Who files it, when an expediter does: picked from the Directory (companies
+ * whose trade says expediter), never typed, so the id is what is saved. A name
+ * typed and not picked is answered at Save rather than quietly dropped.
+ */
+function ExpediterField({ value, onChange }: { value: { id: string | null; name: string }; onChange: (v: { id: string | null; name: string }) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label>Through an expediter? <span className="font-normal text-faint">(optional)</span></Label>
+      <ContactPicker expediters value={value.name} onChange={(name, c) => onChange({ id: c?.id ?? null, name })}
+        placeholder="Search your Directory for the expediter" />
+      <p className="text-xs text-muted-fg">They file it for you: Email it goes to them, and hiring them puts their fee on the budget. Leave it empty if you apply yourself.</p>
+    </div>
+  )
 }
 
 export default function PermitsPage({ params }: { params: { id: string } }) {
@@ -99,6 +116,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   const [issuedDate, setIssuedDate] = useState('')
   const [expiryDate, setExpiryDate] = useState('')
   const [issuingAuthority, setIssuingAuthority] = useState('')
+  const [expediter, setExpediter] = useState<{ id: string | null; name: string }>({ id: null, name: '' })
   const [inspectorName, setInspectorName] = useState('')
   const [inspectorPhone, setInspectorPhone] = useState('')
   const [notes, setNotes] = useState('')
@@ -245,7 +263,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
   function resetForm() {
     setPermitType(''); setOtherType(false); setPermitNumber(''); setDescription(''); setStatus('pending')
-    setIssuedDate(''); setExpiryDate(''); setIssuingAuthority('')
+    setIssuedDate(''); setExpiryDate(''); setIssuingAuthority(''); setExpediter({ id: null, name: '' })
     setInspectorName(''); setInspectorPhone(''); setNotes(''); setPermitFile(null)
     setAnalyzeError(''); setEditingPermit(null); setApplying(true); lastSuggested.current = null
   }
@@ -260,6 +278,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     setIssuedDate(permit.issued_date ?? '')
     setExpiryDate(permit.expiry_date ?? '')
     setIssuingAuthority(permit.issuing_authority ?? '')
+    setExpediter({ id: permit.expediter_company_id ?? null, name: permit.expediter_company_id ? permit.expediter_name ?? '' : '' })
     setInspectorName(permit.inspector_name ?? '')
     setInspectorPhone(permit.inspector_phone ?? '')
     setNotes(permit.notes ?? '')
@@ -314,6 +333,10 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const lean = applying && !editingPermit
+    // A name typed but never picked has no id to save - say so, never drop it.
+    if ((lean || editingPermit) && expediter.name.trim() && !expediter.id) {
+      setSubmitError('Pick the expediter from your Directory, or add them from that box.'); return
+    }
     if (lean) {
       if (!permitType.trim()) { setSubmitError(otherType ? 'Name the permit.' : 'Pick the permit type.'); return }
       if (!issuingAuthority.trim()) { setSubmitError('Who do you apply to? Name the township or department - Email it finds their address from it.'); return }
@@ -322,6 +345,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
       form.append('permit_type', permitType.trim())
       form.append('status', 'pending')
       form.append('issuing_authority', issuingAuthority.trim())
+      if (expediter.id && expediter.name.trim()) form.append('expediter_company_id', expediter.id)
       const res = await fetch(`/api/projects/${params.id}/permits`, { method: 'POST', headers: { Authorization: `Bearer ${await getToken()}` }, body: form })
       if (!res.ok) {
         const json = await res.json().catch(() => ({}))
@@ -360,6 +384,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
           inspector_name: inspectorName || null,
           inspector_phone: inspectorPhone || null,
           notes: notes || null,
+          expediter_company_id: expediter.name.trim() ? expediter.id : null,
         }),
       })
       if (!res.ok) {
@@ -546,6 +571,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                     {authorityHint}
                     <p className="text-xs text-muted-fg">The township or department, from your Directory - Email it uses their address and how they take applications. Not there yet? Add them from this box.</p>
                   </div>
+                  <ExpediterField value={expediter} onChange={setExpediter} />
                   <p className="text-sm text-muted-fg">That is all for now. The permit number and dates come when it is approved - drop the approved permit in then and AI fills them.</p>
                 </>) : (<>
                 {/* Upload first so AI fills the rest */}
@@ -632,6 +658,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
                   <ContactPicker filterType="inspector" value={issuingAuthority} onChange={name => setIssuingAuthority(name)} placeholder="Search your Directory, e.g. Toms River Township" />
                     {authorityHint}
                 </div>
+                {editingPermit && <ExpediterField value={expediter} onChange={setExpediter} />}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <Label>Inspector Name</Label>

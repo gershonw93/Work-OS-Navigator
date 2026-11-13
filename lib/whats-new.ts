@@ -66,6 +66,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-13',
+    title: 'Permits through an expediter',
+    items: [
+      {
+        kind: 'new',
+        title: 'Hire the expediter, then send them the plans',
+        text: 'When adding a permit, pick the expediter who files it for you. The permit starts with hiring them: record their signed proposal and fee, the fee goes on the budget as their contract, and you can email them the signed copy. Email it then goes to the expediter instead of the township, and what the DOB wants changed comes back as a round to fix, the same as any permit. A Plans Review filed through an expediter holds the unit\'s other permits until the plans are approved. The land survey has its own type on the Plans tab.',
+        help: 'permits',
+      },
+    ],
+  },
+  {
     date: '2026-11-12',
     title: 'Project Management: a private board of your own on every job',
     items: [

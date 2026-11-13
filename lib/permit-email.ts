@@ -78,7 +78,7 @@ export function splitAddresses(text: string | null | undefined): string[] {
 }
 
 /** The letter. Words only - the layout is `tokenLinkEmail`'s. */
-export function permitEmailCopy({ permitType, job, senderName, companyName, round, message }: {
+export function permitEmailCopy({ permitType, job, senderName, companyName, round, message, fileWith }: {
   permitType: string
   /** The job's address, or its name when it has none. */
   job: string
@@ -87,10 +87,26 @@ export function permitEmailCopy({ permitType, job, senderName, companyName, roun
   /** 1 for the application, 2+ for a resubmission. */
   round: number
   message?: string | null
+  /**
+   * Sent to an EXPEDITER, who files it: the authority they file it with (null
+   * when none is set). Undefined for a letter straight to the authority.
+   */
+  fileWith?: string | null
 }): { heading: string; lines: string[] } {
   const who = [senderName?.trim(), companyName?.trim() ? `at ${companyName.trim()}` : ''].filter(Boolean).join(' ') || 'Your applicant'
   const what = round > 1 ? 'the revised documents' : 'the application'
   const heading = `${permitType} permit${round > 1 ? ' - revised documents' : ' application'} - ${job}`
+  if (fileWith !== undefined) {
+    const where = fileWith?.trim() ? ` with ${fileWith.trim()}` : ''
+    return {
+      heading: `${permitType}${round > 1 ? ' - revised documents' : ' - documents to file'} - ${job}`,
+      lines: [
+        `${who} has sent ${round > 1 ? 'the revised documents' : 'the documents'} for the ${permitType} at ${job}, for you to file${where}.`,
+        ...(message?.trim() ? [message.trim()] : []),
+        `Open the link to download the files. Send back what ${fileWith?.trim() || 'they'} want changed, or the approval, on the same page - or reply to this email.`,
+      ],
+    }
+  }
   const lines = [
     `${who} has sent ${what} for the ${permitType} permit at ${job}.`,
     ...(message?.trim() ? [message.trim()] : []),

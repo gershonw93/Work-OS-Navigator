@@ -113,7 +113,7 @@ ok(/on their website - not by email/.test(applyCardLine(map['Lakewood'], 'Lakewo
   'a website setting carries its link')
 
 const panel = code('components/permits/permit-panel.tsx')
-ok(/\{sendStage && applyHow && \(/.test(panel) && /applyCardLine\(applyHow, permit\.issuing_authority \?\? ''\)/.test(panel),
+ok(/\{sendStage && applyHow && (?:!st\.via && )?\(/.test(panel) && /applyCardLine\(applyHow, permit\.issuing_authority \?\? ''\)/.test(panel),
   'the Apply card (and a resubmission or renewal) says it, before anybody opens Email it')
 ok(/applyHow=\{authorities\[\(openPermit\.issuing_authority \?\? ''\)\.trim\(\)\] \?\? null\}/.test(code('app/(dashboard)/projects/[id]/permits/page.tsx'))
   && /applyHow=\{data\.authorities\?\.\[\(permit\.issuing_authority \?\? ''\)\.trim\(\)\] \?\? null\}/.test(code('components/permits/permit-board.tsx')),

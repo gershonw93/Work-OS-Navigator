@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { createPermit } from '@/lib/writes/permit'
 import { permitHistory } from '@/lib/permit-history'
+import { withExpediterFacts } from '@/lib/permit-expediter-db'
 import { authoritiesFor } from '@/lib/permit-authorities'
 
 const admin = () => createClient(
@@ -35,7 +36,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     permitHistory(db, (permits ?? []).map(p => p.id)),
     authoritiesFor(db, gate.actor.companyId, (permits ?? []).map(p => p.issuing_authority)),
   ])
-  return NextResponse.json({ permits: permits ?? [], rounds, items, shares, replies, history: ok, authorities })
+  return NextResponse.json({ permits: await withExpediterFacts(db, permits ?? [], rounds), rounds, items, shares, replies, history: ok, authorities })
 }
 
 export async function POST(request: Request, { params }: { params: { id: string } }) {
@@ -60,6 +61,7 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const inspector_name = formData.get('inspector_name') as string | null
   const inspector_phone = formData.get('inspector_phone') as string | null
   const notes = formData.get('notes') as string | null
+  const expediter_company_id = (formData.get('expediter_company_id') as string | null) || null
   const file = formData.get('file') as File | null
 
   // Uploaded only once `createPermit` has accepted the permit, as it always was.
@@ -87,10 +89,10 @@ export async function POST(request: Request, { params }: { params: { id: string 
   // Everything after reading the form is `createPermit`, which Claude's MCP
   // server calls too - including the `permitProblem(` check on a blank permit.
   const result = await createPermit(db, {
-    userId: gate.actor.userId, projectId: params.id, uploadFile,
+    userId: gate.actor.userId, projectId: params.id, uploadFile, myCompanyId: gate.actor.companyId,
     fields: {
       permit_type, permit_number, description, status, issued_date, expiry_date,
-      issuing_authority, inspector_name, inspector_phone, notes,
+      issuing_authority, inspector_name, inspector_phone, notes, expediter_company_id,
     },
   })
   return NextResponse.json(result.body, { status: result.status })

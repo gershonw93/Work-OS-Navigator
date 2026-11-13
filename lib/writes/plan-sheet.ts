@@ -14,7 +14,7 @@ import { withVia, type WriteResult } from './result'
 // the MCP server (Claude) calls this after storing a sheet it was handed.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const PLAN_TYPES = ['architectural', 'structural', 'mep', 'civil', 'landscape', 'other'] as const
+export const PLAN_TYPES = ['architectural', 'structural', 'mep', 'civil', 'landscape', 'survey', 'other'] as const
 
 export async function recordPlanSheet(
   db: SupabaseClient,

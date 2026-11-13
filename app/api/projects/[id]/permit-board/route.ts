@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { permitHistory } from '@/lib/permit-history'
+import { withExpediterFacts } from '@/lib/permit-expediter-db'
 import { authoritiesFor } from '@/lib/permit-authorities'
 import { createPermit } from '@/lib/writes/permit'
 import { answerRound, submitRound } from '@/lib/writes/permit-round'
@@ -20,7 +21,7 @@ const admin = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!,
 )
 
-const PERMIT_COLS = 'id, project_id, permit_type, permit_number, description, status, issued_date, expiry_date, issuing_authority, inspector_name, inspector_phone, notes, file_url, created_at'
+const PERMIT_COLS = 'id, project_id, permit_type, permit_number, description, status, issued_date, expiry_date, issuing_authority, inspector_name, inspector_phone, notes, file_url, created_at, expediter_company_id'
 
 /**
  * The development, its houses, and every permit on any of them. A job that
@@ -81,7 +82,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     isSite: true,
     site: { id: dev.site.id, name: dev.site.name },
     houses: dev.houses,
-    permits: permits ?? [],
+    permits: await withExpediterFacts(db, (permits ?? []) as any[], rounds),
     rounds, items, shares, replies, history: ok,
   })
 }

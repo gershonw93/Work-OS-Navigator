@@ -9,6 +9,7 @@ import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { ShareFilesModal, type ShareableFile } from '@/components/files/share-files-modal'
+import { HireExpediterDialog } from '@/components/permits/hire-expediter-dialog'
 import { useClientContact } from '@/lib/use-client-email'
 import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
 import { shrinkImage, shrinkImages } from '@/lib/shrink-image'
@@ -64,6 +65,13 @@ export interface PanelPermit extends PermitFacts {
   inspector_phone?: string | null
   notes?: string | null
   created_at?: string | null
+  // Through an expediter - worked out by the server (lib/permit-expediter-db.ts).
+  expediter_company_id?: string | null
+  expediter_name?: string | null
+  expediter_email?: string | null
+  expediter_hired_on?: string | null
+  expediter_subcontract_id?: string | null
+  plans_pending?: boolean
 }
 
 async function token() {
@@ -87,7 +95,7 @@ export function StepBar({ st, label }: { st: PermitStage; label?: string }) {
 }
 
 function Path({ st }: { st: PermitStage }) {
-  const nowSub = { draft: 'Not sent yet', fix: 'Back to you', city: `Round ${st.rounds.length}`, renew: 'Expired', issued: '', closed: '' }[st.stage]
+  const nowSub = { hire: 'Hire expediter', draft: st.waitingOnPlans ? 'Waiting on plans' : 'Not sent yet', fix: 'Back to you', city: `Round ${st.rounds.length}`, renew: 'Expired', issued: '', closed: '' }[st.stage]
   return (
     <div className="grid grid-cols-4" role="img" aria-label={`Step ${st.step + 1} of 4, ${STEP_NAMES[st.step]}`}>
       {STEP_NAMES.map((name, k) => {
@@ -323,6 +331,7 @@ function PanelBody({
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [emailing, setEmailing] = useState(false)
+  const [hiring, setHiring] = useState(false)
   // The emailed reply an answer is being recorded from - its attachments go
   // with the answer, and it is not offered again afterwards.
   const [fromReply, setFromReply] = useState<string | null>(null)
@@ -520,7 +529,13 @@ function PanelBody({
   // screen; on a desktop they sit in the card.
   let actions: ReactNode = null
   if (canEdit && historyOk) {
-    if (sendStage) {
+    if (st.stage === 'hire') {
+      actions = (
+        <Button className="min-h-11 min-w-0 flex-1 lg:flex-none" onClick={() => setHiring(true)}>
+          <span className="truncate">Record the signed proposal</span>
+        </Button>
+      )
+    } else if (sendStage) {
       actions = (
         <>
           {/* A RECORD, NOT A SEND. It read "Send to Toms River Township", and a
@@ -575,6 +590,7 @@ function PanelBody({
   const kv: [string, ReactNode][] = ([
     ['Permit #', permit.permit_number],
     ['Issued by', permit.issuing_authority],
+    ['Expediter', st.via ? `${st.via}${permit.expediter_hired_on ? `, hired ${dayLabel(permit.expediter_hired_on, today)}` : ', not hired yet'}` : null],
     ['Issued', permit.issued_date ? dayLabel(permit.issued_date, today) : null],
     ['Expires', permit.expiry_date ? dayLabel(permit.expiry_date, today) : null],
     ['Inspector', permit.inspector_name],
@@ -637,7 +653,7 @@ function PanelBody({
 
                 {/* How THIS township takes applications, from its Directory card -
                     said before anybody opens Email it, not only inside it. */}
-                {sendStage && applyHow && (
+                {sendStage && applyHow && !st.via && (
                   <div className={cn('flex items-start gap-2 rounded-lg px-3 py-2.5 text-sm',
                     applyHow.method === 'email' ? 'border border-line bg-panel text-ink-soft' : 'border border-danger/40 bg-danger-tint font-semibold text-danger')}>
                     {applyHow.method === 'email' ? <Mail className="mt-0.5 h-4 w-4 shrink-0" /> : <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />}
@@ -883,6 +899,11 @@ function PanelBody({
         </div>
       </div>
 
+      {hiring && st.via && (
+        <HireExpediterDialog base={base} projectId={projectId} expediter={st.via} expediterEmail={permit.expediter_email ?? null}
+          onClose={() => setHiring(false)} onHired={onChanged} />
+      )}
+
       {emailing && (
         <EmailItDialog base={base} permit={permit} who={st.who} round={st.rounds.length + 1}
           fixes={fixes} files={sendFiles} note={note.trim() || (st.stage === 'renew' ? 'Renewal' : '')}
@@ -951,7 +972,9 @@ function EmailItDialog({ base, permit, who, round, fixes, files, note, sentOn, e
     return () => { live = false }
   }, [base])
 
-  const authority = (permit.issuing_authority ?? '').trim()
+  // Who the letter is addressed to: the expediter when there is one (they file
+  // it), else the authority. Every sentence in this dialog names this one.
+  const authority = (permit.expediter_name ?? permit.issuing_authority ?? '').trim()
   // Offer to save only what would be new: no Directory address yet, or a different one typed.
   const offerSave = !!authority && !!to.trim() && !(suggested?.source === 'directory' && suggested.email.toLowerCase() === to.trim().toLowerCase())
   const fileCount = fixes.length + files.length

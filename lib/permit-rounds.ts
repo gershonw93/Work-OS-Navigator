@@ -24,6 +24,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { GRANTED_STATUSES, permitProblem, type PermitFacts } from './permit-rules'
+import { PLAN_APPROVAL_TYPE, isPlanApproval } from './permit-expediter'
 import { expiredAgo, expiryLabel, expiryState } from './expiry'
 
 export const OUTCOMES = ['approved', 'corrections', 'rejected'] as const
@@ -154,11 +155,11 @@ export function dayLabel(iso: string, today: string): string {
 
 const plural = (n: number, w: string) => `${n} ${w}${n === 1 ? '' : 's'}`
 
-export type Stage = 'draft' | 'fix' | 'city' | 'renew' | 'issued' | 'closed'
+export type Stage = 'hire' | 'draft' | 'fix' | 'city' | 'renew' | 'issued' | 'closed'
 export type Group = 'you' | 'city' | 'iss'
 /** The four steps every permit walks, drawn as the bar on a row and the path in the panel. */
 export const STEP_NAMES = ['Apply', 'City review', 'Issued', 'Closed out'] as const
-const STEP_OF: Record<Stage, number> = { draft: 0, fix: 1, city: 1, renew: 2, issued: 2, closed: 3 }
+const STEP_OF: Record<Stage, number> = { hire: 0, draft: 0, fix: 1, city: 1, renew: 2, issued: 2, closed: 3 }
 
 export interface PermitFactsForStage {
   permit_type?: string | null
@@ -167,6 +168,11 @@ export interface PermitFactsForStage {
   expiry_date?: string | null
   issued_date?: string | null
   created_at?: string | null
+  /** Through an expediter (lib/permit-expediter.ts): who, whether hired, and the plans gate. */
+  expediter_company_id?: string | null
+  expediter_name?: string | null
+  expediter_hired_on?: string | null
+  plans_pending?: boolean
 }
 
 export interface PermitStage {
@@ -190,6 +196,10 @@ export interface PermitStage {
   chase: boolean
   /** Who it goes to - the issuing authority, or "the reviewer". */
   who: string
+  /** Through an expediter: their name. They are who it is SENT to; `who` still reviews it. */
+  via: string | null
+  /** A draft held until this job's plan approval comes through. */
+  waitingOnPlans: boolean
   /** The asks this round is about - what the checklist in the panel shows. */
   asks: PermitItem[]
   openAsks: number
@@ -233,9 +243,16 @@ export function permitStage(
     || (!i.round_id && String(i.created_at ?? '') >= String(last.created_at ?? '')))
   const openAsks = asks.filter(i => !i.done_at).length
 
+  // THROUGH AN EXPEDITER. Before anything has gone in, the first job is to
+  // hire them - and "hired" is whether their subcontract exists on this job
+  // (`expediter_hired_on`), never a column of its own.
+  const via = permit.expediter_company_id ? (permit.expediter_name?.trim() || 'the expediter') : null
+  const unhired = !!via && !permit.expediter_hired_on
+
   let stage: Stage
   let rejected = false
   if (status === 'closed') stage = 'closed'
+  else if (unhired && !rounds.length && !granted && !openAsks) stage = 'hire'
   else if (waiting) stage = 'city'
   else if (!last) {
     if (granted) stage = lapsed ? 'renew' : 'issued'
@@ -250,7 +267,8 @@ export function permitStage(
   else stage = 'fix'
 
   const group: Group = stage === 'city' ? 'city' : stage === 'issued' || stage === 'closed' ? 'iss' : 'you'
-  const base = { stage, group, step: STEP_OF[stage], rejected, who, asks, openAsks, waiting, rounds }
+  const waitingOnPlans = stage === 'draft' && !!permit.plans_pending
+  const base = { stage, group, step: STEP_OF[stage], rejected, who, via, waitingOnPlans, asks, openAsks, waiting, rounds }
   const created = (permit.created_at ?? '').slice(0, 10)
 
   if (stage === 'city') {
@@ -307,6 +325,46 @@ export function permitStage(
     }
   }
 
+  if (stage === 'hire') {
+    const days = created ? Math.max(0, daysBetween(created, today)) : 0
+    return {
+      ...base, chase: false, pill: 'Your move',
+      next: `Hire ${via}`,
+      time: created ? `Added ${dayLabel(created, today)}` : '',
+      timeTone: '',
+      sortKey: -days,
+      head: `Hire ${via}`,
+      sub: `${via} sends the survey and their proposal. Sign the proposal, send it back, and record it here with their fee - it goes on the budget.`,
+    }
+  }
+
+  if (stage === 'draft' && waitingOnPlans) {
+    const days = created ? Math.max(0, daysBetween(created, today)) : 0
+    return {
+      ...base, chase: false, pill: 'Waiting',
+      next: 'Waiting on plan approval',
+      time: created ? `Added ${dayLabel(created, today)}` : '',
+      timeTone: '',
+      // After everything you can act on today.
+      sortKey: 100_000 - days,
+      head: 'Waiting on plan approval',
+      sub: `One set of plans covers this unit. Apply for ${permit.permit_type ? `the ${permit.permit_type} permit` : 'this'} once the ${PLAN_APPROVAL_TYPE} on this job is approved.`,
+    }
+  }
+
+  if (stage === 'draft' && via) {
+    const days = created ? Math.max(0, daysBetween(created, today)) : 0
+    return {
+      ...base, chase: false, pill: 'Your move',
+      next: `Send it to ${via}`,
+      time: created ? `Added ${dayLabel(created, today)}` : '',
+      timeTone: '',
+      sortKey: -days,
+      head: `Send it to ${via}`,
+      sub: `${via} files it with ${who} and tells you what they want changed. Email it to them, or press I sent it with the day it went.`,
+    }
+  }
+
   if (stage === 'draft') {
     const days = created ? Math.max(0, daysBetween(created, today)) : 0
     return {
@@ -334,6 +392,19 @@ export function permitStage(
       head: 'Closed out', sub: 'Nothing left to do on this one.',
     }
   }
+  // A plan approval is not a permit anybody builds under: what it unlocks is
+  // the unit's other permits, and that is the sentence to say.
+  // Only through an expediter: a Plans Review filed the old way keeps its
+  // wording and its expiry warning.
+  if (isPlanApproval(permit.permit_type) && via) {
+    return {
+      ...base, chase: false, pill: 'Approved',
+      next: 'Plans approved', time: issuedOn ? `Approved ${dayLabel(issuedOn, today)}` : 'Approved', timeTone: '',
+      sortKey: 500_000,
+      head: issuedOn ? `Plans approved ${dayLabel(issuedOn, today)}` : 'Plans approved',
+      sub: 'Apply for this unit\'s permits now.',
+    }
+  }
   return {
     ...base, chase: false, pill: 'Issued',
     // Inside the expiry window the row warns before the renewal is due, and
@@ -359,18 +430,20 @@ export function permitStanding(
   today: string,
 ): Standing {
   const st = permitStage(permit, rounds, items, today)
-  const court: Court = st.stage === 'draft' ? 'none'
+  const court: Court = st.stage === 'draft' || st.stage === 'hire' ? 'none'
     : st.group === 'city' ? 'them' : st.group === 'iss' ? 'done' : 'us'
   const days = st.waiting ? Math.max(0, daysBetween(st.waiting.submitted_on, today)) : 0
-  const short = st.stage === 'draft' ? 'Not sent'
+  const short = st.stage === 'hire' ? 'Hire expediter'
+    : st.waitingOnPlans ? 'Waiting on plans'
+    : st.stage === 'draft' ? 'Not sent'
     : st.stage === 'city' ? `With city · ${days}d`
     : st.stage === 'renew' ? 'Renew'
-    : st.stage === 'issued' ? 'Issued'
+    : st.stage === 'issued' ? (isPlanApproval(permit.permit_type) && st.via ? 'Approved' : 'Issued')
     : st.stage === 'closed' ? 'Closed'
     : st.openAsks ? `${st.openAsks} to fix`
     : st.asks.length ? 'Resubmit'
     : st.rejected ? 'Rejected' : 'Needs changes'
-  const tone: StandingTone = st.stage === 'draft' ? 'neutral'
+  const tone: StandingTone = st.stage === 'draft' || st.stage === 'hire' ? 'neutral'
     : st.stage === 'city' ? (st.chase ? 'warn' : 'info')
     : st.stage === 'renew' || (st.rejected && !st.asks.length) ? 'danger'
     : st.group === 'iss' ? 'success' : 'warn'
