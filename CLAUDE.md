@@ -1247,6 +1247,15 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   "The regular tasks is ugly compared to this new beautiful task manager". So
   the desktop lost its tinted columns too; the old pin that kept them is
   reversed in `layout-overflow.ts`. The phone board is one stage at a time.
+- **A TASK OPENS IN ITS EDITOR, IN ONE PANEL.** The first pass restyled the
+  board and left the old two-column "Task detail" drawer and the centred edit
+  dialog, and was reported in six words: "u barely made any design changes!".
+  `TaskDrawer` is the one shell for New and Edit - the form on top, then
+  `TaskDetailPanel` with `activityOnly` (plan pin, who finished it, sign-off,
+  notes), Cancel / Save / Delete pinned in the footer. The stage is sent on an
+  edit ONLY when it changed: a status in the body restamps `completed_by`.
+  A card's hover actions sit in its top row - as a row of their own they held
+  every card open for buttons nobody could see.
 - **THE STAGES STAY THREE AND FIXED.** Custom columns are the one thing not
   copied: notifications, sign-off, Field Mode, the reports and Claude all read
   Open / In Progress / Completed. Pinned in `task-extras.ts`.

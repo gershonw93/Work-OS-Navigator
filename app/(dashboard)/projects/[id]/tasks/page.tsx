@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import {
@@ -282,9 +282,14 @@ interface TaskDetailPanelProps {
   projectId: string
   onChanged: () => void
   onAddNote: (taskId: string, content: string) => Promise<void>
+  /**
+   * Under the edit form: only what the form does not already hold - the plan
+   * pin, who finished it, sign-off, and the notes thread - in one column.
+   */
+  activityOnly?: boolean
 }
 
-function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onChanged }: TaskDetailPanelProps) {
+function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onChanged, activityOnly }: TaskDetailPanelProps) {
   const [noteText, setNoteText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [showSignoff, setShowSignoff] = useState(false)
@@ -365,10 +370,11 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
   }
 
   return (
-    <div className="border-t border-line-soft bg-surface/60 px-4 py-4 lg:rounded-b-xl">
-      <div className="flex flex-col md:flex-row gap-6">
+    <div className={cn('px-4 py-4', activityOnly ? 'lg:px-5' : 'border-t border-line-soft bg-surface/60 lg:rounded-b-xl')}>
+      <div className={cn('flex flex-col gap-6', !activityOnly && 'md:flex-row')}>
         {/* ── Left: task details ─────────────────────────────────────────── */}
         <div className="flex-1 min-w-0 space-y-3">
+          {!activityOnly && (<>
           <h2 className="text-base font-semibold text-ink leading-snug">{task.title}</h2>
 
           <div className="flex items-center gap-2 flex-wrap">
@@ -420,6 +426,8 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
             <p className="text-sm text-muted-fg leading-relaxed whitespace-pre-wrap">{task.description}</p>
           )}
 
+          </>)}
+
           {planPin && (
             <a href={`/projects/${projectId}/plans/${planPin.plan_id}?pin=${planPin.id}`}
               className="inline-flex items-center gap-1.5 text-sm font-medium text-accent-fg hover:underline">
@@ -427,7 +435,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
             </a>
           )}
 
-          {task.image_url && (
+          {!activityOnly && task.image_url && (
             // eslint-disable-next-line @next/next/no-img-element
             <a href={task.image_url} target="_blank" rel="noreferrer">
               <img src={task.image_url} alt="Task" className="rounded-lg border border-line max-h-56 object-cover" />
@@ -508,7 +516,7 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
             <span className="text-sm font-semibold text-ink-soft">Notes &amp; Updates</span>
           </div>
 
-          <div className="flex-1 space-y-2 max-h-48 overflow-y-auto">
+          <div className={cn('flex-1 space-y-2', !activityOnly && 'max-h-48 overflow-y-auto')}>
             {notesLoading ? (
               <div className="flex items-center gap-2 py-4 text-faint text-sm">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -596,7 +604,17 @@ function TaskDetailPanel({ task, notes, notesLoading, onAddNote, projectId, onCh
  */
 function TaskDrawer({
   task, notes, notesLoading, currentUser, projectId, onClose, onAddNote, onChanged,
-}: TaskDetailPanelProps & { onClose: () => void }) {
+  heading, footer, children, isNew,
+}: TaskDetailPanelProps & { onClose: () => void } & {
+  /** What the panel is called. */
+  heading?: string
+  /** Pinned under the scrolling body - Cancel, Save, Delete. */
+  footer?: ReactNode
+  /** The edit form. With it, the panel below shows only the task's activity. */
+  children?: ReactNode
+  /** A task being created has no notes, sign-off or history to show yet. */
+  isNew?: boolean
+}) {
   // Slide it back off the right edge to close it - the way it came in.
   const swipe = useSwipeDismiss(onClose)
 
@@ -609,8 +627,9 @@ function TaskDrawer({
         className="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl"
       >
         <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
-          <span className="text-sm font-semibold text-ink">Task detail</span>
+          <span className="text-sm font-semibold text-ink">{heading ?? 'Task detail'}</span>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close" title="Close"
             className="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink"
@@ -619,20 +638,35 @@ function TaskDrawer({
           </button>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-          <TaskDetailPanel
-            projectId={projectId}
-            onChanged={onChanged}
-            task={task}
-            notes={notes}
-            notesLoading={notesLoading}
-            currentUser={currentUser}
-            onAddNote={onAddNote}
-          />
+          {children}
+          {!isNew && (
+            <div className={cn(children && 'border-t border-line')}>
+              <TaskDetailPanel
+                projectId={projectId}
+                onChanged={onChanged}
+                task={task}
+                notes={notes}
+                notesLoading={notesLoading}
+                currentUser={currentUser}
+                onAddNote={onAddNote}
+                activityOnly={!!children}
+              />
+            </div>
+          )}
         </div>
+        {footer && <div className="shrink-0 space-y-2 border-t border-line px-4 py-3 lg:px-5">{footer}</div>}
       </div>
     </div>
   )
 }
+
+/** What the panel holds while a task is being created - it has no row yet. */
+const NEW_TASK: Task = {
+  id: '', title: '', description: null, due_date: null, priority: 'medium', status: 'open',
+  created_by: '', completed_at: null, created_at: '', image_url: null,
+  follow_up_date: null, follow_up_note: null, budget_line_item_id: null,
+}
+
 
 
 /**
@@ -723,6 +757,8 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   const [picked, setPicked] = useState<TaskAssignee[]>([])
   const [followUpDate, setFollowUpDate] = useState('')
   const [formLabels, setFormLabels] = useState<TaskLabel[]>([])
+  /** The stage picked in the panel. Sent on an edit only when it changed - a status in the body restamps who finished the task. */
+  const [formStatus, setFormStatus] = useState('open')
   const [formSubtasks, setFormSubtasks] = useState<TaskSubtask[]>([])
   const [taskImage, setTaskImage] = useState<File | null>(null)
   const [taskImagePreview, setTaskImagePreview] = useState<string | null>(null)
@@ -785,16 +821,23 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setNotesLoading(prev => ({ ...prev, [taskId]: false }))
   }
 
+  // A TASK OPENS IN ITS EDITOR. One panel, the same one a Project Management
+  // card opens in: the fields on top, then the task's notes and sign-off.
   function openTask(taskId: string) {
     setOpenTaskId(taskId)
     loadNotes(taskId)
+    const t = tasks.find(x => x.id === taskId)
+    if (t) openEditForm(t)
+  }
+  function closeForm() {
+    setShowAdd(false); resetForm(); setOpenTaskId(null)
   }
 
   // Escape closes it. A drawer over the whole screen with no keyboard way out
   // is a modal that only a mouse can leave.
   useEffect(() => {
     if (!openTaskId) return
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenTaskId(null) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeForm() }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [openTaskId])
@@ -821,7 +864,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setTitle(''); setDescription(''); setDueDate(''); setPriority('medium'); setIsPunch(false)
     setAssigneeType('member'); setAssignedMemberId(''); setAssignedSubId('')
     setFollowUpDate(''); setTaskImage(null); setTaskImagePreview(null)
-    setFormLabels([]); setFormSubtasks([])
+    setFormLabels([]); setFormSubtasks([]); setFormStatus('open')
     setSaveError(null)
     setEditTask(null)
     setAddStatus(null)
@@ -869,6 +912,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     // resetForm() has just cleared this, so set it after, not before.
     if (defaultStatus && STATUSES.some(s => s.value === defaultStatus)) {
       setAddStatus(defaultStatus)
+      setFormStatus(defaultStatus)
     }
     setShowAdd(true)
   }
@@ -881,7 +925,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
     setPriority(task.priority)
     setIsPunch(task.kind === 'punch')
     setFollowUpDate(task.follow_up_date ?? '')
-    setFormLabels(task.labels ?? []); setFormSubtasks(task.subtasks ?? [])
+    setFormLabels(task.labels ?? []); setFormSubtasks(task.subtasks ?? []); setFormStatus(task.status)
     setTaskImage(null)
     setTaskImagePreview(task.image_url ?? null)
     setPicked(task.assignees ?? [])
@@ -962,7 +1006,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                 title: line, description, due_date: dueDate || null, priority,
                 kind: 'punch', assignees, image_url: null, follow_up_date: followUpDate || null,
                 labels: formLabels,
-                ...(addStatus ? { status: addStatus } : {}),
+                status: formStatus,
               }),
             })
             if (!res.ok) {
@@ -985,7 +1029,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             : `${lines.length - failed.length} of ${lines.length} added. The ${failed.length} still in the box were not: ${firstError}`)
           return
         }
-        setShowAdd(false); resetForm()
+        closeForm()
         return
       }
 
@@ -997,7 +1041,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         labels: formLabels, subtasks: formSubtasks,
         // Create only. On PATCH this stays out of the body on purpose: saving
         // an edit must not move the task to whichever column was last used.
-        ...(editTask ? {} : addStatus ? { status: addStatus } : {}),
+        ...(editTask ? (formStatus !== editTask.status ? { status: formStatus } : {}) : { status: formStatus }),
       })
 
       const url = editTask
@@ -1013,7 +1057,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
         setSaveError(j.error || `Save failed (${res.status}). The task database migration (012) may not be applied yet.`)
         return
       }
-      setShowAdd(false); resetForm(); load()
+      closeForm(); load()
     } catch (err: any) {
       setSaveError(err?.message ? `Save failed: ${err.message}` : 'Save failed - check your connection and try again.')
     } finally {
@@ -1053,7 +1097,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           return
         }
         setTasks(prev => prev.filter(t => t.id !== taskId))
-        if (openTaskId === taskId) setOpenTaskId(null)
+        if (openTaskId === taskId || editTask?.id === taskId) closeForm()
       } catch (e) {
         notice(fetchProblem(e, 'deleting that task'))
       }
@@ -1240,7 +1284,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           <PriorityDot priority={task.priority} />
           <div className="min-w-0 flex-1 space-y-1.5">
             <LabelChips labels={task.labels} />
-            <p className={cn('text-sm font-medium leading-snug text-ink', task.status === 'completed' && 'text-faint line-through')}>
+            <p className={cn('break-words text-sm font-semibold leading-snug text-ink', task.status === 'completed' && 'font-medium text-muted-fg line-through')}>
               {task.kind === 'punch' && <PunchTag />}{task.title}
             </p>
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -1257,47 +1301,39 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             </div>
             <SubtaskLine task={task} />
           </div>
+          {/* IN THE TOP ROW, NOT A ROW OF THEIR OWN. As a second row they held
+              the card open for buttons nobody could see - every card ended in
+              a band of nothing. From lg up they appear on hover beside the
+              status; on a phone they are not here at all, because tapping the
+              card opens its panel, which has Save and Delete at the bottom. */}
+          <div data-card-actions className="hidden shrink-0 items-center gap-0.5 lg:flex lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
+            <button
+              onClick={e => { e.stopPropagation(); openTask(task.id) }}
+              aria-label={`Edit "${task.title}"`} title="Edit task"
+              className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors">
+              <Pencil className="h-3 w-3" />
+            </button>
+            {task.status === 'completed' && taskCompanyId(task) && (
+              <button
+                onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
+                className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors"
+                aria-label={`Create an invoice from "${task.title}"`} title="Create invoice">
+                <Receipt className="h-3 w-3" />
+              </button>
+            )}
+            {!hideDelete && (
+            <button
+              onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
+              aria-label={`Delete "${task.title}"`} title="Delete task"
+              className="p-1 rounded text-faint hover:text-danger hover:bg-danger-tint transition-colors">
+              <Trash2 className="h-3 w-3" />
+            </button>
+            )}
+          </div>
           {/* Move it. The status icon IS the control - see StatusPicker. */}
           <StatusPicker status={task.status} onPick={next => updateStatus(task.id, next)} />
         </div>
 
-        {/* THERE IS NO HOVER ON A PHONE. These were `opacity-0` until hover at
-            every width, and positioned `absolute` against a parent that is
-            only `lg:relative` - so on the phone board they were invisible AND
-            in the wrong place. Edit and delete were reported as missing
-            entirely, which is what invisible means. The desktop keeps exactly
-            what it had. Each is icon-only, so each says what it is.
-
-            AND IN THE FLOW, NEVER `absolute` OVER THE CARD. On the desktop
-            they were `lg:absolute lg:bottom-2 lg:right-2`, and on a one-line
-            card the bottom-right corner IS where the status icon sits - the
-            invisible Delete lay on top of it, so pressing the status opened a
-            delete confirmation. opacity-0 hides a button; it does not stop it
-            taking the click. */}
-        <div data-card-actions className="mt-2 flex items-center justify-end gap-1 lg:mt-1 lg:opacity-0 lg:transition-opacity lg:group-hover:opacity-100 lg:group-focus-within:opacity-100">
-          <button
-            onClick={e => { e.stopPropagation(); openEditForm(task) }}
-            aria-label={`Edit "${task.title}"`} title="Edit task"
-            className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors">
-            <Pencil className="h-3 w-3" />
-          </button>
-          {task.status === 'completed' && taskCompanyId(task) && (
-            <button
-              onClick={e => { e.stopPropagation(); openInvoiceModal(task) }}
-              className="p-1 rounded text-faint hover:text-accent-fg hover:bg-accent-tint transition-colors"
-              aria-label={`Create an invoice from "${task.title}"`} title="Create invoice">
-              <Receipt className="h-3 w-3" />
-            </button>
-          )}
-          {!hideDelete && (
-          <button
-            onClick={e => { e.stopPropagation(); deleteTask(task.id) }}
-            aria-label={`Delete "${task.title}"`} title="Delete task"
-            className="p-1 rounded text-faint hover:text-danger hover:bg-danger-tint transition-colors">
-            <Trash2 className="h-3 w-3" />
-          </button>
-          )}
-        </div>
       </div>
     )
   }
@@ -1360,7 +1396,7 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             </button>
           )}
           <button
-            onClick={e => { e.stopPropagation(); openEditForm(task) }}
+            onClick={e => { e.stopPropagation(); openTask(task.id) }}
             aria-label={`Edit "${task.title}"`} title="Edit task"
             className="p-1.5 text-faint hover:text-accent-fg rounded transition-colors">
             <Pencil className="h-3.5 w-3.5" />
@@ -1403,12 +1439,12 @@ export default function TasksPage({ params }: { params: { id: string } }) {
             )
           })}
         </div>
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-start">
+        <div className="grid grid-cols-1 gap-4 lg:flex lg:flex-wrap lg:items-start">
           {STATUSES.map(col => {
             const colTasks = filteredTasks.filter(t => t.status === col.value)
             return (
               <section key={col.value} aria-label={col.label}
-                className={cn('flex-col gap-2.5 rounded-xl lg:flex lg:p-1', col.value === phoneStage ? 'flex' : 'hidden')}
+                className={cn('flex-col gap-2.5 rounded-xl lg:flex lg:w-72 lg:shrink-0 lg:p-1', col.value === phoneStage ? 'flex' : 'hidden')}
                 onDragOver={e => { if (dragTask.current) e.preventDefault() }}
                 onDrop={e => {
                   e.preventDefault()
@@ -1634,31 +1670,60 @@ export default function TasksPage({ params }: { params: { id: string } }) {
   // ── render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 p-0 lg:p-6">
 
-      {/* ── New / Edit Task modal ──────────────────────────────────────────── */}
+      {/* ── The task panel: New and Edit, and a task's activity under it ────
+          It was a centred dialog for the form and a separate two-column
+          drawer for the detail. It is ONE panel now, the same shape a Project
+          Management card opens in: fields, then notes and sign-off, with
+          Cancel / Save / Delete pinned at the bottom. */}
       {showAdd && (
-        <div className="overlay items-center justify-center bg-black/50" data-overlay>
-          <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-2xl">
-            <div className="px-4 sm:px-6 py-4 border-b border-line-soft flex items-center justify-between">
-              <div>
-                <h2 className="text-lg font-semibold text-ink">{formTitle}</h2>
-                {/* Say where it will land BEFORE they save, not after. */}
-                {!editTask && addStatus && (
-                  <p className="text-xs text-muted-fg">
-                    Adding to{' '}
-                    <span className="font-semibold text-ink">
-                      {STATUSES.find(s => s.value === addStatus)?.label}
-                    </span>
-                  </p>
+        <TaskDrawer
+          task={(editTask && tasks.find(t => t.id === editTask.id)) || editTask || NEW_TASK}
+          isNew={!editTask}
+          heading={formTitle}
+          projectId={params.id}
+          notes={editTask ? notesCache[editTask.id] ?? [] : []}
+          notesLoading={editTask ? !!notesLoading[editTask.id] : false}
+          currentUser={currentUser}
+          onClose={closeForm}
+          onAddNote={handleAddNote}
+          onChanged={load}
+          footer={
+            <>
+              {saveError && <p role="alert" className="text-sm text-danger">{saveError}</p>}
+              {/* Two choices share a row on a phone; the destructive one sits under them. */}
+              <div className="row-even gap-2 lg:flex lg:items-center lg:justify-end">
+                <Button type="button" variant="outline" onClick={closeForm}>Cancel</Button>
+                <Button type="submit" form="task-form" disabled={saving}>
+                  <Check className="mr-1.5 h-4 w-4" />{submitLabel}
+                </Button>
+                {editTask && !hideDelete && (
+                  <Button type="button" variant="ghost" onClick={() => deleteTask(editTask.id)} className="text-danger lg:order-first lg:mr-auto">
+                    <Trash2 className="mr-1.5 h-4 w-4" />Delete
+                  </Button>
                 )}
               </div>
-              <button onClick={() => { setShowAdd(false); resetForm() }} className="text-faint hover:text-muted-fg">
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-            <form onSubmit={submitTask}>
-              <div className="px-4 sm:px-6 py-5 space-y-4">
+            </>
+          }
+        >
+            <form id="task-form" onSubmit={submitTask}>
+              <div className="space-y-5 p-4 lg:p-5">
+                <div className="space-y-1.5">
+                  <span className="text-sm font-medium text-ink-soft">Stage <span className="text-danger">*</span></span>
+                  <div role="group" aria-label="Stage" className="flex flex-wrap gap-2">
+                    {STATUSES.map(st => (
+                      <button key={st.value} type="button" aria-pressed={formStatus === st.value}
+                        onClick={() => setFormStatus(st.value)}
+                        className={cn(
+                          'min-h-11 whitespace-nowrap rounded-xl border px-3.5 text-sm lg:min-h-9',
+                          formStatus === st.value ? 'border-ink bg-ink font-semibold text-panel' : 'border-line bg-panel font-medium text-ink-soft hover:bg-surface',
+                        )}>
+                        {st.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
                 {bulkPunch ? (
                   <div className="space-y-1.5">
                     <Label htmlFor="title">Punch list items <span className="text-danger">*</span></Label>
@@ -1681,11 +1746,11 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <Label htmlFor="due">Due Date</Label>
+                    <Label htmlFor="due">Due date <span className="font-normal text-faint">(optional)</span></Label>
                     <Input id="due" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="priority">Priority</Label>
+                    <Label htmlFor="priority">Priority <span className="font-normal text-faint">(optional)</span></Label>
                     <Select id="priority" value={priority} onChange={e => setPriority(e.target.value)}>
                       {PRIORITIES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
                     </Select>
@@ -1842,17 +1907,14 @@ export default function TasksPage({ params }: { params: { id: string } }) {
                   )}
                 </div>
                 )}
-              </div>
-              <div className="px-4 sm:px-6 py-4 border-t border-line-soft space-y-2">
-                {saveError && <p className="text-sm text-danger">{saveError}</p>}
-                <div className="row-even lg:flex lg:flex-wrap gap-2 justify-end">
-                  <Button type="button" variant="secondary" onClick={() => { setShowAdd(false); resetForm() }}>Cancel</Button>
-                  <Button type="submit" disabled={saving}>{submitLabel}</Button>
-                </div>
+                {editTask && editTask.status === 'completed' && taskCompanyId(editTask) && (
+                  <Button type="button" variant="outline" onClick={() => openInvoiceModal(editTask)}>
+                    <Receipt className="mr-1.5 h-4 w-4" />Create an invoice from this task
+                  </Button>
+                )}
               </div>
             </form>
-          </div>
-        </div>
+        </TaskDrawer>
       )}
 
       {/* ── Create Invoice modal ───────────────────────────────────────────── */}
@@ -1896,8 +1958,8 @@ export default function TasksPage({ params }: { params: { id: string } }) {
       {/* ── Page header ───────────────────────────────────────────────────── */}
       <div className="flex flex-col lg:flex-row gap-3 lg:items-center lg:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Tasks</h1>
-          <p className="text-sm text-muted-fg mt-0.5">Assign and track work across your crew and subcontractors.</p>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Tasks</h1>
+          <p className="mt-1 text-sm text-muted-fg">Assign and track work across your crew and subcontractors.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* The same segmented switch Project Management has. */}
@@ -2003,21 +2065,6 @@ export default function TasksPage({ params }: { params: { id: string } }) {
           {viewMode === 'calendar' && (
             <MonthCalendar entries={calendarEntries} today={today}
               footnote={offCalendar ? `${offCalendar} ${offCalendar === 1 ? 'task has' : 'tasks have'} no due date and no dated subtask, so ${offCalendar === 1 ? 'it is' : 'they are'} not on the calendar.` : undefined} />
-          )}
-          {/* ONE drawer for all three views, mounted outside them: a task
-              opened from the list and a task opened from the board are the
-              same panel, so they cannot drift. */}
-          {openTask_ && (
-            <TaskDrawer
-              task={openTask_}
-              projectId={params.id}
-              notes={notesCache[openTask_.id] ?? []}
-              notesLoading={!!notesLoading[openTask_.id]}
-              currentUser={currentUser}
-              onClose={() => setOpenTaskId(null)}
-              onAddNote={handleAddNote}
-              onChanged={load}
-            />
           )}
         </>
       )}

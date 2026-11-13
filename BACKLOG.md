@@ -378,8 +378,8 @@ assignee who is told, who ticked it). Not built:
 - **No drag to reorder within a stage**, only between stages.
 - **A company cannot edit the label list.** It is `TASK_LABEL_PRESETS` in
   `lib/task-extras.ts`; a custom label is per task.
-- **The task panel still saves notes, follow-up and sign-off on their own.**
-  Only the New/Edit form is one save.
+- **Notes, a subtask tick and sign-off still save on their own** in the task
+  panel; everything in the form above them is one Save.
 
 ## 🗂️ Project Management (the private board) - what is left
 

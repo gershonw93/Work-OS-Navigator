@@ -113,6 +113,13 @@ ok(/labels: formLabels, subtasks: formSubtasks,/.test(page), 'the form sends lab
 ok(/<LabelPicker value=\{formLabels\}/.test(page) && /<SubtaskEditor value=\{formSubtasks\}/.test(page), 'the form has the label picker and the subtask editor')
 ok(/\['board', 'Board'\], \['list', 'Table'\], \['assignee', 'By assignee'\], \['calendar', 'Calendar'\]/.test(page), 'four views: Board, Table, By assignee and Calendar')
 ok(/const STATUSES = \[\s*\{ value: 'open'/.test(page) && (page.match(/\{ value: '(?:open|in_progress|completed)',/g) ?? []).length === 3, 'the stages are still exactly Open, In Progress and Completed')
+// ── One panel: a task opens in its editor ────────────────────────────────────
+ok(/function openTask\(taskId: string\) \{[\s\S]{0,200}if \(t\) openEditForm\(t\)/.test(page), 'opening a task opens its editor - there is no separate read-only detail')
+ok((page.match(/<TaskDrawer\b/g) ?? []).length === 1, '...in ONE panel, used for new and for existing tasks')
+ok(/<form id="task-form" onSubmit=\{submitTask\}>/.test(page) && /activityOnly=\{!!children\}/.test(page), '...the fields on top, the task\'s notes and sign-off under them')
+ok(/formStatus !== editTask\.status \? \{ status: formStatus \} : \{\}/.test(page), 'the stage is sent on an edit only when it changed - a status in the body restamps who finished the task')
+ok(/<div data-card-actions className="hidden shrink-0 items-center gap-0\.5 lg:flex /.test(page), 'a card\'s hover actions sit in its top row and take no space of their own')
+
 const ui = code('components/tasks/task-extras-ui.tsx')
 ok(/'Closest on the list:'/.test(ui) && /as it is/.test(ui), 'a word that is not on the list is shown the closest labels, and may still be used as typed')
 ok(/onChange=\{\(\) => onToggle\?\.\(item\.id\)\}/.test(ui), 'a listed subtask is ticked where it is listed')
