@@ -93,7 +93,7 @@ ok(!/to file/.test(direct.lines.join(' ')), '...and a letter straight to the tow
 // ── the survey ──────────────────────────────────────────────────────────────
 ok((PLAN_TYPES as readonly string[]).includes('survey') && guessPlanType('Lot 7 Survey.pdf') === 'survey' && guessPlanType('C-101 grading.pdf') === 'civil',
   'the land survey is a Plans tab type, and a file called survey lands there')
-ok(/plan_type IN \([^)]*'survey'/.test(readCombined()) && /'survey', 'other'/.test(read('supabase/migrations/167_permit_expediter.sql')),
+ok(/plan_type IN \([^)]*'survey'/.test(readCombined()) && /'survey', 'other'/.test(read('supabase/migrations/168_permit_expediter.sql')),
   '...which the database allows, in the migration and the combined file')
 
 // ── wiring ──────────────────────────────────────────────────────────────────

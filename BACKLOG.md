@@ -364,6 +364,25 @@ the biggest build yet while the books are half-wired ends with both half-done.
 - **Bank-facing budget & sellout** *(tester request)*. Abe: "when you create a bank budget and bank sellout they might be presented in a different way." The working budget and the version a lender wants are formatted differently. Needs a lender report format - probably an extension of the proposal PDF rather than a new thing.
 - **Full development pro-forma** *(tester request - partially addressed)*. A tester who develops (not just builds) wanted the spreadsheet they use as step one: land purchase, design, approvals, soft costs, then a return projection. We shipped the piece every GC needs - hard/soft cost split on the budget + a planning-stage menu (see Recently shipped). **Not built, deliberately:** land acquisition as its own record, debt/equity stack and draw schedule, carrying-cost-over-time modeling, and ROI / profit-on-cost / IRR outputs. That is a developer pro-forma tool, a different product from a GC's job budget - revisit only if more than one customer asks.
 
+## ✅ Tasks (the shared board) - after the redesign
+
+Shipped to staging 13 Nov 2026: the Project Management look on the Tasks tab,
+drag between stages on a desktop, Table and Calendar views, search, labels
+from one preset list with suggestions, and subtasks (own date, note, one
+assignee, who ticked it). Not built:
+
+- **A subtask's assignee is not notified.** `task_assigned` still goes to the
+  task's assignees only. Needs deciding whether it is the same catalog type.
+- **Field Mode and My Jobs do not show subtasks or labels.** They keep their
+  own screens; a worker ticks a subtask from the Tasks tab, not from Field Mode.
+- **Claude cannot set labels or subtasks.** `update_task` passes an allow-list
+  of fields and these are not on it yet; `list_tasks` does return them.
+- **No drag to reorder within a stage**, only between stages.
+- **A company cannot edit the label list.** It is `TASK_LABEL_PRESETS` in
+  `lib/task-extras.ts`; a custom label is per task.
+- **The task panel still saves notes, follow-up and sign-off on their own.**
+  Only the New/Edit form is one save.
+
 ## 🗂️ Project Management (the private board) - what is left
 
 Shipped to staging 12 Nov 2026: a private board per person per job (board,

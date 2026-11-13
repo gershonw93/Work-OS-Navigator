@@ -5021,8 +5021,12 @@ CREATE INDEX IF NOT EXISTS pm_cards_due_idx ON pm_cards (owner_id, due_date);
 ALTER TABLE pm_columns ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pm_cards ENABLE ROW LEVEL SECURITY;
 
--- ── 167 ──
--- 167: a permit can go through an expediter, and a lot survey has a home.
+-- 167_task_labels_subtasks.sql
+ALTER TABLE public.project_tasks ADD COLUMN IF NOT EXISTS labels jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.project_tasks ADD COLUMN IF NOT EXISTS subtasks jsonb NOT NULL DEFAULT '[]'::jsonb;
+
+-- ── 168 ──
+-- 168: a permit can go through an expediter, and a lot survey has a home.
 --
 -- "you email the expediter the files and they reply back with what needs to
 -- change ... once they hit ready for submitting it goes to the next permit
