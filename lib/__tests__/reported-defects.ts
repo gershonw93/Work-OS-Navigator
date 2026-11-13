@@ -266,7 +266,9 @@ ok(/EMPTY_LOG_PROBLEM/.test(logRoute) && /EMPTY_LOG_PROBLEM/.test(logPage),
 // The new-task and new-milestone dialogs disabled Save until their required
 // fields were filled, so pressing it did literally nothing and neither form
 // ever said which field it was waiting on.
-ok(/<Button type="submit" disabled=\{saving\}>/.test(tasksSrc),
+// The Save button sits in the panel's footer now, outside the <form> it
+// submits (`form="task-form"`). Still disabled only while saving.
+ok(/<Button type="submit" form="task-form" disabled=\{saving\}>/.test(tasksSrc),
   'the task dialog lets its button fire')
 ok(/Give the task a name/.test(tasksSrc), '...and answers with the field that is missing')
 const sched = code('app/(dashboard)/projects/[id]/schedule/page.tsx')

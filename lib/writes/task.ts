@@ -4,7 +4,7 @@ import { notify } from '@/lib/notify'
 import { audienceFor } from '@/lib/notification-audience'
 import { normalizeAssignees, assigneeLabel } from '@/lib/task-assignees'
 import { withVia, type WriteResult } from './result'
-import { cleanTaskLabels, stampSubtasks, newlyDone } from '@/lib/task-extras'
+import { cleanTaskLabels, stampSubtasks, newlyDone, newlyAssigned, type TaskSubtask } from '@/lib/task-extras'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Creating a task - the ONE home for it.
@@ -17,6 +17,66 @@ import { cleanTaskLabels, stampSubtasks, newlyDone } from '@/lib/task-extras'
 // ─────────────────────────────────────────────────────────────────────────────
 
 export const TASK_STATUSES = ['open', 'in_progress', 'completed']
+
+/**
+ * Tell the people a subtask was just given to. The same catalog type as a task
+ * assignment ("Task assigned to me"), so it answers to the same switch.
+ *
+ * ONE PERSON, ONE NOTIFICATION per save, however many subtasks they were
+ * given - and never to the person doing the assigning, nor to anybody in
+ * `skip` (who has just been told about the whole task).
+ */
+async function notifySubtaskAssignees(
+  db: SupabaseClient,
+  { projectId, taskTitle, given, actorId, skip }: {
+    projectId: string; taskTitle: string; given: TaskSubtask[]; actorId: string; skip?: Set<string>
+  },
+): Promise<void> {
+  if (!given.length) return
+  try {
+    const memberIds = Array.from(new Set(given.map(s => s.assignee_member_id).filter(Boolean))) as string[]
+    const companyIds = Array.from(new Set(given.map(s => s.assignee_company_id).filter(Boolean))) as string[]
+    // profile id -> the subtasks that are theirs
+    const mine = new Map<string, string[]>()
+    const add = (profileId: string, text: string) => {
+      if (profileId === actorId || skip?.has(profileId)) return
+      mine.set(profileId, [...(mine.get(profileId) ?? []), text])
+    }
+
+    if (memberIds.length) {
+      const { data: members } = await db.from('project_team_members')
+        .select('id, email, profile_id').in('id', memberIds)
+      for (const m of (members ?? []) as any[]) {
+        let profileId: string | null = m.profile_id ?? null
+        if (!profileId && m.email) {
+          const { data: p } = await db.from('profiles').select('id').eq('email', m.email).maybeSingle()
+          profileId = (p as any)?.id ?? null
+        }
+        if (profileId) for (const s of given.filter(x => x.assignee_member_id === m.id)) add(profileId, s.text)
+      }
+    }
+    if (companyIds.length) {
+      const { data: people } = await db.from('profiles').select('id, company_id').in('company_id', companyIds)
+      for (const p of (people ?? []) as any[]) {
+        for (const s of given.filter(x => x.assignee_company_id === p.company_id)) add(p.id, s.text)
+      }
+    }
+
+    for (const [profileId, texts] of Array.from(mine.entries())) {
+      await notify({
+        db, userIds: [profileId], type: 'task_assigned',
+        title: texts.length === 1 ? 'Subtask assigned' : `${texts.length} subtasks assigned`,
+        message: texts.length === 1
+          ? `You have been given a subtask on "${taskTitle}": "${texts[0]}"`
+          : `You have been given ${texts.length} subtasks on "${taskTitle}": ${texts.slice(0, 3).map(t => `"${t}"`).join(', ')}${texts.length > 3 ? ' and more' : ''}`,
+        link: `/projects/${projectId}/tasks`,
+      })
+    }
+  } catch (e: any) {
+    // The save has happened; a notification that could not go must not undo it.
+    console.error('[tasks] subtask assignee notify failed:', e?.message)
+  }
+}
 
 export async function createTask(
   db: SupabaseClient,
@@ -137,6 +197,13 @@ export async function createTask(
     })
   }
 
+  // Subtasks given to somebody at creation. People already told about the
+  // whole task a moment ago are not told twice.
+  await notifySubtaskAssignees(db, {
+    projectId, taskTitle: title, given: newlyAssigned([], ((data as any)?.subtasks ?? []) as TaskSubtask[]),
+    actorId: user.id, skip: recipientIds,
+  })
+
   return { status: 200, body: { task: data } }
 }
 
@@ -226,9 +293,11 @@ export async function updateTask(
   // now - never read from the request.
   if (body.labels !== undefined) updates.labels = cleanTaskLabels(body.labels)
   let ticked: string[] = []
+  let given: TaskSubtask[] = []
   if (body.subtasks !== undefined) {
     const next = stampSubtasks(body.subtasks, (prev as any)?.subtasks, actorName, new Date().toISOString())
     ticked = newlyDone((prev as any)?.subtasks, next)
+    given = newlyAssigned((prev as any)?.subtasks, next)
     updates.subtasks = next
   }
 
@@ -304,6 +373,9 @@ export async function updateTask(
   if (updates.assigned_to_name !== undefined && updates.assigned_to_name !== (prev as any)?.assigned_to_name) {
     changes.push(updates.assigned_to_name ? `assigned to ${updates.assigned_to_name}` : 'unassigned')
   }
+
+  // Only AFTER the save: a subtask newly given to somebody tells that person.
+  await notifySubtaskAssignees(db, { projectId, taskTitle, given, actorId: user.id })
 
   // A ticked subtask is progress worth a line in Job History, but not a
   // "task updated" notification each time - five ticks would be five emails.
