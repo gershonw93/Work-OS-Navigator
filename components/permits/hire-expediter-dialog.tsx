@@ -1,14 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Paperclip, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { ShareFilesModal } from '@/components/files/share-files-modal'
+import { ShareFilesModal, type ShareableFile } from '@/components/files/share-files-modal'
 import { fetchProblem } from '@/lib/fetch-error'
-import { hireProblem } from '@/lib/permit-expediter'
+import { hireProblem, surveyFirst } from '@/lib/permit-expediter'
 
 /**
  * Hire the expediter: "they send the survey and their proposal, you sign the
@@ -130,6 +130,63 @@ export function HireExpediterDialog({ base, projectId, expediter, expediterEmail
             </div>
           </div>
         )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "start with submit to expediter": send them the survey and plans, from the
+ * job's own files, with the survey already ticked. Sent FROM the permit
+ * (`permitId`), so their proposal comes back on the same link and lands on the
+ * permit - which is how the card knows it is back. Not a filing: no round is
+ * logged, because nothing has gone to the township yet.
+ */
+export function SubmitToExpediter({ projectId, permitId, expediter, expediterEmail, onClose, onShared }: {
+  projectId: string
+  permitId: string
+  expediter: string
+  expediterEmail: string | null
+  onClose: () => void
+  onShared: () => void
+}) {
+  const [docs, setDocs] = useState<ShareableFile[] | null>(null)
+  const [failed, setFailed] = useState(false)
+
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      try {
+        const { data: { session } } = await createClient().auth.getSession()
+        const res = await fetch(`/api/projects/${projectId}/documents`, { headers: { Authorization: `Bearer ${session?.access_token ?? ''}` } })
+        const out = await res.json().catch(() => ({}))
+        if (!live) return
+        if (!res.ok) { setFailed(true); return }
+        setDocs(out.documents ?? [])
+      } catch {
+        if (live) setFailed(true)
+      }
+    })()
+    return () => { live = false }
+  }, [projectId])
+
+  if (docs) {
+    return (
+      <ShareFilesModal files={docs} preselected={surveyFirst(docs)} projectId={projectId} permitId={permitId}
+        defaultTitle={`Survey and plans - for your proposal`}
+        suggested={expediterEmail ? [{ label: 'The expediter', name: expediter, email: expediterEmail }] : []}
+        onClose={onClose} onShared={onShared} />
+    )
+  }
+  return (
+    <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={onClose}>
+      <div className="w-full min-w-0 max-w-full rounded-xl bg-panel p-5 shadow-xl sm:max-w-sm" onClick={e => e.stopPropagation()}>
+        {failed ? (
+          <>
+            <p className="text-sm text-ink">Could not load this job's files. Try again in a moment.</p>
+            <div className="mt-4 flex justify-end"><Button variant="outline" className="min-h-11" onClick={onClose}>Close</Button></div>
+          </>
+        ) : <p className="text-sm text-muted-fg">Loading the job's files...</p>}
       </div>
     </div>
   )

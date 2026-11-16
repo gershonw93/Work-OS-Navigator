@@ -273,7 +273,8 @@ ok(JOB_FILE_KINDS.some(k => k.kind === 'permit' && k.tab === 'permits' && k.reso
   const pnl = code('components/permits/permit-panel.tsx')
   ok(!/`Send to \$\{st\.who\}`/.test(pnl) && /'I sent it'/.test(pnl) && /'I sent it back'/.test(pnl) && /'I sent the renewal'/.test(pnl),
     'the button says what it records - I sent it / I sent it back / I sent the renewal - never "Send to <township>"')
-  ok(/SyteNav does not send it for you/.test(pnl), '...and the line under it says SyteNav does not send it')
+  ok(/I sent it records that you sent it yourself/.test(pnl) && /Email it sends it for you/.test(pnl),
+    '...and the line under it says which button records and which one sends - never that SyteNav sends nothing beside a button that does')
   ok(/\{st\.stage === 'fix' && \(/.test(pnl) && /\{st\.stage === 'fix' && canEdit && \(/.test(pnl),
     'the list of what they asked for, and its "They also want..." box, appear only once they have answered')
 }

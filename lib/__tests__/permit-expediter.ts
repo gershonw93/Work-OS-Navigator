@@ -7,9 +7,9 @@
 // added too if they use one".
 
 import {
-  EXPEDITER_TRADE, PLAN_APPROVAL_TYPE, expediterFacts, hireProblem, isExpediterTrade, isPlanApproval, planApproved,
+  EXPEDITER_TRADE, PLAN_APPROVAL_TYPE, expediterFacts, hireProblem, isExpediterTrade, isPlanApproval, planApproved, surveyFirst,
 } from '../permit-expediter'
-import { permitStage, permitStanding, type PermitRound } from '../permit-rounds'
+import { permitStage, permitStanding, stepNamesFor, type PermitRound } from '../permit-rounds'
 import { permitEmailCopy } from '../permit-email'
 import { PLAN_TYPES } from '../writes/plan-sheet'
 import { guessPlanType } from '../upload-plan'
@@ -52,13 +52,28 @@ ok(northPort.every(p => !p.plans_pending && p.expediter_name === null),
 
 // ── where it stands ─────────────────────────────────────────────────────────
 const base = { status: 'pending', issuing_authority: 'NYC DOB', permit_type: 'Plans Review', created_at: '2026-11-01T10:00:00Z' }
-let st = permitStage({ ...base, expediter_company_id: 'exp', expediter_name: 'Acme Expediting' }, [], [], TODAY)
-ok(st.stage === 'hire' && st.head === 'Hire Acme Expediting' && st.step === 0 && st.group === 'you', 'through an expediter, the first step is to hire them')
-ok(/sends the survey and their proposal\. Sign the proposal, send it back/.test(st.sub), '...in the order they work: survey and proposal from them, signed proposal back')
-ok(permitStanding({ ...base, expediter_company_id: 'exp', expediter_name: 'Acme Expediting' }, [], [], TODAY).short === 'Hire expediter',
-  'the development board cell says it too')
+// "start with submit to expediter": they price a job they have SEEN.
+const unhired = { ...base, expediter_company_id: 'exp', expediter_name: 'Acme Expediting' }
+const share = (o: any = {}) => ({ id: 's', permit_id: 'p', name: 'Survey', created_at: '2026-11-10T09:00:00Z', uploads: [], ...o })
+let st = permitStage(unhired, [], [], TODAY)
+ok(st.stage === 'hire' && st.hire?.phase === 'submit' && st.head === 'Submit to Acme Expediting' && st.step === 0 && st.group === 'you',
+  'through an expediter, the first step is to SUBMIT to them - the survey and plans, so they can price it')
+ok(/survey and plans\. They send their proposal back on the same link/.test(st.sub), '...and it says what comes back')
+ok(permitStanding(unhired, [], [], TODAY).short === 'Submit to expediter', 'the development board cell says it too')
+st = permitStage(unhired, [], [], TODAY, [share()])
+ok(st.hire?.phase === 'waiting' && st.head === "Waiting on Acme Expediting's proposal" && st.pill === 'Waiting' && /Sent Nov 10/.test(st.sub),
+  'submitted: waiting on their proposal, read off the link - nothing stored says so')
+ok(permitStanding(unhired, [], [], TODAY, [share()]).short === 'Waiting on proposal', '...on the board too')
+ok(permitStage(unhired, [], [], TODAY, [share({ revoked_at: '2026-11-11' })]).hire?.phase === 'submit', 'a link turned off is not a submission')
+st = permitStage(unhired, [], [], TODAY, [share({ uploads: [{ id: 'u', name: 'Proposal.pdf', url: 'https://x/p.pdf', created_at: '2026-11-12' }] })])
+ok(st.hire?.phase === 'back' && st.head === "Sign Acme Expediting's proposal" && st.hire.files[0]?.name === 'Proposal.pdf'
+  && /Sign it, send it back, and record it here with their fee/.test(st.sub),
+  'their proposal came back on the link: sign it and record it, with the file right there')
+ok(surveyFirst([{ file_url: 'a', source: 'Plans', category: 'survey' }, { file_url: 'b', source: 'Plans', category: 'architectural' }, { file_url: 'c', source: 'Permits', category: 'survey' }]).join() === 'a',
+  'submitting starts with the land survey ticked')
+ok(stepNamesFor({ via: 'Acme' })[0] === 'Expediter' && stepNamesFor({ via: null })[0] === 'Apply', 'the first step is named for the expediter when there is one')
 st = permitStage({ ...base, expediter_company_id: 'exp', expediter_name: 'Acme Expediting', expediter_hired_on: '2026-11-10' }, [], [], TODAY)
-ok(st.stage === 'draft' && st.head === 'Send it to Acme Expediting' && /files it with NYC DOB/.test(st.sub) && st.who === 'NYC DOB',
+ok(st.stage === 'draft' && st.head === 'Send it to Acme Expediting' && /files it with NYC DOB and tells you what NYC DOB wants changed/.test(st.sub) && st.who === 'NYC DOB',
   'hired: send the plans to the expediter, who files them - the DOB is still the one reviewing')
 st = permitStage({ ...base, expediter_company_id: 'exp', expediter_name: 'Acme Expediting', expediter_hired_on: '2026-11-10' },
   [round({ outcome: 'corrections', outcome_on: '2026-11-05' })], [], TODAY)
@@ -120,8 +135,14 @@ const panel = code('components/permits/permit-panel.tsx')
 ok(/st\.stage === 'hire'/.test(panel) && /<HireExpediterDialog/.test(panel) && /sendStage && applyHow && !st\.via/.test(panel),
   'the panel offers the hire, and drops the township\'s "how to apply" card when the expediter files it')
 const dialog = code('components/permits/hire-expediter-dialog.tsx')
-ok(/hireProblem\(\{ fee, hasFile: !!file \}\)/.test(dialog) && /<ShareFilesModal/.test(dialog) && !/permitId=/.test(dialog),
-  'the dialog asks the same rule, and the signed copy goes out on a Sharing link - not logged as a filing')
+const hireFn = dialog.slice(dialog.indexOf('export function HireExpediterDialog'), dialog.indexOf('export function SubmitToExpediter'))
+const submitFn = dialog.slice(dialog.indexOf('export function SubmitToExpediter'))
+ok(/hireProblem\(\{ fee, hasFile: !!file \}\)/.test(hireFn) && /<ShareFilesModal/.test(hireFn) && !/permitId=/.test(hireFn),
+  'the hire dialog asks the same rule, and the signed copy goes out on a Sharing link - not logged as a filing')
+ok(/permitId=\{permitId\}/.test(submitFn) && /preselected=\{surveyFirst\(docs\)\}/.test(submitFn) && /\/documents`/.test(submitFn),
+  'submitting goes FROM the permit, so the proposal comes back onto it - with the job\'s files, survey ticked')
+ok(/st\.hire\?\.phase === 'submit'/.test(panel) && /<SubmitToExpediter /.test(panel) && /Already hired them/.test(panel),
+  'the panel opens on Submit, and a hire agreed off the app can still be recorded')
 const page = code('app/(dashboard)/projects/[id]/permits/page.tsx')
 ok((page.match(/<ExpediterField /g) ?? []).length === 2 && /Pick the expediter from your Directory/.test(page),
   'Add (I need to apply) and Edit both take the expediter, and a typed name that was never picked is answered, not dropped')

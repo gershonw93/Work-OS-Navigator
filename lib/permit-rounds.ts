@@ -24,7 +24,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { GRANTED_STATUSES, permitProblem, type PermitFacts } from './permit-rules'
-import { PLAN_APPROVAL_TYPE, isPlanApproval } from './permit-expediter'
+import { PLAN_APPROVAL_TYPE, hirePhase, isPlanApproval, type HirePhase } from './permit-expediter'
 import { expiredAgo, expiryLabel, expiryState } from './expiry'
 
 export const OUTCOMES = ['approved', 'corrections', 'rejected'] as const
@@ -159,6 +159,9 @@ export type Stage = 'hire' | 'draft' | 'fix' | 'city' | 'renew' | 'issued' | 'cl
 export type Group = 'you' | 'city' | 'iss'
 /** The four steps every permit walks, drawn as the bar on a row and the path in the panel. */
 export const STEP_NAMES = ['Apply', 'City review', 'Issued', 'Closed out'] as const
+/** Through an expediter the first step is theirs: submit to them, hire them, send them the set to file. */
+export const stepNamesFor = (st: { via: string | null }): readonly string[] =>
+  st.via ? ['Expediter', ...STEP_NAMES.slice(1)] : STEP_NAMES
 const STEP_OF: Record<Stage, number> = { hire: 0, draft: 0, fix: 1, city: 1, renew: 2, issued: 2, closed: 3 }
 
 export interface PermitFactsForStage {
@@ -200,6 +203,8 @@ export interface PermitStage {
   via: string | null
   /** A draft held until this job's plan approval comes through. */
   waitingOnPlans: boolean
+  /** Before the hire: submit to them, wait for the proposal, or it came back. Null otherwise. */
+  hire: HirePhase | null
   /** The asks this round is about - what the checklist in the panel shows. */
   asks: PermitItem[]
   openAsks: number
@@ -219,6 +224,8 @@ export function permitStage(
   roundsIn: PermitRound[],
   items: PermitItem[],
   today: string,
+  /** The permit's share links - read only before an expediter is hired. */
+  shares: PermitShare[] = [],
 ): PermitStage {
   const rounds = sortRounds(roundsIn)
   const who = (permit.issuing_authority ?? '').trim() || 'the reviewer'
@@ -268,7 +275,8 @@ export function permitStage(
 
   const group: Group = stage === 'city' ? 'city' : stage === 'issued' || stage === 'closed' ? 'iss' : 'you'
   const waitingOnPlans = stage === 'draft' && !!permit.plans_pending
-  const base = { stage, group, step: STEP_OF[stage], rejected, who, via, waitingOnPlans, asks, openAsks, waiting, rounds }
+  const hire = stage === 'hire' ? hirePhase(shares) : null
+  const base = { stage, group, step: STEP_OF[stage], rejected, who, via, waitingOnPlans, hire, asks, openAsks, waiting, rounds }
   const created = (permit.created_at ?? '').slice(0, 10)
 
   if (stage === 'city') {
@@ -325,16 +333,38 @@ export function permitStage(
     }
   }
 
-  if (stage === 'hire') {
+  if (stage === 'hire' && hire) {
     const days = created ? Math.max(0, daysBetween(created, today)) : 0
+    if (hire.phase === 'submit') {
+      return {
+        ...base, chase: false, pill: 'Your move',
+        next: `Submit to ${via}`,
+        time: created ? `Added ${dayLabel(created, today)}` : '',
+        timeTone: '', sortKey: -days,
+        head: `Submit to ${via}`,
+        sub: `Send ${via} the survey and plans. They send their proposal back on the same link.`,
+      }
+    }
+    if (hire.phase === 'waiting') {
+      const waited = Math.max(0, daysBetween(hire.sentOn, today))
+      return {
+        ...base, chase: false, pill: 'Waiting',
+        next: `Waiting on ${via}'s proposal`,
+        time: waited === 0 ? 'Sent today' : `Sent ${plural(waited, 'day')} ago`,
+        timeTone: waited >= 7 ? 'warn' : '',
+        // After what you can act on, longest wait first.
+        sortKey: 100_000 - waited,
+        head: `Waiting on ${via}'s proposal`,
+        sub: `Sent ${dayLabel(hire.sentOn, today)}. When it comes back, sign it and record it here with their fee.`,
+      }
+    }
     return {
       ...base, chase: false, pill: 'Your move',
-      next: `Hire ${via}`,
-      time: created ? `Added ${dayLabel(created, today)}` : '',
-      timeTone: '',
-      sortKey: -days,
-      head: `Hire ${via}`,
-      sub: `${via} sends the survey and their proposal. Sign the proposal, send it back, and record it here with their fee - it goes on the budget.`,
+      next: `Sign ${via}'s proposal`,
+      time: `Sent ${dayLabel(hire.sentOn, today)}`,
+      timeTone: '', sortKey: -50000 - days,
+      head: `Sign ${via}'s proposal`,
+      sub: 'Their proposal came back. Sign it, send it back, and record it here with their fee - it goes on the budget.',
     }
   }
 
@@ -361,7 +391,7 @@ export function permitStage(
       timeTone: '',
       sortKey: -days,
       head: `Send it to ${via}`,
-      sub: `${via} files it with ${who} and tells you what they want changed. Email it to them, or press I sent it with the day it went.`,
+      sub: `${via} files it with ${who} and tells you what ${who} wants changed. Email it to them, or press I sent it with the day it went.`,
     }
   }
 
@@ -428,12 +458,15 @@ export function permitStanding(
   rounds: PermitRound[],
   items: PermitItem[],
   today: string,
+  shares: PermitShare[] = [],
 ): Standing {
-  const st = permitStage(permit, rounds, items, today)
+  const st = permitStage(permit, rounds, items, today, shares)
   const court: Court = st.stage === 'draft' || st.stage === 'hire' ? 'none'
     : st.group === 'city' ? 'them' : st.group === 'iss' ? 'done' : 'us'
   const days = st.waiting ? Math.max(0, daysBetween(st.waiting.submitted_on, today)) : 0
-  const short = st.stage === 'hire' ? 'Hire expediter'
+  const short = st.hire?.phase === 'submit' ? 'Submit to expediter'
+    : st.hire?.phase === 'waiting' ? 'Waiting on proposal'
+    : st.hire?.phase === 'back' ? 'Sign proposal'
     : st.waitingOnPlans ? 'Waiting on plans'
     : st.stage === 'draft' ? 'Not sent'
     : st.stage === 'city' ? `With city · ${days}d`
