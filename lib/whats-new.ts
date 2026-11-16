@@ -78,7 +78,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Subtasks, with their own date and person',
-        text: 'Break a task into steps. Each subtask can have its own due date, a note, and one person or sub it is given to. The card shows how many are done and which is due next, a late subtask makes the task show as Overdue, and ticking one records who did it and when. Anyone who can update the task can tick them, including a sub on the job.',
+        text: 'Break a task into steps. Each subtask can have its own due date, a note, and one person or sub it is given to - and they are told when it is. The card shows how many are done and which is due next, a late subtask makes the task show as Overdue, and ticking one records who did it and when. Anyone who can update the task can tick them, including a sub on the job.',
         help: 'tasks-assign',
       },
       {

@@ -7,7 +7,7 @@
 // by calling the rules; the wiring is read off the write lib and the screen.
 
 import {
-  cleanTaskLabels, newlyDone, openTaskSubtasks, presetLabel, stampSubtasks, subtaskCount, suggestLabels,
+  cleanTaskLabels, newlyAssigned, newlyDone, openTaskSubtasks, presetLabel, stampSubtasks, subtaskCount, suggestLabels,
   taskCalendarEntries, taskIsOverdue, taskMatches, TASK_LABEL_PRESETS, type TaskSubtask,
 } from '../task-extras'
 import { ok, done, code, read } from './_helpers'
@@ -58,6 +58,25 @@ ok(unticked[0].done_at === null && unticked[0].done_by_name === null, 'unticking
 ok(newlyDone(held, next).join() === 'Set tile', 'only the subtask that just went done is reported as finished')
 ok(stampSubtasks('nope', held, 'Robin', NOW).length === 0, 'a non-list is no subtasks')
 
+// ── Telling the person a subtask was given to ────────────────────────────────
+const C = '22222222-2222-4222-8222-222222222222'
+const before: TaskSubtask[] = [
+  { id: 'a', text: 'Order tile', done: false, assignee_member_id: M, assignee_name: 'Lee' },
+  { id: 'b', text: 'Set tile', done: false },
+  { id: 'c', text: 'Grout', done: false, assignee_member_id: M, assignee_name: 'Lee' },
+]
+const after: TaskSubtask[] = [
+  { id: 'a', text: 'Order tile', done: true, assignee_member_id: M, assignee_name: 'Lee' },
+  { id: 'b', text: 'Set tile', done: false, assignee_member_id: M, assignee_name: 'Lee' },
+  { id: 'c', text: 'Grout', done: false, assignee_company_id: C, assignee_name: 'Tile Co' },
+  { id: 'd', text: 'Seal', done: false },
+  { id: 'e', text: 'Caulk', done: true, assignee_member_id: M, assignee_name: 'Lee' },
+]
+ok(newlyAssigned(before, after).map(x => x.id).join() === 'b,c',
+  'a subtask newly given to somebody, or moved to somebody else, is an assignment - one that kept its person, has nobody, or is already done is not')
+ok(newlyAssigned([], after).map(x => x.id).join() === 'b,c', 'on a new task every open subtask with a person on it counts')
+ok(newlyAssigned(after, after).length === 0, 'saving the same list again assigns nobody - no second notification for a tick or a date edit')
+
 // ── Late, the count, the calendar, search ────────────────────────────────────
 const TODAY = '2026-11-13'
 const task = (over: Record<string, unknown>) => ({ id: 't', title: 'Bathroom', status: 'open', due_date: null as string | null, subtasks: [] as TaskSubtask[], ...over })
@@ -82,12 +101,25 @@ ok((writes.match(/stampSubtasks\(/g) ?? []).length === 2 && /stampSubtasks\(body
 ok(/description, subtasks'/.test(writes), '...which needs subtasks on the previous-state read')
 ok(!/changes\.push\([^)]*subtask/i.test(writes), 'a ticked subtask is logged but is not a "task updated" notification every time')
 
+ok((writes.match(/await notifySubtaskAssignees\(db, \{/g) ?? []).length === 2, 'a subtask\'s assignee is told on create AND on edit')
+ok(/given = newlyAssigned\(\(prev as any\)\?\.subtasks, next\)/.test(writes), '...on edit, only for subtasks newly given - worked out against what the task held')
+ok(/skip: recipientIds/.test(writes), '...and on create, somebody just told about the whole task is not told again')
+ok(/if \(profileId === actorId \|\| skip\?\.has\(profileId\)\) return/.test(writes), '...and never the person doing the assigning')
+ok(/type: 'task_assigned',\s*title: texts\.length === 1 \? 'Subtask assigned'/.test(writes), 'it is the "task assigned to me" notification, so it answers to that switch')
+
 const page = code('app/(dashboard)/projects/[id]/tasks/page.tsx')
 ok(/const dragTask = useRef<string \| null>\(null\)/.test(page) && !/setDrag|useState[^\n]*drag/i.test(page), 'the drag is a ref, not state - a setState on drag start remounts the card being dragged')
 ok(/labels: formLabels, subtasks: formSubtasks,/.test(page), 'the form sends labels and subtasks with its one save')
 ok(/<LabelPicker value=\{formLabels\}/.test(page) && /<SubtaskEditor value=\{formSubtasks\}/.test(page), 'the form has the label picker and the subtask editor')
 ok(/\['board', 'Board'\], \['list', 'Table'\], \['assignee', 'By assignee'\], \['calendar', 'Calendar'\]/.test(page), 'four views: Board, Table, By assignee and Calendar')
 ok(/const STATUSES = \[\s*\{ value: 'open'/.test(page) && (page.match(/\{ value: '(?:open|in_progress|completed)',/g) ?? []).length === 3, 'the stages are still exactly Open, In Progress and Completed')
+// ── One panel: a task opens in its editor ────────────────────────────────────
+ok(/function openTask\(taskId: string\) \{[\s\S]{0,200}if \(t\) openEditForm\(t\)/.test(page), 'opening a task opens its editor - there is no separate read-only detail')
+ok((page.match(/<TaskDrawer\b/g) ?? []).length === 1, '...in ONE panel, used for new and for existing tasks')
+ok(/<form id="task-form" onSubmit=\{submitTask\}>/.test(page) && /activityOnly=\{!!children\}/.test(page), '...the fields on top, the task\'s notes and sign-off under them')
+ok(/formStatus !== editTask\.status \? \{ status: formStatus \} : \{\}/.test(page), 'the stage is sent on an edit only when it changed - a status in the body restamps who finished the task')
+ok(/<div data-card-actions className="hidden shrink-0 items-center gap-0\.5 lg:flex /.test(page), 'a card\'s hover actions sit in its top row and take no space of their own')
+
 const ui = code('components/tasks/task-extras-ui.tsx')
 ok(/'Closest on the list:'/.test(ui) && /as it is/.test(ui), 'a word that is not on the list is shown the closest labels, and may still be used as typed')
 ok(/onChange=\{\(\) => onToggle\?\.\(item\.id\)\}/.test(ui), 'a listed subtask is ticked where it is listed')
