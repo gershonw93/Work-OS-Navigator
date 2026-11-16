@@ -8,7 +8,7 @@
 // one step instead of twenty. Pure: the page and the route both ask it.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { permitStanding, type Court, type PermitItem, type PermitRound, type Standing } from './permit-rounds'
+import { permitStanding, type Court, type PermitItem, type PermitRound, type PermitShare, type Standing } from './permit-rounds'
 
 /** The permit types the Add form offers. One list, so the board's "add to houses" offers the same. */
 export const PERMIT_TYPES = [
@@ -103,6 +103,7 @@ export function boardColumns(permits: Pick<BoardPermit, 'permit_type'>[]): strin
 /** project id -> permit type -> the cell. */
 export function boardCells(
   permits: BoardPermit[], rounds: PermitRound[], items: PermitItem[], today: string,
+  shares: PermitShare[] = [],
 ): Map<string, Map<string, BoardCell>> {
   const roundsBy = new Map<string, PermitRound[]>()
   for (const r of rounds) roundsBy.set(r.permit_id, [...(roundsBy.get(r.permit_id) ?? []), r])
@@ -116,7 +117,7 @@ export function boardCells(
     if (existing) { existing.others++; out.set(p.project_id, row); continue }
     row.set(p.permit_type, {
       permit: p, others: 0,
-      standing: permitStanding(p, roundsBy.get(p.id) ?? [], itemsBy.get(p.id) ?? [], today),
+      standing: permitStanding(p, roundsBy.get(p.id) ?? [], itemsBy.get(p.id) ?? [], today, shares.filter(s => s.permit_id === p.id)),
     })
     out.set(p.project_id, row)
   }

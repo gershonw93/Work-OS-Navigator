@@ -505,7 +505,7 @@ export function PermitBoard({ data, canEdit, onChanged }: { data: BoardData; can
   // swaps the panel instead of the click being eaten by a backdrop.
   const wide = useMinWidth(1024)
 
-  const cells = useMemo(() => boardCells(data.permits, data.rounds, data.items, today), [data, today])
+  const cells = useMemo(() => boardCells(data.permits, data.rounds, data.items, today, data.shares ?? []), [data, today])
   const columns = useMemo(() => boardColumns(data.permits), [data.permits])
   const [phoneType, setPhoneType] = useState<string | null>(null)
   const activeType = phoneType && columns.includes(phoneType) ? phoneType : columns[0] ?? null

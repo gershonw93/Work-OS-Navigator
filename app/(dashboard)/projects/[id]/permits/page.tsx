@@ -427,6 +427,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
 
   const roundsFor = (permitId: string) => rounds.filter(r => r.permit_id === permitId)
   const itemsFor = (permitId: string) => items.filter(i => i.permit_id === permitId)
+  const sharesFor = (permitId: string) => shares.filter(s => s.permit_id === permitId)
   /** What the dropdown may offer: the history's answer, plus the value already stored so it still renders. */
   const statusesFor = (permitId: string, current: string) => {
     const allowed = allowedStatuses(roundsFor(permitId))
@@ -453,7 +454,7 @@ export default function PermitsPage({ params }: { params: { id: string } }) {
     id: p.id,
     type: p.permit_type,
     meta: `${p.permit_number || 'No number yet'} · ${p.issuing_authority?.trim() || 'No issuer set'}`,
-    st: permitStage(p, roundsFor(p.id), itemsFor(p.id), today),
+    st: permitStage(p, roundsFor(p.id), itemsFor(p.id), today, sharesFor(p.id)),
   }))
   const order = (['you', 'city', 'iss'] as const).flatMap(g =>
     allRows.filter(r => r.st.group === g).sort((a, b) => a.st.sortKey - b.st.sortKey))

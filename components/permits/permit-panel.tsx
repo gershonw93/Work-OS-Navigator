@@ -9,7 +9,7 @@ import { useNotice } from '@/components/ui/notice'
 import { useDeleteGuard } from '@/components/ui/delete-guard'
 import { RowMenu, MenuItem } from '@/components/ui/row-menu'
 import { ShareFilesModal, type ShareableFile } from '@/components/files/share-files-modal'
-import { HireExpediterDialog } from '@/components/permits/hire-expediter-dialog'
+import { HireExpediterDialog, SubmitToExpediter } from '@/components/permits/hire-expediter-dialog'
 import { useClientContact } from '@/lib/use-client-email'
 import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
 import { shrinkImage, shrinkImages } from '@/lib/shrink-image'
@@ -19,7 +19,7 @@ import {
   AlertCircle, Check, ChevronDown, ChevronUp, FileText, Loader2, Mail, Paperclip, Phone, Sparkles, X,
 } from 'lucide-react'
 import {
-  carryableFiles, cleanItems, dayLabel, permitStage, sortRounds, todayIso, unusedUploads, OUTCOME_LABEL, STEP_NAMES,
+  carryableFiles, cleanItems, dayLabel, permitStage, sortRounds, stepNamesFor, todayIso, unusedUploads, OUTCOME_LABEL,
   type Group, type Outcome, type PermitItem, type PermitRound, type PermitShare, type PermitStage, type RoundFile, type StandingTone,
 } from '@/lib/permit-rounds'
 import type { PermitFacts } from '@/lib/permit-rules'
@@ -84,8 +84,8 @@ const styleOf = (st: PermitStage) => GROUP_STYLE[st.stage === 'renew' ? 'bad' : 
 /** The four-step bar on a list row. */
 export function StepBar({ st, label }: { st: PermitStage; label?: string }) {
   return (
-    <div className="flex gap-[3px]" role="img" aria-label={label ?? `Step ${st.step + 1} of 4, ${STEP_NAMES[st.step]}`}>
-      {STEP_NAMES.map((_, k) => {
+    <div className="flex gap-[3px]" role="img" aria-label={label ?? `Step ${st.step + 1} of 4, ${stepNamesFor(st)[st.step]}`}>
+      {stepNamesFor(st).map((_, k) => {
         const done = k < st.step || st.stage === 'closed'
         const now = k === st.step && !done
         return <span key={k} className={cn('h-1.5 w-[19px] rounded-full', done ? 'bg-success' : now ? styleOf(st).seg : 'bg-line')} />
@@ -95,10 +95,10 @@ export function StepBar({ st, label }: { st: PermitStage; label?: string }) {
 }
 
 function Path({ st }: { st: PermitStage }) {
-  const nowSub = { hire: 'Hire expediter', draft: st.waitingOnPlans ? 'Waiting on plans' : 'Not sent yet', fix: 'Back to you', city: `Round ${st.rounds.length}`, renew: 'Expired', issued: '', closed: '' }[st.stage]
+  const nowSub = { hire: st.hire?.phase === 'submit' ? 'Submit to them' : st.hire?.phase === 'waiting' ? 'Waiting on proposal' : 'Hire them', draft: st.waitingOnPlans ? 'Waiting on plans' : st.via ? 'Send to file' : 'Not sent yet', fix: 'Back to you', city: `Round ${st.rounds.length}`, renew: 'Expired', issued: '', closed: '' }[st.stage]
   return (
-    <div className="grid grid-cols-4" role="img" aria-label={`Step ${st.step + 1} of 4, ${STEP_NAMES[st.step]}`}>
-      {STEP_NAMES.map((name, k) => {
+    <div className="grid grid-cols-4" role="img" aria-label={`Step ${st.step + 1} of 4, ${stepNamesFor(st)[st.step]}`}>
+      {stepNamesFor(st).map((name, k) => {
         const done = k < st.step || st.stage === 'closed'
         const now = k === st.step && !done
         return (
@@ -273,7 +273,7 @@ function ShareFor({ projectId, permit, rounds, items, shares, onClose, onShared 
   onClose: () => void; onShared: () => void
 }) {
   const client = useClientContact(projectId)
-  const st = permitStage(permit, rounds, items, todayIso())
+  const st = permitStage(permit, rounds, items, todayIso(), shares)
   const sorted = sortRounds(rounds)
   // Issued: start with the permit itself. Before that: what went in last.
   const preselect = st.group === 'iss' && permit.file_url
@@ -302,7 +302,7 @@ function PanelBody({
   const guard = useDeleteGuard()
   const today = todayIso()
   const rounds = sortRounds(roundsIn)
-  const st = permitStage(permit, rounds, items, today)
+  const st = permitStage(permit, rounds, items, today, shares)
   const s = styleOf(st)
   const sendStage = st.stage === 'draft' || st.stage === 'fix' || st.stage === 'renew'
 
@@ -332,6 +332,7 @@ function PanelBody({
   const [error, setError] = useState('')
   const [emailing, setEmailing] = useState(false)
   const [hiring, setHiring] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   // The emailed reply an answer is being recorded from - its attachments go
   // with the answer, and it is not offered again afterwards.
   const [fromReply, setFromReply] = useState<string | null>(null)
@@ -529,11 +530,30 @@ function PanelBody({
   // screen; on a desktop they sit in the card.
   let actions: ReactNode = null
   if (canEdit && historyOk) {
-    if (st.stage === 'hire') {
+    if (st.stage === 'hire' && st.hire?.phase === 'submit') {
+      // FIRST, THEY SEE THE JOB. The proposal is priced off the survey and
+      // plans, so submitting is the step; a hire agreed off the app can still
+      // be recorded straight away.
       actions = (
-        <Button className="min-h-11 min-w-0 flex-1 lg:flex-none" onClick={() => setHiring(true)}>
-          <span className="truncate">Record the signed proposal</span>
-        </Button>
+        <>
+          <Button className="min-h-11 min-w-0 flex-[2_1_0] lg:flex-none" onClick={() => setSubmitting(true)}>
+            <span className="truncate">Submit to {st.via}</span>
+          </Button>
+          <Button variant="outline" className="min-h-11 min-w-0 flex-1 lg:flex-none" onClick={() => setHiring(true)}>
+            <span className="truncate">Already hired them</span>
+          </Button>
+        </>
+      )
+    } else if (st.stage === 'hire') {
+      actions = (
+        <>
+          <Button className="min-h-11 min-w-0 flex-[2_1_0] lg:flex-none" onClick={() => setHiring(true)}>
+            <span className="truncate">Record the signed proposal</span>
+          </Button>
+          <Button variant="outline" className="min-h-11 min-w-0 flex-1 lg:flex-none" onClick={() => setSubmitting(true)}>
+            <span className="truncate">Send more</span>
+          </Button>
+        </>
       )
     } else if (sendStage) {
       actions = (
@@ -581,7 +601,8 @@ function PanelBody({
   }
 
   // What the button does, said plainly under it: it RECORDS, it does not send.
-  const hint = st.stage === 'draft' ? 'Records that you sent it, dated today. SyteNav does not send it for you.'
+  // Two buttons, two acts: one RECORDS a send done elsewhere, the other sends.
+  const hint = st.stage === 'draft' ? 'I sent it records that you sent it yourself, dated today. Email it sends it for you.'
     : st.stage === 'renew' ? 'Records that you sent the renewal, dated today.'
     : !st.asks.length ? 'Add each thing they asked for, then tick them off as you fix them.'
     : st.openAsks ? `Check off ${st.openAsks} more. Press I sent it back once it has gone.`
@@ -669,6 +690,18 @@ function PanelBody({
                 {/* What they asked for exists only once they have answered -
                     before that there is nothing to list, and an empty "They
                     also want..." box asked a question nobody had been asked. */}
+                {/* What the expediter sent back on the link - their proposal - right where it is needed. */}
+                {st.hire?.phase === 'back' && (
+                  <div className="divide-y divide-line-soft rounded-lg border border-line bg-panel">
+                    {st.hire.files.map(f => (
+                      <a key={f.url} href={f.url} target="_blank" rel="noreferrer"
+                        className="flex min-h-11 items-center gap-2 px-3 py-2 text-sm text-ink hover:bg-surface">
+                        <FileText className="h-4 w-4 shrink-0 text-faint" /><span className="min-w-0 truncate">{f.name}</span>
+                      </a>
+                    ))}
+                  </div>
+                )}
+
                 {st.stage === 'fix' && (
                   <div className="overflow-hidden rounded-lg border border-line bg-panel">
                     {st.asks.length === 0 && <p className="px-3 py-3 text-sm text-muted-fg">Nothing listed yet. Add each thing they asked for below.</p>}
@@ -898,6 +931,11 @@ function PanelBody({
           </section>
         </div>
       </div>
+
+      {submitting && st.via && (
+        <SubmitToExpediter projectId={projectId} permitId={permit.id} expediter={st.via} expediterEmail={permit.expediter_email ?? null}
+          onClose={() => setSubmitting(false)} onShared={() => { setSubmitting(false); onChanged() }} />
+      )}
 
       {hiring && st.via && (
         <HireExpediterDialog base={base} projectId={projectId} expediter={st.via} expediterEmail={permit.expediter_email ?? null}

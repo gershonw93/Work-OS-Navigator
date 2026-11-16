@@ -106,3 +106,29 @@ export function hireProblem(input: { fee?: string | number | null; hasFile?: boo
   if (!input.hasFile) return 'Attach the signed proposal.'
   return null
 }
+
+// ── Before the hire: submit to the expediter ────────────────────────────────
+// "start with submit to expediter". They cannot price a job they have not
+// seen, so the first thing that happens is the GC sending them the survey and
+// plans; their proposal comes back on the same link, and only then is anybody
+// hired. Where it stands is READ off the permit's own share links - nothing is
+// stored to say "submitted" - and before the hire every link on the permit is
+// to the expediter: no round has been filed, so nobody else has been sent one.
+
+export type HirePhase =
+  | { phase: 'submit' }
+  | { phase: 'waiting'; sentOn: string }
+  | { phase: 'back'; sentOn: string; files: { name: string; url: string }[] }
+
+export function hirePhase(shares: { created_at: string; revoked_at?: string | null; uploads?: { name: string; url: string; created_at?: string }[] }[]): HirePhase {
+  const live = shares.filter(s => !s.revoked_at)
+  if (!live.length) return { phase: 'submit' }
+  const sentOn = live.map(s => String(s.created_at).slice(0, 10)).sort()[0]
+  const files = live.flatMap(s => s.uploads ?? []).filter(u => u.url).map(u => ({ name: u.name, url: u.url }))
+  return files.length ? { phase: 'back', sentOn, files } : { phase: 'waiting', sentOn }
+}
+
+/** The files to start the submission with: the job's land survey, ticked. */
+export function surveyFirst<F extends { file_url: string; source?: string | null; category?: string | null }>(docs: F[]): string[] {
+  return docs.filter(d => d.source === 'Plans' && d.category === 'survey').map(d => d.file_url)
+}

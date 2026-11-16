@@ -96,7 +96,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Hire the expediter, then send them the plans',
-        text: 'When adding a permit, pick the expediter who files it for you. The permit starts with hiring them: record their signed proposal and fee, the fee goes on the budget as their contract, and you can email them the signed copy. Email it then goes to the expediter instead of the township, and what the DOB wants changed comes back as a round to fix, the same as any permit. A Plans Review filed through an expediter holds the unit\'s other permits until the plans are approved. The land survey has its own type on the Plans tab.',
+        text: 'When adding a permit, pick the expediter who files it for you. The permit starts by submitting to them: send the survey and plans, their proposal comes back on the same link, then record the signed proposal and fee - the fee goes on the budget as their contract, and you can email them the signed copy. Email it then goes to the expediter instead of the township, and what the DOB wants changed comes back as a round to fix, the same as any permit. A Plans Review filed through an expediter holds the unit\'s other permits until the plans are approved. The land survey has its own type on the Plans tab.',
         help: 'permits',
       },
     ],
