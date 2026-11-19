@@ -66,6 +66,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-19',
+    title: 'SyteNav is on the App Store',
+    items: [
+      {
+        kind: 'new',
+        title: 'The iPhone app is out',
+        text: 'Search for SyteNav on the App Store, download it, and sign in with the account you already have - your jobs, schedule, daily logs and approvals are all there, and notifications can pop up on the phone itself. There is no separate account and nothing new to set up.',
+        help: 'sytenav-on-your-phone',
+      },
+    ],
+  },
+  {
     date: '2026-11-13',
     title: 'Tasks: a new board, subtasks and labels',
     items: [

@@ -3,6 +3,7 @@
 // native app (a Google Play badge in the iOS build is App Review 2.3.10).
 import { ok, done, code } from './_helpers'
 import { APP_STORE_URL, PLAY_STORE_URL } from '../app-stores'
+import { getArticle } from '../help/articles'
 
 const src = code('components/marketing/app-badges.tsx')
 const footer = code('components/marketing/marketing-footer.tsx')
@@ -21,5 +22,19 @@ const off = greyed.slice(greyed.indexOf(') : ('))
 ok(off.length > 5 && !/href=/.test(off.slice(0, off.indexOf('</span>\n        )}') + 1 || 600)) && /Coming soon/.test(off),
   'with no App Store listing the badge is greyed, says Coming soon, and links nowhere')
 ok(APP_STORE_URL === null || /^https:\/\/apps\.apple\.com\//.test(APP_STORE_URL), 'an App Store URL, once set, is an apps.apple.com listing')
+
+// LIVE since 2026-11-19. The listing that was approved, so a typo here is a
+// footer badge, a FAQ answer and the JSON-LD downloadUrl all pointing at a 404.
+ok(APP_STORE_URL === 'https://apps.apple.com/us/app/sytenav/id6808712636', 'the App Store badge links the live listing')
+const faq = code('lib/marketing-faq.ts')
+ok(/APP_STORE_URL \? 'iPhone and Android'/.test(faq), 'the FAQ answer says iPhone once the listing exists')
+// The phone article renders INSIDE the iOS app too, so it names no store -
+// "Google Play" in the iOS build is App Review 2.3.10.
+// The visible text only - `keywords` is search terms, never shown, and keeps
+// "app store" so somebody searching for it finds this page.
+const art = getArticle('sytenav-on-your-phone')!
+const phoneArticle = JSON.stringify([art.title, art.summary, art.blocks])
+ok(!/Google Play|Play Store|App Store/.test(phoneArticle), 'the in-app phone article names no store brand ("your phone\'s app store" is generic)')
+ok(!/in the works/i.test(phoneArticle), '...and no longer says the iPhone app is coming')
 
 done()
