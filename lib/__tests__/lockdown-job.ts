@@ -95,8 +95,13 @@ async function main() {
     const worker = { userId: 'u', role: 'worker', companyId: null, permissions: ROLE_DEFAULTS.worker }
     const r = await actorJobGate(db, worker as any, P, 'team', 'view')
     ok('denied' in r && r.denied.status === 403, 'actorJobGate: no permission is 403 before the job is even looked up')
-    const r2 = await actorJobGate(db, { ...worker, companyId: 'gc' } as any, P, 'time', 'create')
-    ok(!('denied' in r2) && r2.side === 'gc', '...and a worker at the GC clocks in on the GC\'s job')
+    const r2 = await actorJobGate(db, { ...worker, userId: 'linked-user', companyId: 'gc' } as any, P, 'time', 'create')
+    ok(!('denied' in r2) && r2.side === 'gc', '...and a worker at the GC clocks in on the GC\'s job they are assigned to')
+    // THE CREW RULE (lib/job-side.ts). This used to assert the opposite: any
+    // worker at the GC reached every GC job by id, while their Projects list
+    // showed only the assigned ones. The list was right.
+    const r3 = await actorJobGate(db, { ...worker, companyId: 'gc' } as any, P, 'time', 'create')
+    ok('denied' in r3 && r3.denied.status === 404, '...but NOT one they are not assigned to - the job is not on their My Jobs list')
   }
 
   ok(JSON.stringify(await companyProfileIds(db, 'subco')) === '["crew-1","crew-2"]', 'companyProfileIds: the caller\'s company\'s people')

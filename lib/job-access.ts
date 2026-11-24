@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan, type ActorPerms } from './server-permissions'
-import { ownsProject } from './project-access'
 import { billingLock } from './api-guard'
 import type { Action } from './permissions'
 
@@ -35,50 +34,12 @@ import type { Action } from './permissions'
 // probing ids learns nothing about which ones exist.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type JobSide = 'gc' | 'sub' | 'member'
+// `jobSide` lives in ./job-side so `requirePermission` can ask it too, without
+// an import cycle. Re-exported: this is where every caller already imports it.
+export { jobSide, type JobSide } from './job-side'
+import { jobSide, type JobSide } from './job-side'
 
 type Db = Pick<SupabaseClient, 'from'>
-
-const NOT_FOUND = () => NextResponse.json({ error: 'Project not found' }, { status: 404 })
-
-const fold = (v: unknown): string => String(v ?? '').trim().toLowerCase()
-const escapeLike = (v: string): string => v.replace(/[\\%_]/g, m => `\\${m}`)
-
-export async function jobSide(
-  db: Db,
-  actor: Pick<ActorPerms, 'userId' | 'companyId'>,
-  projectId: string,
-): Promise<{ side: JobSide } | { denied: NextResponse }> {
-  const { data: project, error } = await db
-    .from('projects').select('id, gc_company_id, created_by_company_id').eq('id', projectId).maybeSingle()
-  if (error) {
-    console.error('[job-access] project read failed', { projectId, error: error.message })
-    return { denied: NextResponse.json({ error: 'Could not load this job. Try again.' }, { status: 500 }) }
-  }
-  if (!project) return { denied: NOT_FOUND() }
-
-  if (ownsProject(actor.companyId, project as any)) return { side: 'gc' }
-
-  if (actor.companyId) {
-    const { data: subs } = await db
-      .from('subcontracts').select('id').eq('project_id', projectId).eq('company_id', actor.companyId).limit(1)
-    if (subs?.length) return { side: 'sub' }
-  }
-
-  const { data: byProfile } = await db
-    .from('project_team_members').select('id').eq('project_id', projectId).eq('profile_id', actor.userId).limit(1)
-  if (byProfile?.length) return { side: 'member' }
-
-  const { data: me } = await db.from('profiles').select('email').eq('id', actor.userId).maybeSingle()
-  const email = fold((me as any)?.email)
-  if (email) {
-    const { data: byEmail } = await db
-      .from('project_team_members').select('id, email').eq('project_id', projectId).ilike('email', escapeLike(email))
-    if (((byEmail ?? []) as { email?: string | null }[]).some(r => fold(r.email) === email)) return { side: 'member' }
-  }
-
-  return { denied: NOT_FOUND() }
-}
 
 export type JobGate = { actor: ActorPerms; side: JobSide } | { denied: NextResponse }
 

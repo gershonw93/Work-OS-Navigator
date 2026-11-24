@@ -7,6 +7,8 @@ import type { Action } from '@/lib/permissions'
 import { ownsProject } from '@/lib/project-access'
 import { readBilling } from '@/lib/billing-read'
 import { billingAccess } from '@/lib/billing-state'
+import { jobSide, type JobSide } from '@/lib/job-side'
+import { projectIdFromUrl, subLaneAllows, SUB_LANE_REFUSAL } from '@/lib/sub-scope'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // "Are you allowed to do this?" - asked once, in one place.
@@ -24,16 +26,20 @@ import { billingAccess } from '@/lib/billing-state'
 //   const gate = await requirePermission(db, request, 'budget', 'edit')
 //   if ('denied' in gate) return gate.denied
 //
-// WHAT THIS DELIBERATELY DOES NOT DO: check that the caller's company owns the
-// project. Subcontractors legitimately write to jobs they do not own - they
+// WHAT THIS DELIBERATELY DOES NOT DO: demand that the caller's company OWNS
+// the project. Subcontractors legitimately write to jobs they do not own - they
 // submit bills, file daily logs, clock in - which is exactly why
 // `ownsProject` exists as a separate question rather than a blanket rule.
-// Getting that right means deciding, per route, which writes a sub may make.
-// Bolting on a company check here would close a smaller hole by breaking every
-// sub in the product, so it is its own piece of work.
+//
+// What it DOES do, for a URL under /api/projects/<id>/, is ask whether the
+// caller is ON that job at all (`jobSide`), and keep a sub to the lane the
+// menu has always shown them (lib/sub-scope.ts). That was the "own piece of
+// work" this comment used to defer, and deferring it left every money route
+// open to every company holding the permission - see the block at the end.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type Gate = { actor: ActorPerms } | { denied: NextResponse }
+/** `side` is set when the URL named a project: which side of it the caller is on. */
+export type Gate = { actor: ActorPerms; side?: JobSide } | { denied: NextResponse }
 
 /**
  * The actions that change something. A locked account may still be READ.
@@ -87,6 +93,15 @@ export async function requirePermission(
   request: Request,
   resource: string,
   action: Action = 'edit',
+  opts: {
+    /**
+     * A sub may pass on this resource because THE ROUTE checks the record is
+     * theirs (a subcontract their company holds on this job). Never set it on
+     * a route that does not: it is the whole of what stands between a sub and
+     * the GC's version of that screen.
+     */
+    subOwnRecord?: boolean
+  } = {},
 ): Promise<Gate> {
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
   if (!token) {
@@ -123,6 +138,36 @@ export async function requirePermission(
   if (WRITE_ACTIONS.includes(action)) {
     const locked = await billingLock(db, actor.companyId)
     if (locked) return { denied: locked }
+  }
+
+  // ── and is this person ON the job the URL names? ─────────────────────────
+  //
+  // The permission says "may this person edit budgets"; it never said WHOSE.
+  // So every route under /api/projects/<id>/ that asked only this function -
+  // the budget, the bills, the payments, the pay apps, the quote comparisons,
+  // about a hundred handlers - answered any company holding the permission for
+  // any job id. Every GC's admin holds all of them, and so does a sub's own
+  // admin: one PATCH recorded a payment on somebody else's job and pushed it
+  // into their QuickBooks.
+  //
+  // HERE, for the same reason the billing lock is here: it is the one door all
+  // of those routes already share, and a line in each is how the
+  // hundred-and-first gets missed. Read off the PATH (`projectIdFromUrl`), so
+  // nothing in the body can aim it at a different job.
+  //
+  //   stranger          404, in the words a missing job gets
+  //   gc                through (assigned-only crew: only to their own jobs)
+  //   sub / member      only the lane in lib/sub-scope.ts - else 403, because
+  //                     they can see the job. A route that checks the RECORD
+  //                     is theirs (a sub's own bill) opts in with subOwnRecord.
+  const projectId = projectIdFromUrl(request.url)
+  if (projectId) {
+    const on = await jobSide(db, actor, projectId)
+    if ('denied' in on) return { denied: on.denied }
+    if (on.side !== 'gc' && !opts.subOwnRecord && !subLaneAllows(resource, action)) {
+      return { denied: NextResponse.json({ error: SUB_LANE_REFUSAL }, { status: 403 }) }
+    }
+    return { actor, side: on.side }
   }
 
   return { actor }

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { SUB_AWARDED_TABS } from '@/lib/sub-scope'
 import { useState, useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
 import { usePermissions } from '@/lib/use-permissions'
@@ -121,7 +122,10 @@ export function projectTabLabel(slug: string): string | null {
 // When a subcontractor opens a GC-owned project they were awarded, restrict to
 // their own lane (plans/schedule to do the work + their field items) - never the
 // GC's private money/people tabs.
-const SUB_AWARDED_ALLOWED = new Set(['plans', 'schedule', 'tasks', 'progress', 'daily-logs', 'time', 'rfis', 'compliance'])
+// ONE LIST with the server (lib/sub-scope.ts): every route under
+// /api/projects/<id>/ refuses a sub anything outside it, so the menu and the
+// routes cannot disagree about what a sub may open.
+const SUB_AWARDED_ALLOWED = new Set<string>(SUB_AWARDED_TABS)
 // On a sub's OWN job they get the full set except: submittals (a sub→GC
 // artifact) and the buying-out tab (their own quote lives on "Estimate").
 // 'bids' and 'quotes' stay listed because both are still reachable URLs that

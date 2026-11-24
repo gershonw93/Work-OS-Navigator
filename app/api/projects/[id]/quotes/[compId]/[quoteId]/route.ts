@@ -21,6 +21,13 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // THE COMPARISON HAS TO BE ON THIS JOB. The gate above is about the project
+  // in the URL; the comparison id beside it was never compared with it, so a
+  // GC naming their own job could write into another company's comparison.
+  const { data: onJob } = await db
+    .from('quote_comparisons').select('id').eq('id', params.compId).eq('project_id', params.id).maybeSingle()
+  if (!onJob) return NextResponse.json({ error: 'Comparison not found' }, { status: 404 })
+
   const { error } = await db.from('quotes').delete().eq('id', params.quoteId).eq('comparison_id', params.compId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

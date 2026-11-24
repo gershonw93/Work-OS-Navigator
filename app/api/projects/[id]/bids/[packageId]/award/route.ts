@@ -30,6 +30,15 @@ export async function POST(
   const { bid_id } = await request.json()
   if (!bid_id) return NextResponse.json({ error: 'bid_id is required' }, { status: 400 })
 
+  // THE PACKAGE HAS TO BE ON THIS JOB. The ownership check above is about the
+  // project in the URL; the package id beside it was never compared with it,
+  // so a GC naming their own job and somebody else's package awarded that
+  // package's bid, REJECTED every other bidder on it, and opened a subcontract
+  // for the winner on the wrong job. Asked before anything is written.
+  const { data: pkg } = await db
+    .from('bid_packages').select('id').eq('id', params.packageId).eq('project_id', params.id).maybeSingle()
+  if (!pkg) return NextResponse.json({ error: 'Bid package not found' }, { status: 404 })
+
   const { data: bid, error: bidError } = await db
     .from('bids')
     .select('*, bid_packages(scope, trade)')

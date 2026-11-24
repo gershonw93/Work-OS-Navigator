@@ -45,8 +45,21 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const { invitees } = await request.json() as { invitees: { company_id?: string | null; name?: string; email?: string }[] }
   if (!invitees?.length) return NextResponse.json({ error: 'No invitees' }, { status: 400 })
 
-  const wanted = invitees.filter(v => (v.name || v.email))
-  if (!wanted.length) return NextResponse.json({ error: 'Each invitee needs a name or email' }, { status: 400 })
+  const named = invitees.filter(v => (v.name || v.email))
+  if (!named.length) return NextResponse.json({ error: 'Each invitee needs a name or email' }, { status: 400 })
+
+  // A COMPANY ID FROM THE BODY IS A CLAIM. It is stored on the invite, copied
+  // onto the quote, and the award treats it as the strongest answer to "which
+  // company won" - so an unchecked id could hang the job on any company on the
+  // platform. Only a row in THIS GC's Directory (`added_by_company_id`) keeps
+  // its id; anything else is invited by the name and address typed, which is
+  // how a sub not in the Directory has always been invited.
+  const claimed = Array.from(new Set(named.map(v => v.company_id).filter(Boolean) as string[]))
+  const { data: mine } = claimed.length && gate.actor.companyId
+    ? await db.from('companies').select('id').in('id', claimed).eq('added_by_company_id', gate.actor.companyId)
+    : { data: [] as { id: string }[] }
+  const inDirectory = new Set(((mine ?? []) as { id: string }[]).map(c => c.id))
+  const wanted = named.map(v => (v.company_id && !inDirectory.has(v.company_id) ? { ...v, company_id: null } : v))
 
   // ── Already on this request? ────────────────────────────────────────────
   //

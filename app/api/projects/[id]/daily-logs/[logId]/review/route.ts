@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { logActivity } from '@/lib/log-activity'
 import { getActor, actorCan } from '@/lib/server-permissions'
-import { billingLock } from '@/lib/api-guard'
+import { billingLock, ownedProject } from '@/lib/api-guard'
 
 export const runtime = 'nodejs'
 
@@ -31,6 +31,13 @@ export async function PATCH(
   if (!actorCan(actor, 'daily-logs', 'edit')) {
     return NextResponse.json({ error: 'You do not have permission to review logs.' }, { status: 403 })
   }
+
+  // REVIEWING IS THE GC'S ACT, ON THE GC'S JOB. This gated by hand and asked
+  // only the permission, so anybody holding `daily-logs: edit` anywhere - any
+  // GC's admin, a sub's own admin - could stamp any job's log as reviewed by
+  // them. A sub files a log; the company that owns the job signs it off.
+  const owned = await ownedProject(db, actor, params.id, 'id')
+  if ('denied' in owned) return owned.denied
 
   const body = await request.json().catch(() => ({}))
   const reviewed = body.reviewed !== false

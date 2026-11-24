@@ -16,7 +16,10 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string; subId: string } }
 ) {
-  const gate = await requirePermission(admin(), request, 'team', 'edit')
+  // A sub bills their OWN subcontract from My Jobs, so this opts in to the sub
+  // side (`subOwnRecord`) and checks the record below. Without that check any
+  // sub on the job could raise a bill against another sub's contract.
+  const gate = await requirePermission(admin(), request, 'team', 'edit', { subOwnRecord: true })
   if (denied(gate)) return gate.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
@@ -36,6 +39,9 @@ export async function POST(
     .single()
 
   if (!sub) return NextResponse.json({ error: 'Subcontract not found' }, { status: 404 })
+  if (gate.side !== 'gc' && sub.company_id !== gate.actor.companyId) {
+    return NextResponse.json({ error: 'Subcontract not found' }, { status: 404 })
+  }
 
   // Count existing invoices for numbering
   const { count } = await db
