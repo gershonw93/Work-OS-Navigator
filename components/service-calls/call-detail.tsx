@@ -222,7 +222,7 @@ export function CallDetail({ callId, narrow = false }: {
         )}
       </div>
 
-      <div className={cn('grid gap-5', !narrow && 'lg:grid-cols-[minmax(0,1fr)_360px]')}>
+      <div className={cn('grid gap-5', !narrow && 'lg:grid-cols-[minmax(0,1fr)_400px]')}>
         {/* LEFT: the job itself. */}
         <div className="space-y-5 min-w-0">
           <div className={cn(card, 'divide-y divide-line-soft')}>
@@ -379,13 +379,13 @@ export function CallDetail({ callId, narrow = false }: {
         </div>
       </div>
 
-      {closing && <CloseOut onCancel={() => setClosing(false)} onDone={async notesText => { if (await move('done', notesText)) setClosing(false) }} busy={busy === 'done'} />}
+      {closing && <CloseOut untimed={d.time.length === 0} onCancel={() => setClosing(false)} onDone={async notesText => { if (await move('done', notesText)) setClosing(false) }} busy={busy === 'done'} />}
     </div>
   )
 }
 
 /** Done collects what was done. Asked of `callProblem`, the route's own rule. */
-function CloseOut({ onCancel, onDone, busy }: { onCancel: () => void; onDone: (notes: string) => void; busy: boolean }) {
+function CloseOut({ onCancel, onDone, busy, untimed }: { onCancel: () => void; onDone: (notes: string) => void; busy: boolean; untimed: boolean }) {
   const [text, setText] = useState('')
   const [problem, setProblem] = useState('')
   return (
@@ -396,6 +396,14 @@ function CloseOut({ onCancel, onDone, busy }: { onCancel: () => void; onDone: (n
           <button type="button" onClick={onCancel} aria-label="Close" title="Close" className="text-faint hover:text-ink p-1"><X className="h-5 w-5" /></button>
         </div>
         <div className="px-6 py-4 space-y-2">
+          {/* SAID, NOT REFUSED. The office closes calls for a tech who forgot to
+              clock in, and a call that cannot close is stuck open - so a call
+              with no time on it may close, but not without the reader knowing. */}
+          {untimed && (
+            <p className="rounded-lg border border-warn/30 bg-warn-tint px-3 py-2 text-sm text-warn">
+              Nobody clocked in on this call, so it will close with no time on site.
+            </p>
+          )}
           <Label htmlFor="co-notes">What was done? *</Label>
           <textarea id="co-notes" value={text} onChange={e => setText(e.target.value)} rows={4}
             className="w-full rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink" placeholder="Replaced the run capacitor, tested cooling - holding 72F" />
