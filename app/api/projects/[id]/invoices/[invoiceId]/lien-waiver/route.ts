@@ -12,7 +12,10 @@ export async function POST(
   request: Request,
   { params }: { params: { id: string; invoiceId: string } },
 ) {
-  const gate = await requirePermission(admin(), request, 'invoices', 'edit')
+  // A sub uploads the waiver for THEIR OWN bill from My Jobs, so this opts in
+  // to the sub side (`subOwnRecord`) and then checks the record below: on a job
+  // the caller does not own, the bill has to be their company's.
+  const gate = await requirePermission(admin(), request, 'invoices', 'edit', { subOwnRecord: true })
   if (denied(gate)) return gate.denied
 
   const token = request.headers.get('Authorization')?.replace('Bearer ', '')
@@ -37,15 +40,28 @@ export async function POST(
     return NextResponse.json({ error: 'waiver_type must be conditional or unconditional' }, { status: 400 })
   }
 
-  // Verify invoice exists and belongs to this project
+  // Verify invoice exists and belongs to this project. The comment always
+  // said so and the query never asked: any bill id on the platform was
+  // accepted, under whatever job the URL named.
   const { data: invoice, error: fetchError } = await db
     .from('invoices')
-    .select('id, invoice_number')
+    .select('id, invoice_number, company_id, subcontracts ( company_id )')
     .eq('id', params.invoiceId)
-    .single()
+    .eq('project_id', params.id)
+    .maybeSingle()
 
   if (fetchError || !invoice) {
     return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+  }
+
+  // ...and on somebody else's job, it is the caller's OWN bill. The company is
+  // read off the subcontract the bill is against - the record of who holds
+  // the work - and only then off the bill itself.
+  if (gate.side !== 'gc') {
+    const holder = (invoice as any).subcontracts?.company_id ?? (invoice as any).company_id ?? null
+    if (!holder || holder !== gate.actor.companyId) {
+      return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+    }
   }
 
   // Build safe storage path

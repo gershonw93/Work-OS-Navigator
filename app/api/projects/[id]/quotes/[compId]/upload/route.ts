@@ -53,6 +53,13 @@ export async function POST(request: Request, { params }: { params: { id: string;
   const { data: { user } } = await db.auth.getUser(token)
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  // THE COMPARISON HAS TO BE ON THIS JOB. The gate above is about the project
+  // in the URL; the comparison id beside it was never compared with it, so a
+  // GC naming their own job could write into another company's comparison.
+  const { data: onJob } = await db
+    .from('quote_comparisons').select('id').eq('id', params.compId).eq('project_id', params.id).maybeSingle()
+  if (!onJob) return NextResponse.json({ error: 'Comparison not found' }, { status: 404 })
+
   const formData = await request.formData()
   const file = formData.get('file') as File | null
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })

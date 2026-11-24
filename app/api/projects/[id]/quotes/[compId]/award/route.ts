@@ -6,6 +6,7 @@ import { notify } from '@/lib/notify'
 import { awardEmail, sendEmail, reachableEmail } from '@/lib/email'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { escapeLike } from '@/lib/personal-access'
+import { contactBackfill } from '@/lib/award-vendor'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,7 +65,7 @@ export async function POST(request: Request, { params }: { params: { id: string;
   // are wildcards to ilike.
   const { data: existing } = await db
     .from('companies')
-    .select('id')
+    .select('id, contact_name, contact_email, phone')
     .in('type', ['subcontractor', 'supplier'])
     .eq('added_by_company_id', myCompanyId)
     .ilike('name', escapeLike(vendorName))
@@ -74,20 +75,30 @@ export async function POST(request: Request, { params }: { params: { id: string;
   // not a name - so a quote pulled from a bid request carries it and wins.
   // Quotes uploaded by hand have none and fall back to the Directory match.
   const invitedId = typeof quote.data?.vendor_company_id === 'string' ? quote.data.vendor_company_id : null
-  const { data: invited } = invitedId
-    ? await db.from('companies').select('id').eq('id', invitedId).in('type', ['subcontractor', 'supplier']).maybeSingle()
+  // AND IT IS STILL ONLY A KEY INTO *THIS* GC'S DIRECTORY. The id rides on the
+  // bid invite, which took it from the request body, so on its own it is a
+  // claim: unchecked, it attached the job (and the award notification) to any
+  // company on the platform - another GC's Directory row, or a sub's own
+  // company - which is exactly what the name match below is fenced against.
+  // Same fence, same column.
+  const { data: invited } = invitedId && myCompanyId
+    ? await db.from('companies').select('id').eq('id', invitedId)
+        .in('type', ['subcontractor', 'supplier'])
+        .eq('added_by_company_id', myCompanyId)
+        .maybeSingle()
     : { data: null }
   if (invited) {
     companyId = invited.id
   } else if (existing) {
     companyId = existing.id
     // Backfill contact details from the quote. Only ever onto a row in THIS
-    // company's Directory (the lookup above), never onto another company's.
-    const backfill: Record<string, any> = {}
-    if (contact.name) backfill.contact_name = contact.name
-    if (contact.email) backfill.contact_email = contact.email
-    if (contact.phone) backfill.phone = contact.phone
-    if (Object.keys(backfill).length) await db.from('companies').update(backfill).eq('id', existing.id)
+    // company's Directory (the lookup above), never onto another company's -
+    // and only into a field that is EMPTY (`contactBackfill`): what the GC
+    // typed is theirs, a quote does not get to replace it.
+    const backfill = contactBackfill(existing as any, contact)
+    if (Object.keys(backfill).length) {
+      await db.from('companies').update(backfill).eq('id', existing.id).eq('added_by_company_id', myCompanyId)
+    }
   } else {
     const { data: created, error: cErr } = await db
       .from('companies')

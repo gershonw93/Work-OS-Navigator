@@ -7,6 +7,26 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 
 ---
 
+## 🧰 Sub company login + dispatch (spec of 24 Nov 2026) - WAITING ON DECISION 0
+
+The security prerequisites shipped first (`lib/__tests__/job-lane.ts`). The rest
+waits on the owner approving the link model in `docs/sub-company-plan.md`:
+one real company per sub, each GC's Directory row linked to it
+(`companies.linked_company_id`), the invite LINKING rather than moving anybody.
+Then, in order: invite accept rewritten (spec 1), one reader for "my
+subcontracts" across the twelve places that ask (spec 1/2), service calls
+(spec 3), the dispatch board (spec 4), crew field mode for calls (spec 5).
+
+Still open from the security pass:
+- **Child ids under a job are not all fenced to the job.** The gate now pins
+  the PROJECT in the URL to the caller; a handler that then takes a line, a
+  comparison or a bill id still has to filter that row by `project_id`. The
+  quote, bid-award and lien-waiver routes were fixed; budget lines and payments
+  were checked and are fine; the other ~90 handlers are not audited one by one.
+- **Assigned-only crew can still reach a job by a team row typed with their
+  address in ANOTHER company** - they land on the `member` side, which the sub
+  lane then narrows. Correct, but worth a look once dispatch defines crew.
+
 ## 🔐 The rest of the /api surface is un-audited
 
 **The portal-token family is done (#450)** - `client-portal` as its own
