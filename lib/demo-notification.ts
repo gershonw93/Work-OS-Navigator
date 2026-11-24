@@ -60,7 +60,7 @@ export function demoNotification(type: string, today: string): DemoNotification 
     case 'service_call_assigned':
       return {
         title: 'Service call SC-0042 assigned to you',
-        message: `No cooling at 14 Harbor View Rd - ${inDays(1)}, 9:00 am. Customer: Dana Whitfield.`,
+        message: 'No cooling at 14 Harbor View Rd. Customer: Dana Whitfield. Open it for the time.',
         link: '/field/calls',
       }
     case 'task_updated':
