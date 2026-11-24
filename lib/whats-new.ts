@@ -66,6 +66,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-24',
+    title: 'One account for a sub, however many contractors they work for',
+    items: [
+      {
+        kind: 'new',
+        title: 'Subs connect their own company to every contractor they work for',
+        text: 'A sub now has one SyteNav account of their own. When a contractor invites them from the Directory, the contractor\'s entry connects to that account, so a second contractor\'s invite works too and every job shows up together under My Jobs. A sub who already has an account gets a Connect card when they sign in, and connecting is their choice. Each contractor sees only the work done on their own jobs, never the sub\'s other customers. A sub who signed up through an invite can choose Run your own jobs on My Jobs to add customers and jobs of their own.',
+        help: 'sub-job-view',
+      },
+    ],
+  },
+  {
     date: '2026-11-19',
     title: 'SyteNav is on the App Store',
     items: [

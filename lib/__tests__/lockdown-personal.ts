@@ -53,13 +53,13 @@ ok(/\.eq\('user_id', userId\)/.test(pushTest) && /pushToPhones\(db, \[user\.id\]
 const jobs = code('app/api/my-jobs/route.ts')
 ok(/if \(!profile\?\.company_id\) return NextResponse\.json\(\{ awarded: \[\], own: \[\] \}\)/.test(jobs),
   'my-jobs: no company, no jobs')
-ok(/from\('subcontracts'\)[\s\S]{0,120}\.eq\('company_id', profile\.company_id\)/.test(jobs) &&
+ok(/vendorCompanyIds\(db, profile\.company_id\)/.test(jobs) && /from\('subcontracts'\)[\s\S]{0,120}\.in\('company_id', mine\)/.test(jobs) &&
    /\.eq\('created_by_company_id', profile\.company_id\)/.test(jobs),
   '...awarded and own are both the caller\'s company\'s')
 
 // ── my-jobs/[projectId] GET ─────────────────────────────────────────────────
 const job = code('app/api/my-jobs/[projectId]/route.ts')
-ok(/\.eq\('project_id', params\.projectId\)\.eq\('company_id', companyId\)/.test(job),
+ok(/\.eq\('project_id', params\.projectId\)\.in\('company_id', mine\)/.test(job),
   'my-jobs/[id]: the subcontracts read is this company\'s on this job')
 ok(/if \(!hasSubcontract\) \{[\s\S]{0,300}\.eq\('created_by_company_id', companyId\)[\s\S]{0,80}if \(!ownership\) return notFound\(\)/.test(job),
   '...and with none, only the company that created the job gets in')
@@ -68,13 +68,13 @@ ok(!/Access denied/.test(job) && !/Project not found \(/.test(job),
 const gateAt = job.indexOf('if (!ownership) return notFound()')
 ok(gateAt > 0 && gateAt < job.indexOf("from('rfis')") && gateAt < job.indexOf("from('schedule_items')"),
   '...and asked before a single job record is read')
-ok(/from\('invoices'\)[\s\S]{0,120}\.eq\('company_id', companyId\)/.test(job), '...and only their own bills on it')
+ok(/from\('invoices'\)[\s\S]{0,120}\.in\('company_id', mine\)/.test(job) && /vendorCompanyIds\(db, companyId\)/.test(job), '...and only their own bills on it')
 
 // ── my-jobs/[projectId]/schedule/[itemId]/delay POST ────────────────────────
 const delay = code('app/api/my-jobs/[projectId]/schedule/[itemId]/delay/route.ts')
 ok(/\.eq\('id', params\.itemId\)\s*\.eq\('project_id', params\.projectId\)/.test(delay),
   'delay: the line has to be on the job in the URL')
-ok(/subcontracts\?\.company_id !== profile\.company_id/.test(delay), '...and on the caller\'s own subcontract')
+ok(/!holdsSubcontract\(mine, \(line as any\)\.subcontracts\?\.company_id\)/.test(delay), '...and on the caller\'s own subcontract')
 ok(delay.indexOf('subcontracts?.company_id !== profile.company_id') < delay.indexOf("from('schedule_delay_reports')"),
   '...asked before any report is deleted or written')
 
@@ -194,9 +194,12 @@ const fakeDb = (fail = false) => ({
   ok(inviteMove({ company_id: 'B' }, { company_id: 'B' }) === 'join', 'already in the inviting company: stays')
   ok(inviteMove({ company_id: 'A' }, { company_id: 'B' }) === 'blocked', 'in ANOTHER company: never moved')
   const acceptRoute = code('app/api/invite/accept/route.ts')
-  const block = acceptRoute.indexOf("inviteMove(existing, invite) === 'blocked'")
-  ok(block > 0 && block < acceptRoute.indexOf(".from('profiles').update(") && block < acceptRoute.indexOf(".from('profiles').upsert(")
-    && block < acceptRoute.indexOf("linkTeamRows(") && block < acceptRoute.indexOf("update({ status: 'accepted' })"),
+  // The TEAM branch (a vendor invite never moves anybody - lib/vendor-link.ts).
+  const teamAt = acceptRoute.indexOf('if (team) {')
+  const teamBranch = acceptRoute.slice(teamAt, acceptRoute.indexOf('const vendor = pending.find(p => p.vendor)', teamAt))
+  const block = teamBranch.indexOf("inviteMove(existing, invite) === 'blocked'")
+  ok(teamAt > 0 && block > 0 && block < teamBranch.indexOf(".from('profiles').update(") && block < teamBranch.indexOf(".from('profiles').upsert(")
+    && block < teamBranch.indexOf("linkTeamRows(") && block < teamBranch.indexOf("markAnswered("),
     'invite/accept refuses the move BEFORE it writes the profile, claims team rows or marks the invite accepted')
   done()
 })()

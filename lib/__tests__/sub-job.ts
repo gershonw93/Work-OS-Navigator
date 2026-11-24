@@ -22,7 +22,7 @@ ok(/schedule_delay_reports/.test(jobRoute) && /\.eq\('company_id', companyId\)/.
 
 // ── a delay is a REPORT, and only on their own line ─────────────────────────
 const delay = code('app/api/my-jobs/[projectId]/schedule/[itemId]/delay/route.ts')
-ok(/subcontracts\?\.company_id !== profile\.company_id/.test(delay), 'THE DELAY: refused on a line whose subcontract is not theirs')
+ok(/vendorCompanyIds\(db, profile\.company_id\)/.test(delay) && /!holdsSubcontract\(mine, \(line as any\)\.subcontracts\?\.company_id\)/.test(delay), 'THE DELAY: refused on a line whose subcontract is not theirs')
 ok(/missingDelay\(/.test(delay), '...asked the same rule the GC\'s delay dialog asks')
 ok(!/from\('schedule_items'\)\s*\.update/.test(delay) && !/start_date:/.test(delay), '...and it moves NOTHING - the GC decides')
 ok(/type: 'schedule_delay_reported'/.test(delay), '...it tells the GC')
@@ -43,7 +43,7 @@ ok(/days BETWEEN 1 AND 365/.test(migration) && /length\(btrim\(reason\)\) >= 4/.
 
 // ── bills: their own subcontract, their own name ────────────────────────────
 const bills = (code('app/api/projects/[id]/invoices/route.ts') + code('lib/writes/sub-bill.ts'))
-ok(/\.eq\('company_id', actor\.companyId\)/.test(bills) && /company_id = sc\.company_id/.test(bills),
+ok(/vendorCompanyIds\(db, actor\.companyId\)/.test(bills) && /\.in\('company_id', mine\)/.test(bills) && /company_id = sc\.company_id/.test(bills),
   'THE BILL: a sub may bill only against their own subcontract, and the company comes off it, not the body')
 
 // ── Files: every job's paperwork, behind each tab's own permission ──────────

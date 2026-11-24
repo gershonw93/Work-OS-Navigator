@@ -357,3 +357,56 @@ The PATCH handler ended `NextResponse.json({ error: error.message })` - a raw
 Postgres sentence on its way to a screen, which is a named rule in the working
 agreement. One line, in a file already being changed, and now `friendlyDbError`
 with the raw text kept in the log.
+
+## A sub was a guest in somebody else's address book
+
+Reported as a spec, 24 Nov 2026: "an invite breaks the sub's own company". All
+three symptoms were true on the live database. A vendor invite pointed
+`company_invites.company_id` at the GC's OWN Directory row for that vendor, and
+`invite/accept` put the person's profile into it. So a sub who had signed up as
+his own business could never accept (`inviteMove` refused, the invite sat
+pending - 1 live), a sub invited first landed read-only inside the GC's row (2
+live), and a second GC's invite was always refused because he already belonged
+to the first. The numbers said the rest: 21 subs had signed up as their own
+company and one of them held a subcontract; all 58 subcontracts in the product
+hung off GC Directory rows with 2 people between them. The two halves of a sub's
+life had never met.
+
+### A link, not a move
+
+Migration 169: the Directory row stays the GC's record of the vendor and points
+at the sub's own company (`companies.linked_company_id`, one per GC per company
+by unique index). Nobody's profile moves to make a link, and nothing links on a
+matching name or address. `lib/vendor-link.ts` is the plan, pure and tested case
+by case; `lib/vendor-link-db.ts` does the writes, the link itself one conditional
+UPDATE on `linked_company_id IS NULL`.
+
+### Consent, because accept runs on every password reset
+
+The set-password page calls `invite/accept`, and so does every password reset.
+For a brand-new person, setting a password from the invite email is the yes: he
+gets a company of his own. For somebody who already runs a company, a reset must
+never link it - so his answer is a Connect card (`VendorInviteCard`), and the
+email he gets carries no credential at all (`vendorConnectEmail`), because
+Supabase refuses to mint an invite link for an address it already has. That
+refusal is also why he used to get nothing.
+
+### Twelve places asked one question
+
+"Does a subcontract on this job carry MY company" was written a dozen times as
+`.eq('company_id', actor.companyId)` - job access, RFIs, compliance, the
+calendar, My Jobs, the bill fallback, approvals, the dashboard, the Directory -
+plus seven notifications that found "everybody at the sub" by the same equality.
+Each would have gone on answering for the GC's row only. `lib/sub-companies.ts`
+is the one reader, a failed read is null rather than a shorter list, and
+`vendor-link.ts` scans app/ and lib/ for a subcontracts query filtered on the
+caller's company alone.
+
+### And the wrapper the first security pass missed
+
+#713 put the sub lane into `requirePermission` and tested `requirePermission`.
+`complianceAccess` CALLS it with `projects: view`, which the lane refuses, so a
+sub's My Jobs -> Compliance answered 403 on every GC job for the day between the
+two changes. A gate wrapped round another gate inherits its rules, and a test of
+the inner one cannot see that. The wrapper opts in (`subOwnRecord`) because it
+does its own record check, and `job-lane.ts` now asks the wrapper itself.

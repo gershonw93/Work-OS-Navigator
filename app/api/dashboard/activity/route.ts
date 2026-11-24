@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds } from '@/lib/sub-companies'
 import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
@@ -37,8 +38,10 @@ export async function GET(request: Request) {
   // GCs: all company projects
   let projectIds: string[] = []
   if (companyType === 'subcontractor') {
+    const mine = await vendorCompanyIds(db, companyId)
+    if (mine === null) return NextResponse.json({ error: 'Could not load this just now. Try again.' }, { status: 500 })
     const [subsRes, ownRes] = await Promise.all([
-      db.from('subcontracts').select('project_id').eq('company_id', companyId),
+      db.from('subcontracts').select('project_id').in('company_id', mine),
       db.from('projects').select('id').or(`gc_company_id.eq.${companyId},created_by_company_id.eq.${companyId}`),
     ])
     const subProjectIds = (subsRes.data ?? []).map((s: any) => s.project_id)

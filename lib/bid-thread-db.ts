@@ -5,6 +5,7 @@
 // the two sides cannot store or tell people differently.
 
 import { audienceFor } from './notification-audience'
+import { vendorProfileIds } from '@/lib/sub-companies'
 import { notify } from './notify'
 import type { BidMessage } from './bid-thread'
 
@@ -91,8 +92,8 @@ export async function postMessage(input: PostInput): Promise<{ message: BidMessa
     // account of its own.
     const ids = new Set<string>()
     if (invite.vendor_company_id) {
-      const { data: people } = await db.from('profiles').select('id').eq('company_id', invite.vendor_company_id)
-      for (const p of people ?? []) ids.add(p.id)
+      // Across the Directory link too (lib/sub-companies.ts).
+      for (const id of await vendorProfileIds(db, invite.vendor_company_id)) ids.add(id)
     }
     if (invite.vendor_email) {
       // ilike for case, with its wildcards escaped: `_` is common in an

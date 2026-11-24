@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds } from '@/lib/sub-companies'
 import { rfiSide } from '@/lib/rfi-access'
 import { actorCan } from '@/lib/server-permissions'
 import { billingLock } from '@/lib/api-guard'
@@ -21,7 +22,14 @@ export async function GET(request: Request, { params }: { params: { id: string }
 
   let q = db.from('rfis').select('*').eq('project_id', params.id)
   // A sub reads the questions its own company asked, not every trade's.
-  if (who.side === 'sub') q = q.eq('company_id', who.actor.companyId)
+  // Every company id that is this sub's (lib/sub-companies.ts): a question
+  // asked while they were a guest in the GC's Directory row stays theirs once
+  // they run their own company.
+  if (who.side === 'sub') {
+    const mine = await vendorCompanyIds(db, who.actor.companyId)
+    if (mine === null) return NextResponse.json({ error: 'Could not load the RFIs. Try again.' }, { status: 500 })
+    q = q.in('company_id', mine)
+  }
   const { data: rfis, error } = await q.order('created_at', { ascending: false })
 
   if (error) {

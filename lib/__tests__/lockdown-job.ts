@@ -27,6 +27,7 @@ function fakeDb(tables: Rows, fail: string[] = []) {
       const q: any = {
         select: () => q,
         eq: (col: string, val: unknown) => { rows = rows.filter(r => r[col] === val); return q },
+        in: (col: string, vals: unknown[]) => { rows = rows.filter(r => vals.includes(r[col])); return q },
         ilike: (col: string, pat: string) => {
           const want = pat.replace(/\\(.)/g, '$1').toLowerCase()
           rows = rows.filter(r => String(r[col] ?? '').toLowerCase() === want); return q
@@ -46,7 +47,8 @@ function fakeDb(tables: Rows, fail: string[] = []) {
 const P = 'proj-1'
 const world: Rows = {
   projects: [{ id: P, gc_company_id: 'gc', created_by_company_id: 'gc' }],
-  subcontracts: [{ id: 's1', project_id: P, company_id: 'subco' }],
+  subcontracts: [{ id: 's1', project_id: P, company_id: 'subco' }, { id: 's2', project_id: P, company_id: 'gc-row-pool' }],
+  companies: [{ id: 'gc-row-pool', linked_company_id: 'pool-own' }, { id: 'unlinked-co', linked_company_id: null }],
   project_team_members: [
     { id: 'm1', project_id: P, profile_id: 'linked-user', email: null },
     { id: 'm2', project_id: P, profile_id: null, email: 'Jay@Example.com' },
@@ -73,6 +75,8 @@ async function main() {
 
   ok(await side('u', 'gc') === 'gc', 'jobSide: the owning company is the gc side')
   ok(await side('u', 'subco') === 'sub', '...a company holding a subcontract on the job is the sub side')
+  ok(await side('u', 'pool-own') === 'sub', '...and so is the sub\'s OWN company, through the GC\'s Directory row that links to it (169)')
+  ok(await side('u', 'unlinked-co') === 404, '...but not a company no row links to, whatever its name')
   ok(await side('linked-user', 'elsewhere') === 'member', '...a team row carrying the person\'s profile_id is a member')
   ok(await side('jay', 'elsewhere') === 'member', '...and so is a team row typed with their address, whatever its capitals')
   ok(await side('stranger', 'nope') === 404, 'a stranger - on another job\'s team, not this one - is refused')

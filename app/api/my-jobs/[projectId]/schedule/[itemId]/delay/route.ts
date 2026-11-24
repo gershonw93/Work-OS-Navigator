@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds, holdsSubcontract } from '@/lib/sub-companies'
 import { missingDelay, delayDays } from '@/lib/schedule-delay'
 import { lineName } from '@/lib/schedule-dependencies'
 import { audienceFor } from '@/lib/notification-audience'
@@ -53,7 +54,11 @@ export async function POST(request: Request, { params }: { params: { projectId: 
     .eq('project_id', params.projectId)
     .maybeSingle()
   if (!line) return NextResponse.json({ error: 'That line is not on this job any more.' }, { status: 404 })
-  if ((line as any).subcontracts?.company_id !== profile.company_id) {
+  // Theirs if the line's subcontract is on any of this sub's company ids -
+  // the GC's Directory row for them, linked to their company (169).
+  const mine = await vendorCompanyIds(db, profile.company_id)
+  if (mine === null) return NextResponse.json({ error: 'Could not check that line just now. Try again.' }, { status: 500 })
+  if (!holdsSubcontract(mine, (line as any).subcontracts?.company_id)) {
     return NextResponse.json({ error: 'You can only report a delay on your own work.' }, { status: 403 })
   }
 

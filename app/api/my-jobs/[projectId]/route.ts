@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { taskIdsFor } from '@/lib/task-assignees'
+import { vendorCompanyIds } from '@/lib/sub-companies'
 
 const admin = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -19,10 +20,13 @@ export async function GET(request: Request, { params }: { params: { projectId: s
   if (!profile?.company_id) return NextResponse.json({ error: 'No company' }, { status: 400 })
 
   const companyId = profile.company_id
+  // Every company id that is this sub's on a GC's job (lib/sub-companies.ts).
+  const mine = await vendorCompanyIds(db, companyId)
+  if (mine === null) return NextResponse.json({ error: 'Could not load this job. Try again.' }, { status: 500 })
 
   const [{ data: project, error: projectError }, { data: subcontracts }] = await Promise.all([
     db.from('projects').select('id, name, address, type, status, start_date').eq('id', params.projectId).single(),
-    db.from('subcontracts').select('*').eq('project_id', params.projectId).eq('company_id', companyId).order('created_at', { ascending: true }),
+    db.from('subcontracts').select('*').eq('project_id', params.projectId).in('company_id', mine).order('created_at', { ascending: true }),
   ])
 
   // ONE ANSWER FOR "NO SUCH JOB" AND "NOT YOUR JOB". It was a 404 carrying
@@ -45,15 +49,19 @@ export async function GET(request: Request, { params }: { params: { projectId: s
   // WHICH TASKS ARE THIS SUB'S. Was `.eq('assigned_to_company_id', companyId)`
   // - the single-assignee column - so a task carrying this sub alongside
   // anybody else would have vanished from their own job page.
-  const myTaskIds = await taskIdsFor(db, { companyId })
+  const myTaskIds = await taskIdsFor(db, { companyIds: mine })
 
   const [{ data: tasks }, { data: rfis }, { data: inspections }, { data: invoices }, { data: dailyLogs }] = await Promise.all([
     myTaskIds && myTaskIds.length
       ? db.from('project_tasks').select('*').eq('project_id', params.projectId).in('id', myTaskIds).order('created_at', { ascending: false })
       : Promise.resolve({ data: [] }),
-    db.from('rfis').select('*').eq('project_id', params.projectId).order('created_at', { ascending: false }),
+    // THEIR questions, not every trade's: this listed every RFI on the job,
+    // while the RFI route itself has always kept a sub to their own.
+    hasSubcontract
+      ? db.from('rfis').select('*').eq('project_id', params.projectId).in('company_id', mine).order('created_at', { ascending: false })
+      : db.from('rfis').select('*').eq('project_id', params.projectId).order('created_at', { ascending: false }),
     db.from('inspections').select('*').eq('project_id', params.projectId).order('created_at', { ascending: false }),
-    db.from('invoices').select('*').eq('project_id', params.projectId).eq('company_id', companyId).order('created_at', { ascending: false }),
+    db.from('invoices').select('*').eq('project_id', params.projectId).in('company_id', mine).order('created_at', { ascending: false }),
     // `weather`, not `weather_condition` - the second column was a fossil with
     // four rows in it and is gone (114). An unknown column takes the WHOLE
     // query down in PostgREST and reads back as "there aren't any".

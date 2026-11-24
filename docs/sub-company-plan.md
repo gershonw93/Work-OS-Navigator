@@ -1,8 +1,11 @@
 # Sub company login + dispatch: decision 0 and the migration plan
 
-Status: **PROPOSED, waiting for the owner.** Nothing in this file has been
-applied. Section 6 of the spec (security prerequisites) shipped first, as the
-spec asked; this is the plan for everything after it.
+Status: **DECIDED AND SHIPPED (decision 0 and item 1), 2026-11-24.** The owner
+approved the link model, with one change of their own: a sub invited by a GC
+starts LIGHT and chooses "Run your own jobs" when he wants more
+(lib/sub-account.ts). Migration 169 is applied. Items 3-5 (service calls,
+dispatch, crew field mode) are next and are not started. Section 6 of the spec
+(security prerequisites) shipped first, in #713.
 
 ## What is true today (read from the live database, 2026-11-24)
 
@@ -110,11 +113,17 @@ get written the old way.
 Only an invite the person accepts creates a link. Nothing links on a matching
 name or a matching address.
 
-**Open question for the owner:** the 2 people already sitting inside a GC's
-Directory row. Proposed: leave them working exactly as today (their
-`company_id` IS the row, which the reader already includes) and offer a
-"Make this your own company" step later. Moving them silently is the merge the
-spec forbids.
+**The 2 people already sitting inside a GC's Directory row** keep working
+exactly as before (their `company_id` IS the row, which the reader includes).
+They see "Run your own jobs" like any light account; pressing it gives them a
+company of their own and moves only their login, with the row linked back.
+Nothing moves without that press.
+
+**Shipped as built:** a vendor invite to somebody with an account is a
+Connect card in their app plus a sign-in email with no credential
+(`vendorConnectEmail`); a password reset never links an existing business; a
+linked sub files compliance under the GC's row for that job, so every GC-side
+reader is unchanged; the GC's Directory shows a linked row as On Platform.
 
 ## Spec 3-5, once 0 is decided (not started)
 

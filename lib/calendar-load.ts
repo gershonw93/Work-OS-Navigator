@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { actorForUser } from './server-permissions'
 import { myJobs } from './my-jobs'
+import { vendorCompanyIds } from './sub-companies'
 import { taskIdsFor } from './task-assignees'
 import { isAssignedOnly } from './permissions'
 import { feedScope } from './calendar-feed'
@@ -28,10 +29,15 @@ export async function loadCalendar(
   const scope = feedScope(actor, assignment)
   if (!scope) return null
 
+  // A GC's job reaches this calendar through the GC's Directory row for this
+  // company (migration 169) - the same set every sub door asks.
+  const mine = await vendorCompanyIds(db, profile.company_id)
+  if (mine === null) return null
+
   const [owned, subs] = await Promise.all([
     db.from('projects').select('id, name')
       .or(`gc_company_id.eq.${profile.company_id},created_by_company_id.eq.${profile.company_id}`),
-    db.from('subcontracts').select('id, project_id, trade, projects(name)').eq('company_id', profile.company_id),
+    db.from('subcontracts').select('id, project_id, trade, projects(name)').in('company_id', mine),
   ])
   if (owned.error || subs.error) {
     console.error('[calendar] job read failed', { profile: profile.id, error: (owned.error ?? subs.error)?.message })
@@ -55,7 +61,7 @@ export async function loadCalendar(
     scope.inspections
       ? db.from('inspections').select('id, project_id, type, trade, status, scheduled_date').in('project_id', ids).not('scheduled_date', 'is', null)
       : none,
-    awarded.length && scope.tasks ? taskIdsFor(db, { companyId: profile.company_id }) : Promise.resolve([] as string[]),
+    awarded.length && scope.tasks ? taskIdsFor(db, { companyIds: mine }) : Promise.resolve([] as string[]),
   ])
   if (sched.error || tasks.error || inspections.error || companyTaskIds === null) {
     console.error('[calendar] event read failed', {

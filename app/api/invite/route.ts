@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
 import { appOrigin } from '@/lib/app-url'
-import { emailConfig, sendEmail, teamInviteEmail, vendorInviteEmail } from '@/lib/email'
+import { emailConfig, sendEmail, teamInviteEmail, vendorInviteEmail, vendorConnectEmail } from '@/lib/email'
+import { linkPlan, GC_LINK_REFUSAL_TEXT, type VendorRow } from '@/lib/vendor-link'
+import { escapeLike } from '@/lib/personal-access'
 import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () => createClient(
@@ -50,6 +52,7 @@ export async function POST(request: Request) {
   // company row, which must be one this company put in its directory -
   // `added_by_company_id` is what makes the Directory yours.
   let company_id: string
+  let vendorRow: VendorRow | null = null
   if (audience === 'vendor') {
     const named = String(body.company_id ?? '')
     if (!named) {
@@ -57,13 +60,16 @@ export async function POST(request: Request) {
     }
     const { data: vendor } = await db
       .from('companies')
-      .select('id, name, added_by_company_id')
+      .select('id, name, type, added_by_company_id, linked_company_id')
       .eq('id', named)
       .maybeSingle()
     if (!vendor || (vendor.added_by_company_id !== actor.companyId && vendor.id !== actor.companyId)) {
       return NextResponse.json({ error: 'That company is not in your directory.' }, { status: 403 })
     }
     company_id = vendor.id
+    // A "vendor" invite into the inviter's OWN company is joining their team,
+    // not connecting a vendor: it is stored and accepted as a team invite.
+    if (vendor.id !== actor.companyId) vendorRow = vendor as VendorRow
   } else {
     company_id = actor.companyId
   }
@@ -92,6 +98,57 @@ export async function POST(request: Request) {
   ])
   const inviterName = (inviterProfile as any)?.full_name ?? null
   const inviterCompanyName = (inviterCompany as any)?.name ?? null
+
+  // ── A VENDOR WHO ALREADY HAS AN ACCOUNT ─────────────────────────────────
+  //
+  // The invite used to point this person INTO the GC's Directory row, which an
+  // existing account can never join (`inviteMove`), and Supabase refuses to
+  // mint an invite link for an address it already has - so they received
+  // nothing and the invite sat pending for ever. Now the Directory row LINKS
+  // to their company (lib/vendor-link.ts). Asked here, at the door, so a GC
+  // learns at once when it cannot happen; otherwise they get a sign-in email
+  // with no credential in it, and connect on a card in the app.
+  const origin0 = (() => { try { return new URL(request.url).origin } catch { return null } })()
+  if (audience === 'vendor' && vendorRow) {
+    const { data: people } = await db.from('profiles').select('id, company_id, email').ilike('email', escapeLike(String(email).trim()))
+    const holder = ((people ?? []) as { id: string; company_id: string | null; email: string | null }[])
+      .find(p => (p.email ?? '').trim().toLowerCase() === String(email).trim().toLowerCase())
+    if (holder?.company_id) {
+      const { data: theirs } = await db.from('companies').select('type, added_by_company_id').eq('id', holder.company_id).maybeSingle()
+      const plan = linkPlan({
+        companyId: holder.company_id,
+        companyType: (theirs as any)?.type ?? null,
+        companyIsDirectoryRow: !!(theirs as any)?.added_by_company_id,
+      }, vendorRow)
+      if (plan.do === 'refuse') return NextResponse.json({ error: GC_LINK_REFUSAL_TEXT[plan.reason] }, { status: 409 })
+      if (plan.do === 'already') return NextResponse.json({ success: true, emailSent: false, note: 'They are already connected to you.' })
+
+      await db.from('company_invites').delete().eq('company_id', company_id).eq('email', email)
+      const { error: rowErr } = await db.from('company_invites').insert({
+        company_id, email, invited_by: actor.userId, role: 'read_only', status: 'pending', audience: 'vendor',
+      })
+      if (rowErr) return NextResponse.json({ error: rowErr.message }, { status: 500 })
+
+      let sent = false
+      let detail: string | undefined
+      if (emailConfig().configured) {
+        const msg = vendorConnectEmail({ name: body.full_name ?? null, gcName: inviterCompanyName, signInUrl: `${appOrigin(origin0)}/login` })
+        const result = await sendEmail({ to: email, ...msg })
+        sent = result.sent
+        if (!result.sent) {
+          detail = result.detail ?? result.reason
+          console.error('[invite] connect email failed', { to: email, reason: result.reason, detail: result.detail })
+        }
+      }
+      return NextResponse.json({
+        success: true,
+        emailSent: sent,
+        note: sent
+          ? 'They already have a SyteNav account, so they will connect from a card when they sign in.'
+          : `Invite recorded - they will see it when they sign in, but the email did not send${detail ? `: ${detail}` : ''}.`,
+      })
+    }
+  }
 
   // Send Supabase auth invite. Prefer configured site/app URL; fall back to the
   // request's own host so the callback always lands on the domain the app is
@@ -188,6 +245,7 @@ export async function POST(request: Request) {
       invited_by: actor.userId,
       role,
       status: 'pending',
+      audience: vendorRow ? 'vendor' : 'team',
     })
   if (insertError) {
     return NextResponse.json({ error: insertError.message }, { status: 500 })

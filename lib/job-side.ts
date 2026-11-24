@@ -4,6 +4,7 @@ import type { ActorPerms } from './server-permissions'
 import { ownsProject } from './project-access'
 import { isAssignedOnly } from './permissions'
 import { myJobs } from './my-jobs'
+import { vendorCompanyIds } from './sub-companies'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // WHICH SIDE OF THIS JOB IS THE CALLER ON - or none. The question under
@@ -74,9 +75,17 @@ export async function jobSide(
     // row by address is not), and the answer otherwise is the stranger's 404.
   }
 
+  // The sub side follows the Directory link (migration 169): a GC's
+  // subcontract names the GC's own row for the vendor, which points at the
+  // sub's company. `vendorCompanyIds` is that set - and null on a failed read,
+  // which is a 500 here, never "not on this job".
   if (actor.companyId) {
+    const mine = await vendorCompanyIds(db, actor.companyId)
+    if (mine === null) {
+      return { denied: NextResponse.json({ error: 'Could not load this job. Try again.' }, { status: 500 }) }
+    }
     const { data: subs } = await db
-      .from('subcontracts').select('id').eq('project_id', projectId).eq('company_id', actor.companyId).limit(1)
+      .from('subcontracts').select('id').eq('project_id', projectId).in('company_id', mine).limit(1)
     if (subs?.length) return { side: 'sub' }
   }
 

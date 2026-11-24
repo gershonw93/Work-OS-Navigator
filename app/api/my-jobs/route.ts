@@ -4,6 +4,8 @@ import { getActor, actorCan } from '@/lib/server-permissions'
 import { billingLock } from '@/lib/api-guard'
 import { projectSlotProblem } from '@/lib/billing-read'
 import { myJobs } from '@/lib/my-jobs'
+import { vendorCompanyIds } from '@/lib/sub-companies'
+import { ownJobsRefusal } from '@/lib/sub-account'
 import { isAssignedOnly } from '@/lib/permissions'
 
 const admin = () => createClient(
@@ -33,10 +35,14 @@ export async function GET(request: Request) {
     : null
 
   // Awarded jobs: subcontracts for this company
+  // Across the Directory link (lib/sub-companies.ts): a GC's subcontract
+  // names the GC's own row for this vendor, linked to this company.
+  const mine = await vendorCompanyIds(db, profile.company_id)
+  if (mine === null) return NextResponse.json({ error: 'Could not load your jobs. Try again.' }, { status: 500 })
   const { data: subcontracts } = await db
     .from('subcontracts')
     .select('*, projects(id, name, address, type, status, start_date)')
-    .eq('company_id', profile.company_id)
+    .in('company_id', mine)
     .order('created_at', { ascending: false })
 
   // Own jobs: projects created by this company (not through bidding)
@@ -81,6 +87,9 @@ export async function POST(request: Request) {
   }
   const locked = await billingLock(db, profile.company_id)
   if (locked) return locked
+  // A light sub account opens no jobs of its own until it chooses to (lib/sub-account.ts).
+  const light = await ownJobsRefusal(db, profile.company_id)
+  if (light) return NextResponse.json({ error: light, account: 'light' }, { status: 403 })
   const slot = await projectSlotProblem(db, profile.company_id)
   if (slot) return NextResponse.json({ error: slot, billing: 'project_limit' }, { status: 402 })
 

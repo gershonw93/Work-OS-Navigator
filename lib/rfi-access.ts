@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { vendorCompanyIds } from './sub-companies'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan, type ActorPerms } from './server-permissions'
 import { ownsProject } from './project-access'
@@ -49,9 +50,14 @@ export async function rfiSide(
 
   if (ownsProject(actor.companyId, project)) return { side: 'gc', actor }
 
+  // Across the Directory link, the same set `jobSide` asks (lib/sub-companies.ts).
   if (actor.companyId) {
+    const mine = await vendorCompanyIds(db, actor.companyId)
+    if (mine === null) {
+      return { denied: NextResponse.json({ error: 'Could not load this job. Try again.' }, { status: 500 }) }
+    }
     const { data: subs } = await db
-      .from('subcontracts').select('id').eq('project_id', projectId).eq('company_id', actor.companyId).limit(1)
+      .from('subcontracts').select('id').eq('project_id', projectId).in('company_id', mine).limit(1)
     if (subs?.length) {
       const { data: company } = await db.from('companies').select('name').eq('id', actor.companyId).maybeSingle()
       return { side: 'sub', actor, companyName: company?.name ?? null }

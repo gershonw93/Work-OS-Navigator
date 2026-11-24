@@ -11,7 +11,7 @@ import { ok, done, code } from './_helpers'
 const access = code('lib/rfi-access.ts')
 ok(/ownsProject\(actor\.companyId, project\)\) return \{ side: 'gc', actor \}/.test(access),
   'the owning company is the GC side')
-ok(/from\('subcontracts'\)\.select\('id'\)\.eq\('project_id', projectId\)\.eq\('company_id', actor\.companyId\)/.test(access),
+ok(/vendorCompanyIds\(db, actor\.companyId\)/.test(access) && /from\('subcontracts'\)\.select\('id'\)\.eq\('project_id', projectId\)\.in\('company_id', mine\)/.test(access),
   '...a company holding a subcontract on the job is the sub side')
 ok(/You are not on this job\.' \}, \{ status: 403 \}/.test(access), '...and anybody else is refused')
 ok(/who\.side !== 'gc'/.test(access) && /actorCan\(who\.actor, 'rfis', action\)/.test(access),
@@ -22,7 +22,7 @@ const list = code('app/api/projects/[id]/rfis/route.ts')
 const writes = code('lib/writes/rfi.ts')
 ok(!/db\.auth\.getUser\(token\)/.test(list), 'THE BUG: the list/create route no longer settles for "signed in"')
 ok((list.match(/await rfiSide\(db, request, params\.id\)/g) ?? []).length === 2, '...both GET and POST ask which side the caller is on')
-ok(/if \(who\.side === 'sub'\) q = q\.eq\('company_id', who\.actor\.companyId\)/.test(list),
+ok(/if \(who\.side === 'sub'\) \{[\s\S]{0,200}vendorCompanyIds\(db, who\.actor\.companyId\)[\s\S]{0,200}q = q\.in\('company_id', mine\)/.test(list),
   'a sub lists only its own company\'s RFIs')
 ok([list, writes].every(src => !/company_id,\s*\n?\s*attachments,\s*\n\s*\} = body/.test(src) && !/\bcompany_name,\s*\n\s*company_id,\s*\n\s*attachments,\s*\n\s*\} = body/.test(src)
   && !/submitted_by_name,\s*\n[^}]*\} = body/.test(src)),

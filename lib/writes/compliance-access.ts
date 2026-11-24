@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission, denied, billingLock } from '@/lib/api-guard'
 import { actorCan, type ActorPerms } from '@/lib/server-permissions'
 import { ownsProject } from '@/lib/project-access'
-import { companyOnJob } from './compliance-document'
+import { vendorCompanyIds } from '@/lib/sub-companies'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Who may read and write a job's compliance - asked by every handler of
@@ -21,7 +21,7 @@ import { companyOnJob } from './compliance-document'
 
 export type ComplianceAccess =
   | { actor: ActorPerms; scope: 'owner' }
-  | { actor: ActorPerms; scope: 'own-company'; companyId: string }
+  | { actor: ActorPerms; scope: 'own-company'; companyId: string; mine: string[] }
   | { denied: NextResponse }
 
 /**
@@ -37,7 +37,11 @@ export type ComplianceAccess =
 export async function complianceAccess(
   db: SupabaseClient, request: Request, projectId: string, opts: { write: boolean },
 ): Promise<ComplianceAccess> {
-  const gate = await requirePermission(db, request, 'projects', 'view')
+  // `subOwnRecord`: this gate does its own "whose paperwork" check below (a
+  // sub files only under its own company on this job). Without the flag the
+  // sub lane in requirePermission refused `projects: view` on a GC's job, and
+  // a sub's My Jobs -> Compliance answered 403 (#713).
+  const gate = await requirePermission(db, request, 'projects', 'view', { subOwnRecord: true })
   if (denied(gate)) return gate
   const { actor } = gate
 
@@ -57,9 +61,32 @@ export async function complianceAccess(
     return { actor, scope: 'owner' }
   }
 
-  if (actor.companyId && await companyOnJob(db, projectId, actor.companyId)) {
+  // THE COMPANY A SUB FILES UNDER IS THE ONE ON THE SUBCONTRACT. Since 169 a
+  // sub reaches a GC's job through the GC's Directory row for him, linked to
+  // his own company - so his paperwork for this job is filed against that row,
+  // which is what the GC's Compliance tab, the printed report and the expiry
+  // reminders all read. His own company id is a key to the row, not the row.
+  const mine = await vendorCompanyIds(db, actor.companyId)
+  if (mine === null) return { denied: NextResponse.json({ error: 'Could not check that job just now.' }, { status: 500 }) }
+  const row = await vendorRowOnJob(db, projectId, mine)
+  if (row) {
     const locked = await lock(); if (locked) return { denied: locked }
-    return { actor, scope: 'own-company', companyId: actor.companyId }
+    return { actor, scope: 'own-company', companyId: row, mine }
   }
   return { denied: NextResponse.json({ error: 'This job belongs to another company.' }, { status: 403 }) }
+}
+
+/**
+ * The subcontract's company for one of `mine` on this job - the row a sub's
+ * work on it is filed under. Null when none of them holds one (or the read
+ * failed, logged): either way, not on the job.
+ */
+export async function vendorRowOnJob(
+  db: Pick<SupabaseClient, 'from'>, projectId: string, mine: readonly string[],
+): Promise<string | null> {
+  if (!mine.length) return null
+  const { data, error } = await db.from('subcontracts')
+    .select('company_id').eq('project_id', projectId).in('company_id', mine as string[]).limit(1)
+  if (error) { console.error('[compliance] subcontract lookup:', error.message); return null }
+  return ((data ?? [])[0] as { company_id?: string } | undefined)?.company_id ?? null
 }

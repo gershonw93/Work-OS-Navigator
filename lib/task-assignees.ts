@@ -147,14 +147,21 @@ export function completedByLabel(task: {
  */
 export async function taskIdsFor(
   db: { from: (t: string) => any },
-  who: { memberIds?: (string | null | undefined)[]; companyId?: string | null; name?: string | null },
+  who: { memberIds?: (string | null | undefined)[]; companyId?: string | null; companyIds?: readonly string[] | null; name?: string | null },
 ): Promise<string[] | null> {
   const memberIds = (who.memberIds ?? []).filter(Boolean) as string[]
   const name = (who.name ?? '').trim()
+  // `companyIds` is a sub's whole set (lib/sub-companies.ts): a GC assigns a
+  // task to ITS Directory row for the vendor, which links to the sub's company.
+  // UUIDs read from the database, never typed, so they are safe in the filter.
+  const UUID = /^[0-9a-f-]{36}$/i
+  const companies = Array.from(new Set([who.companyId, ...(who.companyIds ?? [])].filter(Boolean) as string[]))
+    .filter(id => UUID.test(id))
 
   const ors: string[] = []
   if (memberIds.length) ors.push(`member_id.in.(${memberIds.join(',')})`)
-  if (who.companyId) ors.push(`company_id.eq.${who.companyId}`)
+  if (companies.length === 1) ors.push(`company_id.eq.${companies[0]}`)
+  else if (companies.length > 1) ors.push(`company_id.in.(${companies.join(',')})`)
   // Name is the fallback for somebody with no account, which is most of them.
   if (name) ors.push(`name.ilike.${name.replace(/[(),*]/g, ' ')}`)
   if (!ors.length) return []

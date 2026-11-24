@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { ownJobsRefusal } from '@/lib/sub-account'
 import { NextResponse } from 'next/server'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { geocodeAddress, geocodeManyExact } from '@/lib/geocode'
@@ -59,6 +60,9 @@ export async function POST(request: Request) {
   if (!actorCan(actor, 'projects', 'create')) {
     return NextResponse.json({ error: 'You do not have permission to create projects.' }, { status: 403 })
   }
+  // A light sub account opens no jobs of its own until it chooses to (lib/sub-account.ts).
+  const light = await ownJobsRefusal(db, actor?.companyId)
+  if (light) return NextResponse.json({ error: light, account: 'light' }, { status: 403 })
 
   const { data: profile } = await db.from('profiles').select('company_id').eq('id', user.id).single()
   if (!profile) return NextResponse.json({ error: 'Profile not found' }, { status: 400 })

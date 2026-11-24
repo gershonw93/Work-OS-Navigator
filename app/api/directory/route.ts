@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds } from '@/lib/sub-companies'
 import { createDirectoryContact } from '@/lib/writes/directory-contact'
 import { getActor, actorCan } from '@/lib/server-permissions'
 import { billingLock } from '@/lib/api-guard'
@@ -39,9 +40,11 @@ export async function GET(request: Request) {
   // 2. Subcontractors on their projects (as GC)
   // 3. GC companies on projects they're subbed to (as Sub)
   // 4. Companies they explicitly added to the directory (added_by_company_id)
+  const mine = await vendorCompanyIds(db, myCompanyId)
+  if (mine === null) return NextResponse.json({ error: 'Could not load this just now. Try again.' }, { status: 500 })
   const [projectsRes, subcontractsAsSubRes] = await Promise.all([
     db.from('projects').select('id').eq('gc_company_id', myCompanyId),
-    db.from('subcontracts').select('project_id, companies!inner(id)').eq('company_id', myCompanyId),
+    db.from('subcontracts').select('project_id, companies!inner(id)').in('company_id', mine),
   ])
 
   const myProjectIds = (projectsRes.data ?? []).map((p: any) => p.id)
@@ -113,11 +116,17 @@ export async function GET(request: Request) {
     (importedRows ?? []).map((r: any) => r.company_record_id).filter(Boolean),
   )
 
+  // ON PLATFORM is people under the row (the old invite put them there) OR a
+  // link to the vendor's own company (migration 169) - the link exists only
+  // once they accepted, so it is the stronger of the two facts. Without it a
+  // sub who connected read "not on SyteNav" in the Directory of the GC he had
+  // just connected to, with an Invite button offering to do it again.
+  const onPlatform = (c: any) => companiesWithAccount.has(c.id) || !!c.linked_company_id
   const companiesResult = (companies ?? []).map(c => ({
     ...c,
     imported: companiesImported.has(c.id),
-    has_account: companiesWithAccount.has(c.id),
-    invite_pending: !companiesWithAccount.has(c.id) && companiesInvited.has(c.id),
+    has_account: onPlatform(c),
+    invite_pending: !onPlatform(c) && companiesInvited.has(c.id),
   }))
 
   // `contacts` IS NOT A TABLE THIS APP WRITES TO. It holds zero rows: the

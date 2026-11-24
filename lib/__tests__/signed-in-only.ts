@@ -20,6 +20,9 @@ import { ok, done, code, root } from './_helpers'
 
 const PERSONAL = new Set([
   'complete-signup POST', 'invite/accept POST',
+  // The connect card's list: the caller's OWN pending vendor invites, found by
+  // the email on their token (lib/vendor-link.ts).
+  'invite/accept GET',
   'me/permissions GET', 'me/tasks GET',
   'my-bids GET', 'my-bids/[packageId] GET', 'my-bids/[packageId] POST',
   'my-jobs GET', 'my-jobs/[projectId] GET', 'my-jobs/[projectId]/schedule/[itemId]/delay POST',

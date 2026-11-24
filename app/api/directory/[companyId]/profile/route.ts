@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds } from '@/lib/sub-companies'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { ownedProjectsFilter } from '@/lib/project-access'
 
@@ -24,9 +25,11 @@ export async function GET(request: Request, { params }: { params: { companyId: s
   const { companyId } = params
 
   // The jobs the viewer's company is on: ones it owns, and ones it is subbed to.
+  const myIds = await vendorCompanyIds(db, mine)
+  if (myIds === null) return NextResponse.json({ error: 'Could not load this just now. Try again.' }, { status: 500 })
   const [{ data: owned }, { data: subbed }] = await Promise.all([
     db.from('projects').select('id, gc_company_id').or(ownedProjectsFilter(mine)),
-    db.from('subcontracts').select('project_id, projects(gc_company_id)').eq('company_id', mine),
+    db.from('subcontracts').select('project_id, projects(gc_company_id)').in('company_id', myIds),
   ])
   const ownedIds = (owned ?? []).map((p: any) => p.id as string)
   const myJobs = Array.from(new Set([...ownedIds, ...(subbed ?? []).map((s: any) => s.project_id as string).filter(Boolean)]))

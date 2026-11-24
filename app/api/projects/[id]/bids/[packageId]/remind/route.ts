@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorProfileIds } from '@/lib/sub-companies'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
@@ -39,8 +40,10 @@ export async function POST(
 
   const actorName = (gcProfile as any)?.full_name ?? 'Someone'
 
-  const profile = await db.from('profiles').select('id').eq('company_id', company_id).single()
-  if (!profile.data) {
+  // Everybody at the sub, here and across the Directory link - not
+  // `.single()`, which reported "no account" for a sub with two.
+  const people = await vendorProfileIds(db, company_id)
+  if (!people.length) {
     return NextResponse.json({ message: 'Sub has no account - reminder not sent in-app' })
   }
 
@@ -48,7 +51,7 @@ export async function POST(
   const duePart = pkg?.due_date ? ` Bid due ${formatDate(pkg.due_date)}.` : ''
 
   await notify({
-    db, userIds: [profile.data.id], type: 'bid_reminder', title: 'Bid reminder',
+    db, userIds: people, type: 'bid_reminder', title: 'Bid reminder',
     message: `Reminder: You are invited to bid on ${pkg?.scope} for ${projectName}.${duePart}`,
     link: `/my-bids`,
   })
