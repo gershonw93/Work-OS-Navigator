@@ -7,17 +7,21 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 
 ---
 
-## 🧰 Sub company login + dispatch (spec of 24 Nov 2026) - 0, 1, 2 and 6 SHIPPED
+## 🧰 Sub company login + dispatch (spec of 24 Nov 2026) - ALL SIX ITEMS SHIPPED
+
+Service calls, the dispatch board and crew field mode shipped on 24 Nov
+(migration 170, `lib/service-calls.ts`). Open from that work: a price on a
+call (invoicing a call is a status today, not an amount), more than one crew
+member per call, a geofence radius per call, and the GC's view of a linked
+call is a card on the Overview only (no notification when it changes).
 
 Shipped: the security prerequisites (#713), and decision 0 + item 1 - one
 company per sub, every GC's Directory row LINKED to it (migration 169), the
 light account and "Run your own jobs", one reader for "my subcontracts"
 (`lib/sub-companies.ts`). See `docs/sub-company-plan.md`.
 
-Next, in order: service calls (spec 3), the dispatch board (spec 4), crew
-field mode for calls (spec 5). "Run your own jobs" is a 30-day trial then a
-plan (web only), and a sub's own billing never locks him out of a GC's job.
-Also open: the Progress tab
+"Run your own jobs" is a 30-day trial then a plan (web only), and a sub's own
+billing never locks him out of a GC's job. Also open: the Progress tab
 on a GC's job, which a sub opens and which has always been empty for them -
 it reads `/quote`, a GC-only route.
 

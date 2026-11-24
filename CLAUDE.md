@@ -1106,6 +1106,32 @@ and `docs/sub-company-plan.md`.
   does its own record check passes `subOwnRecord: true` and is tested itself -
   #713 broke sub Compliance for a day by testing only the inner gate.
 
+## Service calls and dispatch, a sub's own business (IMPORTANT)
+- **A CALL BELONGS TO THE SUB'S COMPANY** (`service_calls.company_id`, CASCADE,
+  migration 170). A call tied to a GC's job is a LINK (`gc_project_id`, SET
+  NULL); the GC reads it only through `/api/projects/<id>/service-calls`
+  (`ownedProject`), built field by field by `gcView` - status and timing, never
+  the customer, contact, issue, notes, photos or crew. A call carries no price.
+- **RLS ON, NO POLICIES, SO THE ROUTE IS THE WHOLE FENCE.** Every route asks
+  `callGate` (permission `service-calls`, the caller's company from the token,
+  a light account refused) before a table, and finds a call only through
+  `loadCall` - company-scoped, and for an assigned-only role only a call
+  assigned to them, refused as "not found" otherwise. Ids a body names (person,
+  customer, contractor job) are checked by `referenceProblem`.
+- **`scheduled` IS DERIVED** from somebody + a time (`withDerivedStatus`); every
+  other move goes through `/status`, one step forward or back (`nextStatuses`),
+  claimed on the status it was read with. Done carries what was done
+  (`callProblem`); reopening clears the stamp; unscheduling frees the person.
+- **THE DISPATCH BOARD IS THE OFFICE'S** - `dispatch: view`, and refused to every
+  assigned-only role in the route, because a saved worker map inherits
+  `dispatch` from `projects`. A double booking (`conflicts`, touching is not a
+  clash) is shown and warned about, never refused.
+- **THE ASSIGNEE IS TOLD AND THE MESSAGE HAS NO TIME IN IT** - the server does not
+  know the reader's clock (`tellAssignee`); every time on screen is formatted in
+  the browser (`lib/service-calls-client.ts`). A punch uses the job punch's rule
+  against the call's geocoded site and stores the outcome. Pinned and
+  mutation-checked in `service-calls.ts`.
+
 ## Who the email is FOR, and who may send it (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).
 - **THERE ARE TWO DOORS INTO SYTENAV AND THEY MEAN DIFFERENT THINGS.** The

@@ -67,6 +67,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 const AUTHORED: Release[] = [
   {
     date: '2026-11-24',
+    title: 'Service calls and a dispatch board',
+    items: [
+      {
+        kind: 'new',
+        title: 'Take service calls and put your crew on them',
+        text: 'For subs who run their own jobs: Service Calls keeps every call from a customer - who, where, what is wrong, how urgent - and Dispatch shows your crew down the side and the day or week across. Drag a call onto somebody to give it to them and set the time; a double booking shows in red. Whoever you put on it is told, and sees only their own calls under Calls in Field Mode, with directions, On my way, Arrived and Done, photos and a clock-in that records where the phone was. A call can be tied to a contractor\'s job, and that contractor sees only that it exists and where it stands.',
+        help: 'service-calls-dispatch',
+      },
+    ],
+  },
+  {
+    date: '2026-11-24',
     title: 'One account for a sub, however many contractors they work for',
     items: [
       {

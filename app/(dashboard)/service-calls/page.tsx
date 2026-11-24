@@ -52,7 +52,7 @@ export default function ServiceCallsPage() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-ink">Service calls</h1>
+          <h1 className="text-2xl font-bold text-ink">Service Calls</h1>
           <p className="text-sm text-muted-fg mt-0.5">{crewView ? 'The calls you are on.' : 'Calls from your customers, and who is on each.'}</p>
         </div>
         {!crewView && state === 'ready' && (

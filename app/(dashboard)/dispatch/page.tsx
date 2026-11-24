@@ -8,6 +8,7 @@ import { useNotice } from '@/components/ui/notice'
 import { callFetch } from '@/lib/service-calls-client'
 import { callLabel, clashesWith, slotWindow, STATUS_LABEL, DEFAULT_CALL_MINUTES } from '@/lib/service-calls'
 import { cn } from '@/lib/utils'
+import { formatDate, formatDateShort } from '@/lib/dates'
 import { fetchProblem } from '@/lib/fetch-error'
 
 // THE DISPATCH BOARD - crew down the side, the day (by hour) or the week (by
@@ -124,8 +125,8 @@ export default function DispatchPage() {
 
   const dayList = Array.from({ length: days }, (_, i) => addDays(from, i))
   const title = view === 'day'
-    ? anchor.toLocaleDateString(undefined, { weekday: 'long', month: 'short', day: 'numeric' })
-    : `${from.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${addDays(from, 6).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+    ? formatDate(anchor, { weekday: 'long', month: 'short', day: 'numeric' })
+    : `${formatDateShort(from)} - ${formatDateShort(addDays(from, 6))}`
   const clashCount = Object.keys(clash).length
 
   return (
@@ -188,7 +189,7 @@ export default function DispatchPage() {
                 <div className="p-2 text-xs font-medium text-faint">Crew</div>
                 {view === 'day'
                   ? DAY_HOURS.map(h => <div key={h} className="p-2 text-xs font-medium text-faint border-l border-line-soft">{hourLabel(h)}</div>)
-                  : dayList.map(d => <div key={d.toISOString()} className="p-2 text-xs font-medium text-faint border-l border-line-soft">{d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric' })}</div>)}
+                  : dayList.map(d => <div key={d.toISOString()} className="p-2 text-xs font-medium text-faint border-l border-line-soft">{formatDate(d, { weekday: 'short', day: 'numeric' })}</div>)}
               </div>
               {crew.map(p => (
                 <div key={p.id} className="grid border-b border-line-soft" style={{ gridTemplateColumns: `160px repeat(${view === 'day' ? DAY_HOURS.length : 7}, minmax(0, 1fr))` }}>
