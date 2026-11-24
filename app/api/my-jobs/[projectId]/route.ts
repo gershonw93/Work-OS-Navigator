@@ -25,7 +25,7 @@ export async function GET(request: Request, { params }: { params: { projectId: s
   if (mine === null) return NextResponse.json({ error: 'Could not load this job. Try again.' }, { status: 500 })
 
   const [{ data: project, error: projectError }, { data: subcontracts }] = await Promise.all([
-    db.from('projects').select('id, name, address, type, status, start_date').eq('id', params.projectId).single(),
+    db.from('projects').select('id, name, address, type, status, start_date, created_by_company_id').eq('id', params.projectId).single(),
     db.from('subcontracts').select('*').eq('project_id', params.projectId).in('company_id', mine).order('created_at', { ascending: true }),
   ])
 
@@ -105,8 +105,13 @@ export async function GET(request: Request, { params }: { params: { projectId: s
     })
   )
 
+  // WHOSE JOB IT IS, so the screen offers "Edit project" only to the owner. A
+  // sub on a GC's job saw the pencil, and the save went to a route that
+  // (rightly) refuses a sub - so the dialog closed and nothing changed.
+  const { created_by_company_id: owner, ...projectOut } = project as any
   return NextResponse.json({
-    project,
+    project: projectOut,
+    ownsJob: owner === companyId,
     subcontracts: subcontractsWithSchedule,
     tasks: tasks ?? [],
     rfis: rfis ?? [],
