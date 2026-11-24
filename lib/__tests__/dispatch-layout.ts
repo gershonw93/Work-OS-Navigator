@@ -15,7 +15,7 @@ import {
   blockGeometry, timeAtOffset, lanes, snap, HOUR_PX, DAY_START_HOUR, DAY_END_HOUR, MIN_BLOCK_MINUTES,
   weekStart, hourLabel,
 } from '../dispatch-layout'
-import { offeredMoves, personName } from '../service-calls'
+import { offeredMoves, personName, isForward, moveLabel, punchWith } from '../service-calls'
 import { calendarItems } from '../calendar-items'
 
 const day = new Date(2026, 10, 25) // Wed Nov 25 2026, local
@@ -80,6 +80,18 @@ function main() {
   ok(!offeredMoves('scheduled', true).includes('new'), 'crew cannot unschedule')
   ok(!offeredMoves('done', true).includes('invoiced'), 'crew never mark a call invoiced')
   ok(offeredMoves('invoiced', true).length === 0, 'crew do nothing to an invoiced call')
+
+  // ── which way a step goes, and what it says ──
+  ok(isForward('scheduled', 'en_route') && !isForward('on_site', 'en_route'), 'en route is FORWARD from scheduled and BACK from on site - decided by direction, not target')
+  ok(moveLabel('scheduled', 'en_route') === 'On my way', 'forward to en route reads On my way')
+  ok(moveLabel('on_site', 'en_route') === 'Back to en route', 'back to en route never reads On my way (it showed as the big green next step on site)')
+  ok(moveLabel('on_site', 'done') === 'Mark done' && moveLabel('done', 'on_site') === 'Back to on site', 'done forward and back read differently')
+  ok(punchWith('en_route', 'on_site') === 'in', 'Arrived clocks the assignee in')
+  ok(punchWith('on_site', 'done') === 'out', 'Done clocks them out')
+  ok(punchWith('done', 'on_site') === null && punchWith('scheduled', 'en_route') === null, 'no other step punches')
+  const detailSrc = code('components/service-calls/call-detail.tsx')
+  ok(/isForward\(from, m\)/.test(detailSrc) && !/const FORWARD = new Set/.test(detailSrc), 'the call page splits forward and back by isForward, not by a set of targets')
+  ok(/d\.call\.assigned_to === me \? punchWith\(from, to\)/.test(detailSrc), 'the automatic punch is only for the person assigned')
 
   // ── a name is never blank ──
   ok(personName({ full_name: '', email: 'sub2@x.com' }) === 'sub2@x.com', 'a blank name falls back to the address (it read as an empty option)')

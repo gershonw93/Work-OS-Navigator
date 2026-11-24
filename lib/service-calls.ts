@@ -139,6 +139,41 @@ export function offeredMoves(from: CallStatus, crew: boolean): CallStatus[] {
 /** The forward path a call travels, for the progress bar on its page. */
 export const CALL_PATH: readonly CallStatus[] = ['new', 'scheduled', 'en_route', 'on_site', 'done', 'invoiced']
 
+/**
+ * Is a move a step FORWARD? Decided by direction, never by the target alone:
+ * `en_route` is forward from Scheduled and BACK from On site, and the first
+ * version styled it by target - so a tech standing on site saw "On my way" as
+ * the big green next step.
+ */
+export function isForward(from: CallStatus, to: CallStatus): boolean {
+  return CALL_PATH.indexOf(to) > CALL_PATH.indexOf(from)
+}
+
+const FORWARD_LABEL: Partial<Record<CallStatus, string>> = {
+  en_route: 'On my way', on_site: 'Arrived', done: 'Mark done', invoiced: 'Mark invoiced',
+}
+const BACK_LABEL: Partial<Record<CallStatus, string>> = {
+  new: 'Unschedule', scheduled: 'Back to scheduled', en_route: 'Back to en route', on_site: 'Back to on site', done: 'Back to done',
+}
+
+/** The words on a step button, which depend on which way it goes. */
+export function moveLabel(from: CallStatus, to: CallStatus): string {
+  return (isForward(from, to) ? FORWARD_LABEL[to] : BACK_LABEL[to]) ?? STATUS_LABEL[to]
+}
+
+/**
+ * The punch a step carries for the person ASSIGNED to the call. Arriving is
+ * when the time on site starts and closing out is when it ends - a tech who
+ * has to remember a separate Clock in has, on a busy day, no time on site at
+ * all. Only for the assignee: the office marking a call does not clock the
+ * office in. The Time card still punches by hand for anything else.
+ */
+export function punchWith(from: CallStatus, to: CallStatus): 'in' | 'out' | null {
+  if (from === 'en_route' && to === 'on_site') return 'in'
+  if (from === 'on_site' && to === 'done') return 'out'
+  return null
+}
+
 // ── dispatch: double-booking ────────────────────────────────────────────────
 
 /** A call with a start and no finish is taken to run this long. */

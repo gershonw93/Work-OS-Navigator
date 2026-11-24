@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { useNotice } from '@/components/ui/notice'
 import { createClient } from '@/lib/supabase/client'
-import { callLabel, callProblem, directionsUrl, offeredMoves, CALL_PATH, STATUS_LABEL, PRIORITY_LABEL, type CallStatus, type CallPriority } from '@/lib/service-calls'
+import { callLabel, callProblem, directionsUrl, offeredMoves, isForward, moveLabel, punchWith, CALL_PATH, STATUS_LABEL, PRIORITY_LABEL, type CallStatus, type CallPriority } from '@/lib/service-calls'
 import { cn } from '@/lib/utils'
 import { callFetch, callTime, callWindow, toLocalInput, fromLocalInput } from '@/lib/service-calls-client'
 import { getPosition, geoFailureMessage } from '@/lib/geo-position'
@@ -32,12 +32,6 @@ type Detail = {
   crewView: boolean
 }
 
-const MOVE_LABEL: Partial<Record<CallStatus, string>> = {
-  scheduled: 'Back to scheduled', en_route: 'On my way', on_site: 'Arrived', done: 'Mark done', invoiced: 'Mark invoiced', new: 'Unschedule',
-}
-
-/** A step forward is the big button; a step back is a quiet one. */
-const FORWARD = new Set<CallStatus>(['en_route', 'on_site', 'done', 'invoiced'])
 
 /**
  * Where the call is on its way from New to Invoiced - the bar across the top.
@@ -131,7 +125,15 @@ export function CallDetail({ callId, narrow = false }: {
   }
 
   async function move(to: CallStatus, completion_notes?: string) {
-    return send(to, `/api/service-calls/${callId}/status`, { method: 'POST', body: JSON.stringify({ to, completion_notes }) })
+    const from = d?.call.status as CallStatus
+    const moved = await send(to, `/api/service-calls/${callId}/status`, { method: 'POST', body: JSON.stringify({ to, completion_notes }) })
+    // Arrived clocks the assignee in, Done clocks them out (punchWith). A punch
+    // that fails is said, and the status move it followed still stands.
+    const p = moved && d && me && d.call.assigned_to === me ? punchWith(from, to) : null
+    const open = d?.time.some(t => t.profile_id === me && !t.clock_out)
+    if (p === 'in' && !open) await punch('in')
+    if (p === 'out' && open) await punch('out')
+    return moved
   }
 
   async function punch(action: 'in' | 'out') {
@@ -172,8 +174,9 @@ export function CallDetail({ callId, narrow = false }: {
   const directions = directionsUrl(c.site_address)
   const tel = phoneHref(c.contact_phone)
   const moves = offeredMoves(c.status as CallStatus, d.crewView)
-  const forward = moves.filter(m => FORWARD.has(m))
-  const back = moves.filter(m => !FORWARD.has(m))
+  const from = c.status as CallStatus
+  const forward = moves.filter(m => isForward(from, m))
+  const back = moves.filter(m => !isForward(from, m))
   const card = 'rounded-2xl border border-line bg-panel'
 
   return (
@@ -190,17 +193,22 @@ export function CallDetail({ callId, narrow = false }: {
           </div>
           <h1 className="mt-1 text-2xl font-bold text-ink break-words">{c.issue}</h1>
           <p className="text-sm text-muted-fg">{c.customer_name}{d.gc_job ? ` - for the contractor job ${d.gc_job.name}` : ''}</p>
+          {openPunch && (
+            <p className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-success">
+              <Clock className="h-4 w-4" aria-hidden /> On the clock since {new Date(openPunch.clock_in).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}
+            </p>
+          )}
         </div>
         {moves.length > 0 && (
           <div className="row-even lg:flex lg:flex-wrap lg:justify-end gap-2 lg:shrink-0">
             {back.map(m => (
               <Button key={m} variant="outline" disabled={busy !== ''} onClick={() => move(m)}>
-                {busy === m ? 'Saving...' : MOVE_LABEL[m] ?? STATUS_LABEL[m]}
+                {busy === m ? 'Saving...' : moveLabel(from, m)}
               </Button>
             ))}
             {forward.map(m => (
               <Button key={m} disabled={busy !== ''} onClick={() => (m === 'done' ? setClosing(true) : move(m))}>
-                {busy === m ? 'Saving...' : MOVE_LABEL[m] ?? STATUS_LABEL[m]}
+                {busy === m ? 'Saving...' : moveLabel(from, m)}
               </Button>
             ))}
           </div>
