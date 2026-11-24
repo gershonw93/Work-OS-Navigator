@@ -5,7 +5,7 @@ import { isAssignedOnly, isFieldRole, type Action } from './permissions'
 import type { ActorPerms } from './server-permissions'
 import { ownJobsRefusal } from './sub-account'
 import { notify } from './notify'
-import { callLabel } from './service-calls'
+import { callLabel, personName } from './service-calls'
 import { vendorCompanyIds } from './sub-companies'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -71,18 +71,20 @@ export async function loadCall(
 }
 
 /** The people a call can be given to: this company's own, never anybody else's. */
-export async function crewOf(db: SupabaseClient, companyId: string): Promise<{ id: string; full_name: string | null; role: string | null }[] | null> {
-  const { data, error } = await db.from('profiles').select('id, full_name, role').eq('company_id', companyId).order('full_name')
+export async function crewOf(db: SupabaseClient, companyId: string): Promise<{ id: string; name: string; role: string | null }[] | null> {
+  const { data, error } = await db.from('profiles').select('id, full_name, email, role').eq('company_id', companyId)
   if (error) {
     console.error('[service-calls] crew read failed', error.message)
     return null
   }
-  return (data ?? []) as { id: string; full_name: string | null; role: string | null }[]
+  return ((data ?? []) as { id: string; full_name: string | null; email: string | null; role: string | null }[])
+    .map(p => ({ id: p.id, name: personName(p), role: p.role }))
+    .sort((a, b) => a.name.localeCompare(b.name))
 }
 
 export async function actorName(db: SupabaseClient, userId: string): Promise<string | null> {
-  const { data } = await db.from('profiles').select('full_name').eq('id', userId).maybeSingle()
-  return (data as any)?.full_name ?? null
+  const { data } = await db.from('profiles').select('full_name, email').eq('id', userId).maybeSingle()
+  return data ? personName(data as any) : null
 }
 
 export async function logEvent(

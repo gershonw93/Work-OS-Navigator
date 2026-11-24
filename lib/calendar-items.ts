@@ -18,7 +18,7 @@ import type { FeedScope } from './calendar-feed'
  * A row that matches neither rule is DROPPED, never shown "just in case": the
  * failure is a GC's private date on a stranger's phone.
  */
-export type CalendarKind = 'schedule' | 'task' | 'inspection'
+export type CalendarKind = 'schedule' | 'task' | 'inspection' | 'service_call'
 
 export interface CalendarItem {
   id: string
@@ -33,6 +33,15 @@ export interface CalendarItem {
   href: string
   /** Which rule let it in - the page labels awarded work. */
   source: 'own' | 'awarded'
+  /**
+   * A service call has a TIME, not just a day. `at` / `at_end` are the exact
+   * instants (ISO, UTC) and the reader's browser decides which day and hour
+   * they fall on - the server does not know the reader's clock, and the UTC
+   * date of a 9pm call on the east coast is tomorrow. `start`/`end` carry the
+   * UTC date only as a fallback for a reader that ignores `at`.
+   */
+  at?: string
+  at_end?: string | null
 }
 
 export interface CalendarInput {
@@ -49,6 +58,12 @@ export interface CalendarInput {
   /** Task ids assigned to the person's COMPANY (the awarded-job rule). */
   companyTaskIds: string[]
   scope: FeedScope
+  /**
+   * The company's own service calls with a time, ALREADY narrowed by the
+   * loader to the ones this person may see (crew: only their own). They are
+   * the company's own business, not a job, so they ride outside the job rules.
+   */
+  calls?: { id: string; call_number: number; issue: string; customer_name: string; status: string; scheduled_start: string | null; scheduled_end: string | null }[]
 }
 
 const fold = (v: string | null | undefined) => String(v ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
@@ -132,6 +147,21 @@ export function calendarItems(input: CalendarInput): CalendarItem[] {
         source: ownName !== undefined ? 'own' : 'awarded',
       })
     }
+  }
+
+  for (const c of input.calls ?? []) {
+    if (!c.scheduled_start) continue
+    const day = c.scheduled_start.slice(0, 10)
+    items.push({
+      id: `c_${c.id}`, kind: 'service_call', project_id: '',
+      project_name: c.customer_name,
+      title: `SC-${String(c.call_number).padStart(4, '0')} ${c.issue}`,
+      start: day, end: (c.scheduled_end ?? c.scheduled_start).slice(0, 10),
+      color: 'call', done: c.status === 'done' || c.status === 'invoiced',
+      href: `/service-calls/${c.id}`,
+      source: 'own',
+      at: c.scheduled_start, at_end: c.scheduled_end,
+    })
   }
 
   return items

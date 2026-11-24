@@ -67,7 +67,7 @@ export async function GET(request: Request) {
   const calls = (booked.data ?? []) as any[]
   const clash = conflicts(calls)
   return NextResponse.json({
-    crew: crew.filter(p => p.role !== 'read_only').map(p => ({ id: p.id, name: p.full_name ?? 'Unnamed', role: p.role })),
+    crew: crew.filter(p => p.role !== 'read_only').map(p => ({ id: p.id, name: p.name, role: p.role })),
     calls,
     waiting: waiting.data ?? [],
     conflicts: Object.fromEntries(Array.from(clash.entries())),

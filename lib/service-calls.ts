@@ -116,6 +116,29 @@ export function moveProblem(
   return null
 }
 
+/**
+ * The step BUTTONS a call shows. Not the same list as `nextStatuses`:
+ *
+ *   - `new -> scheduled` is never a button. Scheduled is DERIVED from somebody
+ *     plus a time (`withDerivedStatus`), so a call with nobody on it offered
+ *     "Back to scheduled" - a button that could only ever be refused, worded
+ *     as if the call had been scheduled before;
+ *   - crew never mark a call invoiced, never unschedule it, and do nothing to
+ *     an invoiced one (the office's, as `moveProblem` says).
+ *
+ * The route still asks `moveProblem`; this only decides what is OFFERED.
+ */
+export function offeredMoves(from: CallStatus, crew: boolean): CallStatus[] {
+  return nextStatuses(from).filter(to => {
+    if (from === 'new' && to === 'scheduled') return false
+    if (crew && (to === 'invoiced' || to === 'new' || from === 'invoiced')) return false
+    return true
+  })
+}
+
+/** The forward path a call travels, for the progress bar on its page. */
+export const CALL_PATH: readonly CallStatus[] = ['new', 'scheduled', 'en_route', 'on_site', 'done', 'invoiced']
+
 // ── dispatch: double-booking ────────────────────────────────────────────────
 
 /** A call with a start and no finish is taken to run this long. */
@@ -198,6 +221,21 @@ export function gcView(call: {
 export function directionsUrl(address: string | null | undefined): string | null {
   const a = String(address ?? '').trim()
   return a ? `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(a)}` : null
+}
+
+/**
+ * What to call a person on a crew list, a board column or a call. A profile
+ * can carry an EMPTY name (an account made from an invite never asked for
+ * one), and `full_name ?? 'Unnamed'` lets '' through - so the sub owner was a
+ * blank option in the picker and a blank row on the board, which read as
+ * "nobody on my team". The address is the next best thing: it is theirs, and
+ * it is what the office would recognise.
+ */
+export function personName(p: { full_name?: string | null; email?: string | null } | null | undefined): string {
+  const n = String(p?.full_name ?? '').trim()
+  if (n) return n
+  const e = String(p?.email ?? '').trim()
+  return e || 'Unnamed'
 }
 
 /** "SC-0042". */
