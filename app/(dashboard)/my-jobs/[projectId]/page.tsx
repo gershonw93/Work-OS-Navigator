@@ -479,9 +479,11 @@ export default function SubJobDetailPage({ params }: { params: { projectId: stri
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-ink">{project.name}</h1>
-              <button onClick={openEditProject} className="p-1.5 text-faint hover:text-muted-fg rounded transition-colors" title="Edit project">
-                <Pencil className="h-4 w-4" />
-              </button>
+              {data?.ownsJob && (
+                <button onClick={openEditProject} className="p-1.5 text-faint hover:text-muted-fg rounded transition-colors" title="Edit project" aria-label="Edit project">
+                  <Pencil className="h-4 w-4" />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-3 mt-1 text-sm text-muted-fg flex-wrap">
               {project.address && <span className="flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{project.address}</span>}

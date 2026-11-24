@@ -262,6 +262,15 @@ async function main() {
     ok(/on_platform\s*===\s*false\s*&&\s*<span[^>]*>Not on platform/.test(page), 'the badge shows only when the route says not on platform (a failed read shows nothing)')
   }
 
+  // A SUB ON A GC'S JOB IS NOT OFFERED "EDIT PROJECT". The pencil showed for
+  // everybody and the PATCH is refused to the sub lane, so it failed silently.
+  {
+    const route = code('app/api/my-jobs/[projectId]/route.ts')
+    const page = code('app/(dashboard)/my-jobs/[projectId]/page.tsx')
+    ok(/ownsJob:\s*owner === companyId/.test(route), 'the my-jobs route says whether the caller owns the job')
+    ok(/data\?\.ownsJob\s*&&\s*\(\s*<button onClick=\{openEditProject\}/.test(page), 'Edit project is offered only on your own job')
+  }
+
   done()
 }
 
