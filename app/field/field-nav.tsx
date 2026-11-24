@@ -2,12 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, CheckSquare, Camera, User } from 'lucide-react'
+import { Home, CheckSquare, Camera, User, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const TABS = [
   { href: '/field', label: 'Home', icon: Home, exact: true },
   { href: '/field/tasks', label: 'Tasks', icon: CheckSquare },
+  // The service calls assigned to me (spec "Sub company login + dispatch").
+  { href: '/field/calls', label: 'Calls', icon: Wrench },
   { href: '/field/log', label: 'Log', icon: Camera },
   { href: '/field/me', label: 'Me', icon: User },
 ]

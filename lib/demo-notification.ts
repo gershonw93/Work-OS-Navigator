@@ -57,6 +57,12 @@ export function demoNotification(type: string, today: string): DemoNotification 
         message: `Patch and sand the north stairwell before the painters start - due ${inDays(2)} on ${PROJECT}.`,
         link: '/tasks',
       }
+    case 'service_call_assigned':
+      return {
+        title: 'Service call SC-0042 assigned to you',
+        message: 'No cooling at 14 Harbor View Rd. Customer: Dana Whitfield. Open it for the time.',
+        link: '/field/calls',
+      }
     case 'task_updated':
       return {
         title: 'Task updated: Stairwell handrail',

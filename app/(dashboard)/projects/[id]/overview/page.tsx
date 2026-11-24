@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import { StatStrip } from '@/components/ui/stat-strip'
 import { TodayStrip } from '@/components/projects/today-strip'
+import { JobServiceCalls } from '@/components/service-calls/job-service-calls'
 import { ClientThreadPanel } from '@/components/client-thread/client-thread-panel'
 import { usePermissions } from '@/lib/use-permissions'
 import type { TodayInput } from '@/lib/today'
@@ -180,6 +181,8 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
       {/* FIRST, because it is the question somebody standing on the site is
           actually asking. The Master Calendar answers it and is admins-only. */}
       <TodayStrip projectId={params.id} {...(data.todayFeed ?? {})} />
+      {/* Service calls a sub tied to this job - status only (lib/service-calls.ts). */}
+      <JobServiceCalls projectId={params.id} />
 
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-5">
         <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-5">

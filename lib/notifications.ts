@@ -145,6 +145,15 @@ export const NOTIFICATION_TYPES: NotificationType[] = [
     defaults: { inApp: true, email: false }, push: true, status: 'live',
   },
   {
+    // Dispatch put you on a call (lib/service-calls.ts). Direct: it reaches the
+    // crew member it names and nobody else, and a phone is where a tech in the
+    // van will actually see it - so push, like task_assigned.
+    key: 'service_call_assigned', label: 'Service call assigned to me', group: 'Work',
+    description: 'You are put on a service call, or its time changes.',
+    audience: 'direct',
+    defaults: { inApp: true, email: false }, push: true, status: 'live',
+  },
+  {
     key: 'task_updated', label: 'Task updated', group: 'Work',
     description: 'Any change to a task on one of your jobs - status, dates, priority, or who has it.',
     audience: 'team', defaultAudience: ['tasks', 'view'],

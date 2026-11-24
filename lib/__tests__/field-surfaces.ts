@@ -70,6 +70,10 @@ const NO_SCREEN_OF_ITS_OWN: Record<string, string> = {
   margin: 'app/(dashboard)/projects/[id]/budget/page.tsx',
   // A dialog in the project header, with no URL of its own.
   'client-portal': 'components/layout/share-portal-button.tsx',
+  // A sub's own business: the office screens, and crew reach their calls
+  // through Field Mode's Calls tab (app/field/calls).
+  'service-calls': 'app/(dashboard)/service-calls/page.tsx',
+  dispatch: 'app/(dashboard)/dispatch/page.tsx',
   settings_company: 'app/(dashboard)/settings/page.tsx',
   settings_team: 'app/(dashboard)/settings/page.tsx',
   settings_billing: 'app/(dashboard)/settings/page.tsx',

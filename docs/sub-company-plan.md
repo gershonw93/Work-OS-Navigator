@@ -5,7 +5,8 @@ approved the link model, with one change of their own: a sub invited by a GC
 starts LIGHT and chooses "Run your own jobs" when he wants more
 (lib/sub-account.ts) - a 30-day free trial, then one of the plans, offered on
 the web only (owner, later the same day). Migration 169 is applied. Items 3-5 (service calls,
-dispatch, crew field mode) are next and are not started. Section 6 of the spec
+dispatch, crew field mode) shipped the same day on migration 170 - see
+CLAUDE.md "Service calls and dispatch". Section 6 of the spec
 (security prerequisites) shipped first, in #713.
 
 ## What is true today (read from the live database, 2026-11-24)
@@ -126,7 +127,7 @@ Connect card in their app plus a sign-in email with no credential
 linked sub files compliance under the GC's row for that job, so every GC-side
 reader is unchanged; the GC's Directory shows a linked row as On Platform.
 
-## Spec 3-5, once 0 is decided (not started)
+## Spec 3-5 (shipped - this was the plan; CLAUDE.md has what was built)
 
 - `service_calls`: `company_id` (the sub's, CASCADE), customer, site address
   (through `lib/project-site.ts`'s rules), contact, issue, priority, status

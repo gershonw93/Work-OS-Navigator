@@ -106,6 +106,13 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'equipment',      label: 'Equipment',      group: 'Workspace' },
   { key: 'materials',      label: 'Materials',      group: 'Workspace' },
   { key: 'approvals',      label: 'Approvals',      group: 'Workspace' },
+  // A sub's own business (spec "Sub company login + dispatch"): calls taken
+  // from customers, and the board that puts a crew member on each. Crew roles
+  // hold `service-calls` to WORK their own calls - the routes narrow an
+  // assigned-only role to the calls assigned to it, whatever this map says.
+  // `dispatch` is seeing everybody's day and moving it, so it is the office's.
+  { key: 'service-calls',  label: 'Service Calls',  group: 'Workspace' },
+  { key: 'dispatch',       label: 'Dispatch Board', group: 'Workspace' },
   // Settings
   { key: 'settings_company', label: 'Company Settings', group: 'Settings' },
   { key: 'settings_team',    label: 'Team & Users',     group: 'Settings' },
@@ -176,6 +183,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     invoices: VE, 'pay-apps': FULL, payments: VE, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: N, 'change-orders': FULL, selections: FULL,
     permits: FULL, inspections: FULL, 'mark-ready': VE, submittals: FULL, compliance: VE, reports: N,
     dashboard: V, projects: VCE, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
+    'service-calls': FULL, dispatch: VE,
     // Runs the job and is who the client asks. Regenerating is theirs too - a
     // link that has gone somewhere it should not have is their problem to fix.
     'client-portal': FULL,
@@ -190,6 +198,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     invoices: FULL, 'pay-apps': FULL, payments: FULL, budget: FULL, margin: N, quotes: FULL, 'request-quotes': FULL, financials: V, 'change-orders': FULL, selections: FULL,
     permits: VE, inspections: VE, 'mark-ready': VE, submittals: VE, compliance: FULL, reports: V,
     dashboard: V, projects: V, customers: VE, directory: V, files: FULL, equipment: FULL, materials: FULL, approvals: VE,
+    'service-calls': FULL, dispatch: VE,
     // The people who actually email a client their link.
     'client-portal': FULL,
     settings_company: V, settings_team: N, settings_billing: N,
@@ -201,6 +210,8 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N, selections: N,
     permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: VCE, materials: VCE, approvals: V,
+    // Works the calls assigned to them; the board is the office's.
+    'service-calls': VE, dispatch: N,
     // The crew does not hand the owner a billing portal. Explicit N rather than
     // absent: a resource a role never names resolves to nothing, and "nothing"
     // is indistinguishable from an oversight.
@@ -220,6 +231,8 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     // actually open; this one was the checkbox that was simply wrong, and the
     // honest fix is to untick it rather than to build somewhere for it to go.
     dashboard: V, projects: V, customers: N, directory: N, files: V, equipment: VC, materials: VC, approvals: N,
+    // Their own calls only (the routes narrow it): drive, arrive, close out.
+    'service-calls': VE, dispatch: N,
     'client-portal': N,
     settings_company: N, settings_team: N, settings_billing: N,
   },
@@ -230,6 +243,7 @@ export const ROLE_DEFAULTS: Record<string, PermMap> = {
     invoices: N, payments: N, budget: N, margin: N, quotes: N, 'request-quotes': N, financials: N, 'change-orders': N, selections: N,
     permits: N, inspections: N, 'mark-ready': VE, submittals: N, compliance: N, reports: N,
     dashboard: V, projects: V, customers: N, directory: V, files: V, equipment: V, materials: V, approvals: V,
+    'service-calls': N, dispatch: N,
     // This is the VENDOR role - an invited subcontractor. The client portal
     // carries the GC's invoices to their client; a sub on the job has no
     // business anywhere near it, and the company check on the routes is the
@@ -262,7 +276,15 @@ export function buildAllNone(): PermMap {
 // customised Project Manager would have lost Selections the day it became a
 // permission. Absent means "inherit what the parent said", never "no"; once the
 // company saves the role again, the key is written and this stops applying.
-export const INHERITS_FROM: Record<string, string> = { selections: 'budget' }
+export const INHERITS_FROM: Record<string, string> = {
+  selections: 'budget',
+  // Added Nov 2026, after companies had saved role maps. A saved map that
+  // predates them inherits from `projects`; `dispatch` is ALSO refused to every
+  // assigned-only role by its route, because a saved worker map holding
+  // `projects: view` would otherwise inherit a view of everybody's day.
+  'service-calls': 'projects',
+  dispatch: 'projects',
+}
 
 export function withInheritedResources(map: PermMap): PermMap {
   for (const [child, parent] of Object.entries(INHERITS_FROM)) {
