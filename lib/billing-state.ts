@@ -39,6 +39,7 @@ export type AccessState =
 export interface BillingRow {
   status?: string | null
   plan_key?: string | null
+  trial_started_at?: string | null
   trial_ends_at?: string | null
   comped_until?: string | null
   current_period_end?: string | null
@@ -71,6 +72,20 @@ export function daysUntil(at: string | null | undefined, now: Date): number | nu
   const endDay = new Date(end.getFullYear(), end.getMonth(), end.getDate()).getTime()
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
   return Math.round((endDay - today) / 86_400_000)
+}
+
+/**
+ * How many days THIS trial was, read off its own row. Two doors start trials
+ * of different lengths (TRIAL_DAYS for the waitlist, SUB_TRIAL_DAYS for a sub
+ * who runs his own jobs), so a sentence saying "your 15 free days are up" to
+ * somebody given 30 is a value that is present and wrong. Falls back to
+ * TRIAL_DAYS when the row cannot say.
+ */
+export function trialLength(row: Pick<BillingRow, 'trial_started_at' | 'trial_ends_at'> | null | undefined): number {
+  const a = row?.trial_started_at ? new Date(row.trial_started_at).getTime() : NaN
+  const b = row?.trial_ends_at ? new Date(row.trial_ends_at).getTime() : NaN
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b <= a) return TRIAL_DAYS
+  return Math.round((b - a) / 86_400_000)
 }
 
 /** When a trial that starts now would run out. */
@@ -159,7 +174,7 @@ export function billingAccess(row: BillingRow | null | undefined, now: Date = ne
     // Trialing with no end date is a claim with no evidence behind it. Guess
     // the recoverable way: open, and let the screen say a plan is needed.
     if (left === null) {
-      return { state: 'trial', writable: true, reason: `Your first ${TRIAL_DAYS} days are free.`, daysLeft: null, plan }
+      return { state: 'trial', writable: true, reason: `Your first ${trialLength(row)} days are free.`, daysLeft: null, plan }
     }
     if (left >= 0) {
       return {
@@ -175,7 +190,7 @@ export function billingAccess(row: BillingRow | null | undefined, now: Date = ne
     return {
       state: 'locked',
       writable: false,
-      reason: `Your ${TRIAL_DAYS} free days are up. Choose a plan to start writing again - nothing has been deleted, and everything on your jobs is still here to read.`,
+      reason: `Your ${trialLength(row)} free days are up. Choose a plan to start writing again - nothing has been deleted, and everything on your jobs is still here to read.`,
       daysLeft: null,
       plan,
     }

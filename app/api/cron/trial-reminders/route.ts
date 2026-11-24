@@ -4,7 +4,7 @@ import { audienceFor } from '@/lib/notification-audience'
 import { notify } from '@/lib/notify'
 import { checkCronAuth } from '@/lib/cron-auth'
 import { trialWarning, trialCopy, TRIAL_WARN_FROM } from '@/lib/trial-warning'
-import { TRIAL_DAYS } from '@/lib/plans'
+import { trialLength } from '@/lib/billing-state'
 import { dayWords } from '@/lib/dates'
 import { resolveAll, fill } from '@/lib/email-copy-read'
 
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
   // rule.
   const { data: rows, error } = await db
     .from('company_billing')
-    .select('company_id, status, trial_ends_at, trial_warned_days_left')
+    .select('company_id, status, trial_started_at, trial_ends_at, trial_warned_days_left')
     .eq('status', 'trialing')
     .not('trial_ends_at', 'is', null)
 
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
     if (recipients.length) {
       const words = fill(
         copy[`trial:${action.send}`] ?? { subject: copy_.title, body: copy_.message, cta: null, source: 'default' },
-        { days_left: String(action.send), trial_end: endsOn ?? '', trial_days: String(TRIAL_DAYS) },
+        { days_left: String(action.send), trial_end: endsOn ?? '', trial_days: String(trialLength(row as any)) },
       )
       await notify({
         db, userIds: recipients, type: 'trial_ending',

@@ -49,7 +49,8 @@ export async function POST(request: Request, { params }: { params: { id: string 
   if (who.side === 'gc' && !actorCan(who.actor, 'rfis', 'create')) {
     return NextResponse.json({ error: 'You do not have permission to create RFIs.' }, { status: 403 })
   }
-  const locked = await billingLock(db, who.actor.companyId)
+  // The owner's plan governs the job; a sub's own billing never stops them asking.
+  const locked = who.side === 'gc' ? await billingLock(db, who.actor.companyId) : null
   if (locked) return locked
   const body = await request.json().catch(() => ({}))
 

@@ -135,10 +135,14 @@ export async function requirePermission(
   //
   // Only for writes, so a read costs nothing extra, and only when the caller
   // has a company - a token with no profile behind it is already handled above.
-  if (WRITE_ACTIONS.includes(action)) {
-    const locked = await billingLock(db, actor.companyId)
-    if (locked) return { denied: locked }
-  }
+  //
+  // AND ONLY ON THE COMPANY'S OWN SIDE OF A JOB. Asked below, after the job:
+  // on somebody else's job (a sub's work for a GC, an outside team member)
+  // the OWNER's plan governs the job, never the caller's. A sub's own trial
+  // running out must not stop the bill, the daily log or the RFI a GC is
+  // waiting on - a customer of ours locked out of helping a customer of ours,
+  // the failure CLAUDE.md's billing rules were written about.
+  const lockFor = async () => (WRITE_ACTIONS.includes(action) ? billingLock(db, actor.companyId) : null)
 
   // ── and is this person ON the job the URL names? ─────────────────────────
   //
@@ -167,9 +171,15 @@ export async function requirePermission(
     if (on.side !== 'gc' && !opts.subOwnRecord && !subLaneAllows(resource, action)) {
       return { denied: NextResponse.json({ error: SUB_LANE_REFUSAL }, { status: 403 }) }
     }
+    if (on.side === 'gc') {
+      const locked = await lockFor()
+      if (locked) return { denied: locked }
+    }
     return { actor, side: on.side }
   }
 
+  const locked = await lockFor()
+  if (locked) return { denied: locked }
   return { actor }
 }
 

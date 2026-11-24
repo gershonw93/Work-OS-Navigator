@@ -9,11 +9,14 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 // sub does for a GC - My Jobs, bids, bills, compliance, the calendar - and no
 // customers or jobs of his own until he presses "Run your own jobs".
 //
-// THE BUTTON IS NOT CALLED UPGRADE, AND IT IS FREE. A sub's company has never
-// carried a billing row (CLAUDE.md, billing), so nothing is bought. "Upgrade"
-// reads as buying, which is the thing the iOS build may not show
-// (lib/__tests__/ios-no-purchase.ts) - and the words should say what happens.
-// Charging for it later is a decision, not an edit to this file.
+// IT IS A TRIAL OF SUB_TRIAL_DAYS, AND ONLY ON THE WEB. The owner's call
+// (Nov 24, 2026): pressing it starts a 30-day free trial, after which it is
+// one of the plans like any GC's (`/api/account/run-own-jobs`). The iOS build
+// offers no trial and no plan - the same as a GC's iPhone, which has no
+// Billing tab at all since Apple rejected 1.0 (15) for one under 3.1.1 - so
+// the card does not render there and the refusal sentence offers nothing.
+// Whatever happens to the trial, the work a sub does on a GC's job is governed
+// by the GC's plan (lib/api-guard.ts).
 //
 // THREE STATES, one place:
 //   open          every company that is not one of the two below - nothing
@@ -42,14 +45,21 @@ export function subAccountState(company: CompanyFacts): SubAccount {
   return 'open'
 }
 
-/** What the refusal says, wherever a light account tries to open a job or a customer. */
+/**
+ * What the refusal says, wherever a light account tries to open a job or a
+ * customer. ONE sentence for every shell: it states the fact and offers
+ * nothing, because the offer is a trial and the iOS build may not carry one.
+ * On the web the offer is on My Jobs, beside the button that was refused.
+ */
 export const OWN_JOBS_REFUSAL =
-  'Your account is set up for the work contractors send you. To add jobs and customers of your own, choose Run your own jobs on My Jobs.'
+  'Your account is set up for the work contractors send you, so it does not have jobs or customers of its own.'
 
-/** The button, its line, and what pressing it does - one spelling for the card and Help. */
+/** The offer on My Jobs (WEB ONLY) - one spelling for the card and Help. */
 export const RUN_OWN_JOBS = {
   label: 'Run your own jobs',
-  line: 'Add your own customers and jobs, alongside the work contractors send you. Free - nothing changes for the contractors you work with.',
+  line: (days: number) =>
+    `Add your own customers and jobs, alongside the work contractors send you. The first ${days} days are free; after that it is one of the plans. The work you do for contractors is never affected.`,
+  button: (days: number) => `Start ${days} days free`,
 }
 
 /**

@@ -69,12 +69,15 @@ export async function actorJobGate(
       ),
     }
   }
-  if (opts.write || WRITE_ACTIONS.includes(action)) {
+  const on = await jobSide(db, actor, projectId)
+  if ('denied' in on) return on
+  // The OWNER's plan governs the job: a sub or outside team member is never
+  // locked out of somebody else's job by their own company's billing (see
+  // requirePermission).
+  if (on.side === 'gc' && (opts.write || WRITE_ACTIONS.includes(action))) {
     const locked = await billingLock(db, actor.companyId)
     if (locked) return { denied: locked }
   }
-  const on = await jobSide(db, actor, projectId)
-  if ('denied' in on) return on
   return { actor, side: on.side }
 }
 

@@ -97,8 +97,12 @@ ok(failedAt > 0 && banner.lastIndexOf('canBuy ?', failedAt) > 0,
 const article = getArticle('plans-and-pricing')
 ok(!!article, 'the pricing article is still there')
 ok(article?.webOnly === true, '...and marked web-only')
-ok(HELP_ARTICLES.filter(a => a.webOnly).length === 1,
-  'exactly one article is web-only, so the flag means what it says')
+// NAMED, not counted loosely: each web-only article is one that is about
+// buying. The second is a sub's trial to run his own jobs (SUB_TRIAL_DAYS),
+// which ends in a plan. A third needs a line here and a reason.
+const WEB_ONLY = ['plans-and-pricing', 'sub-run-own-jobs']
+ok(JSON.stringify(HELP_ARTICLES.filter(a => a.webOnly).map(a => a.slug).sort()) === JSON.stringify([...WEB_ONLY].sort()),
+  `the web-only articles are exactly the ones about buying (${WEB_ONLY.join(', ')}), so the flag means what it says`)
 
 ok(helpArticleAllowed(article, true) === true, 'the web may read it')
 ok(helpArticleAllowed(article, false) === false, 'iOS may not')

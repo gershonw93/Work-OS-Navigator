@@ -3,7 +3,8 @@
 Status: **DECIDED AND SHIPPED (decision 0 and item 1), 2026-11-24.** The owner
 approved the link model, with one change of their own: a sub invited by a GC
 starts LIGHT and chooses "Run your own jobs" when he wants more
-(lib/sub-account.ts). Migration 169 is applied. Items 3-5 (service calls,
+(lib/sub-account.ts) - a 30-day free trial, then one of the plans, offered on
+the web only (owner, later the same day). Migration 169 is applied. Items 3-5 (service calls,
 dispatch, crew field mode) are next and are not started. Section 6 of the spec
 (security prerequisites) shipped first, in #713.
 

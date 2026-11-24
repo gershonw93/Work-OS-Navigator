@@ -115,6 +115,17 @@ export const PLANS: Plan[] = [
  */
 export const TRIAL_DAYS = 15
 
+/**
+ * A SUB WHO CHOOSES TO RUN HIS OWN JOBS gets a longer trial, the owner's call
+ * (Nov 24, 2026): "should be a 30 day free trial". A sub invited by a GC is
+ * already using SyteNav for that GC's work, so this is a second door with its
+ * own length rather than the waitlist's fifteen days. Started only by
+ * `/api/account/run-own-jobs`, never offered in the iOS build
+ * (lib/sub-account.ts), and its sentences read the length off the ROW
+ * (`trialLength`), so neither number can speak for the other.
+ */
+export const SUB_TRIAL_DAYS = 30
+
 // ── the arithmetic, in one place ─────────────────────────────────────────────
 
 /** The plan a stored `plan_key` names, or null if it names nothing we sell. */

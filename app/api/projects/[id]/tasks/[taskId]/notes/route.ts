@@ -49,7 +49,8 @@ export async function POST(
   const db = admin()
   const gate = await requirePermission(db, request, 'tasks', 'view')
   if (denied(gate)) return gate.denied
-  const locked = await billingLock(db, gate.actor.companyId)
+  // The owner's plan governs the job; a sub's own billing never stops a note.
+  const locked = gate.side === 'gc' ? await billingLock(db, gate.actor.companyId) : null
   if (locked) return locked
 
   const { content } = await request.json()
