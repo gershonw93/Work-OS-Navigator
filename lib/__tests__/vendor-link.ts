@@ -251,6 +251,17 @@ async function main() {
   ok(files.length > 20, `the scan sees the subcontract queries (${files.length} files)`)
   ok(!offenders.length, `no subcontract query filters on the caller's company alone - it goes through vendorCompanyIds (${offenders.join(', ') || 'none'})`)
 
+  // ON PLATFORM ON A JOB IS THE DIRECTORY'S ANSWER. The Subs & Team badge read
+  // `added_manually` ("entered by hand, not through a bid"), so a sub who had
+  // just connected to this GC still read "Not on platform" on the job.
+  {
+    const route = code('app/api/projects/[id]/team/route.ts')
+    const page = code('app/(dashboard)/projects/[id]/team/page.tsx')
+    ok(/linked_company_id/.test(route) && /on_platform/.test(route), 'the job roster derives on_platform from the link (and people under the row)')
+    ok(!/added_manually\s*&&\s*<span[^>]*>Not on platform/.test(page), 'the badge no longer reads added_manually')
+    ok(/on_platform\s*===\s*false\s*&&\s*<span[^>]*>Not on platform/.test(page), 'the badge shows only when the route says not on platform (a failed read shows nothing)')
+  }
+
   done()
 }
 

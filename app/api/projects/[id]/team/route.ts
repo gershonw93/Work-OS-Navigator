@@ -50,13 +50,13 @@ export async function GET(request: Request, { params }: { params: { id: string }
       .select('*')
       .eq('project_id', params.id)
       .order('created_at', { ascending: true }),
-    subsSelect('id, scope, trade, contract_amount, status, added_manually, proposal_url, companies(name, contact_email, phone)'),
+    subsSelect('id, company_id, scope, trade, contract_amount, status, added_manually, proposal_url, companies(name, contact_email, phone, linked_company_id)'),
   ])
 
   // Fall back if the manual-sub columns haven't been migrated yet
   let subcontracts = subsRes.data
   if (subsRes.error && (subsRes.error as any).code === '42703') {
-    const retry = await subsSelect('id, scope, trade, contract_amount, status, companies(name, contact_email, phone)')
+    const retry = await subsSelect('id, company_id, scope, trade, contract_amount, status, companies(name, contact_email, phone, linked_company_id)')
     subcontracts = retry.data
   }
 
@@ -69,9 +69,28 @@ export async function GET(request: Request, { params }: { params: { id: string }
     return true
   })
 
+  // ON PLATFORM is the Directory's answer (app/api/directory/route.ts): people
+  // under the row, OR a link to the sub's own company (migration 169). It used
+  // to be `added_manually`, which only says the sub was entered by hand rather
+  // than through a bid - so a sub who had connected to this GC minutes earlier
+  // still read "Not on platform" on the job. A read that fails says nothing
+  // (null) rather than "not on platform".
+  const rowIds = Array.from(new Set(uniqueSubs.map((s: any) => s.company_id).filter(Boolean)))
+  const { data: people, error: peopleErr } = rowIds.length
+    ? await db.from('profiles').select('company_id').in('company_id', rowIds)
+    : { data: [], error: null }
+  if (peopleErr) console.error('[team] on-platform read failed', peopleErr.message)
+  const withAccount = new Set(((people ?? []) as { company_id: string }[]).map(p => p.company_id))
+  const placed = uniqueSubs.map((s: any) => ({
+    ...s,
+    on_platform: !!(s.companies as any)?.linked_company_id || withAccount.has(s.company_id)
+      ? true
+      : peopleErr ? null : false,
+  }))
+
   const shown = seesMoney
-    ? uniqueSubs
-    : uniqueSubs.map((sub: any) => {
+    ? placed
+    : placed.map((sub: any) => {
       const { contract_amount: _amount, proposal_url: _proposal, ...rest } = sub
       return rest
     })
