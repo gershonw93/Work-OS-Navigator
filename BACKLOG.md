@@ -15,6 +15,22 @@ call (invoicing a call is a status today, not an amount), more than one crew
 member per call, a geofence radius per call, and the GC's view of a linked
 call is a card on the Overview only (no notification when it changes).
 
+From the owner's walk-through on staging (24 Nov):
+- **Show a light account the Service Calls / Dispatch / Customers tabs**, and
+  have each one, when opened, offer the 30-day "Run your own jobs" trial (web
+  only - the iOS build may not offer it). Today the tabs simply appear after
+  the trial starts.
+- **A sub's schedule line on a GC's job opens to nothing.** It shows the trade,
+  "Yours" and Report a delay; tapping could open the line's notes, the trade
+  before it and the GC's contact.
+- **"All the features Jobber has"** - asked for, not yet scoped. Next step is a
+  list of what Jobber does that SyteNav does not, for the owner to pick from.
+- **Vercel stopped building `main` on its own after #710 (Nov 13).** Staging
+  was a week stale until a build was started by hand; the cause (Git settings
+  or the GitHub app) is in the Vercel dashboard, which this session cannot
+  read. Until it is fixed, each merge needs a build started by hand.
+- **Staging sends no email**: `SENDGRID_API_KEY` is not set for Preview.
+
 Shipped: the security prerequisites (#713), and decision 0 + item 1 - one
 company per sub, every GC's Directory row LINKED to it (migration 169), the
 light account and "Run your own jobs", one reader for "my subcontracts"

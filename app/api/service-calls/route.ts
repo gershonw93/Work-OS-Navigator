@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   }
   return NextResponse.json({
     calls: data ?? [],
-    crew: crew.map(p => ({ id: p.id, name: p.full_name ?? 'Unnamed' })),
+    crew: crew.map(p => ({ id: p.id, name: p.name })),
     crewView: gate.crew,
   })
 }

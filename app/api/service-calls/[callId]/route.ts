@@ -43,8 +43,8 @@ export async function GET(request: Request, { params }: { params: { callId: stri
   const assignee = crew.find(p => p.id === call.assigned_to)
   return NextResponse.json({
     call,
-    assignee_name: assignee?.full_name ?? null,
-    crew: gate.crew ? [] : crew.map(p => ({ id: p.id, name: p.full_name ?? 'Unnamed' })),
+    assignee_name: assignee?.name ?? null,
+    crew: gate.crew ? [] : crew.map(p => ({ id: p.id, name: p.name })),
     gc_job: (job as any).data ? { id: (job as any).data.id, name: (job as any).data.name } : null,
     events: events.data ?? [],
     time: time.data ?? [],

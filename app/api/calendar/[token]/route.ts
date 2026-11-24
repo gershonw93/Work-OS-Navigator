@@ -37,15 +37,20 @@ export async function GET(_request: Request, { params }: { params: { token: stri
   // error, and replaces it with nothing on an empty one.
   if (!items) return new NextResponse('Calendar temporarily unavailable', { status: 503 })
 
-  type Ev = { uid: string; start: string; end: string; summary: string; desc: string }
-  const UID: Record<string, string> = { schedule: 'sched', task: 'task', inspection: 'insp' }
+  type Ev = { uid: string; start: string; end: string; summary: string; desc: string; at?: string; atEnd?: string | null }
+  const UID: Record<string, string> = { schedule: 'sched', task: 'task', inspection: 'insp', service_call: 'call' }
   const events: Ev[] = items.map(it => ({
     uid: `${UID[it.kind]}-${it.id.slice(2)}@sytenav`,
     start: it.start,
     end: it.end,
     summary: it.kind === 'task' ? `Task: ${it.title}` : it.kind === 'inspection' ? `Inspection: ${it.title}` : it.title,
-    desc: `${it.project_name}${it.kind === 'task' && it.done ? ' (done)' : ''}`,
+    desc: `${it.project_name}${(it.kind === 'task' || it.kind === 'service_call') && it.done ? ' (done)' : ''}`,
+    at: it.at,
+    atEnd: it.at_end,
   }))
+  // A TIMED event is written in UTC (the trailing Z), and the reader's
+  // calendar app puts it in their own zone - the one clock nobody here knows.
+  const utc = (isoTime: string) => new Date(isoTime).toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')
 
   const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d+Z$/, 'Z')
   const lines: string[] = [
@@ -57,8 +62,9 @@ export async function GET(_request: Request, { params }: { params: { token: stri
       'BEGIN:VEVENT',
       `UID:${e.uid}`,
       `DTSTAMP:${stamp}`,
-      `DTSTART;VALUE=DATE:${ymd(e.start)}`,
-      `DTEND;VALUE=DATE:${plusOneDay(e.end)}`,      // all-day end is exclusive
+      ...(e.at
+        ? [`DTSTART:${utc(e.at)}`, `DTEND:${utc(e.atEnd ?? new Date(new Date(e.at).getTime() + 60 * 60_000).toISOString())}`]
+        : [`DTSTART;VALUE=DATE:${ymd(e.start)}`, `DTEND;VALUE=DATE:${plusOneDay(e.end)}`]), // all-day end is exclusive
       `SUMMARY:${esc(e.summary)}`,
       `DESCRIPTION:${esc(e.desc)}`,
       'END:VEVENT',

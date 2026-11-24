@@ -12,7 +12,7 @@ export default function FieldCallPage({ params }: { params: { callId: string } }
       <Link href="/field/calls" className="inline-flex items-center gap-1 text-sm text-muted-fg">
         <ChevronLeft className="h-4 w-4" /> My calls
       </Link>
-      <CallDetail callId={params.callId} />
+      <CallDetail callId={params.callId} narrow />
     </div>
   )
 }

@@ -2,56 +2,123 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useNotice } from '@/components/ui/notice'
-import { callFetch } from '@/lib/service-calls-client'
-import { callLabel, clashesWith, slotWindow, STATUS_LABEL, DEFAULT_CALL_MINUTES } from '@/lib/service-calls'
+import { NewCallDialog } from '@/components/service-calls/new-call-dialog'
+import { colorFor, initials, CREW_COLORS, type CrewColor } from '@/components/service-calls/crew-colors'
+import { callFetch, toLocalInput } from '@/lib/service-calls-client'
+import { callLabel, clashesWith, slotWindow, STATUS_LABEL, DEFAULT_CALL_MINUTES, type CallStatus } from '@/lib/service-calls'
+import {
+  blockGeometry, lanes, timeAtOffset, hourLabel, weekStart, addDays, sameDay, startOfDay,
+  DAY_START_HOUR, DAY_END_HOUR, HOUR_PX, BOARD_PX,
+} from '@/lib/dispatch-layout'
 import { cn } from '@/lib/utils'
 import { formatDate, formatDateShort } from '@/lib/dates'
 import { fetchProblem } from '@/lib/fetch-error'
 
-// THE DISPATCH BOARD - crew down the side, the day (by hour) or the week (by
-// day) across, the calls nobody has yet in a queue. On a computer a call is
-// DRAGGED onto a crew member's slot: that is one PATCH of the call (who and
-// when), and the crew member is told. A double booking is SHOWN, in red, and
-// warned about before the drop lands - never silently refused, because a
-// dispatcher sometimes means it (two techs on one job are two calls today).
+// THE DISPATCH BOARD, DRAWN LIKE A DESK CALENDAR. Reported over the first one:
+// "the screens are so ugly it hurts my eyes ... make it look better maybe
+// similar to google calendar". Time runs DOWN the side; in the Day view each
+// crew member is a column, in the Week view each day is, and a call is a block
+// as tall as it runs. The arithmetic is lib/dispatch-layout.ts, pure and
+// tested.
 //
-// On a phone there is no drag: the board is a list per person, and a call is
-// assigned from the call itself. It says so rather than offering a gesture a
-// finger cannot make.
+// A call is DRAGGED to a new person or time (one PATCH of the call - who and
+// when - and the crew member is told), and an empty slot is CLICKED to take a
+// call there. A double booking is SHOWN in red and warned about, never
+// refused: a dispatcher sometimes means it.
+//
+// On a phone there is no drag and no room for columns: the board is the day's
+// list, time on the left, with a strip of days to move along.
 //
 // THE DRAG IS A REF (CLAUDE.md, tasks): a setState on drag start re-renders
-// the card being dragged and the browser drops it.
+// the block being dragged and the browser drops it.
 
-type Call = { id: string; call_number: number; customer_name: string; site_address: string; issue: string; status: string; priority: string; assigned_to: string | null; scheduled_start: string | null; scheduled_end: string | null }
+type Call = {
+  id: string; call_number: number; customer_name: string; site_address: string; issue: string
+  status: string; priority: string; assigned_to: string | null; scheduled_start: string | null; scheduled_end: string | null
+}
 type Crew = { id: string; name: string }
 
-const DAY_HOURS = Array.from({ length: 13 }, (_, i) => 7 + i) // 7am - 7pm
+const timeOf = (d: Date) => d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })
+const HOURS = Array.from({ length: DAY_END_HOUR - DAY_START_HOUR }, (_, i) => DAY_START_HOUR + i)
 
-const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate())
-const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x }
-const sameDay = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate()
-const hourLabel = (h: number) => `${((h + 11) % 12) + 1}${h < 12 ? 'a' : 'p'}`
-const timeOf = (iso: string | null) => iso ? new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''
-
-function CallChip({ call, clash, onDragStart }: { call: Call; clash: boolean; onDragStart: (id: string) => void }) {
+function CallBlock({ call, color, clash, style, height, onGrab }: {
+  call: Call; color: CrewColor; clash: boolean; style: React.CSSProperties; height: number
+  onGrab: (id: string, grabOffsetY: number) => void
+}) {
+  const start = call.scheduled_start ? new Date(call.scheduled_start) : null
+  const end = call.scheduled_end ? new Date(call.scheduled_end) : null
+  const closed = call.status === 'done' || call.status === 'invoiced'
+  // What fits, line by line, so a short block shows the customer and the time
+  // rather than four lines cut off half way through the third.
+  const showIssue = height >= HOUR_PX * 0.95 && !clash
+  const showStatus = height >= HOUR_PX * 1.4 && call.status !== 'scheduled' && call.status !== 'new'
   return (
     <Link href={`/service-calls/${call.id}`} draggable
-      onDragStart={e => { e.dataTransfer.setData('text/plain', call.id); onDragStart(call.id) }}
-      title={`${callLabel(call.call_number)} - ${call.issue}`}
-      className={cn('block rounded-md border px-2 py-1 text-xs leading-tight cursor-grab',
-        clash ? 'border-danger/50 bg-danger-tint text-danger' : 'border-line bg-panel text-ink')}>
-      <span className="block truncate font-semibold">{timeOf(call.scheduled_start)} {callLabel(call.call_number)}</span>
-      <span className="block truncate text-muted-fg">{call.issue}</span>
-      {clash && <span className="block font-medium">Double-booked</span>}
+      onClick={e => e.stopPropagation()}
+      onDragStart={e => {
+        e.dataTransfer.setData('text/plain', call.id)
+        e.dataTransfer.effectAllowed = 'move'
+        onGrab(call.id, e.clientY - e.currentTarget.getBoundingClientRect().top)
+      }}
+      title={`${callLabel(call.call_number)} - ${call.customer_name}: ${call.issue}`}
+      style={style}
+      className={cn('absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-[11px] leading-tight text-ink cursor-grab active:cursor-grabbing',
+        'hover:z-10 hover:shadow-md transition-shadow', color.block,
+        clash && 'ring-2 ring-danger ring-inset', closed && 'opacity-60')}>
+      <span className="flex items-center gap-1 font-semibold truncate">
+        {closed && <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden />}
+        <span className="truncate">{call.customer_name}</span>
+      </span>
+      {start && <span className="block truncate text-ink-soft">{timeOf(start)}{end ? ` - ${timeOf(end)}` : ''}</span>}
+      {showIssue && <span className="block truncate text-muted-fg">{call.issue}</span>}
+      {showStatus && <span className="block truncate font-medium text-ink-soft">{STATUS_LABEL[call.status as CallStatus] ?? call.status}</span>}
+      {clash && <span className="block truncate font-semibold text-danger">Double-booked</span>}
     </Link>
+  )
+}
+
+/** A small month to jump around in, like the one on the left of a desk calendar. */
+function MiniMonth({ value, onPick }: { value: Date; onPick: (d: Date) => void }) {
+  const [month, setMonth] = useState(() => new Date(value.getFullYear(), value.getMonth(), 1))
+  useEffect(() => { setMonth(new Date(value.getFullYear(), value.getMonth(), 1)) }, [value])
+  const first = weekStart(month)
+  const today = new Date()
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-ink">{formatDate(month, { month: 'long', year: 'numeric' })}</p>
+        <div className="flex">
+          <button type="button" onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))} aria-label="Previous month" title="Previous month" className="p-1 rounded-full text-muted-fg hover:bg-surface"><ChevronLeft className="h-4 w-4" /></button>
+          <button type="button" onClick={() => setMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))} aria-label="Next month" title="Next month" className="p-1 rounded-full text-muted-fg hover:bg-surface"><ChevronRight className="h-4 w-4" /></button>
+        </div>
+      </div>
+      <div className="grid grid-cols-7 text-center text-[11px]">
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => <span key={i} className="py-1 font-medium text-faint">{d}</span>)}
+        {Array.from({ length: 42 }, (_, i) => addDays(first, i)).map(d => {
+          const other = d.getMonth() !== month.getMonth()
+          const picked = sameDay(d, value)
+          const isToday = sameDay(d, today)
+          return (
+            <button key={d.toISOString()} type="button" onClick={() => onPick(startOfDay(d))}
+              className={cn('mx-auto h-7 w-7 rounded-full whitespace-nowrap text-xs',
+                picked ? 'bg-ink text-panel font-semibold' : isToday ? 'text-accent-fg font-bold' : other ? 'text-faint' : 'text-ink-soft',
+                !picked && 'hover:bg-surface')}>
+              {d.getDate()}
+            </button>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
 export default function DispatchPage() {
   const notice = useNotice()
+  const router = useRouter()
   const [view, setView] = useState<'day' | 'week'>('day')
   const [anchor, setAnchor] = useState(() => startOfDay(new Date()))
   const [state, setState] = useState<'loading' | 'failed' | 'ready'>('loading')
@@ -60,11 +127,18 @@ export default function DispatchPage() {
   const [calls, setCalls] = useState<Call[]>([])
   const [waiting, setWaiting] = useState<Call[]>([])
   const [clash, setClash] = useState<Record<string, string[]>>({})
-  const dragging = useRef<string | null>(null)
+  const [hidden, setHidden] = useState<Set<string>>(new Set())
+  const [creating, setCreating] = useState<{ assigned_to?: string; start?: string; end?: string } | null>(null)
+  const [now, setNow] = useState(() => new Date())
+  const dragging = useRef<{ id: string; grabY: number } | null>(null)
+  const scroller = useRef<HTMLDivElement>(null)
 
-  const from = view === 'day' ? anchor : addDays(anchor, -((anchor.getDay() + 6) % 7)) // weeks start Monday
+  const from = view === 'day' ? anchor : weekStart(anchor)
   const days = view === 'day' ? 1 : 7
   const to = addDays(from, days)
+  const dayList = useMemo(() => Array.from({ length: days }, (_, i) => addDays(from, i)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [from.getTime(), days])
 
   const load = useCallback(async () => {
     try {
@@ -84,22 +158,42 @@ export default function DispatchPage() {
   }, [from.getTime(), to.getTime()])
   useEffect(() => { load() }, [load])
 
-  const all = useMemo(() => [...calls, ...waiting], [calls, waiting])
+  // The red "now" line moves on its own.
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000)
+    return () => clearInterval(t)
+  }, [])
 
-  async function drop(personId: string, slotStart: Date) {
-    const id = dragging.current
-    dragging.current = null
-    const call = all.find(c => c.id === id)
+  // Open the board at the working morning, not at 6am with the day below the fold.
+  useEffect(() => {
+    if (state === 'ready' && scroller.current && scroller.current.scrollTop === 0) {
+      scroller.current.scrollTop = Math.max(0, (7 - DAY_START_HOUR) * HOUR_PX - 12)
+    }
+  }, [state])
+
+  const crewIds = useMemo(() => crew.map(c => c.id), [crew])
+  const all = useMemo(() => [...calls, ...waiting], [calls, waiting])
+  const shown = calls.filter(c => !c.assigned_to || !hidden.has(c.assigned_to))
+  const clashCount = Object.keys(clash).length
+  const nameOf = (id: string | null) => crew.find(p => p.id === id)?.name ?? null
+
+  async function place(callId: string, personId: string | null, start: Date) {
+    const call = all.find(c => c.id === callId)
     if (!call) return
+    const who = personId ?? call.assigned_to ?? (crew.length === 1 ? crew[0].id : null)
+    if (!who) {
+      notice('Who is going? Drop it on a person in the Day view, or open the call to pick somebody.', { tone: 'info' })
+      return
+    }
     const w = slotWindow(call)
     const minutes = w ? Math.round((w[1] - w[0]) / 60_000) : DEFAULT_CALL_MINUTES
-    const start = slotStart.toISOString()
-    const end = new Date(slotStart.getTime() + minutes * 60_000).toISOString()
+    const s = start.toISOString()
+    const e = new Date(start.getTime() + minutes * 60_000).toISOString()
     // Asked BEFORE the save, by the same rule the board paints with.
-    const hits = clashesWith({ id: call.id, assigned_to: personId, scheduled_start: start, scheduled_end: end, status: 'scheduled' }, calls)
+    const hits = clashesWith({ id: call.id, assigned_to: who, scheduled_start: s, scheduled_end: e, status: 'scheduled' }, calls)
     try {
       const res = await callFetch(`/api/service-calls/${call.id}`, {
-        method: 'PATCH', body: JSON.stringify({ assigned_to: personId, scheduled_start: start, scheduled_end: end }),
+        method: 'PATCH', body: JSON.stringify({ assigned_to: who, scheduled_start: s, scheduled_end: e }),
       })
       const json = await res.json().catch(() => ({}))
       if (!res.ok) { notice(json.error ?? 'Could not move the call.'); return }
@@ -107,47 +201,121 @@ export default function DispatchPage() {
         const names = hits.map(h => callLabel(all.find(c => c.id === h)?.call_number)).join(', ')
         notice(`Booked - and it overlaps ${names} for the same person.`, { tone: 'info', title: 'Double-booked' })
       }
-    } catch (e) {
-      notice(fetchProblem(e, 'moving the call'))
+    } catch (err) {
+      notice(fetchProblem(err, 'moving the call'))
     } finally {
       load()
     }
   }
 
-  const callsFor = (personId: string, day: Date, hour?: number) => calls.filter(c => {
-    if (c.assigned_to !== personId || !c.scheduled_start) return false
-    const s = new Date(c.scheduled_start)
-    if (!sameDay(s, day)) return false
-    if (hour === undefined) return true
-    const h = s.getHours()
-    return hour === DAY_HOURS[0] ? h <= hour : hour === DAY_HOURS[DAY_HOURS.length - 1] ? h >= hour : h === hour
-  })
+  /** A drop or a click on a column: which time it means, from where in the column. */
+  function timeIn(e: React.MouseEvent<HTMLDivElement> | React.DragEvent<HTMLDivElement>, day: Date, grabY = 0) {
+    const top = e.currentTarget.getBoundingClientRect().top
+    return timeAtOffset(day, e.clientY - top - grabY)
+  }
 
-  const dayList = Array.from({ length: days }, (_, i) => addDays(from, i))
+  function onDrop(e: React.DragEvent<HTMLDivElement>, day: Date, personId: string | null) {
+    e.preventDefault()
+    const d = dragging.current
+    dragging.current = null
+    if (!d) return
+    place(d.id, personId, timeIn(e, day, d.grabY))
+  }
+
+  function onSlotClick(e: React.MouseEvent<HTMLDivElement>, day: Date, personId: string | null) {
+    const start = timeIn(e, day)
+    const end = new Date(start.getTime() + DEFAULT_CALL_MINUTES * 60_000)
+    const who = personId ?? (crew.length === 1 ? crew[0].id : undefined)
+    setCreating({ assigned_to: who ?? undefined, start: toLocalInput(start.toISOString()), end: toLocalInput(end.toISOString()) })
+  }
+
+  /** The blocks for one column, laid out side by side where they overlap. */
+  function column(day: Date, filter: (c: Call) => boolean) {
+    const placed = shown.filter(filter).flatMap(c => {
+      if (!c.scheduled_start) return []
+      const g = blockGeometry(new Date(c.scheduled_start), c.scheduled_end ? new Date(c.scheduled_end) : null, day)
+      return g ? [{ call: c, ...g }] : []
+    })
+    const lane = lanes(placed.map(p => ({ id: p.call.id, top: p.top, height: p.height })))
+    return placed.map(p => {
+      const l = lane.get(p.call.id) ?? { lane: 0, lanes: 1 }
+      return (
+        <CallBlock key={p.call.id} call={p.call} clash={!!clash[p.call.id]}
+          color={colorFor(crewIds, p.call.assigned_to)}
+          height={p.height}
+          onGrab={(id, grabY) => { dragging.current = { id, grabY } }}
+          style={{ top: p.top + 1, height: p.height - 2, left: `calc(${(l.lane / l.lanes) * 100}% + 2px)`, width: `calc(${100 / l.lanes}% - 4px)` }} />
+      )
+    })
+  }
+
   const title = view === 'day'
-    ? formatDate(anchor, { weekday: 'long', month: 'short', day: 'numeric' })
+    ? formatDate(anchor, { weekday: 'long', month: 'long', day: 'numeric' })
     : `${formatDateShort(from)} - ${formatDateShort(addDays(from, 6))}`
-  const clashCount = Object.keys(clash).length
+
+  // The columns: people on a day, or days for everybody.
+  const cols: { key: string; day: Date; person: string | null; head: React.ReactNode }[] = view === 'day'
+    ? crew.filter(p => !hidden.has(p.id)).map(p => {
+      const color = colorFor(crewIds, p.id)
+      return {
+        key: p.id, day: anchor, person: p.id,
+        head: (
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={cn('flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-panel', color.dot)}>{initials(p.name)}</span>
+            <span className="truncate text-sm font-medium text-ink">{p.name}</span>
+          </div>
+        ),
+      }
+    })
+    : dayList.map(d => {
+      const isToday = sameDay(d, now)
+      return {
+        key: d.toISOString(), day: d, person: null,
+        head: (
+          <div className="flex flex-col items-center">
+            <span className={cn('text-[11px] font-medium uppercase', isToday ? 'text-accent-fg' : 'text-faint')}>{formatDate(d, { weekday: 'short' })}</span>
+            <span className={cn('mt-0.5 flex h-8 w-8 items-center justify-center rounded-full text-lg', isToday ? 'bg-accent text-accent-ink font-semibold' : 'text-ink')}>{d.getDate()}</span>
+          </div>
+        ),
+      }
+    })
+
+  const nowTop = ((now.getHours() * 60 + now.getMinutes() - DAY_START_HOUR * 60) / 60) * HOUR_PX
+  const nowOnBoard = nowTop >= 0 && nowTop <= BOARD_PX
+
+  // PHONE: the visible days as one list, time on the left.
+  const phoneDays = view === 'day' ? [anchor] : dayList
 
   return (
     <div className="p-6 space-y-4">
+      {/* Header: where you are, and how to move. */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+        <div className="flex items-center gap-3 min-w-0">
           <h1 className="text-2xl font-bold text-ink">Dispatch</h1>
-          <p className="text-sm text-muted-fg mt-0.5">{title}</p>
+          <span className="hidden lg:inline text-lg text-ink-soft truncate">{title}</span>
         </div>
-        <div className="row-even lg:flex lg:flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setAnchor(a => addDays(a, -days))} aria-label="Earlier" title="Earlier"><ChevronLeft className="h-4 w-4" /></Button>
+        <p className="lg:hidden text-sm text-muted-fg -mt-2">{title}</p>
+        <div className="row-even lg:flex lg:flex-wrap lg:items-center gap-2">
           <Button variant="outline" onClick={() => setAnchor(startOfDay(new Date()))}>Today</Button>
-          <Button variant="outline" onClick={() => setAnchor(a => addDays(a, days))} aria-label="Later" title="Later"><ChevronRight className="h-4 w-4" /></Button>
-          <Button variant={view === 'day' ? 'default' : 'outline'} onClick={() => setView('day')}>Day</Button>
-          <Button variant={view === 'week' ? 'default' : 'outline'} onClick={() => setView('week')}>Week</Button>
+          <div className="flex justify-center">
+            <button type="button" onClick={() => setAnchor(a => addDays(a, -days))} aria-label="Earlier" title="Earlier" className="h-11 w-11 lg:h-9 lg:w-9 flex items-center justify-center rounded-full text-ink-soft hover:bg-muted"><ChevronLeft className="h-5 w-5" /></button>
+            <button type="button" onClick={() => setAnchor(a => addDays(a, days))} aria-label="Later" title="Later" className="h-11 w-11 lg:h-9 lg:w-9 flex items-center justify-center rounded-full text-ink-soft hover:bg-muted"><ChevronRight className="h-5 w-5" /></button>
+          </div>
+          <div className="flex rounded-lg border border-line bg-panel p-0.5" role="group" aria-label="View">
+            {(['day', 'week'] as const).map(v => (
+              <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v}
+                className={cn('flex-1 h-10 lg:h-8 rounded-md px-3 text-sm font-medium whitespace-nowrap', view === v ? 'bg-ink text-panel' : 'text-muted-fg hover:text-ink')}>
+                {v === 'day' ? 'Day' : 'Week'}
+              </button>
+            ))}
+          </div>
+          <Button onClick={() => setCreating({})}><Plus className="h-4 w-4" /> New call</Button>
         </div>
       </div>
 
       {clashCount > 0 && (
-        <p className="flex items-center gap-2 text-sm text-danger">
-          <AlertTriangle className="h-4 w-4 shrink-0" /> {clashCount} call{clashCount === 1 ? '' : 's'} double-booked on this board.
+        <p className="flex items-center gap-2 rounded-xl border border-danger/30 bg-danger-tint px-3 py-2 text-sm text-danger">
+          <AlertTriangle className="h-4 w-4 shrink-0" /> {clashCount} call{clashCount === 1 ? ' is' : 's are'} double-booked on this board.
         </p>
       )}
 
@@ -160,62 +328,153 @@ export default function DispatchPage() {
       )}
 
       {state === 'ready' && (
-        <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
-          {/* The queue: calls with nobody on them yet. */}
-          <div className="rounded-2xl border border-line bg-panel p-3 space-y-2 self-start">
-            <p className="text-sm font-semibold text-ink">Waiting ({waiting.length})</p>
-            {waiting.length ? waiting.map(c => (
-              <CallChip key={c.id} call={c} clash={false} onDragStart={id => { dragging.current = id }} />
-            )) : <p className="text-sm text-muted-fg">Every call has somebody on it.</p>}
-            <p className="text-xs text-faint lg:hidden">On a phone, open a call to put somebody on it. On a computer you can drag it onto the board.</p>
-          </div>
-
-          {/* PHONE: one list per person, no drag. */}
-          <div className="lg:hidden rounded-2xl border border-line bg-panel divide-y divide-line-soft">
-            {crew.map(p => (
-              <div key={p.id} className="p-3 space-y-2">
-                <p className="text-sm font-semibold text-ink">{p.name}</p>
-                {dayList.flatMap(d => callsFor(p.id, d)).length
-                  ? dayList.flatMap(d => callsFor(p.id, d)).map(c => <CallChip key={c.id} call={c} clash={!!clash[c.id]} onDragStart={() => {}} />)
-                  : <p className="text-sm text-muted-fg">Nothing booked.</p>}
-              </div>
-            ))}
-          </div>
-
-          {/* DESKTOP: the grid. */}
-          <div className="hidden lg:block overflow-x-auto rounded-2xl border border-line bg-panel">
-            <div className="min-w-[900px]">
-              <div className="grid border-b border-line" style={{ gridTemplateColumns: `160px repeat(${view === 'day' ? DAY_HOURS.length : 7}, minmax(0, 1fr))` }}>
-                <div className="p-2 text-xs font-medium text-faint">Crew</div>
-                {view === 'day'
-                  ? DAY_HOURS.map(h => <div key={h} className="p-2 text-xs font-medium text-faint border-l border-line-soft">{hourLabel(h)}</div>)
-                  : dayList.map(d => <div key={d.toISOString()} className="p-2 text-xs font-medium text-faint border-l border-line-soft">{formatDate(d, { weekday: 'short', day: 'numeric' })}</div>)}
-              </div>
-              {crew.map(p => (
-                <div key={p.id} className="grid border-b border-line-soft" style={{ gridTemplateColumns: `160px repeat(${view === 'day' ? DAY_HOURS.length : 7}, minmax(0, 1fr))` }}>
-                  <div className="p-2 text-sm font-medium text-ink truncate">{p.name}</div>
-                  {(view === 'day' ? DAY_HOURS.map(h => ({ key: `h${h}`, day: anchor, hour: h })) : dayList.map(d => ({ key: d.toISOString(), day: d, hour: undefined as number | undefined })))
-                    .map(cell => {
-                      const slot = new Date(cell.day)
-                      slot.setHours(cell.hour ?? 8, 0, 0, 0)
-                      return (
-                        <div key={cell.key} className="min-h-[64px] p-1 space-y-1 border-l border-line-soft"
-                          onDragOver={e => e.preventDefault()}
-                          onDrop={e => { e.preventDefault(); drop(p.id, slot) }}>
-                          {callsFor(p.id, cell.day, cell.hour).map(c => (
-                            <CallChip key={c.id} call={c} clash={!!clash[c.id]} onDragStart={id => { dragging.current = id }} />
-                          ))}
-                        </div>
-                      )
-                    })}
-                </div>
-              ))}
-              {!crew.length && <p className="p-4 text-sm text-muted-fg">Nobody on your team yet. Add people in Settings, Team.</p>}
+        <div className="grid gap-4 lg:grid-cols-[248px_minmax(0,1fr)]">
+          {/* LEFT RAIL: a month, the crew (tap to hide), and the calls with nobody on them. */}
+          <aside className="space-y-4 lg:self-start">
+            <div className="hidden lg:block rounded-2xl border border-line bg-panel p-3">
+              <MiniMonth value={anchor} onPick={d => setAnchor(d)} />
             </div>
+
+            {crew.length > 0 && (
+              <div className="hidden lg:block rounded-2xl border border-line bg-panel p-3 space-y-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint pb-1">Crew</p>
+                {crew.map(p => {
+                  const off = hidden.has(p.id)
+                  return (
+                    <button key={p.id} type="button" aria-pressed={!off}
+                      onClick={() => setHidden(h => { const n = new Set(h); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n })}
+                      className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm hover:bg-surface">
+                      <span className={cn('h-3.5 w-3.5 shrink-0 rounded-sm border-2', off ? 'border-muted2 bg-panel' : cn('border-transparent', colorFor(crewIds, p.id).dot))} />
+                      <span className={cn('truncate', off ? 'text-faint' : 'text-ink')}>{p.name}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+
+            <div className="rounded-2xl border border-line bg-panel p-3 space-y-2"
+              onDragOver={e => e.preventDefault()}>
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-faint">Unscheduled</p>
+                <span className="text-xs font-semibold text-muted-fg">{waiting.length}</span>
+              </div>
+              {waiting.length ? waiting.map(c => (
+                <Link key={c.id} href={`/service-calls/${c.id}`} draggable
+                  onDragStart={e => { e.dataTransfer.setData('text/plain', c.id); dragging.current = { id: c.id, grabY: 0 } }}
+                  className={cn('block rounded-lg border-l-[3px] border-muted2 bg-surface px-2.5 py-2 text-sm cursor-grab hover:bg-muted', c.priority === 'urgent' && 'border-danger')}>
+                  <span className="block truncate font-semibold text-ink">{c.customer_name}</span>
+                  <span className="block truncate text-xs text-muted-fg">{c.issue}</span>
+                  <span className="block truncate text-xs text-faint">{callLabel(c.call_number)}{c.scheduled_start ? ` - wants ${timeOf(new Date(c.scheduled_start))}` : ''}</span>
+                </Link>
+              )) : <p className="text-sm text-muted-fg">Every call has somebody on it.</p>}
+              <p className="hidden lg:block text-xs text-faint">Drag a call onto the board to give it a person and a time.</p>
+              <p className="lg:hidden text-xs text-faint">Open a call to put somebody on it.</p>
+            </div>
+          </aside>
+
+          {/* PHONE: the day as a list. */}
+          <div className="lg:hidden space-y-4">
+            {phoneDays.map(d => {
+              const list = shown.filter(c => c.scheduled_start && sameDay(new Date(c.scheduled_start), d))
+                .sort((a, b) => a.scheduled_start!.localeCompare(b.scheduled_start!))
+              return (
+                <div key={d.toISOString()} className="rounded-2xl border border-line bg-panel">
+                  <p className="px-4 pt-3 pb-2 text-sm font-semibold text-ink">{formatDate(d, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
+                  {list.length ? (
+                    <div className="divide-y divide-line-soft">
+                      {list.map(c => {
+                        const color = colorFor(crewIds, c.assigned_to)
+                        return (
+                          <Link key={c.id} href={`/service-calls/${c.id}`} className="flex items-stretch gap-3 px-4 py-3">
+                            <span className="w-16 shrink-0 text-sm text-ink-soft">{timeOf(new Date(c.scheduled_start!))}</span>
+                            <span className={cn('w-1 shrink-0 rounded-full', color.dot)} />
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate text-sm font-semibold text-ink">{c.customer_name}</span>
+                              <span className="block truncate text-xs text-muted-fg">{c.issue}</span>
+                              <span className="block truncate text-xs text-faint">{nameOf(c.assigned_to) ?? 'Nobody yet'} - {STATUS_LABEL[c.status as CallStatus] ?? c.status}</span>
+                              {clash[c.id] && <span className="block text-xs font-semibold text-danger">Double-booked</span>}
+                            </span>
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  ) : <p className="px-4 pb-4 text-sm text-muted-fg">Nothing booked.</p>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* DESKTOP: the calendar. */}
+          <div className="hidden lg:block rounded-2xl border border-line bg-panel overflow-hidden">
+            {!cols.length ? (
+              <p className="p-6 text-sm text-muted-fg">{crew.length ? 'Everybody is hidden. Tick somebody under Crew.' : 'Nobody on your team yet. Add people in Settings, Team.'}</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <div style={{ minWidth: 64 + cols.length * 140 }}>
+                  {/* Column heads */}
+                  <div className="grid border-b border-line" style={{ gridTemplateColumns: `64px repeat(${cols.length}, minmax(0, 1fr))` }}>
+                    <div />
+                    {cols.map(c => <div key={c.key} className="px-2 py-2.5 border-l border-line-soft">{c.head}</div>)}
+                  </div>
+                  {/* The day, scrolling inside the card so the heads stay put. */}
+                  <div ref={scroller} className="overflow-y-auto" style={{ maxHeight: 'calc(var(--vv-h, 100dvh) - 250px)', minHeight: 360 }}>
+                    <div className="grid relative" style={{ gridTemplateColumns: `64px repeat(${cols.length}, minmax(0, 1fr))`, height: BOARD_PX }}>
+                      {/* Hour labels */}
+                      <div className="relative">
+                        {HOURS.map(h => (
+                          <span key={h} className="absolute right-2 -translate-y-1/2 text-[11px] text-faint" style={{ top: (h - DAY_START_HOUR) * HOUR_PX }}>
+                            {h === DAY_START_HOUR ? '' : hourLabel(h)}
+                          </span>
+                        ))}
+                      </div>
+                      {cols.map(c => {
+                        const isToday = sameDay(c.day, now)
+                        return (
+                          <div key={c.key} className={cn('relative border-l border-line-soft cursor-pointer', isToday && view === 'week' && 'bg-accent-tint/20')}
+                            onClick={e => onSlotClick(e, c.day, c.person)}
+                            onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
+                            onDrop={e => onDrop(e, c.day, c.person)}>
+                            {HOURS.map(h => (
+                              <div key={h} className="absolute inset-x-0 border-t border-line-soft" style={{ top: (h - DAY_START_HOUR) * HOUR_PX }} />
+                            ))}
+                            {HOURS.map(h => (
+                              <div key={`half-${h}`} className="absolute inset-x-0 border-t border-dashed border-line-soft/60" style={{ top: (h - DAY_START_HOUR + 0.5) * HOUR_PX }} />
+                            ))}
+                            {column(c.day, call => c.person ? call.assigned_to === c.person : true)}
+                            {isToday && nowOnBoard && (
+                              <div className="pointer-events-none absolute inset-x-0 z-20" style={{ top: nowTop }}>
+                                <div className="relative h-0.5 bg-danger">
+                                  <span className="absolute -left-1.5 -top-[5px] h-3 w-3 rounded-full bg-danger" />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
-      <p className="text-xs text-faint">Statuses: {Object.entries(STATUS_LABEL).filter(([k]) => k !== 'invoiced').map(([, v]) => v).join(', ')}. {`Week view drops a call at 8am on the day; open it to set the exact time.`}</p>
+
+      {state === 'ready' && (
+        <p className="hidden lg:block text-xs text-faint">
+          Click an empty slot to take a call there. Drag a call to move it to another time{view === 'day' ? ' or person' : ' or day'}. {CREW_COLORS.length < crew.length ? 'Colours repeat after five people.' : ''}
+        </p>
+      )}
+
+      {creating && (
+        <NewCallDialog crew={crew} initial={creating} onClose={() => setCreating(null)}
+          onCreated={(id, warning) => {
+            setCreating(null)
+            if (warning) notice(`Saved. ${warning}`, { tone: 'info' })
+            load()
+            router.prefetch(`/service-calls/${id}`)
+          }} />
+      )}
     </div>
   )
 }

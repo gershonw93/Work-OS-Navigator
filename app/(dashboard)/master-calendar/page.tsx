@@ -11,8 +11,10 @@ import { DayDetailSheet } from '@/components/calendar/day-detail-sheet'
 
 import { formatDate } from '@/lib/dates'
 interface Item {
-  id: string; kind: 'schedule' | 'task' | 'inspection'; project_id: string; project_name: string
+  id: string; kind: 'schedule' | 'task' | 'inspection' | 'service_call'; project_id: string; project_name: string
   title: string; start: string; end: string; color: string; done?: boolean; href: string
+  /** A service call's exact time (ISO) - its DAY is decided here, in the reader's zone. */
+  at?: string
   /** On a sub's calendar: whether it is their own job or a GC's awarded one. */
   source?: 'own' | 'awarded'
 }
@@ -21,6 +23,7 @@ const COLOR: Record<string, string> = {
   blue: 'bg-info-tint text-info', green: 'bg-success-tint text-success',
   purple: 'bg-accent-tint text-accent-fg', red: 'bg-danger-tint text-danger',
   amber: 'bg-warn-tint text-warn',
+  call: 'bg-panel text-ink ring-1 ring-inset ring-line border-l-2 border-ink',
 }
 // PHONE DOTS ARE COLOURED BY KIND, not by the item's own colour. A schedule
 // line's colour is whatever somebody picked for it - blue, green, red, amber,
@@ -28,11 +31,13 @@ const COLOR: Record<string, string> = {
 // state, so a legend by colour could not be true. Three kinds, three dots, and
 // the legend under the grid says which is which.
 const KIND_DOT: Record<Item['kind'], string> = {
-  schedule: 'bg-info', task: 'bg-warn', inspection: 'bg-special',
+  schedule: 'bg-info', task: 'bg-warn', inspection: 'bg-special', service_call: 'bg-ink',
 }
 const KIND_LABEL: Record<Item['kind'], string> = {
-  schedule: 'Schedule', task: 'Task due', inspection: 'Inspection',
+  schedule: 'Schedule', task: 'Task due', inspection: 'Inspection', service_call: 'Service call',
 }
+/** "9:00 AM" in the reader's zone. */
+const clock = (at?: string) => at ? new Date(at).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const iso = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 
@@ -83,6 +88,11 @@ export default function MasterCalendarPage() {
   const byDay = useMemo(() => {
     const m = new Map<string, Item[]>()
     for (const it of items) {
+      // A timed item lands on the reader's OWN day for that instant.
+      if (it.at) {
+        const k = iso(new Date(it.at)); if (!m.has(k)) m.set(k, []); m.get(k)!.push(it)
+        continue
+      }
       const s = new Date(it.start + 'T00:00:00'), e = new Date((it.end || it.start) + 'T00:00:00')
       for (let d = new Date(s); d <= e; d.setDate(d.getDate() + 1)) {
         const k = iso(d); if (!m.has(k)) m.set(k, []); m.get(k)!.push(it)
@@ -176,7 +186,7 @@ export default function MasterCalendarPage() {
                   {dayItems.slice(0, 4).map(it => (
                     <button key={it.id} onClick={(e) => { e.stopPropagation(); router.push(it.href) }} title={`${it.project_name} · ${it.title}`}
                       className={cn('w-full text-left rounded px-1.5 py-0.5 text-[10px] leading-tight truncate hover:opacity-80', COLOR[it.color] ?? COLOR.blue, it.done && 'line-through opacity-60')}>
-                      <span className="font-medium">{it.project_name}</span>{it.source === 'awarded' ? ' (GC)' : ''} · {it.title}
+                      {it.at && <span className="font-semibold">{clock(it.at)} </span>}<span className="font-medium">{it.project_name}</span>{it.source === 'awarded' ? ' (GC)' : ''} · {it.title}
                     </button>
                   ))}
                   {dayItems.length > 4 && <p className="text-[10px] font-medium text-accent-fg px-1">+{dayItems.length - 4} more</p>}
@@ -209,7 +219,9 @@ export default function MasterCalendarPage() {
           rows={(byDay.get(selectedDay) ?? []).map(it => ({
             id: it.id,
             title: it.title,
-            subtitle: `${it.project_name}${it.source === 'awarded' ? ' (GC job)' : ''} · ${it.kind === 'inspection' ? 'Inspection' : it.kind === 'task' ? 'Task' : 'Schedule'}`,
+            subtitle: it.kind === 'service_call'
+              ? `${clock(it.at)} · ${it.project_name} · Service call`
+              : `${it.project_name}${it.source === 'awarded' ? ' (GC job)' : ''} · ${it.kind === 'inspection' ? 'Inspection' : it.kind === 'task' ? 'Task' : 'Schedule'}`,
             // The same dot as the phone grid and its legend, so the sheet a
             // day opens agrees with the square that opened it.
             dot: KIND_DOT[it.kind],

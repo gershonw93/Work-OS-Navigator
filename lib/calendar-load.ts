@@ -4,6 +4,8 @@ import { myJobs } from './my-jobs'
 import { vendorCompanyIds } from './sub-companies'
 import { taskIdsFor } from './task-assignees'
 import { isAssignedOnly } from './permissions'
+import { actorCan } from './server-permissions'
+import { ownJobsRefusal } from './sub-account'
 import { feedScope } from './calendar-feed'
 import { calendarItems, type CalendarItem } from './calendar-items'
 
@@ -48,7 +50,30 @@ export async function loadCalendar(
     id: s.id, project_id: s.project_id, trade: s.trade ?? null, project_name: s.projects?.name ?? '',
   }))
   const ids = Array.from(new Set([...ownProjects.map(p => p.id), ...awarded.map(a => a.project_id)]))
-  if (!ids.length) return []
+  // THE COMPANY'S OWN SERVICE CALLS, which belong to no job - so they are read
+  // whether or not there are any jobs. The office sees every booked call, crew
+  // only their own (the service-calls rule, lib/service-calls-server.ts), and
+  // a light account has none. A failed read fails the calendar, like any other.
+  let calls: NonNullable<Parameters<typeof calendarItems>[0]['calls']> = []
+  if (actorCan(actor, 'service-calls', 'view') && !(await ownJobsRefusal(db, profile.company_id))) {
+    let q = db.from('service_calls')
+      .select('id, call_number, issue, customer_name, status, scheduled_start, scheduled_end')
+      .eq('company_id', profile.company_id)
+      .not('scheduled_start', 'is', null)
+      .order('scheduled_start', { ascending: true })
+      .limit(1000)
+    if (isAssignedOnly(actor.role)) q = q.eq('assigned_to', profile.id)
+    const { data, error } = await q
+    if (error) {
+      console.error('[calendar] service call read failed', { profile: profile.id, error: error.message })
+      return null
+    }
+    calls = (data ?? []) as any
+  }
+
+  if (!ids.length) {
+    return calendarItems({ ownProjects: [], awarded: [], schedule: [], tasks: [], inspections: [], companyTaskIds: [], scope, calls })
+  }
 
   const none = Promise.resolve({ data: [] as any[], error: null })
   const [sched, tasks, inspections, companyTaskIds] = await Promise.all([
@@ -79,5 +104,6 @@ export async function loadCalendar(
     inspections: (inspections.data ?? []) as any,
     companyTaskIds,
     scope,
+    calls,
   })
 }

@@ -5,6 +5,7 @@ import { X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { AddressAutocomplete } from '@/components/ui/address-autocomplete'
 import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { callProblem, CALL_PRIORITIES, PRIORITY_LABEL } from '@/lib/service-calls'
 import { callFetch, fromLocalInput } from '@/lib/service-calls-client'
@@ -16,14 +17,16 @@ import { fetchProblem } from '@/lib/fetch-error'
 
 type Crew = { id: string; name: string }
 
-export function NewCallDialog({ crew, onClose, onCreated }: {
+export function NewCallDialog({ crew, onClose, onCreated, initial }: {
   crew: Crew[]
   onClose: () => void
   onCreated: (id: string, warning: string | null) => void
+  /** From a click on the dispatch board: who and when, as datetime-local values. */
+  initial?: { assigned_to?: string; start?: string; end?: string }
 }) {
   const [f, setF] = useState({
     customer_name: '', site_address: '', contact_name: '', contact_phone: '', contact_email: '',
-    issue: '', priority: 'normal', assigned_to: '', start: '', end: '', notes: '',
+    issue: '', priority: 'normal', assigned_to: initial?.assigned_to ?? '', start: initial?.start ?? '', end: initial?.end ?? '', notes: '',
   })
   // The contractor jobs this company is awarded on - the only jobs a call can
   // be tied to (the route checks the same thing). A failed read just leaves
@@ -75,7 +78,7 @@ export function NewCallDialog({ crew, onClose, onCreated }: {
 
   return (
     <div className="overlay items-center justify-center bg-black/50" data-overlay onClick={onClose}>
-      <div className="bg-panel rounded-xl shadow-xl w-full max-w-full sm:max-w-lg flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-panel rounded-2xl border border-line w-full max-w-full sm:max-w-lg flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="px-6 py-4 border-b border-line-soft flex items-center justify-between gap-3">
           <h2 className="font-semibold text-ink">New service call</h2>
           <button type="button" onClick={onClose} aria-label="Close" title="Close" className="text-faint hover:text-ink p-1"><X className="h-5 w-5" /></button>
@@ -87,7 +90,13 @@ export function NewCallDialog({ crew, onClose, onCreated }: {
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="sc-address">Site address *</Label>
-            <Input id="sc-address" value={f.site_address} onChange={set('site_address')} placeholder="14 Harbor View Rd, Tampa, FL 33602" />
+            {/* The same live search a project's address uses. The route still
+                places the address itself (lookUpAddress) - a picked
+                suggestion is just a spelling it can place. */}
+            <AddressAutocomplete id="sc-address" value={f.site_address}
+              onChange={v => setF(p => ({ ...p, site_address: v }))}
+              onPick={s => setF(p => ({ ...p, site_address: s.label }))}
+              placeholder="Start typing an address" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="sc-issue">What is the problem? *</Label>
