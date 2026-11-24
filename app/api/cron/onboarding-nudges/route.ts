@@ -62,7 +62,20 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  const companyIds = (trials ?? []).map((t: any) => t.company_id)
+  // A GC's drip, and only a GC's. Since a sub who runs his own jobs gets a
+  // trial too (SUB_TRIAL_DAYS, lib/plans.ts), the cohort holds sub companies -
+  // and every nudge here is written for somebody setting up as a GC ("invite
+  // your subs") on a fifteen-day clock. Asked off the company ROW, the same
+  // fact that decides which product somebody gets.
+  const cohort = (trials ?? []).map((t: any) => t.company_id)
+  const { data: gcRows, error: typeErr } = cohort.length
+    ? await db.from('companies').select('id').in('id', cohort).eq('type', 'gc')
+    : { data: [] as { id: string }[], error: null }
+  if (typeErr) {
+    console.error('[onboarding] could not read company types', typeErr.message)
+    return NextResponse.json({ error: typeErr.message }, { status: 500 })
+  }
+  const companyIds = ((gcRows ?? []) as { id: string }[]).map(c => c.id)
   if (!companyIds.length) return NextResponse.json({ ok: true, companies: 0, sent: 0 })
 
   // ── the facts, in bulk ───────────────────────────────────────────────────

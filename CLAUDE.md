@@ -1090,9 +1090,16 @@ and `docs/sub-company-plan.md`.
   every reset. A new person's own company is created there; somebody who already
   has a company answers on the Connect card, from an email with no credential.
 - **AN INVITED SUB STARTS LIGHT** (`invited_only`): the GC work, no customers or
-  jobs of his own until "Run your own jobs". Free, and not called Upgrade (iOS).
-  `ownJobsRefusal` is asked at every door that opens a job or a customer -
-  `createProject`, `createCustomer`, My Jobs, bulk add.
+  jobs of his own until "Run your own jobs", which starts a `SUB_TRIAL_DAYS` (30)
+  trial and then one of the plans - WEB ONLY, the card is gated on
+  `useCanShowPricing` like a GC's Billing tab, and the refusal sentence offers
+  nothing. `ownJobsRefusal` is asked at every door that opens a job or a
+  customer - `createProject`, `createCustomer`, My Jobs, bulk add. A trial's
+  sentences read its length off the ROW (`trialLength`), never `TRIAL_DAYS`.
+- **ON SOMEBODY ELSE'S JOB THE OWNER'S PLAN GOVERNS.** The billing lock applies
+  only on the `gc` side (`requirePermission`, `actorJobGate`, RFIs, task notes,
+  compliance): a sub whose own plan lapsed still sends the GC his bills, logs
+  and RFIs. Pinned and mutation-checked in `sub-trial.ts`.
 - **A LINKED SUB'S WORK ON A GC JOB IS FILED UNDER THE GC'S ROW** (compliance,
   bills), so every GC-side reader is unchanged.
 - **A GATE WRAPPED ROUND `requirePermission` INHERITS THE SUB LANE.** One that

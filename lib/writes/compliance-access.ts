@@ -69,10 +69,9 @@ export async function complianceAccess(
   const mine = await vendorCompanyIds(db, actor.companyId)
   if (mine === null) return { denied: NextResponse.json({ error: 'Could not check that job just now.' }, { status: 500 }) }
   const row = await vendorRowOnJob(db, projectId, mine)
-  if (row) {
-    const locked = await lock(); if (locked) return { denied: locked }
-    return { actor, scope: 'own-company', companyId: row, mine }
-  }
+  // No lock on this side: the GC's plan governs the GC's job, and a sub's own
+  // billing never stops it filing the paperwork the GC is waiting on.
+  if (row) return { actor, scope: 'own-company', companyId: row, mine }
   return { denied: NextResponse.json({ error: 'This job belongs to another company.' }, { status: 403 }) }
 }
 

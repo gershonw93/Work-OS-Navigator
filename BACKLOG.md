@@ -15,8 +15,9 @@ light account and "Run your own jobs", one reader for "my subcontracts"
 (`lib/sub-companies.ts`). See `docs/sub-company-plan.md`.
 
 Next, in order: service calls (spec 3), the dispatch board (spec 4), crew
-field mode for calls (spec 5). Also open: whether "Run your own jobs" is ever
-charged (it is free; a sub's company has no billing row), and the Progress tab
+field mode for calls (spec 5). "Run your own jobs" is a 30-day trial then a
+plan (web only), and a sub's own billing never locks him out of a GC's job.
+Also open: the Progress tab
 on a GC's job, which a sub opens and which has always been empty for them -
 it reads `/quote`, a GC-only route.
 

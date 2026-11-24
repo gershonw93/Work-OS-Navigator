@@ -16,7 +16,7 @@
 // way 'plans-and-pricing' builds its steps out of PLANS.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { PLANS, planPrice, TRIAL_DAYS } from '@/lib/plans'
+import { PLANS, planPrice, TRIAL_DAYS, SUB_TRIAL_DAYS } from '@/lib/plans'
 import { SUPPORT_EMAIL } from '@/lib/support-email'
 
 export type HelpBlock =
@@ -528,7 +528,7 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'A sub can only report a delay on their own work. They cannot move anybody\'s dates, edit your schedule, or see the other trades\' delay reports.' },
       { type: 'text', text: 'ONE ACCOUNT, EVERY CONTRACTOR. A sub has one SyteNav account for their own company. Each contractor who invites them from their Directory connects that contractor\'s entry to it, so the jobs from every contractor appear together under My Jobs. A sub who already has an account sees a Connect card on My Jobs and the Dashboard when they sign in; connecting is their choice, and Decline closes it.' },
       { type: 'text', text: 'WHAT EACH SIDE SEES. On a contractor\'s job a sub sees Plans, Schedule, Tasks, Progress, Daily Logs, Time, RFIs and Compliance, and nothing about the contractor\'s money. A contractor sees the work done on their own jobs and never the sub\'s other customers or the sub\'s own jobs.' },
-      { type: 'text', text: 'RUN YOUR OWN JOBS. An account set up from a contractor\'s invite starts with the work contractors send you. To add customers and jobs of your own, the company admin chooses Run your own jobs on My Jobs. It is free, and nothing changes for the contractors you already work with.' },
+      { type: 'text', text: 'AN ACCOUNT FROM AN INVITE starts with the work contractors send you: their jobs, bids, bills, RFIs and compliance. It does not have customers or jobs of its own.' },
       { type: 'tip', text: 'Bills: a sub sends a bill against their own subcontract from the job\'s Invoices tab, and it arrives on yours waiting for approval.' },
     ],
     related: ['quote-messages', 'schedule-milestones', 'request-quotes'],
@@ -1701,6 +1701,22 @@ export const HELP_ARTICLES: HelpArticle[] = [
       { type: 'text', text: 'FIXED IN SEPTEMBER 2026. Eight tables - including the one holding client invoices and their portal links - were readable without signing in. Nothing indicates it was used, but it was possible. Every table is now closed, and a check in the build refuses any future table that forgets it.' },
     ],
     related: ['permissions', 'auto-signout', 'create-invoice'],
+  },
+  {
+    slug: 'sub-run-own-jobs',
+    title: 'Running your own jobs as a sub',
+    category: 'settings',
+    // Hidden in the iOS app: it is a trial that ends in a plan, which is an
+    // offer to buy (3.1.3(f)) - the same reason plans-and-pricing is.
+    webOnly: true,
+    keywords: ['run your own jobs', 'own jobs', 'own customers', 'sub trial', 'subcontractor trial', 'free trial', 'invited account', 'service calls', 'my own business'],
+    summary: `A sub account from an invite can add its own customers and jobs with a ${SUB_TRIAL_DAYS}-day free trial.`,
+    blocks: [
+      { type: 'text', text: 'An account set up from a contractor\'s invite starts with the work contractors send you. To run your own jobs as well - your own customers, your own jobs, and service calls - the company admin opens My Jobs on the website and chooses Run your own jobs.' },
+      { type: 'text', text: `The first ${SUB_TRIAL_DAYS} days are free. After that it is one of the plans, the same as any contractor's, and Settings > Billing shows where you are.` },
+      { type: 'text', text: 'THE WORK YOU DO FOR CONTRACTORS IS NEVER AFFECTED. Bills, daily logs, RFIs, compliance and time on a contractor\'s job keep working whatever happens to your own plan: on their job, their plan is the one that counts.' },
+    ],
+    related: ['sub-job-view'],
   },
   {
     slug: 'plans-and-pricing',
