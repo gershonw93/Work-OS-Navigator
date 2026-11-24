@@ -7,15 +7,26 @@ move it to **In progress**, and when it ships, move it to **Done** with the PR #
 
 ---
 
-## 🧰 Sub company login + dispatch (spec of 24 Nov 2026) - WAITING ON DECISION 0
+## 🧰 Sub company login + dispatch (spec of 24 Nov 2026) - 0, 1, 2 and 6 SHIPPED
 
-The security prerequisites shipped first (`lib/__tests__/job-lane.ts`). The rest
-waits on the owner approving the link model in `docs/sub-company-plan.md`:
-one real company per sub, each GC's Directory row linked to it
-(`companies.linked_company_id`), the invite LINKING rather than moving anybody.
-Then, in order: invite accept rewritten (spec 1), one reader for "my
-subcontracts" across the twelve places that ask (spec 1/2), service calls
-(spec 3), the dispatch board (spec 4), crew field mode for calls (spec 5).
+Shipped: the security prerequisites (#713), and decision 0 + item 1 - one
+company per sub, every GC's Directory row LINKED to it (migration 169), the
+light account and "Run your own jobs", one reader for "my subcontracts"
+(`lib/sub-companies.ts`). See `docs/sub-company-plan.md`.
+
+Next, in order: service calls (spec 3), the dispatch board (spec 4), crew
+field mode for calls (spec 5). Also open: whether "Run your own jobs" is ever
+charged (it is free; a sub's company has no billing row), and the Progress tab
+on a GC's job, which a sub opens and which has always been empty for them -
+it reads `/quote`, a GC-only route.
+
+**Migration 156 (the Directory delete guard) is NOT on the live database.**
+Found 2026-11-24: no `companies_delete_guard` function, no trigger, and 156 is
+missing from `schema_migrations`, while CLAUDE.md describes the guard as live.
+The cascade it protects was not applied either (`added_by_company_id` is still
+SET NULL), so nothing can cascade today and the app-level check in the
+Directory delete route still runs - but applying 156 needs the owner's word,
+because it switches that cascade on.
 
 Still open from the security pass:
 - **Child ids under a job are not all fenced to the job.** The gate now pins

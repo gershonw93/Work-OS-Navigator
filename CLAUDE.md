@@ -60,7 +60,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-168.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-169.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -1074,6 +1074,30 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   `signed-in-only.ts`, which fails on any new sign-in-only handler AND on a
   stale entry. And an invite never moves somebody who already belongs to
   ANOTHER company (`inviteMove`) - `invite/accept` runs on every password reset.
+
+## A sub is one company, and every GC links to it (IMPORTANT)
+Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md)
+and `docs/sub-company-plan.md`.
+- **A VENDOR INVITE LINKS, IT NEVER MOVES ANYBODY.** A GC's Directory row points
+  at the sub's own company (`companies.linked_company_id`, migration 169, one per
+  GC per company). Nothing links on a name or an address - only an invite the
+  person accepted (`lib/vendor-link.ts` decides, `-db.ts` writes).
+- **"MY SUBCONTRACTS" HAS ONE READER.** `vendorCompanyIds` (the caller's company
+  plus every row linked to it), `vendorProfileIds` / `vendorPeopleByCompany` for
+  "everybody at the sub". Never `.eq('company_id', actor.companyId)` on
+  subcontracts - pinned by a scan in `vendor-link.ts`. A failed read is null.
+- **A PASSWORD RESET NEVER LINKS AN EXISTING BUSINESS.** `invite/accept` runs on
+  every reset. A new person's own company is created there; somebody who already
+  has a company answers on the Connect card, from an email with no credential.
+- **AN INVITED SUB STARTS LIGHT** (`invited_only`): the GC work, no customers or
+  jobs of his own until "Run your own jobs". Free, and not called Upgrade (iOS).
+  `ownJobsRefusal` is asked at every door that opens a job or a customer -
+  `createProject`, `createCustomer`, My Jobs, bulk add.
+- **A LINKED SUB'S WORK ON A GC JOB IS FILED UNDER THE GC'S ROW** (compliance,
+  bills), so every GC-side reader is unchanged.
+- **A GATE WRAPPED ROUND `requirePermission` INHERITS THE SUB LANE.** One that
+  does its own record check passes `subOwnRecord: true` and is tested itself -
+  #713 broke sub Compliance for a day by testing only the inner gate.
 
 ## Who the email is FOR, and who may send it (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).

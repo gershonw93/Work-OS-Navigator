@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds } from '@/lib/sub-companies'
 import { getActor, actorCan, getAssignment } from '@/lib/server-permissions'
 import { isAssignedOnly } from '@/lib/permissions'
 import { taskIdsFor } from '@/lib/task-assignees'
@@ -31,11 +32,14 @@ export async function GET(request: Request) {
 
   // ── Sub-specific stats ────────────────────────────────────────────────────
   if (companyType === 'subcontractor' && companyId) {
+    // Every company id that is this sub's on a GC's job (lib/sub-companies.ts).
+    const mine = await vendorCompanyIds(db, companyId)
+    if (mine === null) return NextResponse.json({ error: 'Could not load this just now. Try again.' }, { status: 500 })
     // Get active subcontracts (awarded + active project) for this sub
     const { data: activeSubRows } = await db
       .from('subcontracts')
       .select('id, contract_amount, project_id, projects!inner(status)')
-      .eq('company_id', companyId)
+      .in('company_id', mine)
       .eq('status', 'awarded')
       .eq('projects.status', 'active')
 
@@ -50,7 +54,7 @@ export async function GET(request: Request) {
     const { data: allAwardedSubs } = await db
       .from('subcontracts')
       .select('contract_amount')
-      .eq('company_id', companyId)
+      .in('company_id', mine)
       .eq('status', 'awarded')
 
     const allTotalContractValue = (allAwardedSubs ?? []).reduce(

@@ -190,9 +190,9 @@ async function main() {
     }
   }
   const access = code('lib/writes/compliance-access.ts')
-  ok(/requirePermission\(db, request, 'projects', 'view'\)/.test(access) && /ownsProject\(actor\.companyId/.test(access),
+  ok(/requirePermission\(db, request, 'projects', 'view', \{ subOwnRecord: true \}\)/.test(access) && /ownsProject\(actor\.companyId/.test(access),
     'the compliance gate resolves the person and asks whether their company OWNS the job')
-  ok(/actorCan\(actor, 'compliance', 'view'\)/.test(access) && /companyOnJob\(db, projectId, actor\.companyId\)/.test(access),
+  ok(/actorCan\(actor, 'compliance', 'view'\)/.test(access) && /vendorCompanyIds\(db, actor\.companyId\)/.test(access) && /vendorRowOnJob\(db, projectId, mine\)/.test(access),
     '...the owner needs compliance; anyone else only sees their OWN company, and only when they are on the job')
   ok(/opts\.write \? billingLock/.test(access), '...and a write meets the billing lock')
   const post = handler(code('app/api/projects/[id]/compliance/route.ts'), 'POST')

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { vendorPeopleByCompany } from '@/lib/sub-companies'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
 import { audienceFor } from '@/lib/notification-audience'
@@ -56,9 +57,11 @@ async function notifySubtaskAssignees(
       }
     }
     if (companyIds.length) {
-      const { data: people } = await db.from('profiles').select('id, company_id').in('company_id', companyIds)
-      for (const p of (people ?? []) as any[]) {
-        for (const s of given.filter(x => x.assignee_company_id === p.company_id)) add(p.id, s.text)
+      // Across the Directory link too (lib/sub-companies.ts): the company a
+      // subtask names is the GC's row for the vendor.
+      const people = await vendorPeopleByCompany(db, companyIds)
+      for (const [companyId, ids] of Array.from(people.entries())) {
+        for (const s of given.filter(x => x.assignee_company_id === companyId)) for (const id of ids) add(id, s.text)
       }
     }
 
@@ -185,8 +188,9 @@ export async function createTask(
     // Everyone at the company, never .single() - that errors unless there is
     // exactly one user, which silently dropped the notification for any sub
     // with a second account.
-    const { data: subProfiles } = await db.from('profiles').select('id').in('company_id', companyIds)
-    for (const p of (subProfiles ?? []) as any[]) recipientIds.add(p.id)
+    // And across the Directory link (lib/sub-companies.ts).
+    const people = await vendorPeopleByCompany(db, companyIds)
+    for (const ids of Array.from(people.values())) for (const id of ids) recipientIds.add(id)
   }
 
   if (recipientIds.size) {

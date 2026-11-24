@@ -79,7 +79,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const router = useRouter()
   const supabase = createClient()
-  const { can, role, companyType, loading: permsLoading, error: permsError, reload: reloadPerms } = usePermissions()
+  const { can, role, companyType, subAccount, loading: permsLoading, error: permsError, reload: reloadPerms } = usePermissions()
   // Subcontractors get a different nav entirely. This arrives with the
   // permissions rather than from a second query the browser makes itself.
   const isSubcontractor = companyType === 'subcontractor'
@@ -159,6 +159,8 @@ export function Sidebar() {
   // moving the filter below the prepend.
   const navItems = isSubcontractor
     ? SUB_NAV.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
+        // A light sub account has no customers of its own yet (lib/sub-account.ts).
+        .filter(item => !(item.href === '/customers' && subAccount && subAccount !== 'open'))
     : isFieldRole(role)
       ? [{ label: FIELD_HOME.label, href: FIELD_HOME.href, icon: HardHat, resource: null as string | null },
          ...gcNav.filter(i => i.href !== '/dashboard' && i.href !== '/my-work')]

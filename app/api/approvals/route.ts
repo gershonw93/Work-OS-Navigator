@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds } from '@/lib/sub-companies'
 import { getActor, actorCan } from '@/lib/server-permissions'
 
 const admin = () => createClient(
@@ -30,7 +31,9 @@ export async function GET(request: Request) {
 
   if (isSub) {
     // Sub: show their own invoices + RFIs with status across all projects they're on
-    const { data: subs } = await db.from('subcontracts').select('project_id, id').eq('company_id', companyId)
+    const mine = await vendorCompanyIds(db, companyId)
+    if (mine === null) return NextResponse.json({ error: 'Could not load this just now. Try again.' }, { status: 500 })
+    const { data: subs } = await db.from('subcontracts').select('project_id, id').in('company_id', mine)
     const projectIds = (subs ?? []).map((s: any) => s.project_id).filter(Boolean)
     const subIds = (subs ?? []).map((s: any) => s.id).filter(Boolean)
 

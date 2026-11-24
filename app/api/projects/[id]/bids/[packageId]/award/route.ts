@@ -1,6 +1,7 @@
 import { logActivity } from '@/lib/log-activity'
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorProfileIds } from '@/lib/sub-companies'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { notify } from '@/lib/notify'
 
@@ -108,14 +109,12 @@ export async function POST(
   // Notify everyone at the awarded sub. Not .single() - that errors unless the
   // company has exactly one user, which silently dropped the notification for
   // any sub with a second account.
-  const { data: subProfiles } = await db
-    .from('profiles')
-    .select('id')
-    .eq('company_id', bid.company_id)
+  // And across the Directory link (lib/sub-companies.ts).
+  const subProfiles = await vendorProfileIds(db, bid.company_id)
 
-  if (subProfiles?.length) {
+  if (subProfiles.length) {
     await notify({
-      db, userIds: subProfiles.map(p => p.id), type: 'bid_awarded', title: 'Bid awarded',
+      db, userIds: subProfiles, type: 'bid_awarded', title: 'Bid awarded',
       message: `You have been awarded the ${bid.bid_packages?.scope} contract. Check your dashboard for next steps.`,
       link: `/my-bids`,
     })

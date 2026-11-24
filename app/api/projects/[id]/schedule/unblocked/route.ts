@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorProfileIds } from '@/lib/sub-companies'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { sendEmail, scheduleUnblockedEmail, reachableEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
@@ -121,8 +122,9 @@ export async function POST(request: Request, { params }: { params: { id: string 
     })
 
     if (company?.id) {
-      const { data: people } = await db.from('profiles').select('id').eq('company_id', company.id)
-      for (const p of (people ?? []) as any[]) toldUserIds.push(p.id)
+      // Everybody at the vendor: under the GC's Directory row AND at the sub's
+      // own company it links to (lib/sub-companies.ts, migration 169).
+      for (const id of await vendorProfileIds(db, company.id)) toldUserIds.push(id)
     }
   }
 

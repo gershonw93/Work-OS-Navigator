@@ -133,6 +133,21 @@ async function main() {
   ok(await call('a-worker', `/api/projects/${A_OTHER}/tasks`, 'tasks', 'view') === 404,
     'a worker NOT assigned to another of their company\'s jobs: refused - it is not on their My Jobs list either')
 
+  // ── THE REGRESSION #713 SHIPPED: a gate wrapped around requirePermission ──
+  // complianceAccess asks `projects: view` first, which the sub lane refuses -
+  // so a sub's My Jobs -> Compliance answered 403 on every GC job. A wrapper
+  // that does its own record check opts in (subOwnRecord); this asks the real
+  // wrapper, because the first suite asked requirePermission alone and passed.
+  {
+    const { complianceAccess } = await import('../writes/compliance-access')
+    const req = new Request(`https://app.sytenav.com/api/projects/${A_JOB}/compliance`, { headers: { Authorization: 'Bearer pool-owner' } })
+    const acc = await complianceAccess(db, req, A_JOB, { write: false })
+    ok(!('denied' in acc) && acc.scope === 'own-company' && acc.companyId === 'pool-co',
+      'a sub opening Compliance on a GC\'s job gets their OWN company\'s paperwork, not a 403')
+    const stranger = await complianceAccess(db, new Request(`https://app.sytenav.com/api/projects/${A_JOB}/compliance`, { headers: { Authorization: 'Bearer b-admin' } }), A_JOB, { write: false })
+    ok('denied' in stranger && stranger.denied.status === 404, '...and a stranger still gets the missing-job 404')
+  }
+
   // ── nothing changes for a URL that is not a job ──────────────────────────
   ok(await call('b-admin', '/api/directory', 'directory', 'view') === 'no-job', 'a route outside /api/projects/<id>/ is not asked about any job')
   ok(await call('pool-owner', `/api/projects/${A_JOB}/budget`, 'budget-nope', 'view') === 403, 'the permission is still asked first')
@@ -179,7 +194,7 @@ async function main() {
   ok(/subOwnRecord: true/.test(waiver) && /\.eq\('project_id', params\.id\)/.test(waiver) && /gate\.side !== 'gc'/.test(waiver),
     'lien waiver: the bill is on THIS job, and on someone else\'s job it is the caller\'s own')
   const billing = code('app/api/projects/[id]/subcontracts/[subId]/billing/route.ts')
-  ok(/subOwnRecord: true/.test(billing) && /gate\.side !== 'gc' && sub\.company_id !== gate\.actor\.companyId/.test(billing),
+  ok(/subOwnRecord: true/.test(billing) && /gate\.side !== 'gc' && !holdsSubcontract\(mine, sub\.company_id\)/.test(billing),
     'subcontract billing: a sub bills its own subcontract, never another sub\'s')
   for (const f of ['upload/route.ts', '[quoteId]/route.ts']) {
     const src = code(`app/api/projects/[id]/quotes/[compId]/${f}`)

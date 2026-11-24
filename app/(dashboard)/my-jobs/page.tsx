@@ -16,6 +16,8 @@ import { contractAmountLabel } from '@/lib/contract-amount'
 import { parseDate, formatDate } from '@/lib/dates'
 import { useNotice } from '@/components/ui/notice'
 import { usePermissions } from '@/lib/use-permissions'
+import { VendorInviteCard } from '@/components/my-jobs/vendor-invite-card'
+import { RunOwnJobsCard } from '@/components/my-jobs/run-own-jobs-card'
 
 const PROJECT_TYPES = ['residential', 'commercial', 'industrial', 'renovation', 'other']
 
@@ -38,7 +40,11 @@ export default function MyJobsPage() {
   // buttons go once that answer is KNOWN, never on a permissions read that
   // failed (which answers exactly like a refusal).
   const perms = usePermissions()
-  const cannotCreate = !perms.loading && !perms.error && !perms.can('projects', 'create')
+  // A light sub account (lib/sub-account.ts) opens no jobs of its own until it
+  // chooses to - the server refuses, so the button is not offered either, and
+  // the "Run your own jobs" card stands where it would be.
+  const light = !perms.loading && !perms.error && !!perms.subAccount && perms.subAccount !== 'open'
+  const cannotCreate = light || (!perms.loading && !perms.error && !perms.can('projects', 'create'))
   const [awarded, setAwarded] = useState<AwardedJob[]>([])
   const [own, setOwn] = useState<OwnProject[]>([])
   const [loading, setLoading] = useState(true)
@@ -167,6 +173,10 @@ export default function MyJobsPage() {
           <Button onClick={() => setShowForm(true)} className="self-start sm:self-auto"><Plus className="h-4 w-4" /> New Project</Button>
         )}
       </div>
+
+      {/* A GC asking to connect with this company - answered here, by them. */}
+      <VendorInviteCard onConnected={load} />
+      {light && <RunOwnJobsCard />}
 
       {/* Filter pills. A strip that does not fit scrolls, with the fade. */}
       <div className="scroll-fade flex gap-2 overflow-x-auto pb-1">

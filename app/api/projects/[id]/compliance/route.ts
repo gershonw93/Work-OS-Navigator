@@ -150,6 +150,10 @@ export async function POST(
   // the contractor does. Refused out loud rather than quietly downgraded: a
   // field the route drops answers exactly like one it saved.
   if (access.scope === 'own-company') {
+    // My Jobs sends the sub's OWN company id; the record is filed under the
+    // row on this job's subcontract (`complianceAccess`), which is what the
+    // GC reads. Any other company is still refused.
+    if (access.mine.includes(body?.company_id)) body.company_id = access.companyId
     if (body?.company_id !== access.companyId) {
       return NextResponse.json({ error: 'You can only file documents for your own company.' }, { status: 403 })
     }

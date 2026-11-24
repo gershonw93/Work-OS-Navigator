@@ -112,7 +112,8 @@ ok(/const actor = await actorForUser\(db, profile\.id\)/.test(loader) && /const 
 ok(/if \(!scope\) return null/.test(loader) && /companyTaskIds === null\) \{[\s\S]{0,200}return null/.test(loader),
   'loader: a failed read is null, never a shorter calendar')
 ok(/return calendarItems\(\{/.test(loader), 'loader: the rows go through calendarItems')
-ok(/\.from\('subcontracts'\)\.select\('id, project_id, trade, projects\(name\)'\)\.eq\('company_id', profile\.company_id\)/.test(loader),
+ok(/vendorCompanyIds\(db, profile\.company_id\)/.test(loader) && /if \(mine === null\) return null/.test(loader)
+  && /\.from\('subcontracts'\)\.select\('id, project_id, trade, projects\(name\)'\)\.in\('company_id', mine\)/.test(loader),
   'loader: awarded jobs are the company\'s own subcontracts')
 
 const feed = code('app/api/calendar/[token]/route.ts')

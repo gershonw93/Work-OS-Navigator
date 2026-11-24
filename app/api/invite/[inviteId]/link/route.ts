@@ -56,7 +56,15 @@ export async function POST(
     .eq('id', params.inviteId)
     .single()
 
-  if (!invite || invite.company_id !== profile.company_id) {
+  // A team invite names this company; a VENDOR invite names one of this
+  // company's Directory rows (`added_by_company_id`). The check used to accept
+  // only the first, so Copy link answered "Not found" on every vendor invite -
+  // the exact case it exists for, an address the invite email never reached.
+  const { data: target } = invite && invite.company_id !== profile.company_id
+    ? await db.from('companies').select('added_by_company_id').eq('id', invite.company_id).maybeSingle()
+    : { data: null }
+  const yours = !!invite && (invite.company_id === profile.company_id || (target as any)?.added_by_company_id === profile.company_id)
+  if (!invite || !yours) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { VendorInviteCard } from '@/components/my-jobs/vendor-invite-card'
 import { FolderKanban, AlertCircle, ShieldAlert, MessageSquare, Package, CheckSquare, DollarSign, Briefcase, FileText, Receipt, Activity, FileUp, ClipboardList, CalendarCheck, ScrollText, UploadCloud, UserPlus, UserMinus, Clock, ShoppingCart, Wallet, Wrench, LogIn, LogOut, Megaphone} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
@@ -345,6 +346,11 @@ export default function DashboardPage() {
             : "Here's what's happening across your jobs."}
         </p>
       </div>
+
+      {/* A GC asking to connect with this company (lib/vendor-link.ts). Only a
+          sub can be connected, so only a sub's dashboard asks. Accepting adds
+          the GC's jobs, so the page reloads to show them. */}
+      {isSub && <VendorInviteCard onConnected={() => window.location.reload()} />}
 
       {/* Stat cards */}
       {stats?.isSub ? (

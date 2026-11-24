@@ -633,6 +633,55 @@ export function vendorInviteEmail({
 }
 
 /**
+ * A GC invited a vendor who ALREADY has a SyteNav account.
+ *
+ * The invite email above cannot go to them: Supabase refuses to mint an invite
+ * link for an address it already has, so until now they got nothing at all,
+ * and the invite sat pending for ever. This one carries NO credential - it is a
+ * plain link to sign in, where a card asks them to connect their company to the
+ * GC (lib/vendor-link.ts). Connecting is their decision; nothing is linked
+ * until they press it.
+ */
+export function vendorConnectEmail({
+  name, gcName, signInUrl,
+}: {
+  name: string | null | undefined
+  gcName: string | null | undefined
+  signInUrl: string
+}) {
+  const hi = firstName(name)
+  const gc = (gcName ?? '').trim() || 'A contractor you work with'
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    `${gc} wants to work with you on SyteNav, and you already have an account.`,
+    '',
+    'Sign in and press Connect to see their jobs alongside your own. They see the work you do on their jobs - never your other customers.',
+    '',
+    signInUrl,
+    '',
+    'If you were not expecting this, you can decline it from the same screen, or just reply to this email.',
+    '',
+    'SyteNav',
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: `${gc} wants to connect with you on SyteNav.`,
+    eyebrow: 'A connection',
+    heading: `${gc} wants to work with you on SyteNav`,
+    paragraphs: [
+      `Hi ${hi}, you already have a SyteNav account, so there is nothing to set up.`,
+      'Sign in and press Connect to see their jobs alongside your own. They see the work you do on their jobs - never your other customers.',
+    ],
+    cta: { label: 'Sign in to connect', url: signInUrl },
+    footNote: 'If you were not expecting this, you can decline it from the same screen, or just reply to this email.',
+  })
+
+  return { subject: `${gc} wants to connect with you on SyteNav`, text, html }
+}
+
+/**
  * The account a sub made from their quote link, confirmed.
  *
  * The account already EXISTS when this is sent - they set the password on the

@@ -27,6 +27,8 @@ interface PermState {
    * app/api/me/permissions/route.ts.
    */
   companyType: string | null
+  /** Whether this company runs its own jobs yet (lib/sub-account.ts). Null until known. */
+  subAccount: 'open' | 'invited_only' | 'guest' | null
   permissions: PermMap | null
   loading: boolean
   /**
@@ -50,6 +52,7 @@ export function usePermissions(): PermState {
   const [previewing, setPreviewing] = useState(false)
   const [previewingUser, setPreviewingUser] = useState<string | null>(null)
   const [companyType, setCompanyType] = useState<string | null>(null)
+  const [subAccount, setSubAccount] = useState<'open' | 'invited_only' | 'guest' | null>(null)
   const [permissions, setPermissions] = useState<PermMap | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -88,6 +91,7 @@ export function usePermissions(): PermState {
         setPreviewing(!!data.previewing)
         setPreviewingUser(data.previewingUser ?? null)
         setCompanyType(data.companyType ?? null)
+        setSubAccount(data.subAccount ?? 'open')
         setPermissions(data.permissions ?? null)
       } catch (e: any) {
         if (active) setError(e?.message ?? 'Could not reach the server')
@@ -104,6 +108,7 @@ export function usePermissions(): PermState {
     previewing,
     previewingUser,
     companyType,
+    subAccount,
     permissions,
     loading,
     error,

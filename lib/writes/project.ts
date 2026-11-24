@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { ownJobsRefusal } from '@/lib/sub-account'
 import { asContractType } from '@/lib/contract-type'
 import { projectSlotProblem } from '@/lib/billing-read'
 import { cleanLotDetails } from '@/lib/lot-details'
@@ -45,6 +46,11 @@ export async function createProject(
 ): Promise<WriteResult> {
   const admin = db
   const profile = { company_id: companyId }
+
+  // A LIGHT SUB ACCOUNT does a GC's work and opens nothing of its own until it
+  // chooses to (lib/sub-account.ts). Here, so the app and Claude meet it alike.
+  const lightRefusal = await ownJobsRefusal(db, companyId)
+  if (lightRefusal) return { status: 403, body: { error: lightRefusal, account: 'light' } }
 
   // THE PLAN IS METERED ON ACTIVE PROJECTS, so this is the door it is metered
   // at - for the app and for Claude alike. The read-only lock is asked before

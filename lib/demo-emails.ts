@@ -2,7 +2,7 @@ import { addDaysIso } from './inspection-status'
 import { dayWords } from './dates'
 import { TRIAL_DAYS } from './plans'
 import {
-  inviteEmail, platformInviteEmail, teamInviteEmail, vendorInviteEmail, subWelcomeEmail,
+  inviteEmail, platformInviteEmail, teamInviteEmail, vendorInviteEmail, vendorConnectEmail, subWelcomeEmail,
   passwordResetEmail, welcomeEmail, clientPortalEmail, tokenLinkEmail,
   awardEmail, scheduleShiftEmail, scheduleUnblockedEmail, scopeChangeEmail,
   deletionRequestEmail, weeklySummaryEmail, portalLoginCodeEmail,
@@ -102,6 +102,14 @@ export const DEMO_EMAILS: DemoEmail[] = [
     when: 'A GC adds a vendor to their Directory.',
     build: () => vendorInviteEmail({
       name: PERSON, gcName: GC, inviteUrl: `${APP}/signup?invite=demo`,
+    }),
+  },
+  {
+    key: 'connect-vendor',
+    label: 'Invite - a subcontractor who already has an account',
+    when: 'A GC invites a vendor whose address already signs in to SyteNav.',
+    build: () => vendorConnectEmail({
+      name: PERSON, gcName: GC, signInUrl: `${APP}/login`,
     }),
   },
   {

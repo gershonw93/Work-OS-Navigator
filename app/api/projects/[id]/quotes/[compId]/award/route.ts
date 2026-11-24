@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorProfileIds } from '@/lib/sub-companies'
 import { isUntitled } from '@/lib/quote-comparison'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
@@ -178,12 +179,14 @@ export async function POST(request: Request, { params }: { params: { id: string;
     const projectName = (project as any)?.name ?? null
     const money = Number(quote.total_amount)
 
-    const { data: vendorProfiles } = await db.from('profiles').select('id').eq('company_id', companyId)
+    // Everybody at the vendor: under the GC's Directory row AND at the sub's
+    // own company it links to (lib/sub-companies.ts, migration 169).
+    const vendorProfiles = await vendorProfileIds(db, companyId)
 
-    if (vendorProfiles?.length) {
+    if (vendorProfiles.length) {
       await notify({
         db,
-        userIds: vendorProfiles.map((p: any) => p.id),
+        userIds: vendorProfiles,
         type: 'bid_awarded',
         title: 'You won the job',
         message: `Your quote for ${scope}${projectName ? ` on ${projectName}` : ''} was accepted at $${money.toLocaleString()}.`,

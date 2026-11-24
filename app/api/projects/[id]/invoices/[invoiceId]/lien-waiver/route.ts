@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds, holdsSubcontract } from '@/lib/sub-companies'
 import { requirePermission, denied } from '@/lib/api-guard'
 
 const admin = () =>
@@ -59,7 +60,7 @@ export async function POST(
   // the work - and only then off the bill itself.
   if (gate.side !== 'gc') {
     const holder = (invoice as any).subcontracts?.company_id ?? (invoice as any).company_id ?? null
-    if (!holder || holder !== gate.actor.companyId) {
+    if (!holdsSubcontract(await vendorCompanyIds(db, gate.actor.companyId), holder)) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
     }
   }

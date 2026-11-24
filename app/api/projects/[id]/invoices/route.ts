@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds } from '@/lib/sub-companies'
 import { destinationsBySubcontract, rollupBudgetLines } from '@/lib/invoice-budget'
 import { requirePermission, denied } from '@/lib/api-guard'
 import { createSubBill } from '@/lib/writes/sub-bill'
@@ -206,10 +207,14 @@ export async function POST(request: Request, { params }: { params: { id: string 
   const gate = await requirePermission(db, request, 'invoices', 'edit')
   if (denied(gate)) {
     const actor = await getActor(db, token)
-    const { data: sc } = subcontract_id && actor?.companyId
+    // Any of this sub's company ids: the GC's subcontract names the GC's own
+    // Directory row for them, linked to their company (lib/sub-companies.ts).
+    const mine = actor?.companyId ? await vendorCompanyIds(db, actor.companyId) : []
+    if (mine === null) return NextResponse.json({ error: 'Could not load this just now. Try again.' }, { status: 500 })
+    const { data: sc } = subcontract_id && mine.length
       ? await db.from('subcontracts')
           .select('id, company_id, companies ( name )')
-          .eq('id', subcontract_id).eq('project_id', params.id).eq('company_id', actor.companyId)
+          .eq('id', subcontract_id).eq('project_id', params.id).in('company_id', mine)
           .maybeSingle()
       : { data: null }
     if (!sc) return gate.denied

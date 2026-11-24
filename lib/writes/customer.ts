@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { ownJobsRefusal } from '@/lib/sub-account'
 import { duplicateCustomer, duplicateCustomerMessage } from '@/lib/customer-dedupe'
 import type { WriteResult } from './result'
 
@@ -23,6 +24,11 @@ export async function createCustomer(
 ): Promise<WriteResult> {
   // Same names as the route this came from, so the code reads as it did there.
   const profile = { company_id: companyId }
+
+  // A LIGHT SUB ACCOUNT does a GC's work and opens nothing of its own until it
+  // chooses to (lib/sub-account.ts). Here, so the app and Claude meet it alike.
+  const lightRefusal = await ownJobsRefusal(db, companyId)
+  if (lightRefusal) return { status: 403, body: { error: lightRefusal, account: 'light' } }
   const { name, contact_name, email, phone, billing_address, notes } = body
 
   if (!name) return { status: 400, body: { error: 'name is required' } }

@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorProfileIds } from '@/lib/sub-companies'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { bidRequestOnJob } from '@/lib/writes/bid-request'
 import { bidInviteEmail, bidScopeLine } from '@/lib/bid-invite-email'
@@ -86,11 +87,13 @@ export async function POST(request: Request, { params }: { params: { id: string;
       // this to somebody who only ever gets the email costs nothing: notify()
       // finds no profiles and does nothing.
       if (isReminder && invite.vendor_company_id) {
-        const { data: profiles } = await db.from('profiles').select('id').eq('company_id', invite.vendor_company_id)
-        if (profiles?.length) {
+        // Everybody at the vendor: under the GC's Directory row AND at the sub's
+        // own company it links to (lib/sub-companies.ts, migration 169).
+        const profiles = await vendorProfileIds(db, invite.vendor_company_id)
+        if (profiles.length) {
           await notify({
             db,
-            userIds: profiles.map((p: any) => p.id),
+            userIds: profiles,
             type: 'bid_reminder',
             title: 'Quote still needed',
             message: `${(company as any)?.name ?? 'A contractor'} is still waiting on your price for ${scope}.`,

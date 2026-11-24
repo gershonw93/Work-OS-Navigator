@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorProfileIds } from '@/lib/sub-companies'
 import { requirePermission, denied, ownedProject } from '@/lib/api-guard'
 import { logActivity } from '@/lib/log-activity'
 import { notify } from '@/lib/notify'
@@ -52,16 +53,18 @@ export async function POST(
   }
 
   // Fetch supporting data for notification + activity log
-  const [{ data: pkg }, { data: gcProfile }, { data: company }, { data: subProfile }] = await Promise.all([
+  const [{ data: pkg }, { data: gcProfile }, { data: company }, subPeople] = await Promise.all([
     db.from('bid_packages').select('scope').eq('id', params.packageId).single(),
     db.from('profiles').select('full_name').eq('id', user.id).single(),
     db.from('companies').select('name').eq('id', bid.company_id).single(),
-    db.from('profiles').select('id').eq('company_id', bid.company_id).single(),
+    // Everybody at the sub, here and across the Directory link - not
+    // `.single()`, which said nothing to a sub with two accounts.
+    vendorProfileIds(db, bid.company_id),
   ])
 
-  if (subProfile) {
+  if (subPeople.length) {
     await notify({
-      db, userIds: [subProfile.id], type: 'bid_revision', title: 'Bid revision requested',
+      db, userIds: subPeople, type: 'bid_revision', title: 'Bid revision requested',
       message: `A revision has been requested for your ${pkg?.scope ?? ''} bid. Please review and resubmit.`,
       link: `/my-bids`,
     })

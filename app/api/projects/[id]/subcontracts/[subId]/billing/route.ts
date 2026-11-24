@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
+import { vendorCompanyIds, holdsSubcontract } from '@/lib/sub-companies'
 import { requirePermission, denied } from '@/lib/api-guard'
 
 import { formatDate } from '@/lib/dates'
@@ -39,7 +40,8 @@ export async function POST(
     .single()
 
   if (!sub) return NextResponse.json({ error: 'Subcontract not found' }, { status: 404 })
-  if (gate.side !== 'gc' && sub.company_id !== gate.actor.companyId) {
+  const mine = gate.side !== 'gc' ? await vendorCompanyIds(db, gate.actor.companyId) : null
+  if (gate.side !== 'gc' && !holdsSubcontract(mine, sub.company_id)) {
     return NextResponse.json({ error: 'Subcontract not found' }, { status: 404 })
   }
 
