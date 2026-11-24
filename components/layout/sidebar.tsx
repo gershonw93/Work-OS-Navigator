@@ -6,7 +6,7 @@ import {
   LayoutDashboard, FolderKanban, Building2, CheckSquare,
   Settings, LogOut, ClipboardList, Briefcase, FolderOpen, X, UsersRound,
   CalendarDays, DollarSign, Wrench, HelpCircle, ShoppingCart, Sparkles,
-  ChevronsLeft, HardHat, BarChart2, ListTodo,
+  ChevronsLeft, HardHat, BarChart2, ListTodo, CalendarRange,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
@@ -53,6 +53,11 @@ const SUB_NAV: { label: string; href: string; icon: typeof LayoutDashboard; reso
   { label: 'My Jobs', href: '/my-jobs', icon: Briefcase, resource: null },
   { label: 'My Bids', href: '/my-bids', icon: ClipboardList, resource: null },
   { label: 'My Work', href: '/my-work', icon: ListTodo, resource: null },
+  // A sub's own business: calls from his customers, and the board that puts a
+  // crew member on each (lib/service-calls.ts). Not offered to a light account,
+  // which has no customers of its own yet.
+  { label: 'Service Calls', href: '/service-calls', icon: Wrench, resource: 'service-calls' },
+  { label: 'Dispatch', href: '/dispatch', icon: CalendarRange, resource: 'dispatch' },
   // Every role: the route scopes every row to the person (lib/calendar-items.ts).
   { label: 'Calendar', href: '/calendar', icon: CalendarDays, resource: null },
   { label: 'Customers', href: '/customers', icon: UsersRound, resource: 'customers' },
@@ -160,7 +165,7 @@ export function Sidebar() {
   const navItems = isSubcontractor
     ? SUB_NAV.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
         // A light sub account has no customers of its own yet (lib/sub-account.ts).
-        .filter(item => !(item.href === '/customers' && subAccount && subAccount !== 'open'))
+        .filter(item => !(['/customers', '/service-calls', '/dispatch'].includes(item.href) && subAccount && subAccount !== 'open'))
     : isFieldRole(role)
       ? [{ label: FIELD_HOME.label, href: FIELD_HOME.href, icon: HardHat, resource: null as string | null },
          ...gcNav.filter(i => i.href !== '/dashboard' && i.href !== '/my-work')]
