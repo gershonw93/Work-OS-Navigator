@@ -93,6 +93,9 @@ function main() {
   ok(/isForward\(from, m\)/.test(detailSrc) && !/const FORWARD = new Set/.test(detailSrc), 'the call page splits forward and back by isForward, not by a set of targets')
   ok(/d\.call\.assigned_to === me \? punchWith\(from, to\)/.test(detailSrc), 'the automatic punch is only for the person assigned')
 
+  ok(/untimed=\{d\.time\.length === 0\}/.test(detailSrc) && /untimed && \(/.test(detailSrc), 'closing a call nobody clocked in on says so (and is still allowed)')
+  ok(!/max-w-/.test(code('app/(dashboard)/service-calls/[callId]/page.tsx')), 'the call page uses the full width on a computer')
+
   // ── a name is never blank ──
   ok(personName({ full_name: '', email: 'sub2@x.com' }) === 'sub2@x.com', 'a blank name falls back to the address (it read as an empty option)')
   ok(personName({ full_name: '  ', email: null }) === 'Unnamed', 'no name and no address reads Unnamed, never blank')
