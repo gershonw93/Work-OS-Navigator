@@ -416,6 +416,23 @@ the biggest build yet while the books are half-wired ends with both half-done.
 - **Bank-facing budget & sellout** *(tester request)*. Abe: "when you create a bank budget and bank sellout they might be presented in a different way." The working budget and the version a lender wants are formatted differently. Needs a lender report format - probably an extension of the proposal PDF rather than a new thing.
 - **Full development pro-forma** *(tester request - partially addressed)*. A tester who develops (not just builds) wanted the spreadsheet they use as step one: land purchase, design, approvals, soft costs, then a return projection. We shipped the piece every GC needs - hard/soft cost split on the budget + a planning-stage menu (see Recently shipped). **Not built, deliberately:** land acquisition as its own record, debt/equity stack and draw schedule, carrying-cost-over-time modeling, and ROI / profit-on-cost / IRR outputs. That is a developer pro-forma tool, a different product from a GC's job budget - revisit only if more than one customer asks.
 
+## 📞 Service calls and Dispatch - after the board redesign
+
+Shipped to staging 25 Nov 2026: Service Calls as a board (one-step drag),
+labels and steps on a call, the call page with stage pills, History as a side
+panel, the clock in the top row, one Save; Dispatch blocks and the Unscheduled
+list as cards. Not built:
+
+- **The sub's phone bottom bar still reads Home / My Jobs / My Bids / Calendar.**
+  The design showed Home / Calls / Dispatch / More. Needs the owner to say what
+  moves into More, and it must not appear for a light vendor account.
+- **The step buttons are not pinned to the bottom of the phone screen.** They
+  are at the top of the call, where the office has them. The call page is
+  shared with Field Mode, so pinning needs both shells checked.
+- **New call does not ask for labels or steps.** They are added on the call.
+- **Labels cannot be filtered on.** They show; there is no label filter yet.
+- **Claude cannot read or set a call's labels or steps.**
+
 ## ✅ Tasks (the shared board) - after the redesign
 
 Shipped to staging 13 Nov 2026: the Project Management look on the Tasks tab,

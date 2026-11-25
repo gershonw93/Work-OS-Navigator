@@ -10,6 +10,8 @@
 // price on a call at all, so there is nothing to leak.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { cleanTaskLabels, stampSubtasks, type TaskLabel, type TaskSubtask } from './task-extras'
+
 export const CALL_STATUSES = ['new', 'scheduled', 'en_route', 'on_site', 'done', 'invoiced'] as const
 export type CallStatus = (typeof CALL_STATUSES)[number]
 
@@ -275,3 +277,34 @@ export function personName(p: { full_name?: string | null; email?: string | null
 
 /** "SC-0042". */
 export const callLabel = (n: number | null | undefined) => (n ? `SC-${String(n).padStart(4, '0')}` : 'Service call')
+
+// ── labels and steps (migration 171) ────────────────────────────────────────
+
+/**
+ * The labels and steps a body may change, cleaned - or nothing, when the body
+ * names neither. NOT part of `pickFields`: those are strings, these are lists.
+ *
+ * WHO MAY DO WHAT. The office tags a call and writes its steps. CREW ONLY
+ * TICK: a tech on site reports a step done, and may not add, remove or reword
+ * one - so for crew the stored list is kept and only each step's `done` is
+ * taken from the request, by id. Who ticked a step and when is stamped here
+ * from the move itself (`stampSubtasks`), never read from the body.
+ */
+export function pickExtras(
+  body: any, held: { steps?: TaskSubtask[] | null }, who: { crew: boolean; name: string | null }, nowIso: string,
+): { labels?: TaskLabel[]; steps?: TaskSubtask[] } {
+  const out: { labels?: TaskLabel[]; steps?: TaskSubtask[] } = {}
+  if (!who.crew && body?.labels !== undefined) out.labels = cleanTaskLabels(body.labels)
+  if (body?.steps !== undefined) {
+    const before = Array.isArray(held.steps) ? held.steps : []
+    let sent: unknown = body.steps
+    if (who.crew) {
+      const done = new Map<string, boolean>((Array.isArray(body.steps) ? body.steps : []).map((x: any) => [String(x?.id ?? ''), x?.done === true]))
+      sent = before.map(h => ({ ...h, done: done.has(h.id) ? done.get(h.id) : h.done }))
+    }
+    // A step is text and a tick - no date, note or person of its own.
+    out.steps = stampSubtasks(sent, before, who.name ?? 'Someone', nowIso)
+      .map(({ id, text, done, done_at, done_by_name }) => ({ id, text, done, done_at, done_by_name }))
+  }
+  return out
+}

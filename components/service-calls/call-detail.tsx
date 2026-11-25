@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Camera, Check, Clock, History, MapPin, Navigation, Phone, User, X } from 'lucide-react'
+import { Camera, Check, Clock, History, ListChecks, MapPin, Navigation, Phone, Plus, User, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -14,6 +14,9 @@ import { callFetch, callTime, callWindow, toLocalInput, fromLocalInput } from '@
 import { getPosition, geoFailureMessage } from '@/lib/geo-position'
 import { fetchProblem } from '@/lib/fetch-error'
 import { timeAgo, absoluteTime } from '@/lib/time-ago'
+import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
+import { LabelChips, LabelPicker } from '@/components/tasks/task-extras-ui'
+import type { TaskLabel, TaskSubtask } from '@/lib/task-extras'
 
 // ONE call, on the office screen and in Field Mode alike. What a person may do
 // is the SERVER's answer (`crewView`, `moves`), so the two screens cannot
@@ -34,26 +37,27 @@ type Detail = {
 
 
 /**
- * Where the call is on its way from New to Invoiced - the bar across the top.
- * The steps it has passed are filled, the one it is on is ringed.
+ * Where the call is on its way from New to Invoiced, as a row of pills - the
+ * same shape as the Column buttons on a Project Management card. The steps it
+ * has passed are filled quietly, the one it is on is the dark one, the ones
+ * ahead are outlined. A READOUT, not a control: a call moves one step at a
+ * time through the step buttons, which know what each move has to carry.
  */
 function ProgressPath({ status }: { status: CallStatus }) {
   const at = CALL_PATH.indexOf(status)
   return (
-    <ol className="flex items-start" aria-label={`Status: ${STATUS_LABEL[status]}`}>
+    <ol className="scroll-fade flex gap-2 overflow-x-auto scrollbar-hide lg:flex-wrap lg:overflow-visible" aria-label={`Status: ${STATUS_LABEL[status]}`}>
       {CALL_PATH.map((step, i) => {
         const past = i < at
         const here = i === at
         return (
-          <li key={step} className="flex flex-1 flex-col items-center min-w-0 relative">
-            {i > 0 && <span className={cn('absolute top-3 right-1/2 h-0.5 w-full', i <= at ? 'bg-ink' : 'bg-line')} aria-hidden />}
-            <span className={cn('relative z-[1] flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] font-semibold',
-              past ? 'border-ink bg-ink text-panel' : here ? 'border-ink bg-panel text-ink' : 'border-line bg-panel text-faint')}>
-              {past ? <Check className="h-3.5 w-3.5" /> : i + 1}
-            </span>
-            <span className={cn('mt-1.5 truncate text-[11px] sm:text-xs', here ? 'font-semibold text-ink' : past ? 'text-ink-soft' : 'text-faint')}>
-              {STATUS_LABEL[step]}
-            </span>
+          <li key={step} aria-current={here ? 'step' : undefined}
+            className={cn('inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm',
+              here ? 'bg-ink font-semibold text-panel'
+                : past ? 'bg-muted font-medium text-ink-soft'
+                : 'border border-dashed border-muted2 font-medium text-muted-fg')}>
+            {past && <Check className="h-3.5 w-3.5" aria-hidden />}
+            {STATUS_LABEL[step]}
           </li>
         )
       })}
@@ -87,6 +91,9 @@ export function CallDetail({ callId, narrow = false }: {
   const [closing, setClosing] = useState(false)
   const [assign, setAssign] = useState({ who: '', start: '', end: '' })
   const [notes, setNotes] = useState('')
+  const [labels, setLabels] = useState<TaskLabel[]>([])
+  const [stepText, setStepText] = useState('')
+  const [showHistory, setShowHistory] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -96,6 +103,7 @@ export function CallDetail({ callId, narrow = false }: {
       setD(json)
       setAssign({ who: json.call.assigned_to ?? '', start: toLocalInput(json.call.scheduled_start), end: toLocalInput(json.call.scheduled_end) })
       setNotes(json.call.notes ?? '')
+      setLabels(json.call.labels ?? [])
       setState('ready')
     } catch {
       setState('failed')
@@ -154,9 +162,32 @@ export function CallDetail({ callId, narrow = false }: {
     await send('photo', `/api/service-calls/${callId}/photos`, { method: 'POST', body: fd }, 'Photo added.')
   }
 
-  async function saveAssignment() {
-    const body = { assigned_to: assign.who || null, scheduled_start: fromLocalInput(assign.start), scheduled_end: fromLocalInput(assign.end) }
-    await send('assign', `/api/service-calls/${callId}`, { method: 'PATCH', body: JSON.stringify(body) }, 'Saved.')
+  // ONE SAVE for what is typed on this page: the notes, and for the office the
+  // labels and who does it when. Cancel puts every field back as loaded.
+  async function saveAll() {
+    const body = d?.crewView
+      ? { notes }
+      : { notes, labels, assigned_to: assign.who || null, scheduled_start: fromLocalInput(assign.start), scheduled_end: fromLocalInput(assign.end) }
+    await send('save', `/api/service-calls/${callId}`, { method: 'PATCH', body: JSON.stringify(body) }, 'Saved.')
+  }
+  function resetAll() {
+    if (!d) return
+    setAssign({ who: d.call.assigned_to ?? '', start: toLocalInput(d.call.scheduled_start), end: toLocalInput(d.call.scheduled_end) })
+    setNotes(d.call.notes ?? '')
+    setLabels(d.call.labels ?? [])
+  }
+
+  // STEPS SAVE AS THEY ARE TICKED. A tech on site reports a step done with one
+  // tap - it is the same act as moving the call, not a field waiting for Save.
+  // The route stamps who ticked it and when, and lets crew tick but not rewrite.
+  async function saveSteps(next: TaskSubtask[]) {
+    await send('steps', `/api/service-calls/${callId}`, { method: 'PATCH', body: JSON.stringify({ steps: next }) })
+  }
+  function addStep() {
+    const text = stepText.trim()
+    if (!text) { notice('Type the step first.'); return }
+    setStepText('')
+    saveSteps([...(d?.call.steps ?? []), { id: `s${Date.now().toString(36)}`, text: text.slice(0, 200), done: false }])
   }
 
   if (state === 'loading') return <p className="text-sm text-faint py-12 text-center">Loading...</p>
@@ -178,6 +209,19 @@ export function CallDetail({ callId, narrow = false }: {
   const forward = moves.filter(m => isForward(from, m))
   const back = moves.filter(m => !isForward(from, m))
   const card = 'rounded-2xl border border-line bg-panel'
+  const steps: TaskSubtask[] = c.steps ?? []
+  const stepsDone = steps.filter(x => x.done).length
+  // THE CLOCK IS AT THE TOP WHEN IT IS THE NEXT THING TO DO: clocking out while
+  // on the clock, clocking in when you have arrived and are not on it yet.
+  // Anywhere else it is a quiet button on the Time card, so it always exists.
+  const clockInIsNext = !openPunch && c.status === 'on_site' && c.assigned_to === me
+  const dirty = notes !== (c.notes ?? '')
+    || (!d.crewView && (
+      JSON.stringify(labels) !== JSON.stringify(c.labels ?? [])
+      || assign.who !== (c.assigned_to ?? '')
+      || assign.start !== toLocalInput(c.scheduled_start)
+      || assign.end !== toLocalInput(c.scheduled_end)
+    ))
 
   return (
     <div className="space-y-5">
@@ -190,6 +234,7 @@ export function CallDetail({ callId, narrow = false }: {
             {c.priority !== 'normal' && (
               <Badge variant={c.priority === 'urgent' ? 'danger' : 'muted'}>{PRIORITY_LABEL[c.priority as CallPriority]}</Badge>
             )}
+            <LabelChips labels={c.labels} />
           </div>
           <h1 className="mt-1 text-2xl font-bold text-ink break-words">{c.issue}</h1>
           <p className="text-sm text-muted-fg">{c.customer_name}{d.gc_job ? ` - for the contractor job ${d.gc_job.name}` : ''}</p>
@@ -199,26 +244,37 @@ export function CallDetail({ callId, narrow = false }: {
             </p>
           )}
         </div>
-        {moves.length > 0 && (
-          <div className="row-even lg:flex lg:flex-wrap lg:justify-end gap-2 lg:shrink-0">
-            {back.map(m => (
-              <Button key={m} variant="outline" disabled={busy !== ''} onClick={() => move(m)}>
-                {busy === m ? 'Saving...' : moveLabel(from, m)}
-              </Button>
-            ))}
-            {forward.map(m => (
-              <Button key={m} disabled={busy !== ''} onClick={() => (m === 'done' ? setClosing(true) : move(m))}>
-                {busy === m ? 'Saving...' : moveLabel(from, m)}
-              </Button>
-            ))}
-          </div>
-        )}
+        <div className="row-even lg:flex lg:flex-wrap lg:justify-end gap-2 lg:shrink-0">
+          <Button variant="ghost" onClick={() => setShowHistory(true)}>
+            <History className="h-4 w-4" /> History
+          </Button>
+          {back.map(m => (
+            <Button key={m} variant="outline" disabled={busy !== ''} onClick={() => move(m)}>
+              {busy === m ? 'Saving...' : moveLabel(from, m)}
+            </Button>
+          ))}
+          {openPunch && (
+            <Button variant="outline" onClick={() => punch('out')} disabled={busy !== ''}>
+              <Clock className="h-4 w-4" /> {busy === 'punch-out' ? 'Clocking out...' : 'Clock out'}
+            </Button>
+          )}
+          {clockInIsNext && (
+            <Button onClick={() => punch('in')} disabled={busy !== ''}>
+              <Clock className="h-4 w-4" /> {busy === 'punch-in' ? 'Clocking in...' : 'Clock in'}
+            </Button>
+          )}
+          {forward.map(m => (
+            <Button key={m} disabled={busy !== ''} onClick={() => (m === 'done' ? setClosing(true) : move(m))}>
+              {busy === m ? 'Saving...' : moveLabel(from, m)}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <div className={cn(card, 'px-4 py-4 sm:px-6')}>
+      <div>
         <ProgressPath status={c.status as CallStatus} />
         {c.status === 'new' && !d.crewView && (
-          <p className="mt-3 text-center text-xs text-muted-fg">Give it a person and a time below, or drag it on the dispatch board, and it becomes Scheduled.</p>
+          <p className="mt-2 text-xs text-muted-fg">Give it a person and a time below, or drag it on the dispatch board, and it becomes Scheduled.</p>
         )}
       </div>
 
@@ -267,16 +323,61 @@ export function CallDetail({ callId, narrow = false }: {
             </div>
           )}
 
+          {(steps.length > 0 || !d.crewView) && (
+            <div className={cn(card, 'p-4 space-y-3')}>
+              <div className="flex items-center gap-2">
+                <ListChecks className="h-4 w-4 text-faint" aria-hidden />
+                <p className="text-sm font-semibold text-ink">Steps on site</p>
+                {steps.length > 0 && <span className="text-xs text-muted-fg">{stepsDone} of {steps.length} done</span>}
+              </div>
+              {steps.length > 0 && (
+                <>
+                  <div aria-hidden className="h-1 rounded-full bg-muted">
+                    <div className="h-1 rounded-full bg-accent-fg" style={{ width: `${Math.round((stepsDone / steps.length) * 100)}%` }} />
+                  </div>
+                  <div className="divide-y divide-line-soft rounded-xl border border-line">
+                    {steps.map(st => (
+                      <div key={st.id} className="flex items-center gap-1 pl-3 pr-1">
+                        <label className="flex min-h-11 min-w-0 flex-1 cursor-pointer items-center gap-3 py-1.5 text-sm">
+                          <input type="checkbox" checked={st.done} disabled={busy !== ''}
+                            className="h-5 w-5 shrink-0 accent-[rgb(var(--accent-fg))]"
+                            onChange={() => saveSteps(steps.map(x => x.id === st.id ? { ...x, done: !x.done } : x))} />
+                          <span className="min-w-0 flex-1">
+                            <span className={cn('block break-words', st.done ? 'text-muted-fg line-through' : 'text-ink')}>{st.text}</span>
+                            {st.done && st.done_by_name && <span className="block text-xs text-muted-fg">Done by {st.done_by_name}</span>}
+                          </span>
+                        </label>
+                        {!d.crewView && (
+                          <button type="button" aria-label={`Remove "${st.text}"`} title="Remove" disabled={busy !== ''}
+                            onClick={() => saveSteps(steps.filter(x => x.id !== st.id))}
+                            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-danger">
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+              {!d.crewView && (
+                <div className="flex items-end gap-2">
+                  <div className="min-w-0 flex-1 space-y-1">
+                    <Label htmlFor="cd-step" className="lg:text-xs">New step (optional)</Label>
+                    <Input id="cd-step" value={stepText} maxLength={200} placeholder="One thing to do on site"
+                      onChange={e => setStepText(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addStep() } }} />
+                  </div>
+                  <Button type="button" variant="outline" onClick={addStep} disabled={busy !== ''}><Plus className="h-4 w-4" /> Add</Button>
+                </div>
+              )}
+              <p className="text-xs text-muted-fg">A tick saves straight away and records who did it.</p>
+            </div>
+          )}
+
           <div className={cn(card, 'p-4 space-y-3')}>
             <Label htmlFor="cd-notes">Notes (optional)</Label>
             <textarea id="cd-notes" value={notes} onChange={e => setNotes(e.target.value)} rows={3}
               className="w-full rounded-md border border-line bg-panel px-3 py-2 text-sm text-ink" placeholder="Gate code, dog in the yard, parts to bring..." />
-            <div className="row-even lg:flex lg:justify-end gap-2">
-              <Button variant="outline" disabled={busy !== ''}
-                onClick={() => send('notes', `/api/service-calls/${callId}`, { method: 'PATCH', body: JSON.stringify({ notes }) }, 'Notes saved.')}>
-                {busy === 'notes' ? 'Saving...' : 'Save notes'}
-              </Button>
-            </div>
           </div>
 
           <div className={cn(card, 'p-4 space-y-3')}>
@@ -315,12 +416,17 @@ export function CallDetail({ callId, narrow = false }: {
             {!d.crewView && (
               <div className="space-y-3 border-t border-line-soft pt-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="cd-crew">Crew member (optional)</Label>
-                  <select id="cd-crew" value={assign.who} onChange={e => setAssign(a => ({ ...a, who: e.target.value }))}
-                    className="h-11 lg:h-9 w-full rounded-md border border-line bg-panel px-3 text-sm text-ink">
-                    <option value="">-- Nobody yet --</option>
-                    {d.crew.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
+                  <span className="text-sm font-medium text-ink-soft lg:text-xs">Crew member (optional)</span>
+                  <div role="group" aria-label="Crew member" className="flex flex-wrap gap-2">
+                    {[...d.crew, { id: '', name: 'Nobody yet' }].map(p => (
+                      <button key={p.id || 'nobody'} type="button" aria-pressed={assign.who === p.id}
+                        onClick={() => setAssign(a => ({ ...a, who: p.id }))}
+                        className={cn('min-h-11 max-w-full truncate whitespace-nowrap rounded-xl border px-3.5 text-sm lg:min-h-9',
+                          assign.who === p.id ? 'border-ink bg-ink font-semibold text-panel' : 'border-line bg-panel font-medium text-ink-soft hover:bg-surface')}>
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="cd-start">Starts (optional)</Label>
@@ -330,9 +436,7 @@ export function CallDetail({ callId, narrow = false }: {
                   <Label htmlFor="cd-end">Finishes (optional)</Label>
                   <Input id="cd-end" type="datetime-local" value={assign.end} onChange={e => setAssign(a => ({ ...a, end: e.target.value }))} />
                 </div>
-                <div className="row-even lg:flex lg:justify-end gap-2">
-                  <Button onClick={saveAssignment} disabled={busy !== ''}>{busy === 'assign' ? 'Saving...' : 'Save'}</Button>
-                </div>
+                <LabelPicker value={labels} onChange={setLabels} />
               </div>
             )}
           </div>
@@ -343,9 +447,12 @@ export function CallDetail({ callId, narrow = false }: {
                 <Clock className="h-4 w-4 text-faint" aria-hidden />
                 <p className="text-sm font-semibold text-ink">Time on site</p>
               </div>
-              {openPunch
-                ? <Button onClick={() => punch('out')} disabled={busy !== ''}>{busy === 'punch-out' ? 'Clocking out...' : 'Clock out'}</Button>
-                : <Button variant="outline" onClick={() => punch('in')} disabled={busy !== ''}>{busy === 'punch-in' ? 'Clocking in...' : 'Clock in'}</Button>}
+              {/* Clock out, and Clock in when it is the next step, are at the top
+                  of the page. Here only when neither is - so there is always
+                  exactly one place to clock in. */}
+              {!openPunch && !clockInIsNext && (
+                <Button variant="outline" onClick={() => punch('in')} disabled={busy !== ''}>{busy === 'punch-in' ? 'Clocking in...' : 'Clock in'}</Button>
+              )}
             </div>
             {d.time.length ? (
               <ul className="space-y-1 text-sm text-ink-soft">
@@ -356,30 +463,66 @@ export function CallDetail({ callId, narrow = false }: {
             ) : <p className="text-sm text-muted-fg">Nobody has clocked in yet.</p>}
           </div>
 
-          <div className={card}>
-            <div className="flex items-center gap-2 px-4 pt-4">
-              <History className="h-4 w-4 text-faint" aria-hidden />
-              <p className="text-sm font-semibold text-ink">History</p>
-            </div>
-            <ol className="px-4 py-3 space-y-3">
-              {d.events.map((ev, i) => (
-                <li key={ev.id} className="relative pl-5 text-sm">
-                  <span className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-muted2" aria-hidden />
-                  {i < d.events.length - 1 && <span className="absolute left-[3px] top-4 bottom-[-14px] w-0.5 bg-line-soft" aria-hidden />}
-                  <p className="text-ink">
-                    {ev.kind === 'status' ? (STATUS_LABEL[ev.status as CallStatus] ?? ev.status) : EVENT_WORDS[ev.kind] ?? ev.kind}
-                    {ev.actor_name ? <span className="text-muted-fg"> - {ev.actor_name}</span> : null}
-                  </p>
-                  {ev.note && ev.kind === 'status' && <p className="text-muted-fg mt-0.5 break-words">{ev.note}</p>}
-                  <p className="text-xs text-faint mt-0.5" title={absoluteTime(ev.created_at)}>{timeAgo(ev.created_at)}</p>
-                </li>
-              ))}
-            </ol>
-          </div>
         </div>
       </div>
 
+      {/* ONE SAVE, said only when there is something to save. */}
+      {dirty && (
+        <div className={cn(card, 'sticky bottom-3 z-10 flex flex-col gap-2 p-3 shadow-lg lg:flex-row lg:items-center')}>
+          <p className="min-w-0 flex-1 text-sm text-muted-fg">You have changes that are not saved yet.</p>
+          <div className="row-even gap-2 lg:flex">
+            <Button variant="outline" onClick={resetAll} disabled={busy !== ''}>Cancel</Button>
+            <Button onClick={saveAll} disabled={busy !== ''}><Check className="h-4 w-4" /> {busy === 'save' ? 'Saving...' : 'Save'}</Button>
+          </div>
+        </div>
+      )}
+
+      {showHistory && <HistoryDrawer events={d.events} onClose={() => setShowHistory(false)} />}
       {closing && <CloseOut untimed={d.time.length === 0} onCancel={() => setClosing(false)} onDone={async notesText => { if (await move('done', notesText)) setClosing(false) }} busy={busy === 'done'} />}
+    </div>
+  )
+}
+
+/**
+ * What happened on the call, in order. A panel that slides in from the right
+ * when somebody asks for it, not a card that is always on the page - it is
+ * the record, looked at now and then, and it was taking the space the next
+ * step should have.
+ */
+function HistoryDrawer({ events, onClose }: { events: Detail['events']; onClose: () => void }) {
+  const swipe = useSwipeDismiss(onClose)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [onClose])
+  return (
+    <div className="overlay-drawer bg-black/40" data-overlay onClick={onClose}>
+      <aside aria-label="History" onClick={e => e.stopPropagation()} {...swipe.handlers} style={swipe.style}
+        className="flex flex-col overflow-hidden border-l border-line bg-panel shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between border-b border-line px-4 py-2">
+          <span className="flex items-center gap-2 text-sm font-semibold text-ink"><History className="h-4 w-4 text-faint" aria-hidden /> History</span>
+          <button type="button" onClick={onClose} aria-label="Close" title="Close"
+            className="-mr-2 flex h-11 w-11 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-ink">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <ol className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4">
+          {events.length === 0 && <li className="text-sm text-muted-fg">Nothing recorded yet.</li>}
+          {events.map((ev, i) => (
+            <li key={ev.id} className="relative pl-5 text-sm">
+              <span className="absolute left-0 top-1.5 h-2 w-2 rounded-full bg-muted2" aria-hidden />
+              {i < events.length - 1 && <span className="absolute left-[3px] top-4 bottom-[-14px] w-0.5 bg-line-soft" aria-hidden />}
+              <p className="text-ink">
+                {ev.kind === 'status' ? (STATUS_LABEL[ev.status as CallStatus] ?? ev.status) : EVENT_WORDS[ev.kind] ?? ev.kind}
+                {ev.actor_name ? <span className="text-muted-fg"> - {ev.actor_name}</span> : null}
+              </p>
+              {ev.note && ev.kind === 'status' && <p className="mt-0.5 break-words text-muted-fg">{ev.note}</p>}
+              <p className="mt-0.5 text-xs text-faint" title={absoluteTime(ev.created_at)}>{timeAgo(ev.created_at)}</p>
+            </li>
+          ))}
+        </ol>
+      </aside>
     </div>
   )
 }

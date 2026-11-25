@@ -72,7 +72,7 @@ const AUTHORED: Release[] = [
       {
         kind: 'new',
         title: 'Take service calls and put your crew on them',
-        text: 'For subs who run their own jobs: Service Calls keeps every call from a customer - who, where, what is wrong, how urgent - and Dispatch reads like a desk calendar - time down the side, a column per person or per day. Click an empty slot to take a call there, drag a call to give it to somebody or move it; a double booking shows in red. Booked calls are on your Calendar too. Whoever you put on it is told, and sees only their own calls under Calls in Field Mode, with directions, On my way, Arrived and Done, photos and a clock-in that records where the phone was. A call can be tied to a contractor\'s job, and that contractor sees only that it exists and where it stands.',
+        text: 'For subs who run their own jobs: Service Calls keeps every call from a customer - who, where, what is wrong, how urgent - and Dispatch reads like a desk calendar - time down the side, a column per person or per day. Click an empty slot to take a call there, drag a call to give it to somebody or move it; a double booking shows in red. Booked calls are on your Calendar too. Whoever you put on it is told, and sees only their own calls under Calls in Field Mode, with directions, On my way, Arrived and Done, photos and a clock-in that records where the phone was. A call can be tied to a contractor\'s job, and that contractor sees only that it exists and where it stands. Service Calls is also a board now - a column per stage, drag a card to move it one step - and a call can carry labels and a list of steps for the tech to tick off on site.',
         help: 'service-calls-dispatch',
       },
     ],

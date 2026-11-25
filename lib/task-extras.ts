@@ -68,7 +68,7 @@ const PRESETS: Preset[] = [
   people('Neighbor', 'neighbour'), people('Lender', 'bank', 'draw'),
   site('Delivery', 'deliveries'), site('Materials', 'material', 'material order'), site('Equipment', 'rental', 'machine'),
   site('Safety'), site('Cleanup', 'clean up', 'dumpster', 'trash'), site('Site Meeting', 'meeting', 'walkthrough', 'walk through'),
-  site('Punch List', 'punch'), site('Weather', 'rain'), site('Schedule', 'delay', 'delayed'),
+  site('Punch List', 'punch'), site('Follow-up', 'follow up', 'return visit', 'second visit'), site('Maintenance', 'tune up', 'service', 'annual'), site('Weather', 'rain'), site('Schedule', 'delay', 'delayed'),
   site('Quality', 'qc', 'rework', 'defect'), { name: 'Urgent', tone: 'danger', also: ['rush', 'asap', 'emergency'] },
 ]
 

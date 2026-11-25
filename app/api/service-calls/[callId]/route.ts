@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { callGate, loadCall, CALL_COLS, pickFields, withDerivedStatus, referenceProblem, actorName, logEvent, tellAssignee, crewOf, type CallRow } from '@/lib/service-calls-server'
+import { callGate, loadCall, CALL_COLS, pickFields, pickExtras, withDerivedStatus, referenceProblem, actorName, logEvent, tellAssignee, crewOf, type CallRow } from '@/lib/service-calls-server'
 import { callProblem, nextStatuses, type CallStatus } from '@/lib/service-calls'
 import { lookUpAddress } from '@/lib/geocode'
 import { friendlyDbError } from '@/lib/db-error'
@@ -71,7 +71,11 @@ export async function PATCH(request: Request, { params }: { params: { callId: st
     const keys = Object.keys(f)
     if (keys.some(k => k !== 'notes')) return NextResponse.json({ error: 'The office changes who does a call and when.' }, { status: 403 })
   }
-  if (!Object.keys(f).length) return NextResponse.json({ error: 'Nothing to change.' }, { status: 400 })
+  // Labels and steps ride beside the string fields. Crew may tick a step and
+  // nothing more (pickExtras); the stamp is the server's.
+  const editor = await actorName(db, gate.actor.userId)
+  const extras = pickExtras(body, call, { crew: gate.crew, name: editor }, new Date().toISOString())
+  if (!Object.keys(f).length && !Object.keys(extras).length) return NextResponse.json({ error: 'Nothing to change.' }, { status: 400 })
 
   const next = { ...call, ...f }
   const status = withDerivedStatus(call.status, next)
@@ -80,7 +84,7 @@ export async function PATCH(request: Request, { params }: { params: { callId: st
   const refs = await referenceProblem(db, gate.companyId, f)
   if (refs) return NextResponse.json({ error: refs }, { status: 403 })
 
-  const patch: Record<string, unknown> = { ...f, status, updated_at: new Date().toISOString() }
+  const patch: Record<string, unknown> = { ...f, ...extras, status, updated_at: new Date().toISOString() }
   if (f.site_address !== undefined && f.site_address !== call.site_address) {
     const placed = await lookUpAddress(f.site_address ?? '').catch(() => null)
     patch.site_lat = placed && placed.ok ? placed.coords.lat : null
@@ -99,7 +103,7 @@ export async function PATCH(request: Request, { params }: { params: { callId: st
   const timeChanged = (f.scheduled_start !== undefined && f.scheduled_start !== call.scheduled_start)
     || (f.scheduled_end !== undefined && f.scheduled_end !== call.scheduled_end)
   if (assigneeChanged || timeChanged || status !== call.status) {
-    const name = await actorName(db, gate.actor.userId)
+    const name = editor
     if (assigneeChanged) {
       await logEvent(db, call.id, { kind: saved.assigned_to ? 'assigned' : 'unassigned', status, actorId: gate.actor.userId, actorName: name })
     } else if (status !== call.status) {

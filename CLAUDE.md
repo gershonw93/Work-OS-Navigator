@@ -60,7 +60,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-170.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-171.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -1131,6 +1131,29 @@ and `docs/sub-company-plan.md`.
   the browser (`lib/service-calls-client.ts`). A punch uses the job punch's rule
   against the call's geocoded site and stores the outcome. Pinned and
   mutation-checked in `service-calls.ts`.
+
+- **THE CALL SCREENS WEAR THE PROJECT MANAGEMENT LOOK** (the owner: "design the
+  same touch on these pages for subs"). Service Calls is a BOARD by default - a
+  column per stage, Invoiced under List - and A DROP MOVES ONE STEP, only one
+  `offeredMoves` allows: Scheduled is never a drag (it is derived), and Done or
+  an arrival that clocks the assignee in is SENT TO THE CALL rather than
+  half-done from the board. The drag is a ref. A phone shows one group at a
+  time, and "Out now" is en route plus on site.
+- **A CALL HAS LABELS AND STEPS** (jsonb, migration 171; `pickExtras`, pure, in
+  `lib/service-calls.ts`). The office tags a call and writes its steps; CREW
+  ONLY TICK - for crew the stored list is kept and only `done` is taken, by id.
+  Who ticked a step and when is stamped by the route. Neither reaches a GC
+  (`gcView` is built field by field). A tick saves on its own - it is a report
+  from the site, like moving the call - while notes, labels, who and when are
+  ONE Save that appears when something changed.
+- **HISTORY IS OPENED, AND THE CLOCK IS WHERE THE NEXT STEP IS.** Asked for in
+  one line: "history belongs as a side thing to open and clock out doesnt
+  belong down there - it should be on top if thats the next required step".
+  History is a button and an `.overlay-drawer`. Clock out sits in the top row
+  while somebody is on the clock; Clock in sits there when they have arrived,
+  the call is theirs and they are not on it (`clockInIsNext`); otherwise it is
+  a quiet button on the Time card - one place to clock in, always exactly one.
+  Pinned in `service-call-extras.ts`.
 
 ## Who the email is FOR, and who may send it (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).
