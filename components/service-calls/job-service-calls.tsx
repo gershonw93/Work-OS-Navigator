@@ -5,6 +5,7 @@ import { Wrench } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { callFetch, callWindow } from '@/lib/service-calls-client'
 import { callLabel } from '@/lib/service-calls'
+import { cn } from '@/lib/utils'
 
 // THE GC'S VIEW of the service calls a sub has tied to this job: who is doing
 // them, where they stand, when. Nothing else reaches this card - the route
@@ -17,7 +18,7 @@ import { callLabel } from '@/lib/service-calls'
 
 type GcCall = { id: string; number: number; company: string | null; status: string; status_label: string; scheduled_start: string | null; scheduled_end: string | null }
 
-export function JobServiceCalls({ projectId }: { projectId: string }) {
+export function JobServiceCalls({ projectId, className }: { projectId: string; className?: string }) {
   const [calls, setCalls] = useState<GcCall[]>([])
   useEffect(() => {
     let live = true
@@ -34,22 +35,25 @@ export function JobServiceCalls({ projectId }: { projectId: string }) {
 
   if (!calls.length) return null
   return (
-    <div className="rounded-2xl border border-line bg-panel">
-      <div className="flex items-center gap-2 px-4 pt-4">
+    <section className={cn('rounded-2xl border border-line bg-panel p-5 space-y-3', className)}>
+      <div className="flex items-center gap-2">
         <Wrench className="h-4 w-4 text-faint" aria-hidden />
-        <p className="text-sm font-semibold text-ink">Service calls from your subs</p>
+        <h2 className="text-[15px] font-semibold text-ink">Service calls</h2>
       </div>
-      <ul className="divide-y divide-line-soft">
+      <ul className="space-y-3">
         {calls.map(c => (
-          <li key={c.id} className="px-4 py-3 text-sm">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-medium text-ink">{callLabel(c.number)}</span>
-              <Badge variant={c.status === 'done' || c.status === 'invoiced' ? 'success' : 'info'}>{c.status_label}</Badge>
+          <li key={c.id} className="text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="truncate font-medium text-ink">{c.company ?? 'A sub'}</span>
+              <Badge variant={c.status === 'done' || c.status === 'invoiced' ? 'success' : c.status === 'new' ? 'muted' : 'info'}>{c.status_label}</Badge>
             </div>
-            <p className="text-muted-fg mt-0.5">{c.company ?? 'A sub'}{callWindow(c.scheduled_start, c.scheduled_end) ? ` - ${callWindow(c.scheduled_start, c.scheduled_end)}` : ''}</p>
+            <p className="text-xs text-muted-fg mt-0.5">
+              {callLabel(c.number)} - {callWindow(c.scheduled_start, c.scheduled_end) ?? 'not booked yet'}
+            </p>
           </li>
         ))}
       </ul>
-    </div>
+      <p className="text-xs text-faint">Status only. The sub&apos;s customer details and notes stay theirs.</p>
+    </section>
   )
 }

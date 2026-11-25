@@ -35,7 +35,17 @@ export async function GET(request: Request, { params }: { params: { id: string }
   }
   const rows = (data ?? []) as any[]
   const ids = Array.from(new Set(rows.map(r => r.company_id)))
-  const { data: companies } = ids.length ? await db.from('companies').select('id, name').in('id', ids) : { data: [] }
+  // THE GC'S NAME FOR THE SUB, not the one the sub gave his own company: the GC
+  // knows him as "Sub Electric" in their Directory, and the card read "Sub 2".
+  // Their own Directory row linked to the sub's company is that name
+  // (migration 169); the sub's own name is only the fallback.
+  const [{ data: companies }, { data: rows169 }] = ids.length
+    ? await Promise.all([
+      db.from('companies').select('id, name').in('id', ids),
+      db.from('companies').select('name, linked_company_id').eq('added_by_company_id', gate.actor.companyId ?? '').in('linked_company_id', ids),
+    ])
+    : [{ data: [] }, { data: [] }]
   const name = new Map(((companies ?? []) as any[]).map(c => [c.id, c.name]))
+  for (const r of (rows169 ?? []) as any[]) if (r.name) name.set(r.linked_company_id, r.name)
   return NextResponse.json({ calls: rows.map(r => gcView(r, name.get(r.company_id) ?? null)) })
 }
