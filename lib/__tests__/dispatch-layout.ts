@@ -100,6 +100,9 @@ function main() {
   ok(/eq\('added_by_company_id', gate\.actor\.companyId/.test(gcRoute) && /name\.set\(r\.linked_company_id, r\.name\)/.test(gcRoute), 'the GC sees the sub under THEIR Directory name, not the name the sub gave his company')
   ok(/<JobServiceCalls[^>]*\/>\s*\n\s*<\/aside>/.test(code('app/(dashboard)/projects/[id]/overview/page.tsx')), 'the GC\'s call card is a side card, not a strip across the page')
 
+  ok(/\.filter\(p => p\.role !== 'read_only'\)/.test(code('lib/service-calls-server.ts')), 'a call cannot be given to a read-only person, who cannot open it')
+  ok(/role === 'read_only'\) return 'That person is Read only/.test(code('lib/service-calls-server.ts')), '...and the route refuses it too, not only the picker')
+
   // ── a name is never blank ──
   ok(personName({ full_name: '', email: 'sub2@x.com' }) === 'sub2@x.com', 'a blank name falls back to the address (it read as an empty option)')
   ok(personName({ full_name: '  ', email: null }) === 'Unnamed', 'no name and no address reads Unnamed, never blank')

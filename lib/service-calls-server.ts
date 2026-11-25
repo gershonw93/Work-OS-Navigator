@@ -79,7 +79,11 @@ export async function crewOf(db: SupabaseClient, companyId: string): Promise<{ i
     console.error('[service-calls] crew read failed', error.message)
     return null
   }
+  // NOT read-only people: they cannot open a call (`service-calls` is N for
+  // that role), so a call given to one is a call nobody can work. The board
+  // already left them out; the call's own picker offered them.
   return ((data ?? []) as { id: string; full_name: string | null; email: string | null; role: string | null }[])
+    .filter(p => p.role !== 'read_only')
     .map(p => ({ id: p.id, name: personName(p), role: p.role }))
     .sort((a, b) => a.name.localeCompare(b.name))
 }
@@ -162,8 +166,9 @@ export async function referenceProblem(
   f: { assigned_to?: string | null; customer_id?: string | null; gc_project_id?: string | null },
 ): Promise<string | null> {
   if (f.assigned_to) {
-    const { data } = await db.from('profiles').select('id').eq('id', f.assigned_to).eq('company_id', companyId).maybeSingle()
+    const { data } = await db.from('profiles').select('id, role').eq('id', f.assigned_to).eq('company_id', companyId).maybeSingle()
     if (!data) return 'That person is not on your team.'
+    if ((data as any).role === 'read_only') return 'That person is Read only, so they cannot open a call. Change their role in Settings, Team first.'
   }
   if (f.customer_id) {
     const { data } = await db.from('customers').select('id').eq('id', f.customer_id).eq('gc_company_id', companyId).maybeSingle()
