@@ -96,6 +96,10 @@ function main() {
   ok(/untimed=\{d\.time\.length === 0\}/.test(detailSrc) && /untimed && \(/.test(detailSrc), 'closing a call nobody clocked in on says so (and is still allowed)')
   ok(!/max-w-/.test(code('app/(dashboard)/service-calls/[callId]/page.tsx')), 'the call page uses the full width on a computer')
 
+  const gcRoute = code('app/api/projects/[id]/service-calls/route.ts')
+  ok(/eq\('added_by_company_id', gate\.actor\.companyId/.test(gcRoute) && /name\.set\(r\.linked_company_id, r\.name\)/.test(gcRoute), 'the GC sees the sub under THEIR Directory name, not the name the sub gave his company')
+  ok(/<JobServiceCalls[^>]*\/>\s*\n\s*<\/aside>/.test(code('app/(dashboard)/projects/[id]/overview/page.tsx')), 'the GC\'s call card is a side card, not a strip across the page')
+
   // ── a name is never blank ──
   ok(personName({ full_name: '', email: 'sub2@x.com' }) === 'sub2@x.com', 'a blank name falls back to the address (it read as an empty option)')
   ok(personName({ full_name: '  ', email: null }) === 'Unnamed', 'no name and no address reads Unnamed, never blank')

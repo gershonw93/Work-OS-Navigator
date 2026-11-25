@@ -181,8 +181,6 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
       {/* FIRST, because it is the question somebody standing on the site is
           actually asking. The Master Calendar answers it and is admins-only. */}
       <TodayStrip projectId={params.id} {...(data.todayFeed ?? {})} />
-      {/* Service calls a sub tied to this job - status only (lib/service-calls.ts). */}
-      <JobServiceCalls projectId={params.id} />
 
       <div className="flex flex-col gap-4 lg:grid lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start lg:gap-5">
         <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-5">
@@ -357,6 +355,9 @@ export default function OverviewPage({ params }: { params: { id: string } }) {
               </Link>
             </div>
           </section>
+          {/* Service calls a sub tied to this job - status only (lib/service-calls.ts).
+              A side card, not a strip across the page: it is one or two lines. */}
+          <JobServiceCalls projectId={params.id} className="order-last lg:order-none" />
         </aside>
       </div>
     </div>
