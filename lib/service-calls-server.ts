@@ -7,6 +7,7 @@ import { ownJobsRefusal } from './sub-account'
 import { notify } from './notify'
 import { callLabel, personName } from './service-calls'
 import { vendorCompanyIds } from './sub-companies'
+import type { TaskLabel, TaskSubtask } from './task-extras'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // The server half of service calls: who may touch which call.
@@ -28,7 +29,7 @@ export const CALL_COLS =
   'id, company_id, call_number, customer_id, customer_name, site_address, site_lat, site_lng, ' +
   'contact_name, contact_phone, contact_email, issue, priority, status, source, gc_project_id, notes, ' +
   'assigned_to, scheduled_start, scheduled_end, completion_notes, completed_at, completed_by, ' +
-  'created_by, created_at, updated_at'
+  'created_by, created_at, updated_at, labels, steps'
 
 export type CallRow = {
   id: string; company_id: string; call_number: number; customer_id: string | null; customer_name: string
@@ -38,6 +39,7 @@ export type CallRow = {
   notes: string | null; assigned_to: string | null; scheduled_start: string | null; scheduled_end: string | null
   completion_notes: string | null; completed_at: string | null; completed_by: string | null
   created_by: string | null; created_at: string; updated_at: string
+  labels: TaskLabel[] | null; steps: TaskSubtask[] | null
 }
 
 export type CallGate = { actor: ActorPerms; companyId: string; crew: boolean } | { denied: NextResponse }
@@ -175,3 +177,8 @@ export async function referenceProblem(
   }
   return null
 }
+
+
+// `pickExtras` (labels and steps) is pure and lives in lib/service-calls.ts,
+// so its rules can be tested without a server.
+export { pickExtras } from './service-calls'

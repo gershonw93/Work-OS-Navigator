@@ -17,6 +17,8 @@ import {
 import { cn } from '@/lib/utils'
 import { formatDate, formatDateShort } from '@/lib/dates'
 import { fetchProblem } from '@/lib/fetch-error'
+import { LabelChips } from '@/components/tasks/task-extras-ui'
+import type { TaskLabel } from '@/lib/task-extras'
 
 // THE DISPATCH BOARD, DRAWN LIKE A DESK CALENDAR. Reported over the first one:
 // "the screens are so ugly it hurts my eyes ... make it look better maybe
@@ -39,6 +41,7 @@ import { fetchProblem } from '@/lib/fetch-error'
 type Call = {
   id: string; call_number: number; customer_name: string; site_address: string; issue: string
   status: string; priority: string; assigned_to: string | null; scheduled_start: string | null; scheduled_end: string | null
+  labels?: TaskLabel[] | null
 }
 type Crew = { id: string; name: string }
 
@@ -66,17 +69,23 @@ function CallBlock({ call, color, clash, style, height, onGrab }: {
       }}
       title={`${callLabel(call.call_number)} - ${call.customer_name}: ${call.issue}`}
       style={style}
-      className={cn('absolute overflow-hidden rounded-md border-l-[3px] px-1.5 py-1 text-[11px] leading-tight text-ink cursor-grab active:cursor-grabbing',
-        'hover:z-10 hover:shadow-md transition-shadow', color.block,
-        clash && 'ring-2 ring-danger ring-inset', closed && 'opacity-60')}>
-      <span className="flex items-center gap-1 font-semibold truncate">
+      className={cn('absolute overflow-hidden rounded-lg border px-2 py-1 text-[11px] leading-tight text-ink cursor-grab active:cursor-grabbing',
+        'hover:z-10 hover:shadow-md transition-shadow',
+        // A CARD, like the ones on the boards: the person's colour is a bar
+        // down the left edge rather than a wash over the whole block, a call
+        // somebody is on site at is outlined, and a finished one is struck
+        // through on a quieter ground instead of faded.
+        closed ? 'border-line bg-surface' : call.status === 'on_site' ? 'border-accent-fg bg-panel' : 'border-line bg-panel',
+        clash && 'ring-2 ring-danger ring-inset')}>
+      <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', color.dot)} />
+      <span className={cn('flex items-center gap-1 truncate pl-1', closed ? 'font-medium text-muted-fg line-through' : 'font-bold')}>
         {closed && <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden />}
         <span className="truncate">{call.customer_name}</span>
       </span>
-      {start && <span className="block truncate text-ink-soft">{timeOf(start)}{end ? ` - ${timeOf(end)}` : ''}</span>}
-      {showIssue && <span className="block truncate text-muted-fg">{call.issue}</span>}
-      {showStatus && <span className="block truncate font-medium text-ink-soft">{STATUS_LABEL[call.status as CallStatus] ?? call.status}</span>}
-      {clash && <span className="block truncate font-semibold text-danger">Double-booked</span>}
+      {start && <span className="block truncate pl-1 text-ink-soft">{timeOf(start)}{end ? ` - ${timeOf(end)}` : ''}</span>}
+      {showIssue && <span className="block truncate pl-1 text-muted-fg">{call.issue}</span>}
+      {showStatus && <span className={cn('block truncate pl-1 font-semibold', call.status === 'on_site' || closed ? 'text-success' : 'text-ink-soft')}>{STATUS_LABEL[call.status as CallStatus] ?? call.status}</span>}
+      {clash && <span className="block truncate pl-1 font-semibold text-danger">Double-booked</span>}
     </Link>
   )
 }
@@ -291,7 +300,7 @@ export default function DispatchPage() {
       {/* Header: where you are, and how to move. */}
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <h1 className="text-2xl font-bold text-ink">Dispatch</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-ink">Dispatch</h1>
           <span className="hidden lg:inline text-lg text-ink-soft truncate">{title}</span>
         </div>
         <p className="lg:hidden text-sm text-muted-fg -mt-2">{title}</p>
@@ -301,10 +310,10 @@ export default function DispatchPage() {
             <button type="button" onClick={() => setAnchor(a => addDays(a, -days))} aria-label="Earlier" title="Earlier" className="h-11 w-11 lg:h-9 lg:w-9 flex items-center justify-center rounded-full text-ink-soft hover:bg-muted"><ChevronLeft className="h-5 w-5" /></button>
             <button type="button" onClick={() => setAnchor(a => addDays(a, days))} aria-label="Later" title="Later" className="h-11 w-11 lg:h-9 lg:w-9 flex items-center justify-center rounded-full text-ink-soft hover:bg-muted"><ChevronRight className="h-5 w-5" /></button>
           </div>
-          <div className="flex rounded-lg border border-line bg-panel p-0.5" role="group" aria-label="View">
+          <div className="flex rounded-xl bg-muted p-1" role="group" aria-label="View">
             {(['day', 'week'] as const).map(v => (
               <button key={v} type="button" onClick={() => setView(v)} aria-pressed={view === v}
-                className={cn('flex-1 h-10 lg:h-8 rounded-md px-3 text-sm font-medium whitespace-nowrap', view === v ? 'bg-ink text-panel' : 'text-muted-fg hover:text-ink')}>
+                className={cn('flex-1 h-10 lg:h-8 rounded-lg px-3.5 text-sm whitespace-nowrap', view === v ? 'bg-panel font-semibold text-ink' : 'font-medium text-ink-soft hover:text-ink')}>
                 {v === 'day' ? 'Day' : 'Week'}
               </button>
             ))}
@@ -345,30 +354,43 @@ export default function DispatchPage() {
                       onClick={() => setHidden(h => { const n = new Set(h); if (n.has(p.id)) n.delete(p.id); else n.add(p.id); return n })}
                       className="flex w-full items-center gap-2 rounded-md px-1.5 py-1 text-left text-sm hover:bg-surface">
                       <span className={cn('h-3.5 w-3.5 shrink-0 rounded-sm border-2', off ? 'border-muted2 bg-panel' : cn('border-transparent', colorFor(crewIds, p.id).dot))} />
-                      <span className={cn('truncate', off ? 'text-faint' : 'text-ink')}>{p.name}</span>
+                      <span className={cn('min-w-0 flex-1 truncate', off ? 'text-faint' : 'text-ink')}>{p.name}</span>
+                      <span className="shrink-0 text-xs tabular-nums text-muted-fg">{calls.filter(c => c.assigned_to === p.id).length}</span>
                     </button>
                   )
                 })}
               </div>
             )}
 
-            <div className="rounded-2xl border border-line bg-panel p-3 space-y-2"
-              onDragOver={e => e.preventDefault()}>
-              <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-faint">Unscheduled</p>
-                <span className="text-xs font-semibold text-muted-fg">{waiting.length}</span>
+            <div className="space-y-2" onDragOver={e => e.preventDefault()}>
+              <div className="flex items-center gap-2 px-1">
+                <p className="text-xs font-bold uppercase tracking-wider text-ink">Unscheduled</p>
+                <span className="text-xs tabular-nums text-muted-fg">{waiting.length}</span>
               </div>
               {waiting.length ? waiting.map(c => (
-                <Link key={c.id} href={`/service-calls/${c.id}`} draggable
-                  onDragStart={e => { e.dataTransfer.setData('text/plain', c.id); dragging.current = { id: c.id, grabY: 0 } }}
-                  className={cn('block rounded-lg border-l-[3px] border-muted2 bg-surface px-2.5 py-2 text-sm cursor-grab hover:bg-muted', c.priority === 'urgent' && 'border-danger')}>
-                  <span className="block truncate font-semibold text-ink">{c.customer_name}</span>
-                  <span className="block truncate text-xs text-muted-fg">{c.issue}</span>
-                  <span className="block truncate text-xs text-faint">{callLabel(c.call_number)}{c.scheduled_start ? ` - wants ${timeOf(new Date(c.scheduled_start))}` : ''}</span>
-                </Link>
-              )) : <p className="text-sm text-muted-fg">Every call has somebody on it.</p>}
-              <p className="hidden lg:block text-xs text-faint">Drag a call onto the board to give it a person and a time.</p>
-              <p className="lg:hidden text-xs text-faint">Open a call to put somebody on it.</p>
+                <div key={c.id} className="flex items-stretch gap-2 rounded-xl border border-line bg-panel">
+                  <Link href={`/service-calls/${c.id}`} draggable
+                    onDragStart={e => { e.dataTransfer.setData('text/plain', c.id); dragging.current = { id: c.id, grabY: 0 } }}
+                    className="flex min-w-0 flex-1 cursor-grab flex-col gap-1.5 p-3">
+                    {(c.priority === 'urgent' || (c.labels?.length ?? 0) > 0) && (
+                      <span className="flex flex-wrap gap-1.5">
+                        {c.priority === 'urgent' && <span className="whitespace-nowrap rounded-full bg-danger-tint px-2 py-0.5 text-[11px] font-semibold text-danger">Urgent</span>}
+                        <LabelChips labels={c.labels} />
+                      </span>
+                    )}
+                    <span className="block break-words text-sm font-semibold leading-snug text-ink">{c.issue}</span>
+                    <span className="block truncate text-xs text-ink-soft">{c.customer_name}</span>
+                    <span className="block truncate text-[11px] text-muted-fg">{callLabel(c.call_number)}{c.scheduled_start ? ` - wants ${timeOf(new Date(c.scheduled_start))}` : ''}</span>
+                  </Link>
+                  {/* No drag on a phone, so the way to schedule one is a button:
+                      it opens the call, where who and when are set. */}
+                  <Link href={`/service-calls/${c.id}`}
+                    className="m-2 inline-flex min-h-11 shrink-0 items-center self-center whitespace-nowrap rounded-xl border border-line px-3.5 text-sm font-semibold text-ink hover:bg-surface lg:hidden">
+                    Schedule
+                  </Link>
+                </div>
+              )) : <p className="rounded-xl border border-line bg-panel px-3 py-4 text-sm text-muted-fg">Every call has somebody on it.</p>}
+              <p className="hidden px-1 text-xs text-muted-fg lg:block">Drag a call onto the board to give it a person and a time.</p>
             </div>
           </aside>
 
@@ -381,20 +403,39 @@ export default function DispatchPage() {
                 <div key={d.toISOString()} className="rounded-2xl border border-line bg-panel">
                   <p className="px-4 pt-3 pb-2 text-sm font-semibold text-ink">{formatDate(d, { weekday: 'long', month: 'short', day: 'numeric' })}</p>
                   {list.length ? (
-                    <div className="divide-y divide-line-soft">
-                      {list.map(c => {
-                        const color = colorFor(crewIds, c.assigned_to)
+                    <div className="space-y-4 px-4 pb-4">
+                      {/* By person, because that is the question on a phone:
+                          who is where today. Somebody with nothing is not listed. */}
+                      {[...crew.map(p => p.id as string | null), null].map(pid => {
+                        const theirs = list.filter(c => (c.assigned_to ?? null) === pid)
+                        if (!theirs.length) return null
+                        const color = colorFor(crewIds, pid)
+                        const who = nameOf(pid) ?? 'Nobody yet'
                         return (
-                          <Link key={c.id} href={`/service-calls/${c.id}`} className="flex items-stretch gap-3 px-4 py-3">
-                            <span className="w-16 shrink-0 text-sm text-ink-soft">{timeOf(new Date(c.scheduled_start!))}</span>
-                            <span className={cn('w-1 shrink-0 rounded-full', color.dot)} />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold text-ink">{c.customer_name}</span>
-                              <span className="block truncate text-xs text-muted-fg">{c.issue}</span>
-                              <span className="block truncate text-xs text-faint">{nameOf(c.assigned_to) ?? 'Nobody yet'} - {STATUS_LABEL[c.status as CallStatus] ?? c.status}</span>
-                              {clash[c.id] && <span className="block text-xs font-semibold text-danger">Double-booked</span>}
-                            </span>
-                          </Link>
+                          <div key={pid ?? 'nobody'} className="space-y-2">
+                            <div className="flex items-center gap-2">
+                              <span aria-hidden className={cn('flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-panel', color.dot)}>{pid ? initials(who) : '?'}</span>
+                              <p className="min-w-0 flex-1 truncate text-xs font-bold uppercase tracking-wider text-ink">{who}</p>
+                              <span className="text-xs text-muted-fg">{theirs.length} {theirs.length === 1 ? 'call' : 'calls'}</span>
+                            </div>
+                            {theirs.map(c => {
+                              const closed = c.status === 'done' || c.status === 'invoiced'
+                              return (
+                                <Link key={c.id} href={`/service-calls/${c.id}`}
+                                  className={cn('relative flex gap-3 overflow-hidden rounded-xl border bg-panel py-3 pl-4 pr-3',
+                                    c.status === 'on_site' ? 'border-accent-fg' : 'border-line')}>
+                                  <span aria-hidden className={cn('absolute inset-y-0 left-0 w-1', color.dot)} />
+                                  <span className="w-16 shrink-0 text-sm font-semibold text-ink">{timeOf(new Date(c.scheduled_start!))}</span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className={cn('block break-words text-sm', closed ? 'font-medium text-muted-fg line-through' : 'font-semibold text-ink')}>{c.issue}</span>
+                                    <span className="block truncate text-xs text-ink-soft">{c.customer_name}</span>
+                                    <span className={cn('block truncate text-xs font-semibold', c.status === 'on_site' || closed ? 'text-success' : 'text-muted-fg')}>{STATUS_LABEL[c.status as CallStatus] ?? c.status}</span>
+                                    {clash[c.id] && <span className="block text-xs font-semibold text-danger">Double-booked</span>}
+                                  </span>
+                                </Link>
+                              )
+                            })}
+                          </div>
                         )
                       })}
                     </div>

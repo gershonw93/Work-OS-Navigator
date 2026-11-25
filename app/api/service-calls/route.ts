@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { NextResponse } from 'next/server'
-import { callGate, CALL_COLS, pickFields, withDerivedStatus, referenceProblem, actorName, logEvent, tellAssignee, crewOf, type CallRow } from '@/lib/service-calls-server'
+import { callGate, CALL_COLS, pickFields, pickExtras, withDerivedStatus, referenceProblem, actorName, logEvent, tellAssignee, crewOf, type CallRow } from '@/lib/service-calls-server'
 import { callProblem } from '@/lib/service-calls'
 import { lookUpAddress } from '@/lib/geocode'
 import { friendlyDbError } from '@/lib/db-error'
@@ -59,6 +59,9 @@ export async function POST(request: Request) {
   const placed = await lookUpAddress(f.site_address!).catch(() => null)
   const coords = placed && placed.ok ? placed.coords : null
 
+  const takenBy = await actorName(db, gate.actor.userId)
+  const extras = pickExtras(body, { steps: [] }, { crew: false, name: takenBy }, new Date().toISOString())
+
   // The number: the next one for this company. Two calls taken at the same
   // moment collide on the unique (company, number) and the loser takes the
   // next - three tries, then a sentence rather than a hang.
@@ -69,6 +72,7 @@ export async function POST(request: Request) {
     const call_number = ((last as any)?.call_number ?? 0) + 1
     const { data, error } = await db.from('service_calls').insert({
       ...f,
+      ...extras,
       company_id: gate.companyId,
       call_number,
       status,
@@ -84,7 +88,7 @@ export async function POST(request: Request) {
   }
   if (!created) return NextResponse.json({ error: 'Could not number that call just now. Try again.' }, { status: 503 })
 
-  const name = await actorName(db, gate.actor.userId)
+  const name = takenBy
   await logEvent(db, created.id, { kind: 'created', status: created.status, actorId: gate.actor.userId, actorName: name })
   if (created.assigned_to) {
     await logEvent(db, created.id, { kind: 'assigned', status: created.status, actorId: gate.actor.userId, actorName: name })

@@ -5235,3 +5235,7 @@ CREATE TABLE IF NOT EXISTS service_call_photos (
 );
 CREATE INDEX IF NOT EXISTS service_call_photos_call_idx ON service_call_photos (call_id);
 ALTER TABLE service_call_photos ENABLE ROW LEVEL SECURITY;
+
+-- 171_service_call_labels_steps.sql
+ALTER TABLE public.service_calls ADD COLUMN IF NOT EXISTS labels jsonb NOT NULL DEFAULT '[]'::jsonb;
+ALTER TABLE public.service_calls ADD COLUMN IF NOT EXISTS steps jsonb NOT NULL DEFAULT '[]'::jsonb;
