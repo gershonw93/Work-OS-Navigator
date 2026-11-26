@@ -735,6 +735,56 @@ export function subWelcomeEmail({
 }
 
 /**
+ * "Your account is free" - sent to a company's admins when the platform
+ * console gives it free access (a comp).
+ *
+ * THE REASON IS THE CUSTOMER SENTENCE. `comped_reason` is printed on their own
+ * Settings -> Billing card, so the console asks for it written to them; the
+ * letter carries the same words, so the email and the screen cannot disagree.
+ * No price, no plan, no trial: there is nothing to buy and nothing ending.
+ */
+export function compEmail({ name, companyName, reason, appUrl }: {
+  name: string | null | undefined
+  companyName: string | null | undefined
+  reason: string
+  appUrl: string
+}) {
+  const hi = firstName(name)
+  const company = (companyName ?? '').trim() || 'your company'
+  const why = reason.trim()
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    `Good news: SyteNav is now free for ${company}, with no end date.`,
+    ...(why ? ['', why] : []),
+    '',
+    'Nothing changes in the app and there is nothing to do - every job, every person and every feature you use carries on exactly as before.',
+    '',
+    `Sign in: ${appUrl}`,
+    '',
+    'Questions? Just reply to this email.',
+    '',
+    'SyteNav',
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: `SyteNav is now free for ${company}.`,
+    eyebrow: 'Your account',
+    heading: 'Your account is free',
+    paragraphs: [
+      `Hi ${hi}, SyteNav is now free for ${company}, with no end date.`,
+      ...(why ? [why] : []),
+      'Nothing changes in the app and there is nothing to do - every job, every person and every feature you use carries on exactly as before.',
+    ],
+    cta: { label: 'Open SyteNav', url: appUrl },
+    footNote: 'Questions? Just reply to this email.',
+  })
+
+  return { subject: `SyteNav is now free for ${company}`, text, html }
+}
+
+/**
  * The password reset link.
  *
  * Deliberately terse, and deliberately says what to do if it was not you. A

@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server'
 import { isSuperAdmin } from '@/lib/super-admin'
 import { billingAccess, trialEnd } from '@/lib/billing-state'
 import { PLANS, planByKey, TRIAL_DAYS } from '@/lib/plans'
+import { compEmail, sendEmail, emailConfig } from '@/lib/email'
+import { appOrigin } from '@/lib/app-url'
 import { stripe, stripeConfigured, stripeMode, webhookConfigured } from '@/lib/stripe'
 import { syncPlansToStripe } from '@/lib/stripe-plans'
 
@@ -108,6 +110,10 @@ export async function POST(request: Request) {
 
     const { data: me } = await db.from('profiles').select('full_name').eq('id', user.id).maybeSingle()
     const until = typeof body.until === 'string' && body.until ? new Date(body.until).toISOString() : null
+    // Told ONCE, when the company BECOMES free - a second press on a company
+    // that is already comped rewrites the record and mails nobody.
+    const { data: before } = await db.from('company_billing').select('status').eq('company_id', companyId).maybeSingle()
+    const wasComped = (before as { status?: string } | null)?.status === 'comped'
 
     const { error } = await db.from('company_billing').upsert({
       company_id: companyId,
@@ -120,7 +126,31 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }, { onConflict: 'company_id' })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true })
+    if (wasComped) return NextResponse.json({ ok: true, emailed: 0, note: 'They already had free access, so nobody was emailed again.' })
+
+    // THE COMPANY'S ADMINS - the people who see Billing - with the reason, which
+    // is the sentence their Billing card prints. The comp stands whatever the
+    // mail does; what went out is REPORTED, never assumed.
+    const [{ data: admins }, { data: company }] = await Promise.all([
+      db.from('profiles').select('full_name, email').eq('company_id', companyId).eq('role', 'admin'),
+      db.from('companies').select('name').eq('id', companyId).maybeSingle(),
+    ])
+    const to = ((admins ?? []) as { full_name: string | null; email: string | null }[]).filter(a => (a.email ?? '').trim())
+    if (!emailConfig().configured) return NextResponse.json({ ok: true, emailed: 0, note: 'Free access granted. Email is not set up here, so nobody was told.' })
+    if (!to.length) return NextResponse.json({ ok: true, emailed: 0, note: 'Free access granted. The company has no admin with an email address, so nobody was told.' })
+    let sent = 0
+    for (const a of to) {
+      const msg = compEmail({ name: a.full_name, companyName: (company as { name?: string } | null)?.name ?? null, reason, appUrl: appOrigin() })
+      const r = await sendEmail({ to: a.email!, ...msg })
+      if (r.sent) sent++
+      else console.error('[admin/billing] comp email failed', { to: a.email, reason: r.reason, detail: r.detail })
+    }
+    return NextResponse.json({
+      ok: true, emailed: sent,
+      note: sent === to.length
+        ? `Free access granted. ${sent === 1 ? 'Their admin was' : `${sent} admins were`} emailed.`
+        : `Free access granted, but ${to.length - sent} of ${to.length} emails did not send.`,
+    })
   }
 
   // ── take it away again ────────────────────────────────────────────────────
