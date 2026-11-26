@@ -86,7 +86,8 @@ export default function AdminBillingPage() {
       const res = await fetch('/api/admin/billing', { method: 'POST', headers: await headers(), body: JSON.stringify(body) })
       const out = await res.json().catch(() => ({}))
       if (!res.ok) { notice(out?.error ?? 'That did not save.'); return false }
-      notice(done, { tone: 'success' })
+      // The route says what actually went out (who was emailed); that wins.
+      notice(out?.note ?? done, { tone: out?.note && out?.emailed === 0 ? 'info' : 'success' })
       await load()
       return true
     } catch (e) {
@@ -256,6 +257,7 @@ export default function AdminBillingPage() {
                     placeholder="Design partner, ran the beta with us, paying by invoice..." />
                   <p className="mt-1 text-xs text-faint">
                     This is the only record of the decision - it is what answers the question in six weeks.
+                    It is also what they read: it is printed on their Billing screen and emailed to their admins.
                   </p>
                   <div className="row-even lg:flex lg:flex-wrap mt-3 gap-2">
                     <Button disabled={busy} onClick={async () => {

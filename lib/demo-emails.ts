@@ -5,7 +5,7 @@ import {
   inviteEmail, platformInviteEmail, teamInviteEmail, vendorInviteEmail, vendorConnectEmail, subWelcomeEmail,
   passwordResetEmail, welcomeEmail, clientPortalEmail, tokenLinkEmail,
   awardEmail, scheduleShiftEmail, scheduleUnblockedEmail, scopeChangeEmail,
-  deletionRequestEmail, weeklySummaryEmail, portalLoginCodeEmail,
+  deletionRequestEmail, weeklySummaryEmail, portalLoginCodeEmail, compEmail,
 } from './email'
 import { summarizeWeek, weekEnding } from './weekly-summary'
 import { deletionPromise } from './account-deletion'
@@ -64,6 +64,16 @@ const say = (iso: string): string => dayWords(iso, { weekday: true }) ?? iso
  * type fail the suite until it has demo copy.
  */
 export const DEMO_EMAILS: DemoEmail[] = [
+  {
+    key: 'comp',
+    label: 'Free access granted',
+    when: 'When the platform console gives a company free access - to its admins.',
+    build: () => compEmail({
+      name: PERSON, companyName: GC,
+      reason: 'Free for our founding partners, with our thanks for helping shape SyteNav.',
+      appUrl: APP,
+    }),
+  },
   {
     key: 'welcome',
     label: 'Welcome',
