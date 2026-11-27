@@ -11,7 +11,7 @@ import {
 import { cn } from '@/lib/utils'
 import { createClient } from '@/lib/supabase/client'
 import { usePermissions } from '@/lib/use-permissions'
-import { isFieldRole, FIELD_HOME } from '@/lib/permissions'
+import { isFieldRole, isAssignedOnly, FIELD_HOME } from '@/lib/permissions'
 import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
 import { unregisterThisDevice } from '@/lib/use-push'
 import { SEEN_KEY, unreadCount } from '@/lib/whats-new'
@@ -162,8 +162,19 @@ export function Sidebar() {
   // at all - so a company that unticks Dashboard for Worker must not thereby
   // delete their only way back out of the office app. Do not "tidy" this by
   // moving the filter below the prepend.
+  // TWO SUB ITEMS ASK MORE THAN `view`. My Bids is the COMPANY's bids to GCs:
+  // kept resource-free for an old-style vendor guest (`bids: N`, and the list
+  // is theirs), but a crew member at a sub's own company has no bids of his
+  // own - it was an empty page in his menu. Approvals is the office's queue:
+  // a role that can see it and approve nothing got an empty page as well.
+  const subItemShown = (href: string) => {
+    if (href === '/my-bids') return subAccount === 'guest' || !isAssignedOnly(role)
+    if (href === '/approvals') return can('approvals', 'edit')
+    return true
+  }
   const navItems = isSubcontractor
     ? SUB_NAV.filter(item => item.resource === null || (!permsLoading && can(item.resource, 'view')))
+        .filter(item => subItemShown(item.href))
         // A light sub account has no customers of its own yet (lib/sub-account.ts).
         .filter(item => !(['/customers', '/service-calls', '/dispatch'].includes(item.href) && subAccount && subAccount !== 'open'))
     : isFieldRole(role)
@@ -237,7 +248,16 @@ export function Sidebar() {
             </button>
           </div>
         )}
-        {navItems.map((item) => {
+        {/* NOTHING UNTIL THE MENU IS KNOWN. While permissions load, only the
+            items that need none passed the filter, so a hard reload painted a
+            menu of "My Work" alone and then filled in - a menu that changes
+            under the cursor. Quiet placeholder rows hold the space instead. */}
+        {permsLoading && !permsError && Array.from({ length: 6 }, (_, i) => (
+          <div key={`nav-skeleton-${i}`} aria-hidden className="px-3 py-2.5">
+            <div className="h-4 w-full max-w-[9rem] rounded bg-muted animate-pulse" />
+          </div>
+        ))}
+        {!permsLoading && navItems.map((item) => {
           const Icon = item.icon
           const isActive = item.href === '/dashboard'
             ? pathname === '/dashboard'

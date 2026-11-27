@@ -88,13 +88,29 @@ for (const [slug, label] of reported) ok(bySlug.get(slug) === label, `reported p
 
 // ── the permission grid names the same screens ───────────────────────────────
 const perms = code('lib/permissions.ts')
-const resources = Array.from(perms.matchAll(/\{ key: '([^']+)',\s*label: '([^']+)',\s*group: '[^']+',\s*slug: '([^']+)' \}/g))
+const resources = Array.from(perms.matchAll(/\{ key: '([^']+)',\s*label: '([^']+)',\s*group: '[^']+',\s*slug: '([^']+)'(?:,\s*part: '[^']+')? \}/g))
   .map(m => ({ key: m[1], label: m[2], slug: m[3] }))
 ok(resources.length >= 20, `the permission resources were parsed (${resources.length})`)
 for (const r of resources) {
   const tab = bySlug.get(r.slug)
   if (!tab) continue // `quotes` is a redirect alias with no tab of its own
   ok(r.label === tab, `permission "${r.key}" is labelled "${tab}" like its tab (is "${r.label}")`)
+}
+
+// ONE RESOURCE, ONE ROW NAME. Two resources share the Quotes & Bids tab, and
+// the grid printed "Quotes & Bids" twice with different defaults - so every
+// name the grid prints (resourceName: the tab, plus which part of it) is
+// unique, and a resource that shares its tab with another must say its part.
+{
+  const { RESOURCES, resourceName } = require('../permissions') as typeof import('../permissions')
+  const names = RESOURCES.map(resourceName)
+  const dupes = names.filter((n, i) => names.indexOf(n) !== i)
+  ok(!dupes.length, `every row of the permissions grid has its own name (${dupes.join(', ') || 'none repeated'})`)
+  const bySlugCount = new Map<string, number>()
+  for (const r of RESOURCES) if (r.slug) bySlugCount.set(r.slug, (bySlugCount.get(r.slug) ?? 0) + 1)
+  const shared = RESOURCES.filter(r => r.slug && (bySlugCount.get(r.slug) ?? 0) > 1 && !r.part)
+  ok(!shared.length, `a resource sharing its tab names its part (${shared.map(r => r.key).join(', ') || 'all do'})`)
+  ok(/resourceName\(r\)/.test(code('components/settings/permissions-panel.tsx')), 'the grid prints resourceName, not the bare label')
 }
 
 // ── the breadcrumb reads the menu ────────────────────────────────────────────

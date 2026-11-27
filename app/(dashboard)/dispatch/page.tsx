@@ -15,6 +15,8 @@ import {
   DAY_START_HOUR, DAY_END_HOUR, HOUR_PX, BOARD_PX,
 } from '@/lib/dispatch-layout'
 import { cn } from '@/lib/utils'
+import { isAssignedOnly } from '@/lib/permissions'
+import { useScreenAccess, ScreenAccessNotice } from '@/components/ui/screen-access'
 import { formatDate, formatDateShort } from '@/lib/dates'
 import { fetchProblem } from '@/lib/fetch-error'
 import { LabelChips } from '@/components/tasks/task-extras-ui'
@@ -126,6 +128,11 @@ function MiniMonth({ value, onPick }: { value: Date; onPick: (d: Date) => void }
 }
 
 export default function DispatchPage() {
+  const { access: permAccess, perms } = useScreenAccess('dispatch')
+  // The board is the office's: refused to every crew role whatever a saved
+  // role map says (the route does the same - app/api/dispatch/route.ts).
+  const access = permAccess === 'yes' && isAssignedOnly(perms.role) ? 'no' : permAccess
+  const canCreate = perms.can('service-calls', 'create')
   const notice = useNotice()
   const router = useRouter()
   const [view, setView] = useState<'day' | 'week'>('day')
@@ -165,7 +172,8 @@ export default function DispatchPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [from.getTime(), to.getTime()])
-  useEffect(() => { load() }, [load])
+  // Nothing is fetched until this person may see the board.
+  useEffect(() => { if (access === 'yes') load() }, [load, access])
 
   // The red "now" line moves on its own.
   useEffect(() => {
@@ -295,6 +303,8 @@ export default function DispatchPage() {
   // PHONE: the visible days as one list, time on the left.
   const phoneDays = view === 'day' ? [anchor] : dayList
 
+  if (access !== 'yes') return <ScreenAccessNotice access={access} what="Dispatch" />
+
   return (
     <div className="p-6 space-y-4">
       {/* Header: where you are, and how to move. */}
@@ -318,7 +328,7 @@ export default function DispatchPage() {
               </button>
             ))}
           </div>
-          <Button onClick={() => setCreating({})}><Plus className="h-4 w-4" /> New call</Button>
+          {canCreate && <Button onClick={() => setCreating({})}><Plus className="h-4 w-4" /> New call</Button>}
         </div>
       </div>
 
@@ -472,7 +482,7 @@ export default function DispatchPage() {
                         const isToday = sameDay(c.day, now)
                         return (
                           <div key={c.key} className={cn('relative border-l border-line-soft cursor-pointer', isToday && view === 'week' && 'bg-accent-tint/20')}
-                            onClick={e => onSlotClick(e, c.day, c.person)}
+                            onClick={e => { if (canCreate) onSlotClick(e, c.day, c.person) }}
                             onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move' }}
                             onDrop={e => onDrop(e, c.day, c.person)}>
                             {HOURS.map(h => (
@@ -503,7 +513,7 @@ export default function DispatchPage() {
 
       {state === 'ready' && (
         <p className="hidden lg:block text-xs text-faint">
-          Click an empty slot to take a call there. Drag a call to move it to another time{view === 'day' ? ' or person' : ' or day'}. {CREW_COLORS.length < crew.length ? 'Colours repeat after five people.' : ''}
+          {canCreate ? 'Click an empty slot to take a call there. ' : ''}Drag a call to move it to another time{view === 'day' ? ' or person' : ' or day'}. {CREW_COLORS.length < crew.length ? 'Colours repeat after five people.' : ''}
         </p>
       )}
 

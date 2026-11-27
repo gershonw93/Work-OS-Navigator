@@ -15,6 +15,7 @@ import { Plus, ArrowRight, UserPlus } from 'lucide-react'
 import Link from 'next/link'
 import { BulkAddModal } from '@/components/projects/bulk-add-modal'
 import { AddProjectModal } from '@/components/projects/add-project-modal'
+import { useScreenAccess, ScreenAccessNotice } from '@/components/ui/screen-access'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -134,10 +135,13 @@ function CustomerCard({
   customer,
   token,
   onRefresh,
+  canAddProject,
 }: {
   customer: Customer
   token: string
   onRefresh: () => void
+  /** `projects: create` - the Add Project button is offered only with it. */
+  canAddProject: boolean
 }) {
   const [addProjectOpen, setAddProjectOpen] = useState(false)
 
@@ -159,14 +163,14 @@ function CustomerCard({
                 </p>
               </div>
             </div>
-            <button
+            {canAddProject && <button
               onClick={() => setAddProjectOpen(true)}
               className="shrink-0 rounded-md p-1.5 text-faint hover:bg-muted hover:text-accent-fg transition-colors"
               title="Add Project"
               aria-label="Add Project"
             >
               <UserPlus className="h-4 w-4" />
-            </button>
+            </button>}
           </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 pt-0">
@@ -204,30 +208,47 @@ function CustomerCard({
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function CustomersPage() {
+  const { access, perms } = useScreenAccess('customers')
+  // The buttons ask the routes' own permissions: a customer is written on
+  // `customers: edit`, a bulk add makes projects (`projects: create`).
+  const canAddCustomer = perms.can('customers', 'edit')
+  const canBulkAdd = perms.can('projects', 'create')
   const [customers, setCustomers] = useState<Customer[]>([])
   const [loading, setLoading] = useState(true)
+  const [failed, setFailed] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [token, setToken] = useState('')
   const [newCustomerOpen, setNewCustomerOpen] = useState(false)
   const [bulkOpen, setBulkOpen] = useState(false)
 
+  // A REFUSED OR FAILED READ IS NOT "No customers yet" - that sentence is a
+  // claim, and it was what a refused request rendered.
   async function load(tok: string) {
-    const res = await fetch('/api/customers', {
-      headers: { Authorization: `Bearer ${tok}` },
-    })
-    const json = await res.json()
-    setCustomers(json.customers ?? [])
-    setLoading(false)
+    try {
+      const res = await fetch('/api/customers', {
+        headers: { Authorization: `Bearer ${tok}` },
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) { setFailed(json.error ?? 'Could not load your customers.'); return }
+      setFailed(null)
+      setCustomers(json.customers ?? [])
+    } catch {
+      setFailed('Could not load your customers. Check your connection and try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
+    // Nothing is fetched until this person may see the screen.
+    if (access !== 'yes') return
     const supabase = createClient()
     supabase.auth.getSession().then(({ data: { session } }) => {
       const tok = session?.access_token ?? ''
       setToken(tok)
       load(tok)
     })
-  }, [])
+  }, [access])
 
   function refresh() {
     if (token) { setLoading(true); load(token) }
@@ -237,21 +258,29 @@ export default function CustomersPage() {
     c.name.toLowerCase().includes(search.toLowerCase())
   )
 
+  if (access !== 'yes') return <ScreenAccessNotice access={access} what="Customers" />
+
   return (
     <div className="p-6 space-y-6">
       <PageHeader
         title="Customers"
         subtitle="All clients and their projects"
         action={
-          <div className="row-even lg:flex items-center gap-2">
-            <Button variant="secondary" onClick={() => setBulkOpen(true)}>
-              Bulk Add Projects
-            </Button>
-            <Button onClick={() => setNewCustomerOpen(true)}>
-              <Plus className="h-4 w-4 mr-1" />
-              New Customer
-            </Button>
-          </div>
+          (canBulkAdd || canAddCustomer) ? (
+            <div className="row-even lg:flex items-center gap-2">
+              {canBulkAdd && (
+                <Button variant="secondary" onClick={() => setBulkOpen(true)}>
+                  Bulk Add Projects
+                </Button>
+              )}
+              {canAddCustomer && (
+                <Button onClick={() => setNewCustomerOpen(true)}>
+                  <Plus className="h-4 w-4 mr-1" />
+                  New Customer
+                </Button>
+              )}
+            </div>
+          ) : undefined
         }
       />
 
@@ -264,17 +293,22 @@ export default function CustomersPage() {
 
       {loading ? (
         <div className="py-16 text-center text-sm text-muted-fg">Loading…</div>
+      ) : failed ? (
+        <div className="rounded-2xl border border-line bg-panel p-6 text-sm text-ink space-y-3">
+          <p>{failed} Your customers are unchanged - this screen just could not read them.</p>
+          <Button variant="outline" onClick={refresh}>Try again</Button>
+        </div>
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={UserPlus}
           title="No customers yet"
-          description="Create your first customer to get started."
-          action={{ label: 'New Customer', onClick: () => setNewCustomerOpen(true) }}
+          description={canAddCustomer ? 'Create your first customer to get started.' : 'When customers are added they show up here.'}
+          action={canAddCustomer ? { label: 'New Customer', onClick: () => setNewCustomerOpen(true) } : undefined}
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {filtered.map((c) => (
-            <CustomerCard key={c.id} customer={c} token={token} onRefresh={refresh} />
+            <CustomerCard key={c.id} customer={c} token={token} onRefresh={refresh} canAddProject={canBulkAdd} />
           ))}
         </div>
       )}

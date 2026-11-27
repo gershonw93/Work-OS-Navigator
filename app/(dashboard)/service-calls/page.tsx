@@ -19,6 +19,8 @@ import { fetchProblem } from '@/lib/fetch-error'
 import { sameDay } from '@/lib/dispatch-layout'
 import { cn } from '@/lib/utils'
 import { formatDate } from '@/lib/dates'
+import { isAssignedOnly } from '@/lib/permissions'
+import { useScreenAccess, ScreenAccessNotice } from '@/components/ui/screen-access'
 
 // Service calls: one card, a row per call. The filters across the top are the
 // questions the office actually asks - what has nobody on it, what is on
@@ -105,6 +107,7 @@ const dayAndTime = (iso: string) => {
 }
 
 export default function ServiceCallsPage() {
+  const { access, perms } = useScreenAccess('service-calls')
   const router = useRouter()
   const notice = useNotice()
   const [state, setState] = useState<'loading' | 'failed' | 'ready'>('loading')
@@ -148,7 +151,15 @@ export default function ServiceCallsPage() {
       setState('failed')
     }
   }, [])
-  useEffect(() => { load() }, [load])
+  // Nothing is fetched until this person may see it (useScreenAccess).
+  useEffect(() => { if (access === 'yes') load() }, [load, access])
+
+  // CREW-NESS AND THE BUTTONS COME FROM THE PERMISSIONS ON SCREEN, so a View
+  // As preview shows what that role would get - not what the admin's token
+  // answered. The server still decides for real.
+  const crewMode = crewView || isAssignedOnly(perms.role)
+  const canCreate = perms.can('service-calls', 'create') && !crewMode
+  const canDispatch = perms.can('dispatch', 'view') && !crewMode
 
   const now = new Date()
   const crewIds = useMemo(() => crew.map(c => c.id), [crew])
@@ -186,7 +197,7 @@ export default function ServiceCallsPage() {
       notice('To schedule it, give it a person and a time: open the call, or drag it on the Dispatch board.', { tone: 'info' })
       return
     }
-    if (!offeredMoves(from, crewView).includes(to)) {
+    if (!offeredMoves(from, crewMode).includes(to)) {
       notice(`A call moves one step at a time, so ${STATUS_LABEL[from]} cannot go straight to ${STATUS_LABEL[to]}.`, { tone: 'info' })
       return
     }
@@ -207,12 +218,14 @@ export default function ServiceCallsPage() {
     }
   }
 
+  if (access !== 'yes') return <ScreenAccessNotice access={access} what="Service Calls" />
+
   return (
     <div className="p-6 space-y-5">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-ink">Service Calls</h1>
-          <p className="mt-1 text-sm text-muted-fg">{crewView ? 'The calls you are on.' : 'Calls from your customers, and who is on each.'}</p>
+          <p className="mt-1 text-sm text-muted-fg">{crewMode ? 'The calls you are on.' : 'Calls from your customers, and who is on each.'}</p>
         </div>
         {state === 'ready' && (
           <div className="flex flex-wrap items-center gap-2">
@@ -225,11 +238,11 @@ export default function ServiceCallsPage() {
                   {v === 'board' ? 'Board' : 'List'}
                 </button>
               ))}
-              {!crewView && (
+              {canDispatch && (
                 <Link href="/dispatch" className="inline-flex min-h-9 items-center whitespace-nowrap rounded-lg px-3.5 text-sm font-medium text-ink-soft hover:text-ink">Dispatch</Link>
               )}
             </div>
-            {!crewView && <Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> New call</Button>}
+            {canCreate && <Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> New call</Button>}
           </div>
         )}
       </div>
@@ -335,7 +348,7 @@ export default function ServiceCallsPage() {
           </p>
           <p className="text-sm text-muted-fg">
             {needle ? 'Try a customer name, a street or a call number.'
-              : !calls.length ? (crewView ? 'When the office puts you on a call it shows up here.' : 'Take a call from a customer and it shows up here.')
+              : !calls.length ? (crewMode ? 'When the office puts you on a call it shows up here.' : 'Take a call from a customer and it shows up here.')
               : 'Pick another filter above to see the rest.'}
           </p>
         </div>

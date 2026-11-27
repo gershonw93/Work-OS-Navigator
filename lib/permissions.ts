@@ -23,6 +23,20 @@ export interface ResourceDef {
   group: string
   /** route slug if this maps to a project tab */
   slug?: string
+  /**
+   * WHICH PART OF THE TAB, when two resources share one. `bids` (bid packages:
+   * invite, remind, award) and `request-quotes` (quote requests to vendors)
+   * both live on the Quotes & Bids tab, and the grid printed "Quotes & Bids"
+   * twice with different defaults - one row, by its name, could not be told
+   * from the other. The label stays the tab's (screen-names.ts pins that);
+   * this says which half it is.
+   */
+  part?: string
+}
+
+/** What the permissions grid calls a resource: its tab, and which part of it. */
+export function resourceName(r: ResourceDef): string {
+  return r.part ? `${r.label} - ${r.part}` : r.label
 }
 
 // Kept in step with the tab groups in components/layout/project-tabs.tsx.
@@ -55,7 +69,7 @@ export const RESOURCES: ResourceDef[] = [
   { key: 'mark-ready',     label: 'Mark work ready for inspection', group: 'Field' },
   // People
   { key: 'team',           label: 'Subs & Team',    group: 'Buyout', slug: 'team' },
-  { key: 'bids',           label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
+  { key: 'bids',           label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes', part: 'Bid packages (invite and award)' },
   { key: 'rfis',           label: 'RFIs',           group: 'Docs', slug: 'rfis' },
   // Money
   { key: 'invoices',       label: 'Bills from subs', group: 'Finance', slug: 'invoices' },
@@ -67,7 +81,7 @@ export const RESOURCES: ResourceDef[] = [
   // run the budget does not automatically need the second. While they were one
   // permission there was no way to grant the first without the second.
   { key: 'margin',         label: 'Job Margin & Markup', group: 'Finance' },
-  { key: 'request-quotes', label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes' },
+  { key: 'request-quotes', label: 'Quotes & Bids',  group: 'Buyout', slug: 'request-quotes', part: 'Quote requests to vendors' },
   { key: 'quotes',         label: 'Compare Quotes', group: 'Finance', slug: 'quotes' },
   { key: 'financials',     label: 'Financial Summary', group: 'Finance', slug: 'financials' },
   { key: 'change-orders',  label: 'Change Orders',  group: 'Finance', slug: 'change-orders' },
