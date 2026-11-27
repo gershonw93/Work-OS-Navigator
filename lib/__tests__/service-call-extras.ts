@@ -82,7 +82,7 @@ ok(!/<select id="cd-crew"/.test(page) && /role="group" aria-label="Crew member"/
 const list = code('app/(dashboard)/service-calls/page.tsx')
 ok(/const BOARD: CallStatus\[\] = \['new', 'scheduled', 'en_route', 'on_site', 'done'\]/.test(list), 'the board has a column per stage, and Invoiced is not one')
 ok(/const drag = useRef<string \| null>\(null\)/.test(list), 'the drag is a ref - a setState on drag start drops the card')
-ok(/if \(!offeredMoves\(from, crewView\)\.includes\(to\)\) \{/.test(list), 'A DROP MOVES ONE STEP, and only a step the call page would offer')
+ok(/if \(!offeredMoves\(from, crewMode\)\.includes\(to\)\) \{/.test(list), 'A DROP MOVES ONE STEP, and only a step the call page would offer')
 ok(/if \(from === 'new' && to === 'scheduled'\) \{/.test(list), '...Scheduled comes from a person and a time, never from a drag')
 ok(/if \(to === 'done' \|\| \(call\.assigned_to === me && punchWith\(from, to\)\)\) \{/.test(list) && /router\.push\(`\/service-calls\/\$\{call\.id\}`\)/.test(list),
   '...and Done, or an arrival that clocks you in, is sent to the call itself rather than half-done from the board')

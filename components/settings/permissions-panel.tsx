@@ -5,7 +5,7 @@ import { autoFocusOnDesktop } from '@/lib/auto-focus'
 import { SearchableSelect } from '@/components/ui/searchable-select'
 import { createClient } from '@/lib/supabase/client'
 import {
-  ACTIONS, RESOURCES, RESOURCE_GROUPS,
+  ACTIONS, RESOURCES, RESOURCE_GROUPS, resourceName,
   type Action, type PermMap, type OverrideMap,
 } from '@/lib/permissions'
 import { Check, Shield, User, RotateCcw, Save, Loader2, Plus, X, Trash2 } from 'lucide-react'
@@ -105,7 +105,7 @@ function PermGrid({
             <div className="divide-y divide-line-soft">
               {rows.map(r => (
                 <div key={r.key} className="px-4 py-3">
-                  <p className="text-sm font-medium text-ink">{r.label}</p>
+                  <p className="text-sm font-medium text-ink">{resourceName(r)}</p>
                   <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1">
                     {ACTIONS.map(a => {
                       const on = !!effective[r.key]?.[a]
@@ -157,7 +157,7 @@ function PermGrid({
               <FragmentGroup key={group} group={group}>
                 {rows.map((r, i) => (
                   <tr key={r.key} className={i % 2 === 0 ? 'bg-panel' : 'bg-surface/40'}>
-                    <td className="px-4 py-2 text-ink-soft sticky left-0 bg-inherit">{r.label}</td>
+                    <td className="px-4 py-2 text-ink-soft sticky left-0 bg-inherit">{resourceName(r)}</td>
                     {ACTIONS.map(a => {
                       const on = !!effective[r.key]?.[a]
                       const def = !!defaults[r.key]?.[a]

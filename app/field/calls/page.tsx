@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { callFetch, callWindow } from '@/lib/service-calls-client'
 import { callLabel, STATUS_LABEL, type CallStatus } from '@/lib/service-calls'
+import { getViewAsUser } from '@/lib/use-permissions'
+import { useScreenAccess, ScreenAccessNotice } from '@/components/ui/screen-access'
 
 // Field Mode: the calls assigned to me, soonest first. The server only ever
 // returns a crew member's own calls (lib/service-calls-server.ts), so there is
 // no "everybody's" view here to hide.
 
-type Row = { id: string; call_number: number; customer_name: string; site_address: string; issue: string; status: string; priority: string; scheduled_start: string | null; scheduled_end: string | null }
+type Row = { id: string; assigned_to: string | null; call_number: number; customer_name: string; site_address: string; issue: string; status: string; priority: string; scheduled_start: string | null; scheduled_end: string | null }
 
 const soonest = (a: Row, b: Row) => {
   // An unbooked call goes LAST: an empty start sorts before every real one.
@@ -22,25 +24,40 @@ const soonest = (a: Row, b: Row) => {
 }
 
 export default function FieldCallsPage() {
+  const { access, perms } = useScreenAccess('service-calls')
   const [state, setState] = useState<'loading' | 'failed' | 'ready'>('loading')
   const [calls, setCalls] = useState<Row[]>([])
+  // A PREVIEW ASKS THE SERVER AS THE ADMIN, so the answer is every call the
+  // company has. Previewing a PERSON narrows it to theirs, as the server does
+  // for them; previewing a ROLE has nobody to narrow to, so it lists nothing
+  // and says so rather than showing the admin's whole board as a crew view.
+  const previewUser = perms.previewing ? getViewAsUser() : null
+  const roleOnlyPreview = perms.previewing && !previewUser
 
   const load = useCallback(async () => {
     try {
       const res = await callFetch('/api/service-calls?status=open')
       if (!res.ok) { setState('failed'); return }
       const json = await res.json()
-      setCalls(((json.calls ?? []) as Row[]).sort(soonest))
+      const mine = ((json.calls ?? []) as Row[]).filter(c => !previewUser || c.assigned_to === previewUser)
+      setCalls(roleOnlyPreview ? [] : mine.sort(soonest))
       setState('ready')
     } catch {
       setState('failed')
     }
-  }, [])
-  useEffect(() => { load() }, [load])
+  }, [previewUser, roleOnlyPreview])
+  useEffect(() => { if (access === 'yes') load() }, [load, access])
+
+  if (access !== 'yes') return <ScreenAccessNotice access={access} what="Calls" />
 
   return (
     <div className="p-6 space-y-4 max-w-lg mx-auto">
       <h1 className="text-2xl font-bold text-ink">My calls</h1>
+      {roleOnlyPreview && (
+        <p className="rounded-xl border border-warn/30 bg-warn-tint px-3 py-2 text-sm text-warn">
+          A preview of a role has nobody signed in, so no calls are listed. Each crew member sees only the calls assigned to them - preview a teammate to see theirs.
+        </p>
+      )}
       {state === 'loading' && <p className="text-sm text-faint py-12 text-center">Loading...</p>}
       {state === 'failed' && (
         <div className="rounded-2xl border border-line bg-panel p-6 text-sm text-ink space-y-3">

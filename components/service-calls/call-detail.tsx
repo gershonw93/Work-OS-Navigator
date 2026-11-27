@@ -10,6 +10,8 @@ import { useNotice } from '@/components/ui/notice'
 import { createClient } from '@/lib/supabase/client'
 import { callLabel, callProblem, directionsUrl, offeredMoves, isForward, moveLabel, punchWith, CALL_PATH, STATUS_LABEL, PRIORITY_LABEL, type CallStatus, type CallPriority } from '@/lib/service-calls'
 import { cn } from '@/lib/utils'
+import { usePermissions } from '@/lib/use-permissions'
+import { isAssignedOnly } from '@/lib/permissions'
 import { callFetch, callTime, callWindow, toLocalInput, fromLocalInput } from '@/lib/service-calls-client'
 import { getPosition, geoFailureMessage } from '@/lib/geo-position'
 import { fetchProblem } from '@/lib/fetch-error'
@@ -83,6 +85,9 @@ export function CallDetail({ callId, narrow = false }: {
   /** Field Mode's single column, whatever the screen width. */
   narrow?: boolean
 }) {
+  // Crew-ness follows the permissions ON SCREEN too, so a View As preview of
+  // a field role shows the field view rather than the admin's office one.
+  const { role: viewRole } = usePermissions()
   const notice = useNotice()
   const [state, setState] = useState<'loading' | 'failed' | 'ready'>('loading')
   const [d, setD] = useState<Detail | null>(null)
@@ -204,7 +209,8 @@ export function CallDetail({ callId, narrow = false }: {
   const openPunch = d.time.find(t => t.profile_id === me && !t.clock_out)
   const directions = directionsUrl(c.site_address)
   const tel = phoneHref(c.contact_phone)
-  const moves = offeredMoves(c.status as CallStatus, d.crewView)
+  const crewMode = d.crewView || isAssignedOnly(viewRole)
+  const moves = offeredMoves(c.status as CallStatus, crewMode)
   const from = c.status as CallStatus
   const forward = moves.filter(m => isForward(from, m))
   const back = moves.filter(m => !isForward(from, m))
@@ -216,7 +222,7 @@ export function CallDetail({ callId, narrow = false }: {
   // Anywhere else it is a quiet button on the Time card, so it always exists.
   const clockInIsNext = !openPunch && c.status === 'on_site' && c.assigned_to === me
   const dirty = notes !== (c.notes ?? '')
-    || (!d.crewView && (
+    || (!crewMode && (
       JSON.stringify(labels) !== JSON.stringify(c.labels ?? [])
       || assign.who !== (c.assigned_to ?? '')
       || assign.start !== toLocalInput(c.scheduled_start)
@@ -273,7 +279,7 @@ export function CallDetail({ callId, narrow = false }: {
 
       <div>
         <ProgressPath status={c.status as CallStatus} />
-        {c.status === 'new' && !d.crewView && (
+        {c.status === 'new' && !crewMode && (
           <p className="mt-2 text-xs text-muted-fg">Give it a person and a time below, or drag it on the dispatch board, and it becomes Scheduled.</p>
         )}
       </div>
@@ -323,7 +329,7 @@ export function CallDetail({ callId, narrow = false }: {
             </div>
           )}
 
-          {(steps.length > 0 || !d.crewView) && (
+          {(steps.length > 0 || !crewMode) && (
             <div className={cn(card, 'p-4 space-y-3')}>
               <div className="flex items-center gap-2">
                 <ListChecks className="h-4 w-4 text-faint" aria-hidden />
@@ -347,7 +353,7 @@ export function CallDetail({ callId, narrow = false }: {
                             {st.done && st.done_by_name && <span className="block text-xs text-muted-fg">Done by {st.done_by_name}</span>}
                           </span>
                         </label>
-                        {!d.crewView && (
+                        {!crewMode && (
                           <button type="button" aria-label={`Remove "${st.text}"`} title="Remove" disabled={busy !== ''}
                             onClick={() => saveSteps(steps.filter(x => x.id !== st.id))}
                             className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted-fg hover:bg-surface hover:text-danger">
@@ -359,7 +365,7 @@ export function CallDetail({ callId, narrow = false }: {
                   </div>
                 </>
               )}
-              {!d.crewView && (
+              {!crewMode && (
                 <div className="flex items-end gap-2">
                   <div className="min-w-0 flex-1 space-y-1">
                     <Label htmlFor="cd-step" className="lg:text-xs">New step (optional)</Label>
@@ -413,7 +419,7 @@ export function CallDetail({ callId, narrow = false }: {
               <p className="text-base font-semibold text-ink">{callWindow(c.scheduled_start, c.scheduled_end) ?? 'No time yet'}</p>
               <p className="text-sm text-muted-fg">{d.assignee_name ? `With ${d.assignee_name}` : 'Nobody on it yet'}</p>
             </div>
-            {!d.crewView && (
+            {!crewMode && (
               <div className="space-y-3 border-t border-line-soft pt-3">
                 <div className="space-y-1.5">
                   <span className="text-sm font-medium text-ink-soft lg:text-xs">Crew member (optional)</span>

@@ -193,7 +193,7 @@ export default function SettingsPage() {
   const guardDelete = useDeleteGuard()
   const notify = useNotice()
   const { theme } = useTheme()
-  const { can: canDo, loading: permsLoading } = usePermissions()
+  const { can: canDo, loading: permsLoading, previewing } = usePermissions()
   /**
    * May this person open this tab? One answer, used by the tab strip AND by
    * the ?tab= deep link - which used to set the active tab from the URL with
@@ -953,7 +953,24 @@ export default function SettingsPage() {
           </button>
 
           {/* ══════════════════════════════════════ TAB: PROFILE */}
-          {activeTab === 'profile' && (
+          {/* A PREVIEW IS NOT THEIR ACCOUNT. View As changes what the app
+              believes you may do, not who you are, so Profile would show the
+              ADMIN's name and role with live Save, Change Password and Delete
+              my account under a banner saying it is somebody else's view. */}
+          {activeTab === 'profile' && previewing && (
+            <Card>
+              <CardHeader>
+                <CardTitle>Your Profile</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-fg">
+                  A preview shows what someone can see and do, not their account. Their name, password and account
+                  are their own, so this is left out while you preview. Exit the preview to change your own profile.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+          {activeTab === 'profile' && !previewing && (
             <div className="space-y-6">
               <Card>
                 <CardHeader>
