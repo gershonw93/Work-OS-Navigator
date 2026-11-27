@@ -18,6 +18,7 @@ import { fetchProblem } from '@/lib/fetch-error'
 import { timeAgo, absoluteTime } from '@/lib/time-ago'
 import { useSwipeDismiss } from '@/lib/use-swipe-dismiss'
 import { LabelChips, LabelPicker } from '@/components/tasks/task-extras-ui'
+import { CallBilling } from '@/components/service-calls/call-billing'
 import type { TaskLabel, TaskSubtask } from '@/lib/task-extras'
 
 // ONE call, on the office screen and in Field Mode alike. What a person may do
@@ -413,6 +414,8 @@ export function CallDetail({ callId, narrow = false }: {
 
         {/* RIGHT: who, when, time on it, and what happened. */}
         <div className="space-y-5 min-w-0">
+          {/* The bill - office only (CallBilling asks service-billing itself). */}
+          {!crewMode && <CallBilling callId={callId} status={c.status} />}
           <div className={cn(card, 'p-4 space-y-3')}>
             <p className="text-xs font-semibold uppercase tracking-wide text-faint">Who and when</p>
             <div>

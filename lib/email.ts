@@ -785,6 +785,60 @@ export function compEmail({ name, companyName, reason, appUrl }: {
 }
 
 /**
+ * A sub's invoice to its own customer, for a service call (migration 172).
+ *
+ * FROM THE SUB, NOT FROM SYTENAV. The customer never asked to hear from us:
+ * the heading names the company, the reply-to is the person who sent it (the
+ * route sets it), and SyteNav is only the envelope. The amount is the one the
+ * customer is asked for - QuickBooks' total when it added tax, which is why
+ * the invoice is pushed BEFORE this is built. No HTML crosses in: the lines are
+ * on the linked page, the letter carries the total and the link.
+ */
+export function serviceInvoiceEmail({ companyName, customerName, invoiceNumber, amountDue, dueWords, taxNote, viewUrl }: {
+  companyName: string | null | undefined
+  customerName: string | null | undefined
+  invoiceNumber: string
+  /** "$245.00" - already formatted. */
+  amountDue: string
+  /** "Fri Dec 12", or null for no due date. */
+  dueWords: string | null
+  /** "Includes $12.40 sales tax", or null. */
+  taxNote: string | null
+  viewUrl: string
+}) {
+  const company = (companyName ?? '').trim() || 'Your service company'
+  const hi = firstName(customerName)
+  const due = dueWords ? `due ${dueWords}` : 'due on receipt'
+
+  const text = [
+    `Hi ${hi},`,
+    '',
+    `${company} has sent you invoice ${invoiceNumber} for ${amountDue}, ${due}.${taxNote ? ` ${taxNote}.` : ''}`,
+    '',
+    `See the invoice: ${viewUrl}`,
+    '',
+    `Questions about it? Reply to this email and it goes to ${company}.`,
+    '',
+    company,
+  ].join('\n')
+
+  const html = emailLayout({
+    preheader: `Invoice ${invoiceNumber} for ${amountDue}, ${due}.`,
+    eyebrow: 'Invoice',
+    heading: `${amountDue} ${due}`,
+    subheading: `${company} - invoice ${invoiceNumber}`,
+    paragraphs: [
+      `Hi ${hi}, ${company} has sent you invoice ${invoiceNumber}.${taxNote ? ` ${taxNote}.` : ''}`,
+      'Open it to see what it covers.',
+    ],
+    cta: { label: 'View invoice', url: viewUrl },
+    footNote: `Questions about it? Reply to this email and it goes to ${company}.`,
+  })
+
+  return { subject: `Invoice ${invoiceNumber} from ${company} - ${amountDue}`, text, html }
+}
+
+/**
  * The password reset link.
  *
  * Deliberately terse, and deliberately says what to do if it was not you. A

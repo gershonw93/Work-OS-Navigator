@@ -160,6 +160,7 @@ export default function ServiceCallsPage() {
   const crewMode = crewView || isAssignedOnly(perms.role)
   const canCreate = perms.can('service-calls', 'create') && !crewMode
   const canDispatch = perms.can('dispatch', 'view') && !crewMode
+  const canBill = perms.can('service-billing', 'view') && !crewMode
 
   const now = new Date()
   const crewIds = useMemo(() => crew.map(c => c.id), [crew])
@@ -240,6 +241,9 @@ export default function ServiceCallsPage() {
               ))}
               {canDispatch && (
                 <Link href="/dispatch" className="inline-flex min-h-9 items-center whitespace-nowrap rounded-lg px-3.5 text-sm font-medium text-ink-soft hover:text-ink">Dispatch</Link>
+              )}
+              {canBill && (
+                <Link href="/service-calls/invoices" className="inline-flex min-h-9 items-center whitespace-nowrap rounded-lg px-3.5 text-sm font-medium text-ink-soft hover:text-ink">Invoices</Link>
               )}
             </div>
             {canCreate && <Button onClick={() => setAdding(true)}><Plus className="h-4 w-4" /> New call</Button>}

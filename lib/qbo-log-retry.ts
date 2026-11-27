@@ -25,6 +25,10 @@ export type Retry =
 
 const CREATE_ENTITY: Record<string, string> = {
   client_invoice: 'client-invoices',
+  // A service call's invoice and payment ride the same two sync entities as a
+  // job's (app/api/quickbooks/sync), so the log's Retry reaches them too.
+  service_call_invoice: 'client-invoices',
+  service_call_payment: 'payments',
   payment: 'payments',
   client_payment: 'payments',
   bill: 'bills',
@@ -44,7 +48,7 @@ export function retryFor(row: LogRowLike): Retry | null {
     if (/deleted here|delete/i.test(row.message ?? '')) {
       return { kind: 'hint', text: 'The record was kept. Fix what QuickBooks names, then delete it again.' }
     }
-    if (row.entity_type === 'client_invoice' || row.entity_type === 'bill_payment') {
+    if (row.entity_type === 'client_invoice' || row.entity_type === 'bill_payment' || row.entity_type === 'service_call_invoice') {
       return { kind: 'sync', entity: 'voids', ids: [row.entity_id] }
     }
     return null

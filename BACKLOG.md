@@ -15,6 +15,14 @@ call (invoicing a call is a status today, not an amount), more than one crew
 member per call, a geofence radius per call, and the GC's view of a linked
 call is a card on the Overview only (no notification when it changes).
 
+Service call billing shipped 27 Nov (migration 172): invoice a call's
+customer, email a link, record payments, all pushed to QuickBooks. Left out on
+purpose, for a second phase: the customer paying ONLINE by card (needs Stripe
+Connect so money lands in the SUB's bank - an account per sub), credit held on
+account for a service customer, editing a sent invoice in place (void and
+re-bill today), sales tax worked out in SyteNav when QuickBooks is not
+connected, and Claude tools for service invoices.
+
 From the owner's walk-through on staging (24 Nov):
 - **Show a light account the Service Calls / Dispatch / Customers tabs**, and
   have each one, when opened, offer the 30-day "Run your own jobs" trial (web

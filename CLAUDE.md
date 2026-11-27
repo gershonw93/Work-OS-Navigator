@@ -60,7 +60,7 @@ Full detail: [`docs/postmortems/data-access.md`](docs/postmortems/data-access.md
 - Numbered files in `supabase/migrations/`. Apply them with the Supabase MCP
   (`apply_migration`, project `rxdqmetqvfninvaqymyl` - "Work OS Navigator").
 - Combined, idempotent SQL is still kept current at
-  `supabase/migrations/_combined_008-171.sql` (bump the suffix as you add
+  `supabase/migrations/_combined_008-172.sql` (bump the suffix as you add
   migrations) as the fallback for a fresh environment.
 - **Verify every column you `.select()` actually exists.** Supabase returns
   `data: null` for an unknown column, so a typo reads as "not found" rather than
@@ -969,7 +969,7 @@ Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.
   and hash dropped (reset links carry tokens there), UTMs kept by allowlist,
   title derived from the template - `document.title` can carry a project name.
 - **NOT MEASURED:** the native shell (the App Store label says no tracking),
-  non-production hosts, token links (`/portal`, `/share`, `/shared-report`, `/bid`, `/bill`,
+  non-production hosts, token links (`/portal`, `/share`, `/shared-report`, `/bid`, `/bill`, `/service-invoice`,
   `/rfi`, `/compliance` - the path is the secret and those people are not our
   visitors), `/admin`, Global Privacy Control, and the opt-out cookie.
   **"NOT MEASURED" MEANS THE TAG IS NOT RUNNING, NOT THAT ONE EVENT IS
@@ -1154,6 +1154,36 @@ and `docs/sub-company-plan.md`.
   the call is theirs and they are not on it (`clockInIsNext`); otherwise it is
   a quiet button on the Time card - one place to clock in, always exactly one.
   Pinned in `service-call-extras.ts`.
+
+## Billing a service call's customer (IMPORTANT)
+- **THE MONEY IS ON THE INVOICE, NEVER ON THE CALL** (`service_call_invoices`,
+  `_lines`, `_payments`, `service_price_items`, migration 172). The call stays
+  price-free so nothing a GC reads (`gcView`) can carry a figure. Own tables,
+  NOT `client_invoices`: that one is `project_id NOT NULL` and 26 files - the
+  live QuickBooks sync of every GC - read it that way. The RULES are not copied:
+  the push lives in `lib/quickbooks-push.ts` beside the job invoice's and calls
+  the same claim, duplicate, customer, item, deposit and void helpers.
+- **BILLING IS ITS OWN PERMISSION** (`service-billing`, inherits `payments`),
+  and `billingGate` refuses every assigned-only role whatever a saved map says -
+  crew work a call, they never see what it was billed at. A route under
+  `/api/service-calls/` asks `callGate` + `loadCall` AND `billingGate`.
+- **SEND PUSHES TO QUICKBOOKS BEFORE IT EMAILS.** QuickBooks Online's own sales
+  tax may add to the lines; the push reads back `TotalAmt` / `TotalTax` into
+  `total` / `tax_amount`, and the letter and the link ask for THAT figure
+  (`amountDueCents`). Send claims the draft on `status = 'draft'`; the email is
+  from the sub (reply-to the sender), never from us.
+- **PAID IS WHAT THE MONEY SAYS** (`statusAfterPayments`, written only by
+  `syncBillStatus` after every payment added or removed), and a payment can
+  never exceed what is left (`paymentProblem`) - no credit on account here. A
+  payment whose invoice is not in QuickBooks books NOTHING (never a Sales
+  Receipt) and waits for the backlog sync, which pushes call records BEFORE the
+  job-only early exit so a sub with no jobs still syncs.
+- **A SENT INVOICE IS NOT EDITED; IT IS VOIDED.** QuickBooks first, 502 and
+  nothing changed when it refuses; an invoice with payments is refused until
+  they are removed (each voided in QuickBooks first). A draft is deleted. The
+  customer's link (`/service-invoice/<token>`) never shows a draft, is never
+  indexed, and is untracked in `lib/analytics.ts`. Pinned and mutation-checked
+  in `service-billing.ts`.
 
 ## Who the email is FOR, and who may send it (IMPORTANT)
 Full detail: [`docs/postmortems/integrations.md`](docs/postmortems/integrations.md).

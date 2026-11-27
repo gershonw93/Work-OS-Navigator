@@ -144,7 +144,7 @@ for (const [needle, entity] of creates) {
   const before = push.slice(Math.max(0, at - 700), at)
   ok(at > 0 && new RegExp(`findDuplicate\\(conn, \\{ entity: '${entity}'`).test(before), `${entity}: the duplicate check runs before the create`)
 }
-ok((push.match(/entity: 'Payment', doc: probe\.PaymentRefNum/g) ?? []).length === 2, 'both Payment creates (single and split cheque) are checked')
+ok((push.match(/entity: 'Payment', doc: probe\.PaymentRefNum/g) ?? []).length === 3, 'every Payment create (single cheque, split cheque, service call) is checked')
 ok(!/existingInvoiceIdByDocNumber/.test(push), 'the number-only invoice adoption is gone')
 ok(/existingNamedId\(conn, 'Customer'/.test(push) && /existingNamedId\(conn, 'Vendor'/.test(push), 'customers and vendors already in the file are adopted by name')
 
@@ -157,7 +157,7 @@ for (const f of ['lib/quickbooks-push.ts', 'app/api/quickbooks/sync/route.ts']) 
 }
 
 const sync = code('app/api/quickbooks/sync/route.ts')
-ok((sync.match(/\.gte\('created_at', syncFrom\)/g) ?? []).length === 4, 'after Start fresh the backlog leaves older money alone (bills, bill payments, payments, invoices)')
+ok((sync.match(/\.gte\('created_at', syncFrom\)/g) ?? []).length === 6, 'after Start fresh the backlog leaves older money alone (bills, bill payments, payments, invoices, and a service call\'s invoices and payments)')
 ok(/ids \? '1970-01-01'/.test(sync), '...but a record retried by id is still pushed')
 
 const fresh = code('app/api/quickbooks/start-fresh/route.ts')

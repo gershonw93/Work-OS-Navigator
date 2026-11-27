@@ -44,7 +44,7 @@ export const APP_PATH_PREFIXES = [
   '/oauth',
   // Token links handed to people without accounts. They are served by the app,
   // and an old link to the apex still works because it redirects.
-  '/portal', '/rfi', '/bid', '/compliance', '/share', '/bill', '/shared-report',
+  '/portal', '/rfi', '/bid', '/compliance', '/share', '/bill', '/shared-report', '/service-invoice',
   // Where a client's free login (change-order approvals) lands if it wanders
   // into the app. Not under /portal/: that prefix is the token links.
   '/portal-account',

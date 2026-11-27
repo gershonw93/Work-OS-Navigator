@@ -2060,3 +2060,203 @@ export async function updateBillInQbo(db: SupabaseClient, invoiceId: string, ctx
     return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
   }
 }
+
+// ═════════════════════════════════════════════════════════════════════════════
+// SERVICE CALL BILLING (migration 172) - a sub's invoice to its own customer.
+//
+// THE SAME RULES AS A JOB'S CLIENT INVOICE, THROUGH THE SAME HELPERS: the
+// customer is adopted by name or created (`ensureCustomerId`), the line item is
+// the company's choice (`accountFor`), a create is preceded by the three-part
+// duplicate check (`findDuplicate`) and an atomic claim (`claimForPush`), a
+// payment is a Payment APPLIED to the invoice (`appliedPaymentPayload`) with
+// the method dropped into the memo on a 610, and a void goes to QuickBooks
+// first (`voidQboRecord`). What differs is only where the company, the
+// customer and the label come from: the invoice row itself, not a project.
+//
+// AND ONE THING A JOB INVOICE DOES NOT DO: READ BACK THE TOTAL. QuickBooks
+// Online's automated sales tax may add to the lines, and the customer is
+// emailed what QuickBooks came to - so the push stores `tax_amount` and
+// `total` off the Invoice it created (or adopted), before the email is built.
+// ═════════════════════════════════════════════════════════════════════════════
+
+/** A call invoice's lines as QuickBooks lines: amount, plus quantity and unit price. */
+export function serviceInvoicePayload(
+  inv: { invoice_number?: string | null; issue_date?: string | null; due_date?: string | null; notes?: string | null },
+  lines: { description: string; quantity: unknown; unit_price: unknown; amount: unknown }[],
+  customerQboId: string,
+  itemId: string,
+  label?: string | null,
+) {
+  const base = clientInvoicePayload(inv, lines, customerQboId, itemId, label) as any
+  base.Line = base.Line.map((l: any, i: number) => ({
+    ...l,
+    SalesItemLineDetail: {
+      ...l.SalesItemLineDetail,
+      Qty: Number(lines[i].quantity),
+      UnitPrice: Number(lines[i].unit_price),
+    },
+  }))
+  return base
+}
+
+/** What QuickBooks says an Invoice comes to - the total, and the tax it added (null when it said none). */
+export function invoiceTotals(obj: any): { total: number | null; tax: number | null } {
+  const total = Number(obj?.TotalAmt)
+  const tax = obj?.TxnTaxDetail?.TotalTax
+  return {
+    total: Number.isFinite(total) ? total : null,
+    tax: tax === undefined || tax === null || !Number.isFinite(Number(tax)) ? null : Number(tax),
+  }
+}
+
+export async function pushServiceCallInvoice(db: SupabaseClient, invoiceId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: inv } = await db.from('service_call_invoices')
+      .select('id, company_id, customer_id, invoice_number, status, issue_date, due_date, notes, subtotal, qbo_id, service_call_invoice_lines(description, quantity, unit_price, amount, sort_order)')
+      .eq('id', invoiceId).maybeSingle()
+    if (!inv) return { pushed: false, reason: 'skipped', detail: 'Invoice not found' }
+    if (inv.qbo_id) return { pushed: false, reason: 'already' }
+    // A draft is not a receivable - nobody has been asked for this money yet.
+    if (!['sent', 'paid'].includes(String(inv.status))) {
+      return { pushed: false, reason: 'skipped', detail: `Status ${inv.status} is not a receivable` }
+    }
+    const companyId = inv.company_id as string
+    const lines = (((inv as any).service_call_invoice_lines ?? []) as any[])
+      .slice().sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+    if (!lines.length) return { pushed: false, reason: 'skipped', detail: 'Invoice has no lines' }
+    if (!inv.customer_id) {
+      await logRow(db, companyId, 'service_call_invoice', inv.id, 'error', undefined, 'Invoice has no customer to bill to', 'create', inv.invoice_number)
+      return { pushed: false, reason: 'failed', detail: 'Invoice has no customer to bill to' }
+    }
+
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+    if (!await claimForPush(db, 'service_call_invoices', inv.id)) return { pushed: false, reason: 'already' }
+
+    return await budgeted((async (): Promise<PushResult> => {
+      if (!ctx) ctx = { conn }
+      if (!ctx.itemId) ctx.itemId = (await accountFor(db, conn, 'invoice_item', ctx))!
+      const customerQboId = await ensureCustomerId(db, conn, inv.customer_id as string, companyId)
+      const payload = serviceInvoicePayload(inv, lines, customerQboId, ctx.itemId!, 'Service call')
+      const subtotal = (payload.Line ?? []).reduce((s: number, l: any) => s + Number(l?.Amount ?? 0), 0)
+      const dup = await findDuplicate(conn, { entity: 'Invoice', doc: payload.DocNumber, partyId: customerQboId, amount: subtotal })
+      // Adopted or created, we need the Invoice ITSELF - its TotalAmt is what
+      // the customer owes once QuickBooks has added any tax.
+      const created = dup.id
+        ? (await qboFetch(conn, `invoice/${dup.id}`))?.Invoice
+        : (await qboFetch(conn, 'invoice', { method: 'POST', body: JSON.stringify(payload) }))?.Invoice
+      const qboId = created?.Id ?? dup.id
+      const totals = invoiceTotals(created)
+      const update: Record<string, unknown> = { qbo_id: qboId, qbo_synced_at: new Date().toISOString() }
+      if (totals.total !== null) { update.total = totals.total; update.tax_amount = totals.tax }
+      await db.from('service_call_invoices').update(update).eq('id', inv.id)
+      const taxNote = totals.tax ? `QuickBooks added $${totals.tax.toFixed(2)} sales tax` : undefined
+      await logRow(db, companyId, 'service_call_invoice', inv.id, 'success', qboId, withNote(taxNote, dup.note), 'create', inv.invoice_number)
+      return { pushed: true, qboId }
+    })()).catch(async (err: any) => {
+      await releaseClaim(db, 'service_call_invoices', inv.id)
+      await logRow(db, companyId, 'service_call_invoice', inv.id, 'error', undefined, err?.message, 'create', inv.invoice_number)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/**
+ * Money a call's customer paid, APPLIED to that call's invoice. If the invoice
+ * has not reached QuickBooks yet the payment books NOTHING - a Sales Receipt
+ * would record the sale and the invoice would record it again when it lands.
+ * The backlog sync comes back for it.
+ */
+export async function pushServiceCallPayment(db: SupabaseClient, paymentId: string, ctx?: PushContext): Promise<PushResult> {
+  try {
+    const { data: p } = await db.from('service_call_payments')
+      .select('id, company_id, invoice_id, amount, paid_date, method, reference, memo, qbo_id, qbo_voided_at')
+      .eq('id', paymentId).maybeSingle()
+    if (!p) return { pushed: false, reason: 'skipped', detail: 'Payment not found' }
+    if (p.qbo_id) return { pushed: false, reason: 'already' }
+    if (p.qbo_voided_at) return { pushed: false, reason: 'skipped', detail: 'Payment was voided' }
+    const { data: inv } = await db.from('service_call_invoices')
+      .select('id, customer_id, invoice_number, qbo_id').eq('id', p.invoice_id).maybeSingle()
+    if (!inv) return { pushed: false, reason: 'skipped', detail: 'Invoice not found' }
+    if (!inv.qbo_id || !inv.customer_id) {
+      return { pushed: false, reason: 'skipped', detail: `Waiting for invoice ${inv.invoice_number} to reach QuickBooks` }
+    }
+    const companyId = p.company_id as string
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) return { pushed: false, reason: 'not_connected' }
+    if (!await claimForPush(db, 'service_call_payments', p.id)) return { pushed: false, reason: 'already' }
+
+    const targets = [{ qboId: inv.qbo_id as string, amount: Number(p.amount) }]
+    const label = `Service call ${inv.invoice_number}`
+    return await budgeted((async (): Promise<PushResult> => {
+      if (!ctx) ctx = { conn }
+      const customerQboId = await ensureCustomerId(db, conn, inv.customer_id as string, companyId)
+      const methodQboId = await methodIdFor(conn, p.method, ctx)
+      const deposit = depositField(await accountFor(db, conn, 'payment_deposit', ctx))
+      const post = (mid: string | null, note: string | null) => qboFetch(conn, 'payment', {
+        method: 'POST',
+        body: JSON.stringify({ ...appliedPaymentPayload(p, customerQboId, targets, label, mid, note), ...deposit }),
+      })
+      const probe = appliedPaymentPayload(p, customerQboId, targets, label, methodQboId, null) as any
+      const dup = await findDuplicate(conn, { entity: 'Payment', doc: probe.PaymentRefNum, partyId: customerQboId, amount: Number(p.amount), txnDate: probe.TxnDate })
+      let res: any
+      let droppedMethod = false
+      try {
+        res = dup.id ? { Payment: { Id: dup.id } } : await post(methodQboId, null)
+      } catch (err: any) {
+        // Same rule as a job payment: on 610 drop the one optional reference
+        // (the method) into the memo and try once more.
+        if (err?.code !== QBO_OBJECT_NOT_FOUND || !methodQboId) throw err
+        res = await post(null, methodNote(p.method))
+        droppedMethod = true
+      }
+      const qboId = res?.Payment?.Id
+      await db.from('service_call_payments').update({ qbo_id: qboId, qbo_synced_at: new Date().toISOString() }).eq('id', p.id)
+      const how = droppedMethod
+        ? `Applied to ${inv.invoice_number}. QuickBooks refused payment method "${p.method}", so it is written in the memo instead.`
+        : `Applied to ${inv.invoice_number}`
+      await logRow(db, companyId, 'service_call_payment', p.id, 'success', qboId, withNote(how, dup.note), 'create', label)
+      return { pushed: true, qboId }
+    })()).catch(async (err: any) => {
+      await releaseClaim(db, 'service_call_payments', p.id)
+      await logRow(db, companyId, 'service_call_payment', p.id, 'error', undefined, err?.message, 'create', label)
+      return { pushed: false, reason: 'failed' as const, detail: err?.message }
+    })
+  } catch (err: any) {
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
+
+/**
+ * Void a call invoice or payment in QuickBooks, BEFORE it is voided here - the
+ * rule every synced record follows. A record never sent across has nothing to
+ * void. Not connected is allowed through and LOGGED, naming the id left live.
+ */
+export async function voidServiceCallRecordInQbo(
+  db: SupabaseClient, kind: 'invoice' | 'payment', id: string, ctx?: PushContext,
+): Promise<PushResult> {
+  const table = kind === 'invoice' ? 'service_call_invoices' : 'service_call_payments'
+  const entity = kind === 'invoice' ? 'service_call_invoice' : 'service_call_payment'
+  try {
+    const { data: row } = await db.from(table).select('id, company_id, qbo_id').eq('id', id).maybeSingle()
+    if (!row?.qbo_id) return { pushed: false, reason: 'skipped', detail: 'Not in QuickBooks' }
+    const companyId = row.company_id as string
+    const conn = await connectionFor(db, companyId, ctx)
+    if (!conn) {
+      await logRow(db, companyId, entity, row.id, 'error', row.qbo_id,
+        `Voided here while QuickBooks was not connected - the ${kind} is still live there`, 'void')
+      return { pushed: false, reason: 'not_connected' }
+    }
+    const outcome = await voidQboRecord(conn, kind, row.qbo_id as string)
+    const now = new Date().toISOString()
+    await db.from(table).update({ qbo_voided_at: now, qbo_synced_at: now }).eq('id', row.id)
+    await logRow(db, companyId, entity, row.id, 'success', row.qbo_id, VOID_WORD[outcome], 'void')
+    return { pushed: true, qboId: row.qbo_id as string }
+  } catch (err: any) {
+    const { data: row } = await db.from(table).select('company_id, qbo_id').eq('id', id).maybeSingle()
+    if (row?.company_id) await logRow(db, row.company_id as string, entity, id, 'error', (row.qbo_id as string) ?? undefined, err?.message, 'void')
+    return { pushed: false, reason: 'failed', detail: err?.message ?? 'unknown' }
+  }
+}
