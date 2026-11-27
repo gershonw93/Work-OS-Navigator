@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { admin, getValidConnection, qboFetch } from '@/lib/quickbooks'
+import { pushServiceCallInvoice, pushServiceCallPayment, voidServiceCallRecordInQbo } from '@/lib/quickbooks-push'
 import { pushBill, pushBillPayment, pushClientInvoice, pushPaymentForProject, reapplyPaymentInQbo, refreshBillInQbo, refreshPaymentInQbo, type PushContext, voidBillPaymentInQbo, voidClientInvoiceInQbo, linkedVendorId, createOrAdoptVendor, existingNamedId } from '@/lib/quickbooks-push'
 
 import { requirePermission, denied, billingLock } from '@/lib/api-guard'
@@ -57,6 +58,36 @@ export async function POST(request: Request) {
     const { data: projects } = await db.from('projects').select('id, customer_id')
       .or(`gc_company_id.eq.${profile!.company_id},created_by_company_id.eq.${profile!.company_id}`)
     return (projects ?? []).map((p: any) => p.id)
+  }
+
+  // SERVICE CALL BILLING (migration 172) rides the same entities as a job's:
+  // invoices with 'client-invoices', payments with 'payments', voided invoices
+  // with 'voids'. Scoped on the invoice's own company - a call has no project.
+  // A read that fails is REPORTED as an error row, never an empty list.
+  type Row = { id: string; invoice_number?: string; qbo_id: string | null; amount?: number }
+  async function serviceRows(kind: 'invoices' | 'payments' | 'voids', ctx: PushContext) {
+    const table = kind === 'payments' ? 'service_call_payments' : 'service_call_invoices'
+    let q = db.from(table).select(kind === 'payments' ? 'id, qbo_id, amount' : 'id, invoice_number, qbo_id')
+      .eq('company_id', profile!.company_id)
+    if (kind === 'invoices') q = q.in('status', ['sent', 'paid']).gte('created_at', syncFrom)
+    if (kind === 'payments') q = q.gte('created_at', syncFrom)
+    if (kind === 'voids') q = q.eq('status', 'void').not('qbo_id', 'is', null).is('qbo_voided_at', null)
+    if (ids) q = q.in('id', ids)
+    const { data, error } = await q
+    if (error) {
+      results.push({ id: `service-${kind}`, name: `Service call ${kind}`, status: 'error', message: 'Could not read them - nothing was skipped on purpose' })
+      return
+    }
+    for (const row of (data ?? []) as unknown as Row[]) {
+      const label = kind === 'payments' ? `Service payment $${Number(row.amount).toFixed(2)}` : `Invoice ${row.invoice_number}`
+      if (kind !== 'voids' && row.qbo_id) { results.push({ id: row.id, name: label, status: 'skipped', qbo_id: row.qbo_id, message: 'Already synced' }); continue }
+      const r = kind === 'invoices' ? await pushServiceCallInvoice(db, row.id, ctx)
+        : kind === 'payments' ? await pushServiceCallPayment(db, row.id, ctx)
+        : await voidServiceCallRecordInQbo(db, 'invoice', row.id, ctx)
+      if (r.pushed) results.push({ id: row.id, name: label, status: 'success', qbo_id: r.qboId, message: kind === 'voids' ? 'Voided in QuickBooks' : undefined })
+      else if (r.reason === 'already') results.push({ id: row.id, name: label, status: 'skipped', message: 'Already synced' })
+      else results.push({ id: row.id, name: label, status: 'error', message: r.detail ?? r.reason })
+    }
   }
 
   if (entity === 'customers') {
@@ -177,8 +208,11 @@ export async function POST(request: Request) {
     // pushClientPayment: this branch used to call the Sales Receipt pusher
     // directly, so pressing Sync now on a payment that settled an invoice
     // already in QuickBooks booked the same sale a second time.
+    // A sub with only service calls has NO jobs: its invoices must not wait
+    // behind the job-only early exit below, so they go first.
+    await serviceRows('payments', { conn })
     const projectIds = await ownedProjectIds()
-    if (!projectIds.length) return NextResponse.json({ summary: { total: 0, synced: 0, skipped: 0, errors: 0 }, results: [] })
+    // No jobs: only the job half is skipped - an empty `in` matches nothing.
 
     // Hand-entered payments are excluded, not just skipped by the pusher:
     // otherwise every backlog run walks them again and reports them as work.
@@ -209,8 +243,11 @@ export async function POST(request: Request) {
   } else if (entity === 'client-invoices') {
     // Invoices you sent your client -> QBO Invoice (money owed to you).
     // Drafts are excluded by the pusher: nobody has been asked for that money.
+    // A sub with only service calls has NO jobs: its invoices must not wait
+    // behind the job-only early exit below, so they go first.
+    await serviceRows('invoices', { conn })
     const projectIds = await ownedProjectIds()
-    if (!projectIds.length) return NextResponse.json({ summary: { total: 0, synced: 0, skipped: 0, errors: 0 }, results: [] })
+    // No jobs: only the job half is skipped - an empty `in` matches nothing.
 
     let q = db.from('client_invoices').select('id, invoice_number, qbo_id')
       .in('project_id', projectIds)
@@ -238,8 +275,11 @@ export async function POST(request: Request) {
     // The push is idempotent: an invoice already voided over there is detected
     // and recorded rather than voided twice. That is also what heals invoices
     // voided before the outcome was recorded at all.
+    // A sub with only service calls has NO jobs: its invoices must not wait
+    // behind the job-only early exit below, so they go first.
+    await serviceRows('voids', { conn })
     const projectIds = await ownedProjectIds()
-    if (!projectIds.length) return NextResponse.json({ summary: { total: 0, synced: 0, skipped: 0, errors: 0 }, results: [] })
+    // No jobs: only the job half is skipped - an empty `in` matches nothing.
 
     let q = db.from('client_invoices').select('id, invoice_number, qbo_id, qbo_voided_at')
       .in('project_id', projectIds)

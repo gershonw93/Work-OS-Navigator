@@ -5,7 +5,7 @@ import {
   inviteEmail, platformInviteEmail, teamInviteEmail, vendorInviteEmail, vendorConnectEmail, subWelcomeEmail,
   passwordResetEmail, welcomeEmail, clientPortalEmail, tokenLinkEmail,
   awardEmail, scheduleShiftEmail, scheduleUnblockedEmail, scopeChangeEmail,
-  deletionRequestEmail, weeklySummaryEmail, portalLoginCodeEmail, compEmail,
+  deletionRequestEmail, weeklySummaryEmail, portalLoginCodeEmail, compEmail, serviceInvoiceEmail,
 } from './email'
 import { summarizeWeek, weekEnding } from './weekly-summary'
 import { deletionPromise } from './account-deletion'
@@ -64,6 +64,16 @@ const say = (iso: string): string => dayWords(iso, { weekday: true }) ?? iso
  * type fail the suite until it has demo copy.
  */
 export const DEMO_EMAILS: DemoEmail[] = [
+  {
+    key: 'service-invoice',
+    label: 'Service call invoice (to a sub\'s customer)',
+    when: 'When a sub sends the invoice for a service call to its own customer.',
+    build: today => serviceInvoiceEmail({
+      companyName: SUB, customerName: PERSON, invoiceNumber: 'SVC-1042',
+      amountDue: '$245.00', dueWords: say(addDaysIso(today, 14)), taxNote: 'Includes $12.40 sales tax',
+      viewUrl: `${APP}/service-invoice/demo`,
+    }),
+  },
   {
     key: 'comp',
     label: 'Free access granted',

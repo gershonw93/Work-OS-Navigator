@@ -129,7 +129,7 @@ async function main() {
     const p = join(d, n); return statSync(join(root, p)).isDirectory() ? walk(p) : p.endsWith('route.ts') ? [p] : []
   })
   const routes = walk('app/api/service-calls')
-  ok(routes.length === 5, `the service-call routes are found (${routes.length})`)
+  ok(routes.length === 6, `the service-call routes are found (${routes.length})`)
   for (const f of routes) {
     const src = code(f)
     for (const h of src.split(/(?=export async function )/).slice(1)) {

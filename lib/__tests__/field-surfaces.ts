@@ -74,6 +74,7 @@ const NO_SCREEN_OF_ITS_OWN: Record<string, string> = {
   // through Field Mode's Calls tab (app/field/calls).
   'service-calls': 'app/(dashboard)/service-calls/page.tsx',
   dispatch: 'app/(dashboard)/dispatch/page.tsx',
+  'service-billing': 'app/(dashboard)/service-calls/invoices/page.tsx',
   settings_company: 'app/(dashboard)/settings/page.tsx',
   settings_team: 'app/(dashboard)/settings/page.tsx',
   settings_billing: 'app/(dashboard)/settings/page.tsx',

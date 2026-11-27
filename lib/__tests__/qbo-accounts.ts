@@ -98,7 +98,7 @@ async function main() {
   for (const k of ['bill_expense', 'bill_payment_bank', 'invoice_item', 'payment_deposit']) {
     ok(push.includes(`accountFor(db, conn, '${k}'`), `a push asks accountFor for ${k}`)
   }
-  ok((push.match(/\.\.\.deposit\b/g) ?? []).length === 2, 'both applied-payment posts (single and split cheque) carry the deposit account')
+  ok((push.match(/\.\.\.deposit\b/g) ?? []).length === 3, 'every applied-payment post (single cheque, split cheque, service call) carries the deposit account')
   ok(/\.\.\.depositField\(await accountFor\(db, conn, 'payment_deposit'/.test(push), 'a sales receipt carries it too')
   ok(/account\/\$\{bankAccountId\}/.test(push) && /account\/\$\{depositId\}/.test(push), 'a 610 probes the chosen bank and deposit accounts, so an inactive choice is named')
 

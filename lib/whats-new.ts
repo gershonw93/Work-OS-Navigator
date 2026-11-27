@@ -66,6 +66,18 @@ export const KIND_TINT: Record<ReleaseKind, string> = {
 // Author entries anywhere in this list; the app reads the sorted view.
 const AUTHORED: Release[] = [
   {
+    date: '2026-11-27',
+    title: 'Bill a service call, straight into QuickBooks',
+    items: [
+      {
+        kind: 'new',
+        title: 'Invoice a call\'s customer and record what they paid',
+        text: 'Once a service call is Done, press Bill this call. Pick lines from your price list - your service call fee, your hourly rate - or type them, and press Send: the invoice goes into QuickBooks for that customer, QuickBooks adds any sales tax, and the customer is emailed a link to it showing that total. Their reply comes to you. Record a check, cash or card payment against it and it is applied to the invoice in QuickBooks too; it reads Paid when the money covers it. Invoices lists everything you are owed, with what is overdue. Your crew never see what a call was billed at.',
+        help: 'service-call-billing',
+      },
+    ],
+  },
+  {
     date: '2026-11-24',
     title: 'Service calls and a dispatch board',
     items: [
