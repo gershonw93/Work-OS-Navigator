@@ -40,27 +40,32 @@ type Detail = {
 
 
 /**
- * Where the call is on its way from New to Invoiced, as a row of pills - the
- * same shape as the Column buttons on a Project Management card. The steps it
- * has passed are filled quietly, the one it is on is the dark one, the ones
- * ahead are outlined. A READOUT, not a control: a call moves one step at a
- * time through the step buttons, which know what each move has to carry.
+ * Where the call is on its way from New to Invoiced: dots on a line, the steps
+ * passed filled and ticked, the one it is on ringed, the ones ahead faint.
+ *
+ * DOTS, NOT PILLS. A version drew each stage as a rounded box, the shape of a
+ * button - and they did nothing when pressed. Reported: "why did the design up
+ * here change to button looks?? it was a progress dots". A READOUT must not
+ * look like a control; a call moves through the step buttons, which know what
+ * each move has to carry.
  */
 function ProgressPath({ status }: { status: CallStatus }) {
   const at = CALL_PATH.indexOf(status)
   return (
-    <ol className="scroll-fade flex gap-2 overflow-x-auto scrollbar-hide lg:flex-wrap lg:overflow-visible" aria-label={`Status: ${STATUS_LABEL[status]}`}>
+    <ol className="flex items-start" aria-label={`Status: ${STATUS_LABEL[status]}`}>
       {CALL_PATH.map((step, i) => {
         const past = i < at
         const here = i === at
         return (
-          <li key={step} aria-current={here ? 'step' : undefined}
-            className={cn('inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-xl px-3.5 py-2 text-sm',
-              here ? 'bg-ink font-semibold text-panel'
-                : past ? 'bg-muted font-medium text-ink-soft'
-                : 'border border-dashed border-muted2 font-medium text-muted-fg')}>
-            {past && <Check className="h-3.5 w-3.5" aria-hidden />}
-            {STATUS_LABEL[step]}
+          <li key={step} aria-current={here ? 'step' : undefined} className="relative flex min-w-0 flex-1 flex-col items-center">
+            {i > 0 && <span className={cn('absolute top-3 right-1/2 h-0.5 w-full', i <= at ? 'bg-ink' : 'bg-line')} aria-hidden />}
+            <span className={cn('relative z-[1] flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] font-semibold',
+              past ? 'border-ink bg-ink text-panel' : here ? 'border-ink bg-panel text-ink' : 'border-line bg-panel text-faint')}>
+              {past ? <Check className="h-3.5 w-3.5" /> : i + 1}
+            </span>
+            <span className={cn('mt-1.5 max-w-full truncate text-[11px] sm:text-xs', here ? 'font-semibold text-ink' : past ? 'text-ink-soft' : 'text-faint')}>
+              {STATUS_LABEL[step]}
+            </span>
           </li>
         )
       })}
@@ -278,10 +283,10 @@ export function CallDetail({ callId, narrow = false }: {
         </div>
       </div>
 
-      <div>
+      <div className="rounded-2xl border border-line bg-panel px-4 py-4 sm:px-6">
         <ProgressPath status={c.status as CallStatus} />
         {c.status === 'new' && !crewMode && (
-          <p className="mt-2 text-xs text-muted-fg">Give it a person and a time below, or drag it on the dispatch board, and it becomes Scheduled.</p>
+          <p className="mt-3 text-center text-xs text-muted-fg">Give it a person and a time below, or drag it on the dispatch board, and it becomes Scheduled.</p>
         )}
       </div>
 
