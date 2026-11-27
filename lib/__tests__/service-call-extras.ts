@@ -90,4 +90,15 @@ ok(/\{ key: 'out', label: 'Out now', has: \['en_route', 'on_site'\] \}/.test(lis
 
 const sql = read('supabase/migrations/171_service_call_labels_steps.sql')
 ok((sql.match(/ADD COLUMN IF NOT EXISTS (?:labels|steps) jsonb NOT NULL DEFAULT '\[\]'::jsonb/g) ?? []).length === 2, 'both columns are additive with a default')
+
+// A READOUT IS NOT A BUTTON. The stage row was drawn as rounded boxes - the
+// shape of a control - and did nothing when pressed. Reported: "why did the
+// design up here change to button looks?? it was a progress dots".
+{
+  const detail = code('components/service-calls/call-detail.tsx')
+  const path = detail.slice(detail.indexOf('function ProgressPath'), detail.indexOf('const STATUS_TONE'))
+  ok(/rounded-full border-2/.test(path) && /h-0\.5 w-full/.test(path), 'the call\'s stages are dots on a line')
+  ok(!/rounded-xl px-3\.5 py-2/.test(path), '...not button-shaped pills that do nothing')
+}
+
 done()
